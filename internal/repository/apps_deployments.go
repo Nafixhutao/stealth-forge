@@ -1025,8 +1025,8 @@ func validAppArtifactPath(value string) bool {
 	return true
 }
 
-func validAppDeploymentArtifactPath(value string, projectID, appID, deploymentID uuid.UUID) bool {
-	return validAppArtifactPath(value) && value == projectID.String()+"/"+appID.String()+"/"+deploymentID.String()
+func validAppArtifactPathForApp(value string, projectID, appID uuid.UUID) bool {
+	return validAppArtifactPath(value) && strings.HasPrefix(value, projectID.String()+"/"+appID.String()+"/")
 }
 
 func validAppSHA256(value string) bool {

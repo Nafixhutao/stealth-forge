@@ -11,17 +11,21 @@ import (
 
 func TestAppRollbackArtifactReadinessRequiresCompleteCanonicalTarget(t *testing.T) {
 	projectID, appID, deploymentID := uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())
+	imageArtifactID := uuid.Must(uuid.NewV7())
 	digest := "sha256:" + strings.Repeat("a", 64)
 	checksum := strings.Repeat("b", 64)
 	size := int64(128)
-	path := projectID.String() + "/" + appID.String() + "/" + deploymentID.String()
+	path := projectID.String() + "/" + appID.String() + "/" + imageArtifactID.String()
 	target := domain.AppDeployment{
 		ImageDigest:        &digest,
 		ImageArchiveSHA256: &checksum,
 		ImageSizeBytes:     &size,
 	}
-	if !appRollbackArtifactReady(target, &path, projectID, appID, deploymentID) {
-		t.Fatal("complete canonical deployment artifact was rejected")
+	if imageArtifactID == deploymentID {
+		t.Fatal("test requires the image artifact ID to differ from its deployment ID")
+	}
+	if !appRollbackArtifactReady(target, &path, projectID, appID) {
+		t.Fatal("complete canonical image artifact locator was rejected")
 	}
 	for _, test := range []struct {
 		name   string
@@ -37,8 +41,14 @@ func TestAppRollbackArtifactReadinessRequiresCompleteCanonicalTarget(t *testing.
 		{name: "missing image size", mutate: func(item *domain.AppDeployment, _ *string) { item.ImageSizeBytes = nil }},
 		{name: "nonpositive image size", mutate: func(item *domain.AppDeployment, _ *string) { invalid := int64(0); item.ImageSizeBytes = &invalid }},
 		{name: "missing path", mutate: func(_ *domain.AppDeployment, candidate *string) { *candidate = "" }},
-		{name: "path names another deployment", mutate: func(_ *domain.AppDeployment, candidate *string) {
-			*candidate = projectID.String() + "/" + appID.String() + "/" + uuid.Must(uuid.NewV7()).String()
+		{name: "path belongs to another project", mutate: func(_ *domain.AppDeployment, candidate *string) {
+			*candidate = uuid.Must(uuid.NewV7()).String() + "/" + appID.String() + "/" + imageArtifactID.String()
+		}},
+		{name: "path belongs to another app", mutate: func(_ *domain.AppDeployment, candidate *string) {
+			*candidate = projectID.String() + "/" + uuid.Must(uuid.NewV7()).String() + "/" + imageArtifactID.String()
+		}},
+		{name: "artifact ID is not canonical UUIDv7", mutate: func(_ *domain.AppDeployment, candidate *string) {
+			*candidate = projectID.String() + "/" + appID.String() + "/" + uuid.New().String()
 		}},
 		{name: "nested path", mutate: func(_ *domain.AppDeployment, candidate *string) { *candidate += "/extra" }},
 	} {
@@ -46,7 +56,7 @@ func TestAppRollbackArtifactReadinessRequiresCompleteCanonicalTarget(t *testing.
 			item := target
 			candidate := path
 			test.mutate(&item, &candidate)
-			if appRollbackArtifactReady(item, &candidate, projectID, appID, deploymentID) {
+			if appRollbackArtifactReady(item, &candidate, projectID, appID) {
 				t.Fatalf("invalid artifact metadata was accepted: %+v path=%q", item, candidate)
 			}
 		})

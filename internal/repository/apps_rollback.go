@@ -67,7 +67,7 @@ func (r *Repository) RollbackAppDeployment(ctx context.Context, projectID, appID
 	if target.Status != "ready" || target.BuildStatus != "succeeded" {
 		return AppRollbackResult{}, ErrAppDeploymentNotReady
 	}
-	if !appRollbackArtifactReady(target, imagePath, projectID, appID, deploymentID) {
+	if !appRollbackArtifactReady(target, imagePath, projectID, appID) {
 		return AppRollbackResult{}, ErrAppRollbackNotAvailable
 	}
 
@@ -126,11 +126,11 @@ func validAppImageDigest(value string) bool {
 	return len(value) == len("sha256:")+64 && value[:len("sha256:")] == "sha256:" && validAppSHA256(value[len("sha256:"):])
 }
 
-func appRollbackArtifactReady(target domain.AppDeployment, imagePath *string, projectID, appID, deploymentID uuid.UUID) bool {
+func appRollbackArtifactReady(target domain.AppDeployment, imagePath *string, projectID, appID uuid.UUID) bool {
 	return target.ImageDigest != nil && validAppImageDigest(*target.ImageDigest) &&
 		target.ImageArchiveSHA256 != nil && validAppSHA256(*target.ImageArchiveSHA256) &&
 		target.ImageSizeBytes != nil && *target.ImageSizeBytes > 0 &&
-		imagePath != nil && validAppDeploymentArtifactPath(*imagePath, projectID, appID, deploymentID)
+		imagePath != nil && validAppArtifactPathForApp(*imagePath, projectID, appID)
 }
 
 func canonicalAppRollbackWorkload(snapshot workloadspec.Spec, storedDigest string) ([]byte, string, error) {

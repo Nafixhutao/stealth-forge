@@ -69,11 +69,11 @@ func (r *Repository) GetAppDiagnostics(ctx context.Context, projectID, appID uui
 	}
 	desiredArtifactPathValid := false
 	if desiredID != nil {
-		deploymentID, parseErr := uuid.Parse(*desiredID)
+		_, parseErr := uuid.Parse(*desiredID)
 		projectUUID, projectErr := uuid.Parse(app.ProjectID)
 		appUUID, appErr := uuid.Parse(app.ID)
 		desiredArtifactPathValid = parseErr == nil && projectErr == nil && appErr == nil && desiredImagePath != nil &&
-			validAppDeploymentArtifactPath(*desiredImagePath, projectUUID, appUUID, deploymentID)
+			validAppArtifactPathForApp(*desiredImagePath, projectUUID, appUUID)
 	}
 	desiredArtifactReady := app.DesiredDeploymentID != nil && desiredID != nil && desiredStatus != nil && *desiredStatus == "ready" &&
 		desiredBuildStatus != nil && *desiredBuildStatus == "succeeded" && desiredImageDigest != nil && validAppImageDigest(*desiredImageDigest) &&
