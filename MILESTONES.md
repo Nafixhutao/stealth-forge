@@ -243,7 +243,11 @@ and CodeQL JavaScript/TypeScript passed on the verified main SHA.
 - [x] PR merged.
 - [x] Post-merge `main` CI green.
 
-### [ ] ▶ CURRENT A7. Deployment History + Rollback + Diagnostics
+### [x] A7. Deployment History + Rollback + Diagnostics
+
+Evidence: PR #105 merged as `eb9c096c6f8ec677f37761099af14beb82150a5e`;
+post-merge CI and CodeQL passed on that SHA. Independent audit passed per
+repository owner confirmation in chat on 2026-09-26.
 
 #### Deployment history
 
@@ -292,11 +296,11 @@ and CodeQL JavaScript/TypeScript passed on the verified main SHA.
 - [x] Production Compose Smoke proves image re-import, WorkloadSpec restore, current env/secrets, and health-gated route recovery.
 - [x] Existing build, runtime, logs, secrets, cache-GC, and recovery smoke remains green.
 - [x] No dependency expansion; no migration unless required by durable correctness.
-- [ ] Independent audit passes.
-- [ ] PR merged.
-- [ ] Post-merge `main` CI green.
+- [x] Independent audit passes (repository owner confirmation, 2026-09-26).
+- [x] PR #105 merged as `eb9c096c6f8ec677f37761099af14beb82150a5e`.
+- [x] Post-merge `main` CI green on `eb9c096c6f8ec677f37761099af14beb82150a5e`: [CI](https://github.com/Stealth-deplover/stealth/actions/runs/36277406391), [CodeQL](https://github.com/Stealth-deplover/stealth/actions/runs/36277406374).
 
-### [ ] A8. Apps Production Acceptance
+### [ ] ▶ CURRENT A8. Apps Production Acceptance
 
 - [ ] Clean install and real App deploy/update.
 - [ ] Variable/secret update, crash, same-container restart, and recreation.
