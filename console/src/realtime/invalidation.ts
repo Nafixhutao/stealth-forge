@@ -55,6 +55,7 @@ const projectRealtimeEventTypes = [
   "site_deployment.delete",
   "app_deployment.create",
   "app_deployment.select",
+  "app_deployment.rollback",
   "app_deployment.delete",
   "app_deployment.updated",
   "app.runtime.updated",
@@ -208,7 +209,6 @@ export function realtimeCacheChanges(
         appId,
         deploymentId: resourceId(event),
       },
-      { kind: "app", projectId, appId },
     ];
   }
 
