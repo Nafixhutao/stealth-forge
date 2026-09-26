@@ -183,7 +183,14 @@ and CodeQL JavaScript/TypeScript passed on the verified main SHA.
 - [x] PR merged.
 - [x] Post-merge `main` CI green.
 
-### [ ] ▶ CURRENT A6. App Resource + Operational Hardening
+### [x] A6. App Resource + Operational Hardening
+
+PR: #104
+merge commit: `b050a81b53f5344209d6afb6faa70c86494af58f`
+post-merge main SHA: `b050a81b53f5344209d6afb6faa70c86494af58f`
+audit verdict: READY TO MERGE / passed
+post-merge required checks: Backend, Console, Installer/release, CodeQL Go,
+and CodeQL JavaScript/TypeScript passed on the verified main SHA.
 
 #### Runtime image cache
 
@@ -232,15 +239,62 @@ and CodeQL JavaScript/TypeScript passed on the verified main SHA.
 - [x] Existing Apps routing, health, logs, encrypted environment, and recovery smoke stays green.
 - [x] Backend, Console, Installer/release, CodeQL Go, CodeQL JavaScript/TypeScript, and Production Compose Smoke CI green.
 - [x] No dependency expansion.
+- [x] Independent audit passes.
+- [x] PR merged.
+- [x] Post-merge `main` CI green.
+
+### [ ] ▶ CURRENT A7. Deployment History + Rollback + Diagnostics
+
+#### Deployment history
+
+- [x] Existing immutable App deployments remain the release-history source.
+- [x] Desired and applied deployment states are distinguishable.
+- [x] Build metadata and logs remain inspectable.
+- [x] Historical deployment rows remain immutable.
+
+#### Rollback
+
+- [x] Explicit rollback endpoint exists and requires `apps.write`.
+- [x] Only an older ready deployment with verified immutable artifact metadata is eligible.
+- [x] Rollback restores the target's captured WorkloadSpec and digest.
+- [x] Current App name, enabled state, environment variables, and secrets remain unchanged.
+- [x] Desired generation increments exactly once and runtime retry state resets.
+- [x] Rejected rollback leaves desired state and retry state unchanged.
+- [x] Stale pre-rollback workers cannot complete the old generation.
+- [x] An A6-evicted runtime image can be re-imported from the persisted OCI archive.
+- [x] Fresh health is required before the route becomes active again.
+- [x] Rollback audit metadata contains no secrets or private artifact/runtime data.
+
+#### Diagnostics
+
+- [x] Diagnostics are derived from PostgreSQL only.
+- [x] Desired/applied deployment versions and desired/observed generations are clear.
+- [x] Runtime retry and lifecycle timestamps are projected safely.
+- [x] Fixed convergence statuses and bounded issue codes are actionable.
+- [x] Docker identity, worker leases, artifact paths, and secrets are excluded.
+- [x] Diagnostics authorization and cross-project checks fail closed.
+
+#### Console
+
+- [x] Deployment history clearly distinguishes Desired from Applied.
+- [x] Older ready releases offer explicit rollback; other row actions follow state.
+- [x] Rollback requires a confirmation dialog explaining WorkloadSpec and env/secret behavior.
+- [x] Diagnostics panel exposes safe state and bounded issues with loading/error states.
+- [x] Project realtime streams subscribe to rollback events and invalidate the canonical App and deployment queries.
+
+#### Regression proof
+
+- [x] PostgreSQL rollback eligibility, state transition, rejection, and concurrency tests pass.
+- [x] Stale-worker rollback fencing integration test is required by CI and passes.
+- [x] Diagnostics projection, authorization, and leakage tests pass.
+- [x] Rollback realtime subscription and invalidation regression tests pass.
+- [x] Console tests, typecheck, lint, build, and E2E pass.
+- [x] Production Compose Smoke proves image re-import, WorkloadSpec restore, current env/secrets, and health-gated route recovery.
+- [x] Existing build, runtime, logs, secrets, cache-GC, and recovery smoke remains green.
+- [x] No dependency expansion; no migration unless required by durable correctness.
 - [ ] Independent audit passes.
 - [ ] PR merged.
 - [ ] Post-merge `main` CI green.
-
-### [ ] A7. Deployment History + Rollback + Diagnostics
-
-- [ ] Deployment/runtime history and desired-state rollback.
-- [ ] Current/previous deployment visibility.
-- [ ] Failure reasons with recovery guidance and safe diagnostics.
 
 ### [ ] A8. Apps Production Acceptance
 

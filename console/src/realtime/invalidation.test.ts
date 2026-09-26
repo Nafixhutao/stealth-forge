@@ -45,6 +45,7 @@ describe("realtime query invalidation", () => {
     ).toEqual([
       ["apps", "project-1"],
       ["app", "project-1", "app-1"],
+      ["app-diagnostics", "project-1", "app-1"],
     ]);
   });
 
@@ -58,6 +59,7 @@ describe("realtime query invalidation", () => {
     ).toEqual([
       ["apps", "project-1"],
       ["app", "project-1", "app-1"],
+      ["app-diagnostics", "project-1", "app-1"],
     ]);
   });
 
@@ -70,6 +72,7 @@ describe("realtime query invalidation", () => {
       }),
     ).toEqual([
       ["app", "project-1", "app-1"],
+      ["app-diagnostics", "project-1", "app-1"],
       ["app-environment-variables", "project-1", "app-1"],
     ]);
   });
@@ -244,9 +247,26 @@ describe("realtime query invalidation", () => {
         "app.create",
         "app.update",
         "app.delete",
+        "app_deployment.rollback",
         "app.environment_variable.updated",
       ]),
     );
+  });
+
+  it("invalidates App and deployment state after a rollback notification", () => {
+    expect(
+      realtimeInvalidationKeys("project-1", {
+        type: "app_deployment.rollback",
+        resource_id: "deployment-1",
+        payload: { app_id: "app-1" },
+      }),
+    ).toEqual([
+      ["apps", "project-1"],
+      ["app", "project-1", "app-1"],
+      ["app-diagnostics", "project-1", "app-1"],
+      ["app-deployments", "project-1", "app-1"],
+      ["app-deployment", "project-1", "app-1", "deployment-1"],
+    ]);
   });
 
   it("invalidates deployment queries using the resource metadata", () => {
