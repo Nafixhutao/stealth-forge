@@ -276,7 +276,7 @@ func TestAppRollbackRejectionsPreserveDesiredStateIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	pathTarget := createQueuedAppDeploymentForTest(t, f, f.projectOneID, pathAppID, false)
-	wrongPath := f.projectOneID.String() + "/" + pathAppID.String() + "/" + uuid.New().String()
+	wrongPath := uuid.Must(uuid.NewV7()).String() + "/" + pathAppID.String() + "/" + uuid.Must(uuid.NewV7()).String()
 	completeAppDeploymentForTestAtPath(t, f, pathAppID, pathTarget.ID, "rollback-path-build-one", wrongPath)
 	pathCurrent := createQueuedAppDeploymentForTest(t, f, f.projectOneID, pathAppID, false)
 	completeAppDeploymentForTest(t, f, pathAppID, pathCurrent.ID, "rollback-path-build-two")
