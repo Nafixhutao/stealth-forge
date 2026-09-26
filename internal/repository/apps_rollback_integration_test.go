@@ -23,7 +23,9 @@ func TestAppRollbackRestoresWorkloadAndPreservesEnvironmentIntegration(t *testin
 	}
 
 	first := createQueuedAppDeploymentForTest(t, f, f.projectOneID, appID, false)
-	completeAppDeploymentForTest(t, f, appID, first.ID, "rollback-build-one")
+	firstImageArtifactID := uuid.Must(uuid.NewV7())
+	firstImagePath := f.projectOneID.String() + "/" + appID.String() + "/" + firstImageArtifactID.String()
+	completeAppDeploymentForTestAtPath(t, f, appID, first.ID, "rollback-build-one", firstImagePath)
 	changedWorkload := workloadspec.Default()
 	changedWorkload.Resources.CPUMillis = 1200
 	if _, err := f.repo.UpdateApp(f.ctx, f.projectOneID, appID, f.actor, AppPatch{Workload: &changedWorkload}); err != nil {
@@ -274,7 +276,7 @@ func TestAppRollbackRejectionsPreserveDesiredStateIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	pathTarget := createQueuedAppDeploymentForTest(t, f, f.projectOneID, pathAppID, false)
-	wrongPath := f.projectOneID.String() + "/" + pathAppID.String() + "/" + uuid.Must(uuid.NewV7()).String()
+	wrongPath := f.projectOneID.String() + "/" + pathAppID.String() + "/" + uuid.New().String()
 	completeAppDeploymentForTestAtPath(t, f, pathAppID, pathTarget.ID, "rollback-path-build-one", wrongPath)
 	pathCurrent := createQueuedAppDeploymentForTest(t, f, f.projectOneID, pathAppID, false)
 	completeAppDeploymentForTest(t, f, pathAppID, pathCurrent.ID, "rollback-path-build-two")
