@@ -158,6 +158,7 @@ jobs:
       - name: Run production Compose HTTP and telemetry smoke
         env:
           ENV_FILE: ${{ runner.temp }}/stealth-production-smoke.env
+          APP_RUNTIME_SOAK_SECONDS: "600"
           SMOKE_REMOVE_VOLUMES: "true"
         run: ./scripts/compose-production-smoke.sh
 

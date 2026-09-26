@@ -26,6 +26,7 @@ cookie_file="$(mktemp "${TMPDIR:-/tmp}/stealth-compose-smoke-cookie.XXXXXX")"
 register_response="$(mktemp "${TMPDIR:-/tmp}/stealth-compose-smoke-registration.XXXXXX")"
 auth_cookie_header=""
 api_url=""
+console_url=""
 filelog_smoke_pid=""
 platform_route_lock_active="false"
 platform_route_lock_name=""
@@ -1405,6 +1406,17 @@ app_deployment_artifact_row() {
 		sh "$deployment_id" "$app_id" | tr -d '\r'
 }
 
+app_deployment_count() {
+	local app_id="$1"
+	"${compose[@]}" exec -T postgres sh -ec \
+		'app_id="$1"; case "$app_id" in *[!0-9a-f-]*|"") exit 2;; esac; psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --set ON_ERROR_STOP=1 --tuples-only --no-align --command "SELECT count(*) FROM app_deployments WHERE app_id = '\''$app_id'\''"' \
+		sh "$app_id" | tr -d '[:space:]'
+}
+
+app_runtime_image_tag_count() {
+	docker image ls --format '{{.Repository}}:{{.Tag}}' | awk '$0 ~ /^stealth-app\/[0-9a-f-]+:runtime$/ { count++ } END { print count + 0 }'
+}
+
 app_deployment_artifact_readiness_flags() {
 	local deployment_id="$1" app_id="$2"
 	"${compose[@]}" exec -T postgres sh -ec \
@@ -2456,6 +2468,10 @@ PY
 	wait_for_app_route_snapshot true
 	assert_app_route_uses_container_dns_name
 	wait_for_app_public_route 'app-runtime-smoke-ok'
+	if [ "$(app_public_route_body /version)" != "$smoke_marker" ]; then
+		printf '%s\n' 'App v1 route did not return its unique deployment marker' >&2
+		return 1
+	fi
 	local config_body initial_generation updated_generation
 	config_body="$(app_public_route_body /configuration)"
 	if [ "$config_body" != 'app-config-v1' ]; then
@@ -2671,6 +2687,10 @@ verify_app_runtime_image_cache_gc() {
 	wait_for_app_route_snapshot true
 	assert_app_route_uses_container_dns_name
 	wait_for_app_public_route 'app-runtime-smoke-ok'
+	if [ "$(app_public_route_body /version)" != "$smoke_marker" ]; then
+		printf '%s\n' 'App rollback route did not return the restored v1 deployment marker' >&2
+		return 1
+	fi
 	assert_app_runtime_configuration 'app-config-v2'
 	wait_for_app_runtime_log_markers "$smoke_marker" 1 "$new_container"
 	fetch_app_runtime_logs "$new_container"
@@ -2723,6 +2743,10 @@ verify_app_runtime_image_cache_gc() {
 	fi
 	assert_app_runtime_container "$new_container" "$generation" "$selected" "$spec_sha" 750
 	wait_for_app_public_route 'app-runtime-smoke-ok'
+	if [ "$(app_public_route_body /version)" != "${smoke_marker}-app-v2" ]; then
+		printf '%s\n' 'App v2 route did not return its deployment marker after cache recovery' >&2
+		return 1
+	fi
 	assert_app_diagnostics converged "$platform_app_deployment_id" "$platform_app_v2_version" "$platform_app_deployment_id" "$platform_app_v2_version"
 	if [ "$(docker image inspect --format '{{.Id}}' "$platform_app_runtime_unrelated_tag")" != "$unrelated_image_id" ]; then
 		printf '%s\n' 'non-Stealth Docker image tag changed during App artifact re-import' >&2
@@ -2934,6 +2958,10 @@ verify_app_runtime_lifecycle() {
 	docker exec "$new_container" /buildkit-secret-probe verify-runtime
 	wait_for_app_health_state healthy active
 	wait_for_app_public_route 'app-runtime-smoke-ok'
+	if [ "$(app_public_route_body /version)" != "${smoke_marker}-app-v2" ]; then
+		printf '%s\n' 'App v2 route did not return its unique deployment marker' >&2
+		return 1
+	fi
 	assert_app_diagnostics converged "$platform_app_deployment_id" "$platform_app_v2_version" "$platform_app_deployment_id" "$platform_app_v2_version"
 	wait_for_app_runtime_log_markers "${smoke_marker}-app-v2" 1 "$new_container"
 	fetch_app_runtime_logs "$new_container"
@@ -3047,7 +3075,7 @@ verify_app_runtime_lifecycle() {
 	fi
 	wait_for_app_public_route 'app-runtime-smoke-ok'
 	start_platform_route_reconcile_lock
-	docker stop --time 1 "$old_container" >/dev/null
+	docker kill --signal KILL "$old_container" >/dev/null
 	wait_for_app_health_state pending waiting_for_health "$platform_app_id" true
 	new_container="$(wait_for_running_app_runtime_container)"
 	if [ "$new_container" != "$old_container" ]; then
@@ -3210,6 +3238,286 @@ verify_app_runtime_lifecycle() {
 	wait_for_app_health_state healthy active
 	wait_for_app_public_route 'app-runtime-smoke-ok'
 	assert_app_runtime_configuration 'app-config-v2'
+}
+
+verify_app_control_plane_restarts() {
+	local status before_container generation selected spec_sha version expected_version
+	fetch_app_runtime
+	generation="$(platform_json_field "$platform_response" app.desired_generation)"
+	selected="$(platform_json_field "$platform_response" app.desired_deployment_id)"
+	spec_sha="$(platform_json_field "$platform_response" app.workload_spec_sha256)"
+	if [ "$selected" != "$platform_app_deployment_id" ]; then
+		printf 'control-plane restart smoke expected selected v2 deployment %s, got %s\n' "$platform_app_deployment_id" "$selected" >&2
+		return 1
+	fi
+	version="$platform_app_v2_version"
+	expected_version="${smoke_marker}-app-v2"
+	before_container="$(app_runtime_container_id)"
+	assert_app_runtime_container "$before_container" "$generation" "$selected" "$spec_sha" 750
+
+	"${compose[@]}" restart api >/dev/null
+	wait_for_healthy api
+	status="$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' "${api_url%/}/readyz")"
+	if [ "$status" != '200' ]; then
+		printf 'API readiness after restart returned HTTP %s\n' "$status" >&2
+		return 1
+	fi
+	fetch_app_runtime
+	if [ "$(platform_json_field "$platform_response" app.desired_generation)" != "$generation" ] ||
+		[ "$(platform_json_field "$platform_response" app.observed_generation)" != "$generation" ] ||
+		[ "$(platform_json_field "$platform_response" app.desired_deployment_id)" != "$selected" ] ||
+		[ "$(app_runtime_container_id)" != "$before_container" ]; then
+		printf '%s\n' 'API restart changed converged App desired state or runtime identity' >&2
+		return 1
+	fi
+	wait_for_app_health_state healthy active
+	assert_app_diagnostics converged "$selected" "$version" "$selected" "$version"
+	wait_for_app_public_route 'app-runtime-smoke-ok'
+	if [ "$(app_public_route_body /version)" != "$expected_version" ]; then
+		printf '%s\n' 'App response changed after API restart' >&2
+		return 1
+	fi
+	assert_app_runtime_configuration 'app-config-v2'
+	fetch_app_runtime_logs "$before_container"
+	if grep -Fq -- 'fake-smoke-secret-not-real-v2' "$platform_response"; then
+		printf '%s\n' 'App runtime logs exposed the current secret after API restart' >&2
+		return 1
+	fi
+
+	"${compose[@]}" restart console >/dev/null
+	wait_for_healthy console
+	status="$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' "${console_url%/}/")"
+	if [[ ! "$status" =~ ^2[0-9][0-9]$ ]]; then
+		printf 'Console root after restart returned HTTP %s\n' "$status" >&2
+		return 1
+	fi
+	fetch_app_runtime
+	if [ "$(platform_json_field "$platform_response" app.desired_generation)" != "$generation" ] ||
+		[ "$(platform_json_field "$platform_response" app.observed_generation)" != "$generation" ] ||
+		[ "$(platform_json_field "$platform_response" app.desired_deployment_id)" != "$selected" ] ||
+		[ "$(app_runtime_container_id)" != "$before_container" ]; then
+		printf '%s\n' 'Console restart changed converged App desired state or runtime identity' >&2
+		return 1
+	fi
+	wait_for_app_health_state healthy active
+	assert_app_diagnostics converged "$selected" "$version" "$selected" "$version"
+	wait_for_app_public_route 'app-runtime-smoke-ok'
+	assert_app_runtime_configuration 'app-config-v2'
+	fetch_app_runtime_logs "$before_container"
+	if grep -Fq -- 'fake-smoke-secret-not-real-v2' "$platform_response"; then
+		printf '%s\n' 'App runtime logs exposed the current secret after Console restart' >&2
+		return 1
+	fi
+	printf 'API and Console restarts preserved App generation %s, container %s, fresh health, route, secret configuration, diagnostics, and logs\n' "$generation" "$before_container"
+}
+
+verify_app_runtime_soak() {
+	local duration="${APP_RUNTIME_SOAK_SECONDS:-0}" interval="${APP_RUNTIME_SOAK_INTERVAL_SECONDS:-30}"
+	local started deadline next_check started_at initial_deployments expected_deployments selected old_deployment deployment version spec_sha cpu_millis response_marker
+	local old_container new_container prior_tag status generation new_generation steps=0 image_tags route_bytes worker_container restart_done=false
+	local v1_stdout v1_stderr v2_stdout v2_stderr max_markers total_log_rows worker_log_lines
+	if ! [[ "$duration" =~ ^[0-9]+$ ]] || [ "$duration" -gt 1800 ]; then
+		printf 'APP_RUNTIME_SOAK_SECONDS must be an integer from 0 to 1800: %s\n' "$duration" >&2
+		return 1
+	fi
+	if ! [[ "$interval" =~ ^[0-9]+$ ]] || [ "$interval" -lt 10 ] || [ "$interval" -gt 300 ]; then
+		printf 'APP_RUNTIME_SOAK_INTERVAL_SECONDS must be an integer from 10 to 300: %s\n' "$interval" >&2
+		return 1
+	fi
+	if [ "$duration" = '0' ]; then
+		printf '%s\n' 'App runtime soak skipped; CI sets APP_RUNTIME_SOAK_SECONDS to a bounded positive duration'
+		return 0
+	fi
+	fetch_app_runtime
+	selected="$(platform_json_field "$platform_response" app.desired_deployment_id)"
+	if [ "$selected" != "$platform_app_deployment_id" ]; then
+		printf 'App soak must start on v2 deployment %s, got %s\n' "$platform_app_deployment_id" "$selected" >&2
+		return 1
+	fi
+	initial_deployments="$(app_deployment_count "$platform_app_id")"
+	if ! [[ "$initial_deployments" =~ ^[0-9]+$ ]] || [ "$initial_deployments" -lt 2 ]; then
+		printf 'App soak deployment row count is invalid: %s\n' "$initial_deployments" >&2
+		return 1
+	fi
+	started="$SECONDS"
+	deadline=$((started + duration))
+	started_at="$(date -u --iso-8601=seconds)"
+	next_check=$((SECONDS + 1))
+	worker_container="$("${compose[@]}" ps -q worker)"
+	while [ "$SECONDS" -lt "$deadline" ]; do
+		fetch_app_runtime
+		generation="$(platform_json_field "$platform_response" app.desired_generation)"
+		selected="$(platform_json_field "$platform_response" app.desired_deployment_id)"
+		old_deployment="$selected"
+		old_container="$(app_runtime_container_id)"
+		if [ "$selected" = "$platform_app_deployment_id" ]; then
+			deployment="$platform_app_v1_deployment_id"
+			version="$platform_app_v1_version"
+			spec_sha="$platform_app_v1_workload_spec_sha256"
+			cpu_millis=500
+			response_marker="$smoke_marker"
+			status="$(platform_request POST "/v1/projects/${platform_project_id}/apps/${platform_app_id}/deployments/${deployment}/rollback" '' "$platform_response")"
+		elif [ "$selected" = "$platform_app_v1_deployment_id" ]; then
+			deployment="$platform_app_deployment_id"
+			version="$platform_app_v2_version"
+			spec_sha="$platform_app_v2_workload_spec_sha256"
+			cpu_millis=750
+			response_marker="${smoke_marker}-app-v2"
+			status="$(platform_request POST "/v1/projects/${platform_project_id}/apps/${platform_app_id}/deployments/${deployment}/select" '' "$platform_response")"
+		else
+			printf 'App soak observed unexpected desired deployment %s\n' "$selected" >&2
+			return 1
+		fi
+		if [ "$status" != '200' ]; then
+			printf 'App soak could not select deployment %s: HTTP %s\n' "$deployment" "$status" >&2
+			return 1
+		fi
+		new_generation="$(platform_json_field "$platform_response" app.desired_generation)"
+		if [ "$(platform_json_field "$platform_response" app.desired_deployment_id)" != "$deployment" ] ||
+			[ -z "$generation" ] || [ "$new_generation" -ne "$((generation + 1))" ]; then
+			printf 'App soak transition did not advance desired generation exactly once: before=%s after=%s deployment=%s\n' "$generation" "$new_generation" "$deployment" >&2
+			return 1
+		fi
+		wait_for_app_runtime running
+		fetch_app_runtime
+		if [ "$(platform_json_field "$platform_response" app.desired_generation)" != "$new_generation" ] ||
+			[ "$(platform_json_field "$platform_response" app.observed_generation)" != "$new_generation" ] ||
+			[ "$(platform_json_field "$platform_response" app.desired_deployment_id)" != "$deployment" ] ||
+			[ "$(platform_json_field "$platform_response" app.workload_spec_sha256)" != "$spec_sha" ]; then
+			printf 'App soak transition failed desired/applied convergence for deployment %s\n' "$deployment" >&2
+			return 1
+		fi
+		new_container="$(app_runtime_container_id)"
+		if [ "$new_container" = "$old_container" ]; then
+			printf 'App soak deployment transition reused container %s\n' "$new_container" >&2
+			return 1
+		fi
+		assert_container_absent "$old_container"
+		assert_app_runtime_container "$new_container" "$new_generation" "$deployment" "$spec_sha" "$cpu_millis"
+		docker exec "$new_container" /buildkit-secret-probe verify-runtime-secret-v2
+		wait_for_app_health_state healthy active
+		wait_for_app_route_snapshot true
+		assert_app_route_uses_container_dns_name
+		wait_for_app_public_route 'app-runtime-smoke-ok'
+		if [ "$(app_public_route_body /version)" != "$response_marker" ]; then
+			printf 'App soak route returned the wrong version marker for deployment %s\n' "$deployment" >&2
+			return 1
+		fi
+		assert_app_runtime_configuration 'app-config-v2'
+		assert_app_diagnostics converged "$deployment" "$version" "$deployment" "$version"
+		wait_for_app_runtime_log_markers "$response_marker" 1 "$new_container"
+		fetch_app_runtime_logs "$new_container"
+		if grep -Fq -- 'fake-smoke-secret-not-real-v1' "$platform_response" || grep -Fq -- 'fake-smoke-secret-not-real-v2' "$platform_response"; then
+			printf '%s\n' 'App runtime soak logs exposed an environment secret' >&2
+			return 1
+		fi
+		python3 - "$platform_response" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as source:
+    logs = json.load(source).get("logs", [])
+if len(logs) > 250:
+    raise SystemExit(f"App runtime log query exceeded its 250-row bound: {len(logs)}")
+PY
+		prior_tag="stealth-app/${old_deployment}:runtime"
+		if docker image inspect "$prior_tag" >/dev/null 2>&1; then
+			local gc_deadline=$((SECONDS + 60))
+			while docker image inspect "$prior_tag" >/dev/null 2>&1 && [ "$SECONDS" -lt "$gc_deadline" ]; do
+				sleep 2
+			done
+		fi
+		if docker image inspect "$prior_tag" >/dev/null 2>&1; then
+			printf 'App soak safe runtime-image GC did not remove deselected cache tag %s\n' "$prior_tag" >&2
+			return 1
+		fi
+		image_tags="$(app_runtime_image_tag_count)"
+		if [ "$image_tags" != '1' ] || [ "$(app_runtime_container_count)" != '1' ]; then
+			printf 'App soak resource bounds failed: runtime_image_tags=%s containers=%s\n' "$image_tags" "$(app_runtime_container_count)" >&2
+			return 1
+		fi
+		expected_deployments="$(app_deployment_count "$platform_app_id")"
+		if [ "$expected_deployments" != "$initial_deployments" ]; then
+			printf 'App soak created or removed deployment rows: before=%s after=%s\n' "$initial_deployments" "$expected_deployments" >&2
+			return 1
+		fi
+		route_bytes="$(stat -c '%s' "$generated_state_dir/platform-apps.yaml")"
+		if ! [[ "$route_bytes" =~ ^[0-9]+$ ]] || [ "$route_bytes" -gt 65536 ]; then
+			printf 'App soak route snapshot exceeded its 64 KiB bound: %s bytes\n' "$route_bytes" >&2
+			return 1
+		fi
+		steps=$((steps + 1))
+		if [ "$steps" -eq 4 ] && [ "$restart_done" = false ]; then
+			local restart_container="$new_container"
+			"${compose[@]}" restart worker >/dev/null
+			wait_for_healthy worker
+			wait_for_app_runtime running
+			wait_for_app_health_state healthy active
+			if [ "$(app_runtime_container_id)" != "$restart_container" ]; then
+				printf '%s\n' 'App runtime identity changed during the soak worker restart' >&2
+				return 1
+			fi
+			assert_app_runtime_configuration 'app-config-v2'
+			wait_for_app_public_route 'app-runtime-smoke-ok'
+			restart_done=true
+		fi
+		selected="$deployment"
+		printf 'App soak sample %s/%s converged generation=%s deployment=%s route=active images=%s containers=1\n' "$steps" "$duration" "$new_generation" "$deployment" "$image_tags"
+		next_check=$((next_check + interval))
+		if [ "$SECONDS" -lt "$next_check" ] && [ "$SECONDS" -lt "$deadline" ]; then
+			sleep "$((next_check - SECONDS))"
+		fi
+	done
+	if [ "$selected" != "$platform_app_deployment_id" ]; then
+		status="$(platform_request POST "/v1/projects/${platform_project_id}/apps/${platform_app_id}/deployments/${platform_app_deployment_id}/select" '' "$platform_response")"
+		if [ "$status" != '200' ]; then
+			printf 'could not restore App v2 after soak: HTTP %s\n' "$status" >&2
+			return 1
+		fi
+		wait_for_app_runtime running
+		wait_for_app_health_state healthy active
+		fetch_app_runtime
+		generation="$(platform_json_field "$platform_response" app.desired_generation)"
+		selected="$(platform_json_field "$platform_response" app.desired_deployment_id)"
+		version="$platform_app_v2_version"
+		spec_sha="$(platform_json_field "$platform_response" app.workload_spec_sha256)"
+		new_container="$(app_runtime_container_id)"
+		assert_app_runtime_container "$new_container" "$generation" "$selected" "$spec_sha" 750
+		assert_app_diagnostics converged "$selected" "$version" "$selected" "$version"
+		assert_app_runtime_configuration 'app-config-v2'
+		wait_for_app_public_route 'app-runtime-smoke-ok'
+		if [ "$(app_public_route_body /version)" != "${smoke_marker}-app-v2" ]; then
+			printf '%s\n' 'App v2 route did not return its marker after soak recovery' >&2
+			return 1
+		fi
+	fi
+	fetch_app_runtime_logs
+	read -r v1_stdout v1_stderr <<<"$(app_runtime_log_counts "$smoke_marker")"
+	read -r v2_stdout v2_stderr <<<"$(app_runtime_log_counts "${smoke_marker}-app-v2")"
+	max_markers=$((steps + 8))
+	if [ "$v1_stdout" -gt "$max_markers" ] || [ "$v1_stderr" -gt "$max_markers" ] ||
+		[ "$v2_stdout" -gt "$max_markers" ] || [ "$v2_stderr" -gt "$max_markers" ]; then
+		printf 'App runtime log growth exceeded soak bound: v1=%s/%s v2=%s/%s samples=%s\n' "$v1_stdout" "$v1_stderr" "$v2_stdout" "$v2_stderr" "$steps" >&2
+		return 1
+	fi
+	total_log_rows="$(python3 - "$platform_response" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as source:
+    print(len(json.load(source).get("logs", [])))
+PY
+	)"
+	worker_log_lines="$(docker logs --since "$started_at" "$worker_container" 2>&1 | wc -l | tr -d '[:space:]')"
+	if ! [[ "$worker_log_lines" =~ ^[0-9]+$ ]] || [ "$worker_log_lines" -gt 5000 ]; then
+		printf 'App soak worker logs exceeded the 5000-line retry/hot-loop bound: %s\n' "$worker_log_lines" >&2
+		return 1
+	fi
+	if [ "$steps" -lt 2 ] || [ "$total_log_rows" -gt 250 ]; then
+		printf 'App soak did not exercise enough transitions or bounded logs: samples=%s log_rows=%s\n' "$steps" "$total_log_rows" >&2
+		return 1
+	fi
+	printf 'App runtime soak passed for %ss: samples=%s deployment_rows=%s bounded logs=%s worker_lines=%s worker_restart=%s\n' "$duration" "$steps" "$initial_deployments" "$total_log_rows" "$worker_log_lines" "$restart_done"
 }
 
 clear_platform_route_smoke() {
@@ -3514,6 +3822,7 @@ if [ -z "$api_endpoint" ] || [ -z "$console_endpoint" ] || [ -z "$proxy_endpoint
 fi
 
 api_url="http://${api_endpoint}"
+console_url="http://${console_endpoint}"
 
 API_URL="http://${api_endpoint}" \
 CONSOLE_URL="http://${console_endpoint}" \
@@ -3573,6 +3882,8 @@ verify_platform_route_smoke
 verify_app_build_smoke
 verify_app_secondary_state_smoke
 verify_app_runtime_lifecycle
+verify_app_control_plane_restarts
+verify_app_runtime_soak
 clear_platform_route_smoke
 
 filelog_marker="${smoke_marker}-docker-log"

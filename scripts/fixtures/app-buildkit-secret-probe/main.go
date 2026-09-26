@@ -67,9 +67,11 @@ func verifyBuildKitSecrets() {
 }
 
 func serve() {
+	payloadMarker := ""
 	if payload, err := os.ReadFile("/payload.txt"); err == nil {
 		marker := strings.TrimSpace(string(payload))
 		if marker != "" && len(marker) <= 200 {
+			payloadMarker = marker
 			// Give the production file-log receiver time to discover the new
 			// Docker JSON log file before the first deterministic fixture lines.
 			time.Sleep(1500 * time.Millisecond)
@@ -99,6 +101,9 @@ func serve() {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			_, _ = w.Write([]byte("app-config-unavailable\n"))
 		}
+	})
+	http.HandleFunc("/version", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprintln(w, payloadMarker)
 	})
 	if err := http.ListenAndServe("0.0.0.0:8080", nil); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "app runtime smoke server failed: %v\n", err)
