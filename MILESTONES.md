@@ -247,49 +247,51 @@ and CodeQL JavaScript/TypeScript passed on the verified main SHA.
 
 #### Deployment history
 
-- [ ] Existing immutable App deployments remain the release-history source.
-- [ ] Desired and applied deployment states are distinguishable.
-- [ ] Build metadata and logs remain inspectable.
-- [ ] Historical deployment rows remain immutable.
+- [x] Existing immutable App deployments remain the release-history source.
+- [x] Desired and applied deployment states are distinguishable.
+- [x] Build metadata and logs remain inspectable.
+- [x] Historical deployment rows remain immutable.
 
 #### Rollback
 
-- [ ] Explicit rollback endpoint exists and requires `apps.write`.
-- [ ] Only an older ready deployment with verified immutable artifact metadata is eligible.
-- [ ] Rollback restores the target's captured WorkloadSpec and digest.
-- [ ] Current App name, enabled state, environment variables, and secrets remain unchanged.
-- [ ] Desired generation increments exactly once and runtime retry state resets.
-- [ ] Rejected rollback leaves desired state and retry state unchanged.
-- [ ] Stale pre-rollback workers cannot complete the old generation.
-- [ ] An A6-evicted runtime image can be re-imported from the persisted OCI archive.
-- [ ] Fresh health is required before the route becomes active again.
-- [ ] Rollback audit metadata contains no secrets or private artifact/runtime data.
+- [x] Explicit rollback endpoint exists and requires `apps.write`.
+- [x] Only an older ready deployment with verified immutable artifact metadata is eligible.
+- [x] Rollback restores the target's captured WorkloadSpec and digest.
+- [x] Current App name, enabled state, environment variables, and secrets remain unchanged.
+- [x] Desired generation increments exactly once and runtime retry state resets.
+- [x] Rejected rollback leaves desired state and retry state unchanged.
+- [x] Stale pre-rollback workers cannot complete the old generation.
+- [x] An A6-evicted runtime image can be re-imported from the persisted OCI archive.
+- [x] Fresh health is required before the route becomes active again.
+- [x] Rollback audit metadata contains no secrets or private artifact/runtime data.
 
 #### Diagnostics
 
-- [ ] Diagnostics are derived from PostgreSQL only.
-- [ ] Desired/applied deployment versions and desired/observed generations are clear.
-- [ ] Runtime retry and lifecycle timestamps are projected safely.
-- [ ] Fixed convergence statuses and bounded issue codes are actionable.
-- [ ] Docker identity, worker leases, artifact paths, and secrets are excluded.
-- [ ] Diagnostics authorization and cross-project checks fail closed.
+- [x] Diagnostics are derived from PostgreSQL only.
+- [x] Desired/applied deployment versions and desired/observed generations are clear.
+- [x] Runtime retry and lifecycle timestamps are projected safely.
+- [x] Fixed convergence statuses and bounded issue codes are actionable.
+- [x] Docker identity, worker leases, artifact paths, and secrets are excluded.
+- [x] Diagnostics authorization and cross-project checks fail closed.
 
 #### Console
 
-- [ ] Deployment history clearly distinguishes Desired from Applied.
-- [ ] Older ready releases offer explicit rollback; other row actions follow state.
-- [ ] Rollback requires a confirmation dialog explaining WorkloadSpec and env/secret behavior.
-- [ ] Diagnostics panel exposes safe state and bounded issues with loading/error states.
+- [x] Deployment history clearly distinguishes Desired from Applied.
+- [x] Older ready releases offer explicit rollback; other row actions follow state.
+- [x] Rollback requires a confirmation dialog explaining WorkloadSpec and env/secret behavior.
+- [x] Diagnostics panel exposes safe state and bounded issues with loading/error states.
+- [x] Project realtime streams subscribe to rollback events and invalidate the canonical App and deployment queries.
 
 #### Regression proof
 
-- [ ] PostgreSQL rollback eligibility, state transition, rejection, and concurrency tests pass.
-- [ ] Stale-worker rollback fencing integration test is required by CI and passes.
-- [ ] Diagnostics projection, authorization, and leakage tests pass.
-- [ ] Console tests, typecheck, lint, build, and E2E pass.
-- [ ] Production Compose Smoke proves image re-import, WorkloadSpec restore, current env/secrets, and health-gated route recovery.
-- [ ] Existing build, runtime, logs, secrets, cache-GC, and recovery smoke remains green.
-- [ ] No dependency expansion; no migration unless required by durable correctness.
+- [x] PostgreSQL rollback eligibility, state transition, rejection, and concurrency tests pass.
+- [x] Stale-worker rollback fencing integration test is required by CI and passes.
+- [x] Diagnostics projection, authorization, and leakage tests pass.
+- [x] Rollback realtime subscription and invalidation regression tests pass.
+- [x] Console tests, typecheck, lint, build, and E2E pass.
+- [x] Production Compose Smoke proves image re-import, WorkloadSpec restore, current env/secrets, and health-gated route recovery.
+- [x] Existing build, runtime, logs, secrets, cache-GC, and recovery smoke remains green.
+- [x] No dependency expansion; no migration unless required by durable correctness.
 - [ ] Independent audit passes.
 - [ ] PR merged.
 - [ ] Post-merge `main` CI green.
