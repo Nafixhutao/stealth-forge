@@ -269,6 +269,114 @@ func serviceTargetHealthy(status ServiceStatus, allowRunning bool) bool {
 	return status.Healthy()
 }
 
+// waitForRequiredServices waits for the configured production or setup stack
+// to reach the same service health state reported by `stealth status`.
+func (a *App) waitForRequiredServices(ctx context.Context, layout InstallLayout) error {
+	config, err := readEnvFile(layout.EnvFile)
+	if err != nil {
+		return fmt.Errorf("could not read installation configuration")
+	}
+	setupMode := strings.EqualFold(strings.TrimSpace(config["SETUP_MODE"]), "true")
+	targets := statusServiceTargets(config, setupMode)
+	attempts := 60
+	interval := 2 * time.Second
+	if a != nil {
+		if a.pollAttempts > 0 {
+			attempts = a.pollAttempts
+		}
+		if a.pollInterval > 0 {
+			interval = a.pollInterval
+		}
+	}
+
+	var latest map[string]ServiceStatus
+	var queryFailed bool
+	for attempt := 0; attempt < attempts; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		statuses, statusErr := a.composeStatuses(ctx, layout, true)
+		if statusErr == nil {
+			latest = statuses
+			queryFailed = false
+			allHealthy := true
+			for _, target := range targets {
+				if target.external {
+					continue
+				}
+				if !serviceTargetHealthy(statuses[target.name], target.allowRunning) {
+					allHealthy = false
+					break
+				}
+			}
+			if allHealthy {
+				return nil
+			}
+		} else {
+			queryFailed = true
+		}
+
+		if attempt+1 < attempts {
+			timer := time.NewTimer(interval)
+			select {
+			case <-ctx.Done():
+				if !timer.Stop() {
+					select {
+					case <-timer.C:
+					default:
+					}
+				}
+				return ctx.Err()
+			case <-timer.C:
+			}
+		}
+	}
+	if queryFailed {
+		return fmt.Errorf("could not query Docker service status")
+	}
+	return fmt.Errorf("required services did not become healthy: %s", serviceReadinessSummary(targets, latest))
+}
+
+func serviceReadinessSummary(targets []statusServiceTarget, statuses map[string]ServiceStatus) string {
+	failed := make([]string, 0, len(targets))
+	for _, target := range targets {
+		if target.external || serviceTargetHealthy(statuses[target.name], target.allowRunning) {
+			continue
+		}
+		failed = append(failed, target.name+"="+safeServiceReadinessState(statuses[target.name]))
+	}
+	if len(failed) == 0 {
+		return "unknown service state"
+	}
+	return strings.Join(failed, ", ")
+}
+
+func safeServiceReadinessState(status ServiceStatus) string {
+	if status.Service == "" {
+		return "not-found"
+	}
+	state := strings.ToLower(strings.TrimSpace(status.State))
+	health := strings.ToLower(strings.TrimSpace(status.Health))
+	if state == "running" {
+		switch health {
+		case "healthy", "unhealthy", "starting":
+			return health
+		default:
+			return "health-unknown"
+		}
+	}
+	switch state {
+	case "created", "restarting", "removing", "paused", "exited", "dead":
+		return state
+	}
+	switch health {
+	case "healthy", "unhealthy", "starting":
+		return health
+	default:
+		return "unknown"
+	}
+}
+
 func externalServiceURL(raw, internalService string) bool {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {

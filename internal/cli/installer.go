@@ -99,12 +99,24 @@ func (a *App) runNoninteractiveRepair(ctx context.Context, checks []SystemCheck,
 		return 1
 	}
 	fmt.Fprintln(a.out, "Repairing the existing Stealth installation")
-	if err := a.installEngine().Install(ctx, *plan, func(event installengine.Event) {
+	lock, err := installengine.AcquireProcessLock(plan.Layout.StateDir, "install.lock", "installation")
+	if err != nil {
+		fmt.Fprintf(a.errOut, "could not lock the existing installation: %v\n", err)
+		return 1
+	}
+	defer lock.Close()
+	if err := a.installEngine().InstallLocked(ctx, *plan, func(event installengine.Event) {
 		if event.Status == "started" {
 			fmt.Fprintf(a.out, "  → %s\n", event.Step)
 		}
 	}); err != nil {
 		fmt.Fprintln(a.errOut, "Repair failed. Run `stealth doctor` for diagnostics.")
+		return 1
+	}
+	fmt.Fprintln(a.out, "Waiting for required services to become healthy")
+	if err := a.waitForRequiredServices(ctx, plan.Layout); err != nil {
+		fmt.Fprintf(a.errOut, "Repair could not verify required services: %s\n", err)
+		fmt.Fprintln(a.errOut, "Run `stealth doctor` for diagnostics.")
 		return 1
 	}
 	fmt.Fprintln(a.out, "Repair completed successfully.")
@@ -164,7 +176,7 @@ func (m installerModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.step++
-		if m.step >= len(installStepNames) {
+		if m.step > len(installStepNames) {
 			m.screen = installerComplete
 			return m, nil
 		}
@@ -296,6 +308,9 @@ func (m installerModel) runCurrentStep() tea.Cmd {
 	step := m.step
 	plan := *m.plan
 	return func() tea.Msg {
+		if step == len(installStepNames) {
+			return installStepMessage{err: m.app.waitForRequiredServices(m.ctx, plan.Layout)}
+		}
 		return installStepMessage{err: m.app.installStep(m.ctx, plan, step)}
 	}
 }
@@ -378,7 +393,11 @@ func renderInstallerView(m installerModel) string {
 			}
 			builder.WriteString(fmt.Sprintf("%s %s\n", mark, name))
 		}
-		builder.WriteString("\nWorking with Docker Compose. This may take a few minutes.")
+		if m.step == len(installStepNames) {
+			builder.WriteString("\nWaiting for required services to become healthy.")
+		} else {
+			builder.WriteString("\nWorking with Docker Compose. This may take a few minutes.")
+		}
 	case installerComplete:
 		builder.WriteString("Installation complete\n\n")
 		builder.WriteString("✓ Database migrations applied\n✓ API and worker running\n✓ Console and proxy verified\n\n")

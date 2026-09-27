@@ -13,16 +13,19 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Stealth-deplover/stealth/internal/buildkitpki"
 	"github.com/Stealth-deplover/stealth/internal/installengine"
 )
 
 type doctorCommandRunner struct {
-	statuses   []byte
-	composeErr error
-	volumeErr  error
-	args       [][]string
+	statuses        []byte
+	statusResponses [][]byte
+	statusCalls     int
+	composeErr      error
+	volumeErr       error
+	args            [][]string
 }
 
 func (r *doctorCommandRunner) Run(context.Context, string, io.Writer, io.Writer, string, ...string) error {
@@ -38,6 +41,15 @@ func (r *doctorCommandRunner) Output(_ context.Context, _ string, name string, a
 	case name == "docker" && joined == "compose version --short":
 		return []byte("2.39.0\n"), nil
 	case name == "docker" && strings.Contains(joined, " ps --all --format json"):
+		if len(r.statusResponses) > 0 {
+			index := r.statusCalls
+			if index >= len(r.statusResponses) {
+				index = len(r.statusResponses) - 1
+			}
+			r.statusCalls++
+			return r.statusResponses[index], nil
+		}
+		r.statusCalls++
 		return r.statuses, nil
 	case name == "docker" && strings.Contains(joined, " config --quiet"):
 		return nil, r.composeErr
@@ -139,6 +151,53 @@ func healthyDoctorStatuses(t *testing.T, config map[string]string, setupMode boo
 		t.Fatal(err)
 	}
 	return contents
+}
+
+func TestWaitForRequiredServicesRetriesAndReturnsSafeBoundedFailure(t *testing.T) {
+	layout, config := doctorFixture(t, false, nil)
+	healthy := healthyDoctorStatuses(t, config, false)
+	var entries []composeStatusJSON
+	if err := json.Unmarshal(healthy, &entries); err != nil {
+		t.Fatal(err)
+	}
+	for index := range entries {
+		if entries[index].Service == "worker" || entries[index].Service == "buildkit" {
+			entries[index].Health = "starting"
+			entries[index].Status = "Up 20 seconds private-status-sentinel"
+		}
+	}
+	starting, err := json.Marshal(entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	runner := &doctorCommandRunner{statusResponses: [][]byte{starting, healthy}}
+	app := NewApp(strings.NewReader(""), io.Discard, io.Discard)
+	app.runner = runner
+	app.pollAttempts = 2
+	app.pollInterval = time.Millisecond
+	if err := app.waitForRequiredServices(context.Background(), layout); err != nil {
+		t.Fatalf("waitForRequiredServices() failed after services became healthy: %v", err)
+	}
+	if runner.statusCalls != 2 {
+		t.Fatalf("Compose status was queried %d times, want 2", runner.statusCalls)
+	}
+
+	runner = &doctorCommandRunner{statusResponses: [][]byte{starting}}
+	app.runner = runner
+	app.pollAttempts = 1
+	err = app.waitForRequiredServices(context.Background(), layout)
+	if err == nil {
+		t.Fatal("waitForRequiredServices() succeeded while required services were starting")
+	}
+	for _, want := range []string{"worker=starting", "buildkit=starting"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("readiness error %q does not include %q", err, want)
+		}
+	}
+	if strings.Contains(err.Error(), "private-status-sentinel") {
+		t.Fatalf("readiness error exposed raw Compose status: %q", err)
+	}
 }
 
 func doctorAppForTest(t *testing.T, layout InstallLayout, runner *doctorCommandRunner) (*App, *httptest.Server, *strings.Builder) {
