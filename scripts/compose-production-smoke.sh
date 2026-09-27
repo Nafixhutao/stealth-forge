@@ -1979,8 +1979,16 @@ assert_app_route_uses_container_dns_name() {
 }
 
 print_app_runtime_diagnostics() {
-	local app_id="$1" container_id
-	container_id="$(docker ps -aq --filter "label=stealth.app_id=${app_id}" --filter 'label=stealth.resource_type=app' | head -n 1)"
+	local app_id="$1" container_ids container_count container_id inventory_id inventory_line
+	container_ids="$(docker ps -aq --no-trunc --filter "label=stealth.app_id=${app_id}" --filter 'label=stealth.resource_type=app' 2>/dev/null || true)"
+	container_count="$(printf '%s\n' "$container_ids" | sed '/^$/d' | wc -l | tr -d ' ')"
+	printf 'App runtime Docker inventory (all states): count=%s\n' "${container_count:-0}" >&2
+	while IFS= read -r inventory_id; do
+		[ -n "$inventory_id" ] || continue
+		inventory_line="$(docker inspect --format '{{.Id}}|{{.Name}}|{{.State.Status}}|generation={{index .Config.Labels "stealth.generation"}}|deployment={{index .Config.Labels "stealth.deployment_id"}}|project={{index .Config.Labels "stealth.project_id"}}' "$inventory_id" 2>/dev/null || true)"
+		printf 'App runtime Docker inventory entry: %s\n' "${inventory_line:-inspect-unavailable id=$inventory_id}" >&2
+	done < <(printf '%s\n' "$container_ids" | sed '/^$/d' | head -n 8)
+	container_id="$(printf '%s\n' "$container_ids" | sed -n '1p')"
 	if [ -z "$container_id" ] || ! docker inspect "$container_id" >"$platform_response" 2>/dev/null; then
 		printf 'App runtime diagnostic: container for App %s is absent\n' "$app_id" >&2
 		return 0
