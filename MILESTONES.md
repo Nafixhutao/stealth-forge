@@ -317,7 +317,7 @@ repository owner confirmation in chat on 2026-09-26.
 
 #### Acceptance evidence still required
 
-- [ ] Final-head required CI and Production Compose Smoke pass.
+- [x] Final-head required CI and Production Compose Smoke pass.
 - [ ] Clean-host installation and full App acceptance pass on a supported Linux
   VM.
 - [ ] Real host reboot workflow passes on the final head. Configure the
