@@ -171,22 +171,28 @@ func TestHostInstallerOwnsRequestAndCompletesHandoff(t *testing.T) {
 		t.Fatalf("host progress did not advance durable event ID: %d", state.LastEventID)
 	}
 	runner := fixture.app.runner.(*setupRunner)
-	if len(runner.calls) != 16 {
-		t.Fatalf("host Docker calls = %#v, want preflight, seven state inits, production steps, and setup cleanup", runner.calls)
+	if len(runner.calls) != 17 {
+		t.Fatalf("host Docker calls = %#v, want preflight, staged Compose validation, seven state inits, production steps, and setup cleanup", runner.calls)
 	}
-	if got := runner.command(5).args; !equalStrings(got[len(got)-4:], []string{"run", "--rm", "--no-deps", "telemetry-docker-logs-state-init"}) {
+	if got := runner.command(1).args; !containsString(got, "config") || !containsString(got, "--quiet") || !containsString(got, "--project-directory") || !strings.Contains(strings.Join(got, " "), filepath.Join(fixture.layout.StateDir, ".stealth-managed-assets-")) {
+		t.Fatalf("staged Compose validation command = %#v", got)
+	}
+	if got := runner.command(2).args; !equalStrings(got[len(got)-6:], []string{"run", "--rm", "--no-deps", "-e", "STEALTH_TRAEFIK_HOST_UID=1000", "traefik-state-init"}) {
+		t.Fatalf("staged Traefik state init command = %#v", got)
+	}
+	if got := runner.command(6).args; !equalStrings(got[len(got)-4:], []string{"run", "--rm", "--no-deps", "telemetry-docker-logs-state-init"}) {
 		t.Fatalf("Docker log Collector state init command = %#v", got)
 	}
-	if got := runner.command(7).args; !equalStrings(got[len(got)-4:], []string{"run", "--rm", "--no-deps", "cloudflare-setup-state-init"}) {
+	if got := runner.command(8).args; !equalStrings(got[len(got)-4:], []string{"run", "--rm", "--no-deps", "cloudflare-setup-state-init"}) {
 		t.Fatalf("Cloudflare source state init command = %#v", got)
 	}
-	if got := runner.command(8).args; !equalStrings(got[len(got)-4:], []string{"run", "--rm", "--no-deps", "cloudflare-state-init"}) {
+	if got := runner.command(9).args; !equalStrings(got[len(got)-4:], []string{"run", "--rm", "--no-deps", "cloudflare-state-init"}) {
 		t.Fatalf("Cloudflare state init command = %#v", got)
 	}
-	if got := runner.command(9).args; !equalStrings(got[len(got)-4:], []string{"run", "--rm", "--no-deps", "buildkit-worker-credentials-init"}) {
+	if got := runner.command(10).args; !equalStrings(got[len(got)-4:], []string{"run", "--rm", "--no-deps", "buildkit-worker-credentials-init"}) {
 		t.Fatalf("worker BuildKit credential init command = %#v", got)
 	}
-	if got := runner.command(10).args; !equalStrings(got[len(got)-4:], []string{"run", "--rm", "--no-deps", "buildkit-server-credentials-init"}) {
+	if got := runner.command(11).args; !equalStrings(got[len(got)-4:], []string{"run", "--rm", "--no-deps", "buildkit-server-credentials-init"}) {
 		t.Fatalf("BuildKit credential init command = %#v", got)
 	}
 	if got := runner.command(len(runner.calls) - 1).args; !equalStrings(got, []string{"compose", "--env-file", fixture.layout.EnvFile, "-f", fixture.layout.SetupComposeFile, "rm", "-sf", "setup", "setup-console", "setup-proxy"}) {

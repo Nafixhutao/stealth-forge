@@ -130,6 +130,28 @@ func (a *App) runDoctorCommand(args []string) int {
 		return boolExit(failed)
 	}
 	setupMode := strings.EqualFold(strings.TrimSpace(config["SETUP_MODE"]), "true")
+	platformVersion := strings.TrimSpace(readVersion(layout))
+	if platformVersion == "" {
+		platformVersion, _ = imageVersion(config["STEALTH_API_IMAGE"])
+	}
+	if validateReleaseVersion(platformVersion) != nil {
+		check("Platform release", false, "installed release version could not be verified")
+	} else {
+		cliVersion := ""
+		if a.currentVersion != nil {
+			cliVersion = strings.TrimSpace(a.currentVersion())
+		}
+		if validateStableReleaseVersion(cliVersion) != nil {
+			warning("CLI/platform release", true, "platform "+platformVersion+"; running CLI is not a stable release build")
+		} else if comparison, comparable := compareReleaseVersions(cliVersion, platformVersion); !comparable {
+			warning("CLI/platform release", true, "running CLI and platform release could not be compared")
+		} else if comparison == 0 {
+			check("CLI/platform release", true, platformVersion)
+		} else {
+			detail := fmt.Sprintf("CLI is %s and platform is %s; run `stealth update` to synchronize them", cliVersion, platformVersion)
+			check("CLI/platform release", false, detail)
+		}
+	}
 	composePath := layout.ComposeFile
 	composeLabel := "production Compose file"
 	if setupMode {

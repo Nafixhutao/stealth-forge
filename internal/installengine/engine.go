@@ -337,6 +337,17 @@ func (e *Engine) RunStep(ctx context.Context, plan Plan, step Step) error {
 		if err != nil {
 			return err
 		}
+		// Validate the target Compose file and target config while both are still
+		// staged. This rejects interpolation and topology errors before any
+		// release-managed path, config.env, or VERSION is activated.
+		if err := e.validateStagedCompose(ctx, plan, prepared); err != nil {
+			return errors.Join(err, prepared.rollback())
+		}
+		if !plan.Setup {
+			if err := ensureTraefikDirectories(plan.Layout); err != nil {
+				return errors.Join(err, prepared.rollback())
+			}
+		}
 		// Existing installations from the previous release may still have the
 		// dynamic directory owned by the fixed worker UID. Run the target
 		// release's narrow init service against the staged Compose file before
@@ -347,7 +358,14 @@ func (e *Engine) RunStep(ctx context.Context, plan Plan, step Step) error {
 			if !ok {
 				return prepared.failCommit(errors.New("staged production Compose asset is missing"))
 			}
-			if err := e.runTraefikStateInit(ctx, plan, composePath, plan.Layout.Root); err != nil {
+			stageEnvFile := filepath.Join(prepared.assets.stageDir, "config.env")
+			if err := WritePrivateFile(stageEnvFile, string(prepared.newEnv)); err != nil {
+				return prepared.failCommit(fmt.Errorf("stage target configuration for Traefik state initialization: %w", err))
+			}
+			if err := e.runComposeFileWithEnv(ctx, plan, composePath, plan.Layout.Root, stageEnvFile,
+				"run", "--rm", "--no-deps",
+				"-e", fmt.Sprintf("STEALTH_TRAEFIK_HOST_UID=%d", os.Geteuid()),
+				"traefik-state-init"); err != nil {
 				return prepared.failCommit(err)
 			}
 		}
@@ -666,14 +684,21 @@ func (e *Engine) prepareInstallation(ctx context.Context, plan Plan) (*preparedI
 			originalValues[key] = value
 		}
 		installedVersion := strings.TrimSpace(plan.InstalledVersion)
-		if installedVersion == "" && prepared.originalVersionSet {
-			installedVersion = strings.TrimSpace(string(prepared.originalVersion))
-			if err := ValidateReleaseVersion(installedVersion); err != nil {
+		recordedVersion := strings.TrimSpace(string(prepared.originalVersion))
+		if prepared.originalVersionSet {
+			if err := ValidateReleaseVersion(recordedVersion); err != nil {
 				return nil, fmt.Errorf("existing VERSION is invalid: %w", err)
 			}
+			if installedVersion != "" && installedVersion != recordedVersion {
+				return nil, fmt.Errorf("installation version skew: plan reports %s but VERSION records %s", installedVersion, recordedVersion)
+			}
+			installedVersion = recordedVersion
 		}
 		if installedVersion == "" {
 			installedVersion = strings.TrimSpace(plan.Version)
+		}
+		if err := rejectReleaseDowngrade(plan.Version, installedVersion); err != nil {
+			return nil, err
 		}
 		migrated, err := MigrateReleaseConfig(values, plan.Version, installedVersion)
 		if err != nil {
@@ -748,12 +773,29 @@ func (e *Engine) prepareInstallation(ctx context.Context, plan Plan) (*preparedI
 		return nil, err
 	}
 	prepared.assets = assets
-	if !plan.Setup {
-		if err := ensureTraefikDirectories(plan.Layout); err != nil {
-			return nil, err
-		}
-	}
 	return prepared, nil
+}
+
+func (e *Engine) validateStagedCompose(ctx context.Context, plan Plan, prepared *preparedInstallation) error {
+	if prepared == nil || prepared.assets == nil {
+		return errors.New("prepared installation is incomplete")
+	}
+	composePath := "compose.production.yaml"
+	if plan.Setup {
+		composePath = "compose.setup.yaml"
+	}
+	stagedCompose, ok := prepared.assets.stagedAssetPath(composePath)
+	if !ok {
+		return fmt.Errorf("staged %s asset is missing", composePath)
+	}
+	stageEnvFile := filepath.Join(prepared.assets.stageDir, "config.env")
+	if err := WritePrivateFile(stageEnvFile, string(prepared.newEnv)); err != nil {
+		return fmt.Errorf("stage target configuration for Compose validation: %w", err)
+	}
+	if err := e.runComposeFileWithEnv(ctx, plan, stagedCompose, plan.Layout.Root, stageEnvFile, "config", "--quiet"); err != nil {
+		return fmt.Errorf("validate staged Compose configuration: %w", err)
+	}
+	return nil
 }
 
 func validateInstallRootBeforeCreation(root string) error {
@@ -1730,6 +1772,10 @@ func (e *Engine) runTraefikStateInit(ctx context.Context, plan Plan, composeFile
 }
 
 func (e *Engine) runComposeFile(ctx context.Context, plan Plan, composeFile, projectDirectory string, args ...string) error {
+	return e.runComposeFileWithEnv(ctx, plan, composeFile, projectDirectory, plan.Layout.EnvFile, args...)
+}
+
+func (e *Engine) runComposeFileWithEnv(ctx context.Context, plan Plan, composeFile, projectDirectory, envFile string, args ...string) error {
 	composeArgs := []string{"compose"}
 	if plan.Cloudflare {
 		composeArgs = append(composeArgs, "--profile", "cloudflare")
@@ -1740,7 +1786,10 @@ func (e *Engine) runComposeFile(ctx context.Context, plan Plan, composeFile, pro
 	if strings.TrimSpace(composeFile) == "" {
 		return errors.New("Compose file is required")
 	}
-	composeArgs = append(composeArgs, "--env-file", plan.Layout.EnvFile, "-f", composeFile)
+	if strings.TrimSpace(envFile) == "" {
+		return errors.New("Compose environment file is required")
+	}
+	composeArgs = append(composeArgs, "--env-file", envFile, "-f", composeFile)
 	composeArgs = append(composeArgs, args...)
 	if err := e.runner.Run(ctx, plan.Layout.Root, e.output, e.output, "docker", composeArgs...); err != nil {
 		return fmt.Errorf("docker compose %v failed: %w", args, err)

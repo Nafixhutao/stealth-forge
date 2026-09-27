@@ -321,6 +321,22 @@ func TestRunDoctorFailsForInvalidComposeBuildKitAndStorage(t *testing.T) {
 	}
 }
 
+func TestRunDoctorDetectsCLIPlatformVersionSkew(t *testing.T) {
+	layout, config := doctorFixture(t, false, nil)
+	runner := &doctorCommandRunner{statuses: healthyDoctorStatuses(t, config, false)}
+	app, server, output := doctorAppForTest(t, layout, runner)
+	defer server.Close()
+	app.currentVersion = func() string { return "v1.2.2" }
+	if code := app.runDoctorCommand(nil); code != 1 {
+		t.Fatalf("runDoctorCommand() = %d, want failure on CLI/platform skew; output=%s", code, output.String())
+	}
+	for _, want := range []string{"CLI/platform release", "CLI is v1.2.2 and platform is v1.2.3", "stealth update"} {
+		if !strings.Contains(output.String(), want) {
+			t.Errorf("doctor output %q misses %q", output.String(), want)
+		}
+	}
+}
+
 func TestRunDoctorSetupModeSkipsBuildKitAndAppRuntime(t *testing.T) {
 	layout, config := doctorFixture(t, true, nil)
 	runner := &doctorCommandRunner{statuses: healthyDoctorStatuses(t, config, true)}

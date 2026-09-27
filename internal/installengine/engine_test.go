@@ -300,11 +300,20 @@ func TestRunStepSetupUsesSetupComposeAndOnlySetupServices(t *testing.T) {
 		}
 	}
 	calls := runner.snapshot()
-	if len(calls) != 5 {
-		t.Fatalf("recorded calls = %#v, want 5", calls)
+	if len(calls) != 6 {
+		t.Fatalf("recorded calls = %#v, want 6 including staged and activated Compose validation", calls)
 	}
-	for _, call := range calls {
-		if call.name != "docker" || !containsPair(call.args, "-f", layout.SetupComposeFile) {
+	for index, call := range calls {
+		composeFile := layout.SetupComposeFile
+		if index == 0 {
+			composeFile = composeFileArgument(call.args)
+			if !strings.HasPrefix(composeFile, filepath.Join(layout.StateDir, ".stealth-managed-assets-")) {
+				t.Fatalf("staged setup Compose path = %q", composeFile)
+			}
+		} else if index == 1 && !equalArgs(call.args[len(call.args)-2:], []string{"config", "--quiet"}) {
+			t.Fatalf("activated setup Compose validation command = %#v", call)
+		}
+		if call.name != "docker" || !containsPair(call.args, "-f", composeFile) {
 			t.Fatalf("setup call = %#v, want setup Compose file", call)
 		}
 		if contains(call.args, "worker") {
@@ -312,9 +321,9 @@ func TestRunStepSetupUsesSetupComposeAndOnlySetupServices(t *testing.T) {
 		}
 	}
 	if !equalArgs(calls[0].args[len(calls[0].args)-2:], []string{"config", "--quiet"}) {
-		t.Fatalf("setup Compose validation command = %#v", calls[0])
+		t.Fatalf("staged setup Compose validation command = %#v", calls[0])
 	}
-	if got := calls[4].args; !equalArgs(got[len(got)-3:], []string{"setup", "setup-console", "setup-proxy"}) {
+	if got := calls[5].args; !equalArgs(got[len(got)-3:], []string{"setup", "setup-console", "setup-proxy"}) {
 		t.Fatalf("setup services = %#v", got)
 	}
 }
@@ -331,14 +340,17 @@ func TestExistingConfigurationInitializesTraefikStateBeforeAssetActivation(t *te
 		t.Fatal(err)
 	}
 	calls := runner.snapshot()
-	if len(calls) != 3 {
-		t.Fatalf("recorded calls = %#v, want network probe, staged state init, and Compose validation", calls)
+	if len(calls) != 4 {
+		t.Fatalf("recorded calls = %#v, want network probe, staged validation, staged state init, and activated validation", calls)
 	}
-	if !contains(calls[1].args, "traefik-state-init") || !contains(calls[1].args, "--project-directory") {
-		t.Fatalf("pre-activation state init command = %#v", calls[1])
+	if !equalArgs(calls[1].args[len(calls[1].args)-2:], []string{"config", "--quiet"}) || !contains(calls[1].args, "--project-directory") {
+		t.Fatalf("pre-activation staged Compose validation = %#v", calls[1])
 	}
-	if !equalArgs(calls[2].args[len(calls[2].args)-2:], []string{"config", "--quiet"}) {
-		t.Fatalf("configuration validation command = %#v", calls[2])
+	if !contains(calls[2].args, "traefik-state-init") || !contains(calls[2].args, "--project-directory") || !containsPair(calls[2].args, "--env-file", filepath.Join(layout.StateDir, filepath.Base(filepath.Dir(composeFileArgument(calls[2].args))), "config.env")) {
+		t.Fatalf("pre-activation state init command = %#v", calls[2])
+	}
+	if !equalArgs(calls[3].args[len(calls[3].args)-2:], []string{"config", "--quiet"}) {
+		t.Fatalf("activated configuration validation command = %#v", calls[3])
 	}
 	values, err := ReadEnvFile(layout.EnvFile)
 	if err != nil {
@@ -1221,10 +1233,17 @@ func TestPrepareRejectsManagedAssetChecksumMismatchBeforeCommit(t *testing.T) {
 	}
 }
 
-type configFailureRunner struct{}
+type configFailureRunner struct {
+	inspectStaged func([]string) error
+}
 
-func (configFailureRunner) Run(_ context.Context, _ string, _, _ io.Writer, _ string, args ...string) error {
+func (r configFailureRunner) Run(_ context.Context, _ string, _, _ io.Writer, _ string, args ...string) error {
 	if contains(args, "config") {
+		if r.inspectStaged != nil {
+			if err := r.inspectStaged(args); err != nil {
+				return err
+			}
+		}
 		return errors.New("compose config rejected target asset")
 	}
 	return nil
@@ -1249,10 +1268,54 @@ func TestRunStepConfigurationRollsBackWhenComposeValidationFails(t *testing.T) {
 	}
 	assetServer := newEngineAssetServer(t, "v1.2.3")
 	defer assetServer.Close()
-	engine := New(Options{Runner: configFailureRunner{}, AssetBaseURL: assetServer.URL})
+	oldEnv = append(oldEnv, []byte("OPERATOR_SECRET_MARKER=preactivation-secret-sentinel\n")...)
+	if err := WritePrivateFile(layout.EnvFile, string(oldEnv)); err != nil {
+		t.Fatal(err)
+	}
+	oldEnv, err = os.ReadFile(layout.EnvFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	observedStagedConfig := false
+	runner := configFailureRunner{inspectStaged: func(args []string) error {
+		observedStagedConfig = true
+		composePath := composeFileArgument(args)
+		envPath := composeEnvArgument(args)
+		if !strings.HasPrefix(composePath, filepath.Join(layout.StateDir, ".stealth-managed-assets-")) || composePath == layout.ComposeFile {
+			return fmt.Errorf("Compose validation did not use the staged file")
+		}
+		if !strings.HasPrefix(envPath, filepath.Join(layout.StateDir, ".stealth-managed-assets-")) || envPath == layout.EnvFile {
+			return fmt.Errorf("Compose validation did not use staged config.env")
+		}
+		info, statErr := os.Stat(envPath)
+		if statErr != nil || info.Mode().Perm() != 0o600 {
+			return fmt.Errorf("staged config.env is not private: %v", statErr)
+		}
+		stagedEnv, readErr := os.ReadFile(envPath)
+		if readErr != nil || !bytes.Contains(stagedEnv, []byte("OPERATOR_SECRET_MARKER=preactivation-secret-sentinel")) {
+			return fmt.Errorf("staged config.env did not preserve operator values")
+		}
+		if _, journalErr := os.Stat(filepath.Join(layout.StateDir, managedAssetPendingFile)); !errors.Is(journalErr, os.ErrNotExist) {
+			return fmt.Errorf("Compose validation ran after journal activation: %v", journalErr)
+		}
+		if got, readErr := os.ReadFile(layout.ComposeFile); readErr != nil || !bytes.Equal(got, oldCompose) {
+			return fmt.Errorf("active Compose changed before validation: %v", readErr)
+		}
+		if got, readErr := os.ReadFile(layout.EnvFile); readErr != nil || !bytes.Equal(got, oldEnv) {
+			return fmt.Errorf("active config.env changed before validation: %v", readErr)
+		}
+		if got, readErr := os.ReadFile(layout.VersionFile); readErr != nil || string(got) != "v1.2.2\n" {
+			return fmt.Errorf("active VERSION changed before validation: %v", readErr)
+		}
+		return nil
+	}}
+	engine := New(Options{Runner: runner, AssetBaseURL: assetServer.URL})
 	err = engine.RunStep(context.Background(), Plan{Layout: layout, Version: "v1.2.3", InstalledVersion: "v1.2.2", DockerGID: uint32(os.Getgid()), Existing: true}, StepConfiguration)
 	if err == nil || !strings.Contains(err.Error(), "compose config rejected") {
 		t.Fatalf("Compose validation error = %v", err)
+	}
+	if !observedStagedConfig {
+		t.Fatal("staged Compose validation was not run")
 	}
 	if got, readErr := os.ReadFile(layout.ComposeFile); readErr != nil || !bytes.Equal(got, oldCompose) {
 		t.Fatalf("Compose rollback = %q, %v", got, readErr)
@@ -1265,6 +1328,79 @@ func TestRunStepConfigurationRollsBackWhenComposeValidationFails(t *testing.T) {
 	}
 	if _, statErr := os.Stat(filepath.Join(layout.StateDir, "managed-assets.previous")); !errors.Is(statErr, os.ErrNotExist) {
 		t.Fatalf("rollback left recovery backup: %v", statErr)
+	}
+	if _, statErr := os.Stat(filepath.Join(layout.StateDir, managedAssetPendingFile)); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("staged validation failure left a pending transaction: %v", statErr)
+	}
+}
+
+func TestRunStepConfigurationRefusesReleaseDowngradeAndVersionSkew(t *testing.T) {
+	for _, test := range []struct {
+		name             string
+		targetVersion    string
+		installedVersion string
+		wantError        string
+	}{
+		{name: "downgrade", targetVersion: "v1.2.2", installedVersion: "v1.2.3", wantError: "refusing platform downgrade"},
+		{name: "version skew", targetVersion: "v1.2.4", installedVersion: "v1.2.2", wantError: "installation version skew"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			layout := writeEngineFixture(t, false)
+			if err := WriteAtomic(layout.VersionFile, []byte("v1.2.3\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			oldCompose, err := os.ReadFile(layout.ComposeFile)
+			if err != nil {
+				t.Fatal(err)
+			}
+			oldEnv, err := os.ReadFile(layout.EnvFile)
+			if err != nil {
+				t.Fatal(err)
+			}
+			requests := 0
+			assetServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				requests++
+				w.WriteHeader(http.StatusNotFound)
+			}))
+			defer assetServer.Close()
+			engine := New(Options{Runner: &fakeRunner{}, AssetBaseURL: assetServer.URL})
+			err = engine.RunStep(context.Background(), Plan{
+				Layout: layout, Version: test.targetVersion, InstalledVersion: test.installedVersion,
+				DockerGID: uint32(os.Getgid()), Existing: true,
+			}, StepConfiguration)
+			if err == nil || !strings.Contains(err.Error(), test.wantError) {
+				t.Fatalf("RunStep() error = %v, want %q", err, test.wantError)
+			}
+			if requests != 0 {
+				t.Fatalf("release assets were requested %d times before version compatibility was checked", requests)
+			}
+			if got, readErr := os.ReadFile(layout.ComposeFile); readErr != nil || !bytes.Equal(got, oldCompose) {
+				t.Fatalf("refused migration changed Compose: %q, %v", got, readErr)
+			}
+			if got, readErr := os.ReadFile(layout.EnvFile); readErr != nil || !bytes.Equal(got, oldEnv) {
+				t.Fatalf("refused migration changed config.env: %q, %v", got, readErr)
+			}
+			if got, readErr := os.ReadFile(layout.VersionFile); readErr != nil || string(got) != "v1.2.3\n" {
+				t.Fatalf("refused migration changed VERSION: %q, %v", got, readErr)
+			}
+		})
+	}
+}
+
+func TestReleaseVersionOrderingRecognizesRCAndLargeNumericParts(t *testing.T) {
+	for _, test := range []struct {
+		left, right string
+		want        int
+	}{
+		{left: "v1.2.3-rc.2", right: "v1.2.3-rc.10", want: -1},
+		{left: "v1.2.3-rc.10", right: "v1.2.3", want: -1},
+		{left: "v1.2.3", right: "v1.2.2-rc.99", want: 1},
+		{left: "v999999999999999999999999.0.0", right: "v999999999999999999999998.99.99", want: 1},
+	} {
+		comparison, err := compareReleaseVersionOrder(test.left, test.right)
+		if err != nil || comparison != test.want {
+			t.Errorf("compareReleaseVersionOrder(%q, %q) = %d, %v; want %d", test.left, test.right, comparison, err, test.want)
+		}
 	}
 }
 
@@ -1535,6 +1671,24 @@ func containsPair(values []string, first, second string) bool {
 		}
 	}
 	return false
+}
+
+func composeFileArgument(args []string) string {
+	for index := 0; index+1 < len(args); index++ {
+		if args[index] == "-f" {
+			return args[index+1]
+		}
+	}
+	return ""
+}
+
+func composeEnvArgument(args []string) string {
+	for index := 0; index+1 < len(args); index++ {
+		if args[index] == "--env-file" {
+			return args[index+1]
+		}
+	}
+	return ""
 }
 
 func equalArgs(left, right []string) bool {

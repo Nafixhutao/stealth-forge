@@ -32,12 +32,14 @@ For releases containing the coordinated updater, the running CLI downloads,
 checksum-verifies, extracts, and version-verifies the target binary first. It
 then invokes that verified target binary in a narrow internal host-only
 migration mode. The target binary owns the target release's managed-asset
-manifest, acquires `install.lock`, migrates the installation, validates Compose,
-pulls target images, runs the existing database/telemetry state initialization
-and migrations, recreates production services, and performs the normal health
-checks. Only after that succeeds does the original CLI atomically replace its
-own executable. On a host without an installation it remains a CLI-only
-self-update.
+manifest, acquires `install.lock`, validates the staged Compose file against
+the staged `config.env`, then activates the coordinated platform files. It
+revalidates the active Compose configuration before pulling target images,
+runs the existing database/telemetry state initialization and migrations,
+recreates production services in a deterministic order, and performs the
+normal health checks. Only after that succeeds does the original CLI atomically
+replace its own executable. On a host without an installation it remains a
+CLI-only self-update.
 
 ### Transition from v0.2.5
 
@@ -87,6 +89,8 @@ or damaged runtime asset.
 The host CLI treats these repository-controlled files as release-managed:
 
 - `compose.production.yaml` and `compose.setup.yaml` when setup assets are present;
+- `buildkit/buildkitd.toml` and the managed BuildKit AppArmor profile;
+- `traefik/traefik.yaml`, `traefik/dynamic/core.yaml`, and the managed route placeholder;
 - `telemetry/otel-collector.yaml`, `telemetry/host-metrics.yaml`,
   `telemetry/docker-logs.yaml`, and `telemetry/docker-stats.yaml`;
 - `console/deploy/nginx.conf`.
@@ -113,7 +117,18 @@ is preserved; a missing setting uses the production Compose default. These
 settings add no database migration and do not change persisted App OCI
 artifacts or quota.
 
-Compose configuration is validated before image pulls or service recreation.
+The automatic update path accepts stable releases only and verifies both the
+release archive checksum and the extracted CLI version before target migration.
+The installed `VERSION` must agree with the migration plan; an older target is
+refused as a platform downgrade. `stealth doctor` reports a CLI/platform
+release mismatch and recommends `stealth update` when the CLI was left behind.
+
+Compose configuration is first validated from the staged target Compose file
+and private staged `config.env`, before release-managed files are activated.
+After activation, Compose is validated again before image pulls or service
+recreation; that second validation is the journal's durable forward-recovery
+point. The stage and config files are private and are removed on success or
+recovery.
 The migration journal is durable through these states: `PREPARED`,
 `BACKED_UP`, `ASSETS_ACTIVATED`, `CONFIG_ACTIVATED`, `VERSION_ACTIVATED`,
 `COMPOSE_VALIDATED`, and `FINALIZED`. Before `COMPOSE_VALIDATED`, a later
@@ -128,7 +143,11 @@ If target assets cannot be downloaded/validated, or Compose rejects them, the
 active files, `config.env`, and `VERSION` remain at the previous release. A
 later service or migration failure leaves a coherent prepared asset set and can
 be retried with `stealth install --repair`; this process does not promise
-zero-downtime upgrades or automatic database rollback. If target platform
+zero-downtime upgrades or automatic database rollback. The supported legacy
+bridge begins at `v0.2.5`; use the bridge procedure above, then upgrade through
+coordinated releases. Database migrations are forward migrations. A binary or
+image downgrade is not a database rollback: use a compatible backup restore
+when the previous release cannot read the current schema. If target platform
 migration succeeds but the final CLI executable replacement fails, the stack
 is already at the target coordinated release while the old CLI remains. The
 command reports that bounded skew explicitly; rerun `stealth update` to
