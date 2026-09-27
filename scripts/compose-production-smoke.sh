@@ -1652,6 +1652,44 @@ wait_for_app_runtime() {
 	return 1
 }
 
+wait_for_app_runtime_generation() {
+	local expected_generation="$1" expected_deployment="$2" expected_spec_sha="$3"
+	local app_id="${4:-$platform_app_id}" status desired observed deployment spec runtime_error
+	for attempt in $(seq 1 "${APP_RUNTIME_SMOKE_ATTEMPTS:-90}"); do
+		if fetch_app_runtime "$app_id"; then
+			status="$(platform_json_field "$platform_response" app.runtime_status)"
+			desired="$(platform_json_field "$platform_response" app.desired_generation)"
+			observed="$(platform_json_field "$platform_response" app.observed_generation)"
+			deployment="$(platform_json_field "$platform_response" app.desired_deployment_id)"
+			spec="$(platform_json_field "$platform_response" app.workload_spec_sha256)"
+			if [ "$status" = 'running' ] && [ "$desired" = "$expected_generation" ] &&
+				[ "$observed" = "$expected_generation" ] && [ "$deployment" = "$expected_deployment" ] &&
+				[ "$spec" = "$expected_spec_sha" ]; then
+				return 0
+			fi
+			if [ "$status" = 'failed' ] || [ "$status" = 'degraded' ]; then
+				runtime_error="$(platform_json_field "$platform_response" app.runtime_error)"
+				printf 'App runtime entered %s while waiting for generation=%s deployment=%s spec=%s: %s\n' \
+					"$status" "$expected_generation" "$expected_deployment" "$expected_spec_sha" "$runtime_error" >&2
+				print_app_runtime_diagnostics "$app_id"
+				return 1
+			fi
+		fi
+		if [ "$attempt" = "${APP_RUNTIME_SMOKE_ATTEMPTS:-90}" ]; then
+			printf 'App runtime target did not converge: status=%s desired=%s observed=%s deployment=%s spec=%s expected_generation=%s expected_deployment=%s expected_spec=%s\n' \
+				"$(platform_json_field "$platform_response" app.runtime_status)" \
+				"$(platform_json_field "$platform_response" app.desired_generation)" \
+				"$(platform_json_field "$platform_response" app.observed_generation)" \
+				"$(platform_json_field "$platform_response" app.desired_deployment_id)" \
+				"$(platform_json_field "$platform_response" app.workload_spec_sha256)" \
+				"$expected_generation" "$expected_deployment" "$expected_spec_sha" >&2
+			return 1
+		fi
+		sleep "${SMOKE_INTERVAL_SECONDS:-2}"
+	done
+	return 1
+}
+
 wait_for_app_health_state() {
 	local wanted_health="$1" wanted_route="$2" app_id="${3:-$platform_app_id}" allow_transient_degraded="${4:-false}" health route runtime desired observed
 	for attempt in $(seq 1 "${APP_RUNTIME_SMOKE_ATTEMPTS:-90}"); do
@@ -3454,7 +3492,7 @@ verify_app_runtime_soak() {
 			printf 'App soak transition did not advance desired generation exactly once: before=%s after=%s deployment=%s\n' "$generation" "$new_generation" "$deployment" >&2
 			return 1
 		fi
-		wait_for_app_runtime running
+		wait_for_app_runtime_generation "$new_generation" "$deployment" "$spec_sha"
 		fetch_app_runtime
 		if [ "$(platform_json_field "$platform_response" app.desired_generation)" != "$new_generation" ] ||
 			[ "$(platform_json_field "$platform_response" app.observed_generation)" != "$new_generation" ] ||
