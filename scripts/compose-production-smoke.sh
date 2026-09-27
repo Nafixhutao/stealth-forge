@@ -1813,6 +1813,42 @@ app_runtime_log_counts() {
 	printf '%s %s\n' "$stdout_count" "$stderr_count"
 }
 
+diagnose_app_runtime_log_marker_ingestion() {
+	local marker="$1" container_id="$2" source_count query ch_counts
+	if [[ ! "$marker" =~ ^[-A-Za-z0-9_.]+$ ]] || [[ ! "$container_id" =~ ^[0-9a-f]{12,64}$ ]]; then
+		printf '%s\n' 'App runtime log ingestion diagnostics skipped because the marker or container ID was invalid' >&2
+		return 0
+	fi
+	if source_count="$(
+		"${compose[@]}" exec -T postgres sh -ec \
+			'container_id="$1"; case "$container_id" in *[!0-9a-f]*|"") exit 2;; esac; psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --set ON_ERROR_STOP=1 --tuples-only --no-align --command "SELECT count(*) FROM app_runtime_log_sources WHERE container_id = '\''$container_id'\''"' \
+			sh "$container_id" 2>/dev/null
+	)"; then
+		printf 'App runtime log source registration rows for the current container: %s\n' "$source_count" >&2
+	else
+		printf '%s\n' 'App runtime log source registration count could not be queried' >&2
+	fi
+	query="
+		SELECT
+			countIf(ResourceAttributes['container.id'] = '${container_id}' AND positionCaseInsensitiveUTF8(Body, 'STEALTH_APP_RUNTIME_LOG_STDOUT_${marker}_') > 0),
+			countIf(ResourceAttributes['container.id'] = '${container_id}' AND positionCaseInsensitiveUTF8(Body, 'STEALTH_APP_RUNTIME_LOG_STDERR_${marker}_') > 0),
+			countIf(ResourceAttributes['container.id'] = '${container_id}' AND positionCaseInsensitiveUTF8(Body, 'STEALTH_APP_RUNTIME_LOG_STDOUT_${marker}_') > 0 AND LogAttributes['stealth.log.event_id'] != ''),
+			countIf(ResourceAttributes['container.id'] = '${container_id}' AND positionCaseInsensitiveUTF8(Body, 'STEALTH_APP_RUNTIME_LOG_STDERR_${marker}_') > 0 AND LogAttributes['stealth.log.event_id'] != ''),
+			countIf(positionCaseInsensitiveUTF8(Body, 'STEALTH_APP_RUNTIME_LOG_STDOUT_${marker}_') > 0),
+			countIf(positionCaseInsensitiveUTF8(Body, 'STEALTH_APP_RUNTIME_LOG_STDERR_${marker}_') > 0),
+			countIf(positionCaseInsensitiveUTF8(Body, 'STEALTH_APP_RUNTIME_LOG_STDOUT_${marker}_') > 0 AND LogAttributes['stealth.log.event_id'] != ''),
+			countIf(positionCaseInsensitiveUTF8(Body, 'STEALTH_APP_RUNTIME_LOG_STDERR_${marker}_') > 0 AND LogAttributes['stealth.log.event_id'] != '')
+		FROM otel_logs
+		WHERE Timestamp >= now() - INTERVAL 30 MINUTE
+			AND positionCaseInsensitiveUTF8(Body, 'STEALTH_APP_RUNTIME_LOG_') > 0
+		FORMAT TabSeparated"
+	if ch_counts="$(clickhouse_query "$query" 2>/dev/null)"; then
+		printf 'ClickHouse App marker rows (container stdout/stderr, container rows with event IDs, all-container stdout/stderr, all-container rows with event IDs): %s\n' "$ch_counts" >&2
+	else
+		printf '%s\n' 'ClickHouse App marker row counts could not be queried' >&2
+	fi
+}
+
 wait_for_app_runtime_log_markers() {
 	local marker="$1" minimum="$2" container_id="${3:-}" cursor="${4:-}" stdout_count stderr_count
 	for attempt in $(seq 1 "${APP_RUNTIME_SMOKE_ATTEMPTS:-90}"); do
@@ -1826,12 +1862,14 @@ wait_for_app_runtime_log_markers() {
 			printf 'App runtime logs API did not return %s stdout and stderr marker(s) for %s: stdout=%s stderr=%s\n' \
 				"$minimum" "$marker" "${stdout_count:-0}" "${stderr_count:-0}" >&2
 			if [ -n "$container_id" ]; then
-				local docker_log_output docker_stdout_count docker_stderr_count
-				docker_log_output="$(docker logs --tail=100 "$container_id" 2>/dev/null || true)"
-				docker_stdout_count="$(printf '%s\n' "$docker_log_output" | grep -F -c -- "STEALTH_APP_RUNTIME_LOG_STDOUT_${marker}_" || true)"
-				docker_stderr_count="$(printf '%s\n' "$docker_log_output" | grep -F -c -- "STEALTH_APP_RUNTIME_LOG_STDERR_${marker}_" || true)"
+				local docker_stdout_output docker_stderr_output docker_stdout_count docker_stderr_count
+				docker_stdout_output="$(docker logs --tail=100 "$container_id" 2>/dev/null || true)"
+				docker_stderr_output="$(docker logs --tail=100 "$container_id" 2>&1 >/dev/null || true)"
+				docker_stdout_count="$(printf '%s\n' "$docker_stdout_output" | grep -F -c -- "STEALTH_APP_RUNTIME_LOG_STDOUT_${marker}_" || true)"
+				docker_stderr_count="$(printf '%s\n' "$docker_stderr_output" | grep -F -c -- "STEALTH_APP_RUNTIME_LOG_STDERR_${marker}_" || true)"
 				printf 'Direct Docker log marker counts for the current App container: stdout=%s stderr=%s\n' \
 					"${docker_stdout_count:-0}" "${docker_stderr_count:-0}" >&2
+				diagnose_app_runtime_log_marker_ingestion "$marker" "$container_id"
 			fi
 			return 1
 		fi
