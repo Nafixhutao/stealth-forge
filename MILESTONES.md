@@ -302,11 +302,29 @@ repository owner confirmation in chat on 2026-09-26.
 
 ### [ ] ▶ CURRENT A8. Apps Production Acceptance
 
-- [ ] Clean install and real App deploy/update.
-- [ ] Variable/secret update, crash, same-container restart, and recreation.
-- [ ] Worker, Collector, and host reboot recovery.
-- [ ] Routing recovery, retained logs, and rollback.
-- [ ] Disk pressure and long-running soak.
+#### Acceptance implementation
+
+- [x] Production Compose coverage exercises distinct v1/v2 responses, variable
+  and secret rotation, cache eviction with persisted OCI re-import, rollback,
+  runtime limits, crash/recreation recovery, diagnostics, and retained logs
+  (`2e3d12e`).
+- [x] Recovery coverage includes API, Console, Nginx, Traefik, App worker,
+  Collector, and telemetry restarts; the bounded 10-minute soak runs in the
+  smoke and release workflows (`292e46d`).
+- [x] A dedicated clean-host reboot workflow verifies changed kernel boot ID,
+  persisted App state/artifact, current secret, route health, and retained logs
+  (`92989d2`, hardened in `b49c32e`).
+
+#### Acceptance evidence still required
+
+- [ ] Final-head required CI and Production Compose Smoke pass.
+- [ ] Clean-host installation and full App acceptance pass on a supported Linux
+  VM.
+- [ ] Real host reboot workflow passes on the final head. Configure the
+  `apps-host-reboot` environment with a disposable VM's SSH host, user, private
+  key, and pinned known-hosts entries first.
+- [ ] Independent audit passes, PR is merged, and post-merge `main` CI is
+  green.
 
 Completion of A8 means the Apps Production Runtime phase is complete.
 

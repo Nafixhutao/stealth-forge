@@ -9,7 +9,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: apps-host-reboot-${{ github.event.pull_request.number || github.ref }}
+  # This environment uses one disposable acceptance VM, so serialize all runs.
+  group: apps-host-reboot
   cancel-in-progress: false
 
 jobs:
