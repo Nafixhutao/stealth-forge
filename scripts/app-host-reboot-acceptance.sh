@@ -65,6 +65,26 @@ cleanup_acceptance_resources() {
 	[ -z "$result_file" ] || rm -f -- "$result_file"
 }
 
+restore_buildkit_for_host_reboot() {
+	local container status
+	"${compose[@]}" start buildkit >/dev/null
+	container="$("${compose[@]}" ps -q buildkit 2>/dev/null || true)"
+	if [ -z "$container" ]; then
+		printf '%s\n' 'BuildKit container is missing after the App OCI reimport smoke' >&2
+		return 1
+	fi
+	for attempt in $(seq 1 60); do
+		status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container" 2>/dev/null || true)"
+		if [ "$status" = healthy ]; then
+			printf '%s\n' 'BuildKit was restored and healthy before the host reboot baseline'
+			return 0
+		fi
+		sleep 5
+	done
+	printf 'BuildKit did not become healthy before the host reboot baseline: status=%s\n' "${status:-unknown}" >&2
+	return 1
+}
+
 case "$action" in
 	prepare)
 		if [ -z "$state_file" ] || [[ "$state_file" != /* ]]; then
@@ -76,6 +96,7 @@ case "$action" in
 		APP_RUNTIME_SOAK_SECONDS="${APP_RUNTIME_SOAK_SECONDS:-0}" \
 		SMOKE_REMOVE_VOLUMES=false ENV_FILE="$env_file" COMPOSE_FILE="$compose_file" \
 		"$repo_root/scripts/compose-production-smoke.sh"
+		restore_buildkit_for_host_reboot
 		printf 'Reboot baseline prepared at %s. Reboot the host, then run verify.\n' "$state_file"
 		;;
 	verify|cleanup)

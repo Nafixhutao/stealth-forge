@@ -250,6 +250,7 @@ type runtimeTestDriver struct {
 	startResetCalls    int
 	startedContainer   string
 	renameCalls        int
+	renameErr          error
 	renamedFrom        string
 	renamedTo          string
 	removeCalls        int
@@ -328,6 +329,12 @@ func (r *runtimeTestDriver) RenameApp(_ context.Context, job repository.AppRunti
 	r.renamedTo = targetName
 	if !r.found || r.container.ID != containerID {
 		return Container{}, ErrRuntimeOwnershipConflict
+	}
+	if r.renameErr != nil {
+		if r.onRename != nil {
+			r.onRename()
+		}
+		return Container{}, r.renameErr
 	}
 	r.container.Name = "/" + targetName
 	if r.onRename != nil {
@@ -586,6 +593,49 @@ func TestWorkerResetsHealthBeforeRestartingSameContainer(t *testing.T) {
 	}
 	if store.completeCalls != 1 || store.completeStatus != "running" || store.completed == nil || store.completed.ID != containerID {
 		t.Fatalf("same-container restart did not complete current runtime: status=%q container=%+v calls=%d", store.completeStatus, store.completed, store.completeCalls)
+	}
+}
+
+func TestWorkerRecreatesExitedContainerRemovedDuringRename(t *testing.T) {
+	worker, store, driver, job, _ := newRuntimeWorkerFixture(t, false)
+	containerID := strings.Repeat("a", 64)
+	driver.container = runtimeTestContainer(job, driver.image, false, containerID)
+	driver.found = true
+	driver.renameErr = ErrDockerObjectNotFound
+	driver.onRename = func() {
+		driver.found = false
+		driver.container = Container{}
+	}
+
+	if err := worker.processApp(context.Background(), job); err != nil {
+		t.Fatal(err)
+	}
+	if store.failureCalls != 0 || store.completeCalls != 1 || store.completeStatus != "running" {
+		t.Fatalf("disappeared container did not converge: failures=%d completed=%d status=%q", store.failureCalls, store.completeCalls, store.completeStatus)
+	}
+	if store.resetCalls != 1 || store.resetIdentity == uuid.Nil || store.createIdentity != uuid.Nil || driver.createJob.RouteIdentity != store.resetIdentity {
+		t.Fatalf("replacement did not reuse its durable restart route identity: resets=%d resetIdentity=%s createIdentity=%s createRoute=%s", store.resetCalls, store.resetIdentity, store.createIdentity, driver.createJob.RouteIdentity)
+	}
+	if driver.renameCalls != 1 || driver.createCalls != 1 || driver.startCalls != 1 || driver.removeCalls != 0 || driver.startedContainer != driver.container.ID || driver.startResetCalls != 1 {
+		t.Fatalf("disappeared container recovery used unexpected runtime operations: rename/create/start/remove=%d/%d/%d/%d started=%q current=%q reset-before-start=%d", driver.renameCalls, driver.createCalls, driver.startCalls, driver.removeCalls, driver.startedContainer, driver.container.ID, driver.startResetCalls)
+	}
+}
+
+func TestWorkerKeepsRenameRaceFailClosedWhenAnotherAppContainerExists(t *testing.T) {
+	worker, store, driver, job, _ := newRuntimeWorkerFixture(t, false)
+	containerID := strings.Repeat("a", 64)
+	driver.container = runtimeTestContainer(job, driver.image, false, containerID)
+	driver.found = true
+	driver.renameErr = ErrDockerObjectNotFound
+	driver.onRename = func() {
+		driver.container = runtimeTestContainer(job, driver.image, false, strings.Repeat("c", 64))
+	}
+
+	if err := worker.processApp(context.Background(), job); err != nil {
+		t.Fatal(err)
+	}
+	if store.failureCalls != 1 || store.failureStatus != "failed" || store.failureMessage != "container ownership conflict" || driver.createCalls != 0 || driver.startCalls != 0 || store.completeCalls != 0 {
+		t.Fatalf("rename race did not preserve ownership fail-closed behavior: failure=%d/%s/%q create/start/complete=%d/%d/%d", store.failureCalls, store.failureStatus, store.failureMessage, driver.createCalls, driver.startCalls, store.completeCalls)
 	}
 }
 

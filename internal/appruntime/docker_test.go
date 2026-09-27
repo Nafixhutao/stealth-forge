@@ -744,6 +744,19 @@ func TestMobyRenameRotatesManagedContainerDNSIdentity(t *testing.T) {
 	}
 }
 
+func TestMobyRenameReportsMissingContainerAsDockerNotFound(t *testing.T) {
+	job := runtimeTestJob()
+	containerID := strings.Repeat("a", 64)
+	runner := &scriptedRuntimeRunner{errors: []error{&CommandFailure{ExitCode: 1, Stderr: "Error: No such container: " + containerID}}}
+	moby, err := NewMoby(runner, "stealth_app_runtime", 30*time.Second, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := moby.RenameApp(context.Background(), job, containerID, job.ContainerName); !errors.Is(err, ErrDockerObjectNotFound) || errors.Is(err, ErrRuntimeOwnershipConflict) {
+		t.Fatalf("RenameApp() = %v, want a distinct Docker not-found result", err)
+	}
+}
+
 func TestContainerMatchesDesiredRejectsPrivilegeAndDrift(t *testing.T) {
 	job := runtimeTestJob()
 	image := Image{

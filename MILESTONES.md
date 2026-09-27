@@ -321,12 +321,12 @@ repository owner confirmation in chat on 2026-09-26.
 
 #### Acceptance evidence still required
 
-- [x] Final-head required CI and Production Compose Smoke pass.
+- [ ] Final-head required CI and Production Compose Smoke pass.
 - [ ] Clean-host installation and full App acceptance pass on a supported Linux
   VM.
-- [ ] Real host reboot workflow passes on the final head. Configure the
-  `apps-host-reboot` environment with a disposable VM's SSH host, user, private
-  key, and pinned known-hosts entries first.
+- [ ] Real host reboot workflow passes on the final head. It defaults to a
+  checksum-verified ephemeral QEMU VM; configure SSH secrets only when selecting
+  SSH host mode.
 - [ ] Independent audit passes, PR is merged, and post-merge `main` CI is
   green.
 

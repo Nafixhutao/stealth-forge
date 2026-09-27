@@ -21,25 +21,31 @@ func (m *Moby) RenameApp(ctx context.Context, job repository.AppRuntimeJob, cont
 		return Container{}, ErrRuntimeOwnershipConflict
 	}
 	container, found, err := m.inspectContainer(ctx, containerID)
-	if err != nil || !found {
-		if err != nil {
-			return Container{}, err
-		}
-		return Container{}, ErrRuntimeOwnershipConflict
+	if err != nil {
+		return Container{}, err
+	}
+	if !found {
+		return Container{}, ErrDockerObjectNotFound
 	}
 	if container.ID != containerID || !managedForApp(container, appID, projectID) || !repository.ValidAppRuntimeContainerName(appID, targetName) {
 		return Container{}, ErrRuntimeOwnershipConflict
 	}
 	if strings.TrimPrefix(container.Name, "/") != targetName {
 		if _, err := m.runAction(ctx, []string{"container", "rename", container.ID, targetName}, nil); err != nil {
+			if errors.Is(err, ErrDockerObjectNotFound) {
+				return Container{}, ErrDockerObjectNotFound
+			}
 			return Container{}, errors.Join(ErrRuntimeOwnershipConflict, err)
 		}
 	}
 	renamed, found, err := m.inspectContainer(ctx, containerID)
-	if err != nil || !found || renamed.ID != containerID || renamed.Name != "/"+targetName || !managedForApp(renamed, appID, projectID) {
-		if err != nil {
-			return Container{}, err
-		}
+	if err != nil {
+		return Container{}, err
+	}
+	if !found {
+		return Container{}, ErrDockerObjectNotFound
+	}
+	if renamed.ID != containerID || renamed.Name != "/"+targetName || !managedForApp(renamed, appID, projectID) {
 		return Container{}, ErrRuntimeOwnershipConflict
 	}
 	return renamed, nil
