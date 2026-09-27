@@ -2927,7 +2927,7 @@ wait_for_app_deployment_ready() {
 }
 
 verify_app_runtime_lifecycle() {
-	local status old_container old_image_id new_container new_image_id generation observed selected spec_sha peer_container
+	local status old_container old_image_id new_container new_image_id generation observed selected spec_sha peer_container disabled_tag_id
 	local disabled_generation foreign_managed_label runtime_name new_runtime_name foreign_container_name network_name worker worker_image upload_status runtime_tag old_tag buildkit_container replacement_image_id
 	local old_route_target new_route_target body old_v2_stdout_id old_v2_stderr_id old_restart_stdout_id old_restart_stderr_id
 	local old_restart_cursor resume_stdout_count resume_stderr_count
@@ -2945,6 +2945,16 @@ verify_app_runtime_lifecycle() {
 	wait_for_app_health_state pending not_available
 	wait_for_app_public_route_removed
 	disabled_generation="$(platform_json_field "$platform_response" app.desired_generation)"
+	disabled_tag_id="$(docker image inspect --format '{{.Id}}' "stealth-app/${platform_app_v1_deployment_id}:runtime" 2>/dev/null || true)"
+	if [[ "$disabled_tag_id" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+		if [ "$disabled_tag_id" = "$old_image_id" ]; then
+			printf '%s\n' '[DEBUG-APP-IMAGE-IMPORT] v1 runtime tag after disable: expected image remains tagged'
+		else
+			printf '[DEBUG-APP-IMAGE-IMPORT] v1 runtime tag after disable: points elsewhere (%s)\n' "${disabled_tag_id:7:12}"
+		fi
+	else
+		printf '%s\n' '[DEBUG-APP-IMAGE-IMPORT] v1 runtime tag after disable: missing'
+	fi
 	if [ "$(app_runtime_container_count)" != '0' ]; then
 		printf '%s\n' 'disabled App still has a managed runtime container' >&2
 		return 1

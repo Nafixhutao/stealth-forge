@@ -102,6 +102,24 @@ func loadReportedImageID(output string) string {
 	return ""
 }
 
+func imageLoadReportedImageClass(ctx context.Context, moby *Moby, result CommandResult, info ociartifact.ImageInfo) string {
+	reportedImageID := loadReportedImageID(strings.ToLower(string(result.Stdout)))
+	if reportedImageID == "" {
+		return "reported-image-id-unparsed"
+	}
+	image, found, err := moby.inspectImage(ctx, reportedImageID)
+	if err != nil {
+		return "reported-image-inspection-failed"
+	}
+	if !found {
+		return "reported-image-not-visible"
+	}
+	if slices.Equal(image.Layers, info.LayerDiffIDs) {
+		return "reported-image-visible-expected-layers"
+	}
+	return "reported-image-visible-different-layers"
+}
+
 func imageIDLogPrefix(imageID string) string {
 	if !validImageID(imageID) {
 		return "invalid"
@@ -161,7 +179,8 @@ func (m *Moby) EnsureImage(ctx context.Context, info ociartifact.ImageInfo, arch
 				return Image{}, errors.Join(ErrImageImport, importErr)
 			}
 			return Image{}, &imageLoadVisibilityFailure{
-				outputClass: imageLoadOutputClass(loadResult, info.ConfigDigest) + "-" + runtimeTagClass,
+				outputClass: imageLoadOutputClass(loadResult, info.ConfigDigest) + "-" + runtimeTagClass + "-" +
+					imageLoadReportedImageClass(ctx, m, loadResult, info),
 			}
 		}
 	}
