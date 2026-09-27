@@ -123,8 +123,12 @@ The installed `VERSION` must agree with the migration plan; an older target is
 refused as a platform downgrade. `stealth doctor` reports a CLI/platform
 release mismatch and recommends `stealth update` when the CLI was left behind.
 
-Compose configuration is first validated from the staged target Compose file
-and private staged `config.env`, before release-managed files are activated.
+For a version-changing upgrade, before migrations run the installer snapshots
+the sorted `schema_migrations` ledger using the target release's migration
+image and stores its SHA-256 fingerprint beside checksummed previous managed
+assets. Compose configuration is first validated from the staged target
+Compose file and private staged `config.env`, before release-managed files are
+activated.
 After activation, Compose is validated again before image pulls or service
 recreation; that second validation is the journal's durable forward-recovery
 point. The stage and config files are private and are removed on success or
@@ -208,14 +212,31 @@ App key and generates one only when missing. The App key is not interchangeable
 with `FUNCTIONS_SECRET_KEY`.
 Stop or coordinate the old application processes before applying migrations.
 
-## Rollback boundary
+## Coordinated platform rollback
 
-Changing an image back is safe only when the database schema remains backward
-compatible with that application version. After an incompatible or
-irreversible migration, application rollback may require restoring PostgreSQL
-and object storage from verified backups before starting the older release.
-Do not claim a database rollback merely because an older image is available.
+For a managed installation, run:
 
-If the migration has not changed schema compatibility and the issue is limited
-to application code, pin the production images back to the previous release,
-run the smoke checks, and inspect worker leases before resuming traffic.
+```bash
+stealth rollback
+```
+
+The command checks the previous-release metadata and compares the live
+`schema_migrations` fingerprint with the snapshot taken before the upgrade.
+It proceeds only when the ledger is identical. It then restores the previous
+managed files and `VERSION`, retargets canonical image references, preserves
+the active operator configuration and rotated secrets, recreates API, Worker,
+BuildKit, Console, ingress, and telemetry services, and checks readiness. The
+operator UID and outcome are written to the private
+`state/platform-rollback.jsonl` audit log. Run `stealth rollback` again after
+an interrupted operation; its journal either restores the current release or
+continues a Compose-validated rollback before retrying service checks.
+
+This is an application/image rollback only. It never runs reverse migrations
+or restores database/object-storage data. If the migration ledger advanced,
+the command refuses before changing active files. Restore PostgreSQL and
+object storage from verified backups by following
+[`backup-restore.md`](backup-restore.md), then start a release compatible with
+that backup. Previous-release sets without B3 metadata or a schema snapshot
+also fail closed and require the verified backup path. The ledger cannot detect
+manual schema edits or data changes outside recorded migrations, so keep and
+verify backups before every production upgrade.

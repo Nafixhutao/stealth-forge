@@ -79,6 +79,18 @@ jobs:
       - name: Unit tests
         run: go test ./... -count=1
 
+      - name: Rollback schema fingerprint PostgreSQL integration
+        env:
+          TEST_DATABASE_URL: postgres://stealth:ci-postgres-password@127.0.0.1:5432/stealth?sslmode=disable
+        run: |
+          set -Eeuo pipefail
+          log_file="$RUNNER_TEMP/rollback-schema-fingerprint.log"
+          go test ./internal/migrate -run '^TestSchemaFingerprintPostgreSQLIntegration$' -count=1 -v 2>&1 | tee "$log_file"
+          if ! grep -Fq -- '--- PASS: TestSchemaFingerprintPostgreSQLIntegration' "$log_file" || grep -Fq -- '--- SKIP: TestSchemaFingerprintPostgreSQLIntegration' "$log_file"; then
+            echo "PostgreSQL schema fingerprint integration did not pass" >&2
+            exit 1
+          fi
+
       - name: Admin alert PostgreSQL integration
         env:
           TEST_DATABASE_URL: postgres://stealth:ci-postgres-password@127.0.0.1:5432/stealth?sslmode=disable

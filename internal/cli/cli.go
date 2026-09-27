@@ -143,6 +143,8 @@ func (a *App) run(args []string) int {
 		return a.runUninstall(args[1:])
 	case "update":
 		return a.runUpdate(args[1:])
+	case "rollback":
+		return a.runRollback(args[1:])
 	case "internal":
 		return a.runInternal(args[1:])
 	case "status":
@@ -168,6 +170,7 @@ func (a *App) printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  stealth setup [--adopt-owner]")
 	fmt.Fprintln(w, "  stealth uninstall [--keep-data|--purge] [--yes] [--dry-run]")
 	fmt.Fprintln(w, "  stealth update [--check]")
+	fmt.Fprintln(w, "  stealth rollback [--verbose]")
 	fmt.Fprintln(w, "  stealth status")
 	fmt.Fprintln(w, "  stealth doctor")
 	fmt.Fprintln(w, "  stealth logs [api|worker|console|proxy|postgres|redis|clickhouse|otel-collector|telemetry-host|telemetry-docker-logs|telemetry-docker-proxy|telemetry-docker]")

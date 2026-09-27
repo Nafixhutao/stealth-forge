@@ -365,7 +365,12 @@ Completion of A8 means the Apps Production Runtime phase is complete.
   commit `0bcffd5` ([run](https://github.com/Stealth-deplover/stealth/actions/runs/36347643386));
   current-head CI and CodeQL pass on `3e422b2` ([CI](https://github.com/Stealth-deplover/stealth/actions/runs/36350789460),
   [CodeQL](https://github.com/Stealth-deplover/stealth/actions/runs/36350789555)).
-- [ ] B3. Platform rollback.
+- [ ] B3. Platform rollback — explicit rollback, previous-release checksummed
+  assets, pre-migration schema fingerprint, fail-closed ledger compatibility,
+  private operator audit, retry journal, API/service health checks, and backup
+  boundary documentation are implemented. Focused and full local Go tests plus
+  `go vet ./...` pass; required PostgreSQL integration and final-head CI,
+  CodeQL, and Production Compose Smoke are pending.
 - [ ] B4. Backup, restore, and disaster recovery.
 - [ ] B5. Host reboot, storage pressure, and cleanup.
 

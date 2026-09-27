@@ -204,6 +204,9 @@ func TestHostInstallerOwnsRequestAndCompletesHandoff(t *testing.T) {
 	if got := runner.command(11).args; !equalStrings(got[len(got)-4:], []string{"run", "--rm", "--no-deps", "buildkit-server-credentials-init"}) {
 		t.Fatalf("BuildKit credential init command = %#v", got)
 	}
+	if got := runner.command(13).args; !equalStrings(got[len(got)-2:], []string{"up", "migrate"}) {
+		t.Fatalf("migration command = %#v", got)
+	}
 	if got := runner.command(len(runner.calls) - 1).args; !equalStrings(got, []string{"compose", "--env-file", fixture.layout.EnvFile, "-f", fixture.layout.SetupComposeFile, "rm", "-sf", "setup", "setup-console", "setup-proxy"}) {
 		t.Fatalf("setup cleanup command = %#v", got)
 	}
@@ -394,6 +397,9 @@ func (r *blockingHostRunner) Output(_ context.Context, _ string, name string, ar
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, recordedCommand{name: name, args: append([]string(nil), args...)})
+	if containsArgs(args, "schema-fingerprint") {
+		return []byte("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"), nil
+	}
 	return nil, nil
 }
 

@@ -147,6 +147,8 @@ func (a *App) runDoctorCommand(args []string) int {
 			warning("CLI/platform release", true, "running CLI and platform release could not be compared")
 		} else if comparison == 0 {
 			check("CLI/platform release", true, platformVersion)
+		} else if platformRollbackAllowsCLISkew(layout, cliVersion, platformVersion) {
+			check("CLI/platform release", true, "platform rollback to "+platformVersion+" completed with this CLI")
 		} else {
 			detail := fmt.Sprintf("CLI is %s and platform is %s; run `stealth update` to synchronize them", cliVersion, platformVersion)
 			check("CLI/platform release", false, detail)

@@ -33,7 +33,7 @@ func (runner updateTestRunner) Run(context.Context, string, io.Writer, io.Writer
 	return runner.err
 }
 
-func (runner updateTestRunner) Output(ctx context.Context, _ string, _ string, _ ...string) ([]byte, error) {
+func (runner updateTestRunner) Output(ctx context.Context, _ string, _ string, args ...string) ([]byte, error) {
 	if runner.before != nil {
 		runner.before()
 	}
@@ -42,6 +42,9 @@ func (runner updateTestRunner) Output(ctx context.Context, _ string, _ string, _
 	}
 	if runner.err != nil {
 		return nil, runner.err
+	}
+	if containsCLIArg(args, "schema-fingerprint") {
+		return []byte("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"), nil
 	}
 	return []byte("Stealth " + runner.version + "\nCommit: test\nBuilt: test\n"), nil
 }

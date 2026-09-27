@@ -7,6 +7,7 @@ package installengine
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -139,6 +140,10 @@ func NewLayout(root string) (Layout, error) {
 type Plan struct {
 	Layout  Layout
 	Version string
+	// CLIVersion identifies the host binary that requested a platform rollback.
+	// The doctor command uses the resulting rollback state to distinguish the
+	// intentional platform/CLI version skew from a failed self-update.
+	CLIVersion string
 	// InstalledVersion is the release currently recorded by an existing
 	// installation. Version is the target release for this operation. Keeping
 	// both values lets managed configuration advance canonical image references
@@ -439,6 +444,17 @@ func (e *Engine) RunStep(ctx context.Context, plan Plan, step Step) error {
 		}
 		return e.runCompose(ctx, plan, append([]string{"up", "-d"}, services...)...)
 	case StepMigration:
+		if plan.Existing && !plan.Setup {
+			installedVersion := strings.TrimSpace(plan.InstalledVersion)
+			if installedVersion == "" {
+				return errors.New("existing platform migration requires the recorded installed version")
+			}
+			if installedVersion != strings.TrimSpace(plan.Version) {
+				if err := e.recordUpgradeSchemaFingerprint(ctx, plan); err != nil {
+					return err
+				}
+			}
+		}
 		if plan.ExternalDatabase {
 			return e.runCompose(ctx, plan, "run", "--rm", "--no-deps", "migrate")
 		}
@@ -544,6 +560,7 @@ type stagedManagedAsset struct {
 	targetPath string
 	stagePath  string
 	backupPath string
+	remove     bool
 	existed    bool
 	backedUp   bool
 	installed  bool
@@ -566,6 +583,7 @@ type managedAssetRecoveryManifest struct {
 type managedAssetRecoveryEntry struct {
 	RelativePath string `json:"relative_path"`
 	Existed      bool   `json:"existed"`
+	SHA256       string `json:"sha256,omitempty"`
 }
 
 type managedAssetRecoveryFile struct {
@@ -1078,6 +1096,16 @@ func rollbackManagedAssetMigration(layout Layout, manifest managedAssetRecoveryM
 		} else if !sourceInfo.Mode().IsRegular() || sourceInfo.Mode()&os.ModeSymlink != 0 {
 			return fmt.Errorf("recover previous managed asset %q: backup is not a regular file", entry.RelativePath)
 		}
+		if entry.SHA256 != "" {
+			contents, err := os.ReadFile(sourcePath)
+			if err != nil {
+				return fmt.Errorf("read recovery backup for managed asset %q: %w", entry.RelativePath, err)
+			}
+			digest := sha256.Sum256(contents)
+			if fmt.Sprintf("%x", digest) != entry.SHA256 {
+				return fmt.Errorf("recover previous managed asset %q: backup checksum mismatch", entry.RelativePath)
+			}
+		}
 		if err := removeManagedAssetTarget(targetPath); err != nil {
 			return fmt.Errorf("clear interrupted managed asset %q: %w", entry.RelativePath, err)
 		}
@@ -1113,11 +1141,30 @@ func publishManagedAssetRecoverySet(layout Layout, manifest managedAssetRecovery
 		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 			return errors.New("completed managed asset recovery set is not a directory")
 		}
-		if err := removeAllAndSync(previous); err != nil {
-			return fmt.Errorf("replace previous managed asset recovery set: %w", err)
-		}
-		if err := renameAndSync(backupDir, previous); err != nil {
-			return fmt.Errorf("publish managed asset recovery set: %w", err)
+		if manifest.OriginalVersion != "" && manifest.OriginalVersion == manifest.TargetVersion {
+			if previousInfo, previousErr := os.Lstat(previous); previousErr == nil {
+				if !previousInfo.IsDir() || previousInfo.Mode()&os.ModeSymlink != 0 {
+					return errors.New("existing previous release recovery set is not a directory")
+				}
+				// A same-version repair is not a new release boundary. Keep the
+				// last distinct release snapshot available for explicit rollback.
+				if err := removeAllAndSync(backupDir); err != nil {
+					return fmt.Errorf("remove same-version repair recovery set: %w", err)
+				}
+			} else if errors.Is(previousErr, os.ErrNotExist) {
+				if err := renameAndSync(backupDir, previous); err != nil {
+					return fmt.Errorf("publish initial managed asset recovery set: %w", err)
+				}
+			} else {
+				return fmt.Errorf("inspect existing previous release recovery set: %w", previousErr)
+			}
+		} else {
+			if err := removeAllAndSync(previous); err != nil {
+				return fmt.Errorf("replace previous managed asset recovery set: %w", err)
+			}
+			if err := renameAndSync(backupDir, previous); err != nil {
+				return fmt.Errorf("publish managed asset recovery set: %w", err)
+			}
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("inspect completed managed asset recovery set: %w", err)
@@ -1581,7 +1628,24 @@ func (m *managedAssetMigration) commit(plan Plan, originalEnv []byte, originalEn
 		if err := os.MkdirAll(filepath.Dir(asset.backupPath), 0o700); err != nil {
 			return m.failCommit(fmt.Errorf("prepare recovery path for %q: %w", asset.spec.Path, err))
 		}
-		m.manifest.Assets = append(m.manifest.Assets, managedAssetRecoveryEntry{RelativePath: asset.spec.Path, Existed: true})
+		contents, err := os.ReadFile(asset.targetPath)
+		if err != nil {
+			return m.failCommit(fmt.Errorf("read previous managed asset %q: %w", asset.spec.Path, err))
+		}
+		digest := sha256.Sum256(contents)
+		m.manifest.Assets = append(m.manifest.Assets, managedAssetRecoveryEntry{
+			RelativePath: asset.spec.Path, Existed: true, SHA256: fmt.Sprintf("%x", digest),
+		})
+	}
+	if plan.Existing && !plan.Setup && m.manifest.OriginalVersion != "" {
+		if err := writeManagedReleaseMetadata(backupDir, managedReleaseMetadata{
+			FormatVersion:   1,
+			PreviousVersion: m.manifest.OriginalVersion,
+			TargetVersion:   strings.TrimSpace(plan.Version),
+			Assets:          append([]managedAssetRecoveryEntry(nil), m.manifest.Assets...),
+		}); err != nil {
+			return m.failCommit(fmt.Errorf("record previous release metadata: %w", err))
+		}
 	}
 	if err := m.writeJournal(); err != nil {
 		return m.failCommit(err)
@@ -1610,6 +1674,9 @@ func (m *managedAssetMigration) commit(plan Plan, originalEnv []byte, originalEn
 	}
 	for index := range m.assets {
 		asset := &m.assets[index]
+		if asset.remove {
+			continue
+		}
 		if err := os.MkdirAll(filepath.Dir(asset.targetPath), 0o700); err != nil {
 			return m.failCommit(fmt.Errorf("create managed asset directory for %q: %w", asset.spec.Path, err))
 		}

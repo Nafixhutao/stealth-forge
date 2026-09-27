@@ -639,7 +639,11 @@ func TestExternalDependenciesNeverStartBundledServices(t *testing.T) {
 	if err := engine.RunStep(context.Background(), plan, StepDependencies); err != nil {
 		t.Fatal(err)
 	}
-	if err := engine.RunStep(context.Background(), plan, StepMigration); err != nil {
+	// Exercise only the external-database command boundary here. A real
+	// existing-release migration first snapshots the previous release schema.
+	migrationPlan := plan
+	migrationPlan.Existing = false
+	if err := engine.RunStep(context.Background(), migrationPlan, StepMigration); err != nil {
 		t.Fatal(err)
 	}
 	if err := engine.RunStep(context.Background(), plan, StepServices); err != nil {

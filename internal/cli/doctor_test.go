@@ -337,6 +337,30 @@ func TestRunDoctorDetectsCLIPlatformVersionSkew(t *testing.T) {
 	}
 }
 
+func TestRunDoctorAcceptsCLIPlatformSkewFromVerifiedRollbackState(t *testing.T) {
+	layout, config := doctorFixture(t, false, nil)
+	if err := os.MkdirAll(layout.StateDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	state, err := json.Marshal(platformRollbackState{FormatVersion: 1, Platform: "v1.2.3", CLI: "v1.2.4"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := installengine.WritePrivateFile(filepath.Join(layout.StateDir, "platform-rollback.state"), string(state)); err != nil {
+		t.Fatal(err)
+	}
+	runner := &doctorCommandRunner{statuses: healthyDoctorStatuses(t, config, false)}
+	app, server, output := doctorAppForTest(t, layout, runner)
+	defer server.Close()
+	app.currentVersion = func() string { return "v1.2.4" }
+	if code := app.runDoctorCommand(nil); code != 0 {
+		t.Fatalf("runDoctorCommand() = %d, want accepted intentional skew; output=%s", code, output.String())
+	}
+	if !strings.Contains(output.String(), "platform rollback to v1.2.3 completed with this CLI") {
+		t.Fatalf("doctor did not explain intentional rollback skew: %q", output.String())
+	}
+}
+
 func TestRunDoctorSetupModeSkipsBuildKitAndAppRuntime(t *testing.T) {
 	layout, config := doctorFixture(t, true, nil)
 	runner := &doctorCommandRunner{statuses: healthyDoctorStatuses(t, config, true)}
