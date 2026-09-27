@@ -621,17 +621,17 @@ func TestEnsureImageIsIdempotentAndRepairsOnlyExpectedTag(t *testing.T) {
 		}
 		notFound := &CommandFailure{ExitCode: 1, Stderr: "Error: No such image: " + configID}
 		runner := &scriptedRuntimeRunner{
-			results: []CommandResult{{}, {}, {Stdout: image(configID)}, {}, {}, {Stdout: image(configID)}},
-			errors:  []error{notFound, nil, nil, notFound, nil, nil},
+			results: []CommandResult{{}, {}, {}, {Stdout: image(configID)}, {}, {}, {Stdout: image(configID)}},
+			errors:  []error{notFound, notFound, nil, nil, notFound, nil, nil},
 		}
 		moby, _ := NewMoby(runner, "stealth_app_runtime", 30*time.Second, time.Minute)
 		if _, err := moby.EnsureImage(context.Background(), info, bytes.NewReader(archive), tag); err != nil {
 			t.Fatal(err)
 		}
-		if len(runner.calls) != 6 || !slices.Equal(runner.calls[1].args, []string{"image", "load"}) {
+		if len(runner.calls) != 7 || !slices.Equal(runner.calls[2].args, []string{"image", "load"}) {
 			t.Fatalf("image import command sequence = %#v", runner.calls)
 		}
-		loadedArchive := tar.NewReader(strings.NewReader(runner.calls[1].stdin))
+		loadedArchive := tar.NewReader(strings.NewReader(runner.calls[2].stdin))
 		var loadManifest []byte
 		for {
 			header, err := loadedArchive.Next()
@@ -659,7 +659,7 @@ func TestEnsureImageIsIdempotentAndRepairsOnlyExpectedTag(t *testing.T) {
 		if loadedImages[0].Config != "blobs/sha256/"+strings.TrimPrefix(configID, "sha256:") || len(loadedImages[0].RepoTags) != 0 || len(loadedImages[0].Layers) != 0 {
 			t.Fatalf("Docker load manifest = %+v", loadedImages[0])
 		}
-		if !slices.Equal(runner.calls[4].args, []string{"image", "tag", configID, tag}) {
+		if !slices.Equal(runner.calls[5].args, []string{"image", "tag", configID, tag}) {
 			t.Fatalf("runtime tag was not assigned after image verification: %#v", runner.calls)
 		}
 	})
