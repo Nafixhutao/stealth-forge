@@ -3607,12 +3607,12 @@ PY
 		new_container="$(app_runtime_container_id)"
 		assert_app_runtime_container "$new_container" "$generation" "$selected" "$spec_sha" "$cpu_millis"
 		assert_app_diagnostics converged "$selected" "$version" "$selected" "$version"
-		assert_app_runtime_configuration 'app-config-v2'
 		wait_for_app_public_route 'app-runtime-smoke-ok'
 		if [ "$(app_public_route_body /version)" != "${smoke_marker}-app-v2" ]; then
 			printf '%s\n' 'App v2 route did not return its marker after soak recovery' >&2
 			return 1
 		fi
+		assert_app_runtime_configuration 'app-config-v2'
 	fi
 	# Selecting a deployment preserves the current mutable WorkloadSpec; rollback
 	# restores the deployment snapshot. Restore the v2 CPU baseline after alternating
@@ -3650,12 +3650,12 @@ PY
 	new_container="$(app_runtime_container_id)"
 	assert_app_runtime_container "$new_container" "$generation" "$selected" "$spec_sha" 750
 	assert_app_diagnostics converged "$selected" "$platform_app_v2_version" "$selected" "$platform_app_v2_version"
-	assert_app_runtime_configuration 'app-config-v2'
 	wait_for_app_public_route 'app-runtime-smoke-ok'
 	if [ "$(app_public_route_body /version)" != "${smoke_marker}-app-v2" ]; then
 		printf '%s\n' 'App v2 route did not return its marker after restoring the soak baseline' >&2
 		return 1
 	fi
+	assert_app_runtime_configuration 'app-config-v2'
 	fetch_app_runtime_logs
 	read -r v1_stdout v1_stderr <<<"$(app_runtime_log_counts "$smoke_marker")"
 	read -r v2_stdout v2_stderr <<<"$(app_runtime_log_counts "${smoke_marker}-app-v2")"
