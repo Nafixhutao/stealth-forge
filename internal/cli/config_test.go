@@ -341,6 +341,31 @@ func TestLoadExistingPlanUsesVersionFile(t *testing.T) {
 	}
 }
 
+func TestLoadExistingPlanRestoresExternalAndCloudflareModes(t *testing.T) {
+	layout := writeExistingConfig(t, "v1.2.3")
+	if err := os.WriteFile(layout.VersionFile, []byte("v1.2.3\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	values, err := readEnvFile(layout.EnvFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	values["DATABASE_URL"] = "postgres://user:password@db.example.test:5432/stealth"
+	values["REDIS_URL"] = "rediss://:password@cache.example.test:6379/0"
+	values["CLOUDFLARE_TUNNEL_TOKEN_FILE"] = "./state/cloudflare-tunnel-token"
+	if err := writePrivateFile(layout.EnvFile, formatEnvFile(values)); err != nil {
+		t.Fatal(err)
+	}
+	app := NewApp(strings.NewReader(""), &strings.Builder{}, &strings.Builder{})
+	plan, err := app.loadExistingPlan(layout)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !plan.ExternalDatabase || !plan.ExternalRedis || !plan.Cloudflare || !plan.VerifyPublicURL {
+		t.Fatalf("loaded repair plan lost configured service modes: %#v", plan)
+	}
+}
+
 func TestLoadExistingPlanInfersVersionFromConfiguredImage(t *testing.T) {
 	layout := writeExistingConfig(t, "v1.0.0")
 

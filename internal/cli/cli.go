@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -236,15 +235,6 @@ func (a *App) runInstall(args []string) int {
 		fmt.Fprintln(a.errOut, "Run `stealth doctor` to inspect it, or `stealth install --repair` to verify it safely.")
 		return 1
 	}
-	if existing && *repair && !a.hasInteractiveTerminal() {
-		values, configErr := readEnvFile(layout.EnvFile)
-		setupMode := configErr == nil && strings.EqualFold(strings.TrimSpace(values["SETUP_MODE"]), "true")
-		if !setupMode && !a.setupLifecycleNeedsRecovery(layout) {
-			fmt.Fprintln(a.errOut, "Repair setup requires a TTY so the existing configuration can be reviewed safely.")
-			return 1
-		}
-	}
-
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	checks := a.systemChecks(ctx, layout.Root)
@@ -262,6 +252,9 @@ func (a *App) runInstall(args []string) int {
 		}
 		if plan.Setup || a.setupLifecycleNeedsRecovery(layout) {
 			return a.runWebBootstrap(ctx, checks, layout, plan.Version, true)
+		}
+		if *repair && !a.hasInteractiveTerminal() {
+			return a.runNoninteractiveRepair(ctx, checks, plan)
 		}
 		return a.runInstallerTUI(ctx, checks, plan, true)
 	}
@@ -299,155 +292,11 @@ func (a *App) retargetRepairPlan(plan *InstallPlan) error {
 }
 
 func (a *App) runStatus(args []string) int {
-	if len(args) != 0 {
-		fmt.Fprintln(a.errOut, "status does not accept arguments")
-		return 2
-	}
-	layout, err := a.layout()
-	if err != nil {
-		fmt.Fprintf(a.errOut, "cannot determine installation directory: %v\n", err)
-		return 1
-	}
-	if !installationExists(layout) {
-		fmt.Fprintf(a.errOut, "Stealth is not installed at %s\n", layout.Root)
-		return 1
-	}
-	config, err := readEnvFile(layout.EnvFile)
-	if err != nil {
-		fmt.Fprintf(a.errOut, "could not read configuration: %v\n", err)
-		return 1
-	}
-	setupMode := strings.EqualFold(strings.TrimSpace(config["SETUP_MODE"]), "true")
-	statuses, err := a.composeStatuses(context.Background(), layout)
-	if err != nil {
-		fmt.Fprintf(a.errOut, "could not read Docker service status: %v\n", err)
-		return 1
-	}
-	fmt.Fprintf(a.out, "Stealth %s\n\n", valueOr(config["VERSION"], readVersion(layout)))
-	fmt.Fprintln(a.out, "SERVICE          STATUS")
-	services := []string{"api", "worker", "console", "postgres", "redis", "clickhouse", "otel-collector", "telemetry-host", "telemetry-docker-logs", "telemetry-docker-proxy", "telemetry-docker", "proxy", "traefik", "cloudflared"}
-	if setupMode {
-		services = []string{"setup", "setup-console", "postgres", "redis", "setup-proxy"}
-	}
-	for _, service := range services {
-		status := statuses[service]
-		if status.Service == "" {
-			status = ServiceStatus{Service: service, State: "not found"}
-		}
-		fmt.Fprintf(a.out, "%-16s %s\n", displayServiceName(service), status.Display())
-	}
-	if publicURL := config["PUBLIC_APP_URL"]; publicURL != "" {
-		fmt.Fprintf(a.out, "\nConsole: %s\n", publicURL)
-	}
-	if anyRequiredServiceUnhealthy(statuses, setupMode) {
-		return 1
-	}
-	return 0
+	return a.runStatusCommand(args)
 }
 
 func (a *App) runDoctor(args []string) int {
-	if len(args) != 0 {
-		fmt.Fprintln(a.errOut, "doctor does not accept arguments")
-		return 2
-	}
-	layout, err := a.layout()
-	if err != nil {
-		fmt.Fprintf(a.errOut, "cannot determine installation directory: %v\n", err)
-		return 1
-	}
-	fmt.Fprintln(a.out, "Stealth Doctor")
-	fmt.Fprintln(a.out)
-
-	ctx := context.Background()
-	failed := false
-	check := func(name string, ok bool, detail string) {
-		if !ok {
-			failed = true
-		}
-		fmt.Fprintln(a.out, renderCheck(SystemCheck{Name: name, OK: ok, Detail: detail, Required: true}))
-	}
-
-	if output, commandErr := a.runner.Output(ctx, "", "docker", "version", "--format", "{{.Server.Version}}"); commandErr != nil {
-		check("Docker", false, "Docker is unavailable")
-	} else {
-		check("Docker", true, strings.TrimSpace(string(output)))
-	}
-	if output, commandErr := a.runner.Output(ctx, "", "docker", "compose", "version", "--short"); commandErr != nil {
-		check("Docker Compose", false, "Docker Compose is unavailable")
-	} else {
-		check("Docker Compose", true, strings.TrimSpace(string(output)))
-	}
-
-	if !installationExists(layout) {
-		check("Installation", false, layout.Root+" is not initialized")
-		return boolExit(failed)
-	}
-	check("Configuration", fileIsPrivate(layout.EnvFile), configCheckDetail(layout.EnvFile, fileIsPrivate(layout.EnvFile)))
-	check("Compose file", regularFile(layout.ComposeFile), layout.ComposeFile)
-	config, configErr := readEnvFile(layout.EnvFile)
-	if configErr != nil {
-		check("Configuration syntax", false, "could not parse config.env")
-		return boolExit(failed)
-	}
-	setupMode := strings.EqualFold(strings.TrimSpace(config["SETUP_MODE"]), "true")
-	if setupMode {
-		check("Setup Compose file", regularFile(layout.SetupComposeFile), layout.SetupComposeFile)
-		fmt.Fprintln(a.out, renderCheck(SystemCheck{Name: "App runtime", Detail: "not started in setup mode", OK: false, Required: false}))
-	} else {
-		runtimeNetwork := strings.TrimSpace(config["APPS_RUNTIME_NETWORK_NAME"])
-		if runtimeNetwork == "" {
-			runtimeNetwork = "stealth_app_runtime"
-		}
-		output, inspectErr := a.runner.Output(ctx, "", "docker", "network", "inspect", "--format", "{{json .}}", runtimeNetwork)
-		if inspectErr != nil {
-			check("App runtime", false, "Docker runtime network is unavailable")
-		} else {
-			if appRuntimeNetworkOwned(runtimeNetwork, output) {
-				check("App runtime", true, "owned bridge network is available")
-			} else {
-				check("App runtime", false, "Docker runtime network ownership could not be verified")
-			}
-		}
-	}
-	check("Configuration syntax", hasRequiredConfig(config), "required values are present")
-
-	statuses, statusErr := a.composeStatuses(ctx, layout)
-	if statusErr != nil {
-		check("Docker services", false, "could not query Compose")
-	} else {
-		services := []string{"postgres", "redis", "api", "worker", "console", "proxy", "buildkit"}
-		if setupMode {
-			services = []string{"postgres", "redis", "setup", "setup-console", "setup-proxy"}
-		}
-		for _, service := range services {
-			status := statuses[service]
-			check(displayServiceName(service), status.Healthy(), status.Display())
-		}
-	}
-
-	ports := portsFromConfig(config)
-	if setupMode {
-		ports = setupPortsFromConfig(config)
-	}
-	for _, endpoint := range []struct {
-		name string
-		url  string
-	}{
-		{"API health", "http://127.0.0.1:" + ports.API + "/healthz"},
-		{"API readiness", "http://127.0.0.1:" + ports.API + "/readyz"},
-		{"API version", "http://127.0.0.1:" + ports.API + "/version"},
-		{"Console", "http://127.0.0.1:" + ports.Console + "/"},
-		{"Proxy", "http://127.0.0.1:" + ports.Proxy + "/"},
-	} {
-		status, requestErr := a.httpStatus(ctx, endpoint.url)
-		check(endpoint.name, requestErr == nil && status >= 200 && status < 300, httpStatusDetail(status, requestErr))
-	}
-	if free, statErr := freeBytes(filepath.Dir(layout.Root)); statErr != nil {
-		check("Disk space", false, "could not inspect filesystem")
-	} else {
-		check("Disk space", free > 0, formatBytes(free)+" free")
-	}
-	return boolExit(failed)
+	return a.runDoctorCommand(args)
 }
 
 func (a *App) runLogs(args []string) int {

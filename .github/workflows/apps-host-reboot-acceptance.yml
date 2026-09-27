@@ -289,10 +289,8 @@ jobs:
             "$RUNNER_TEMP/stealth-app-host-reboot.env" "$SSH_TARGET:$REMOTE_ENV"
           ssh "${ssh_options[@]}" "$SSH_TARGET" "chmod 0600 '$REMOTE_ENV' && test \"\$(stat -c '%a' '$REMOTE_ENV')\" = 600"
 
-      - name: Build coordinated images and persist App acceptance state
+      - name: Build coordinated images and load host profile
         shell: bash
-        env:
-          APP_RUNTIME_SOAK_SECONDS: "600"
         run: |
           set -euo pipefail
           ssh_options=(-p "$SSH_PORT" -i "$SSH_KEY_FILE" -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=15)
@@ -311,6 +309,44 @@ jobs:
           sudo -n install -m 0644 buildkit/stealth-buildkit-rootless.apparmor /etc/apparmor.d/stealth-buildkit-rootless
           sudo -n apparmor_parser -r -W /etc/apparmor.d/stealth-buildkit-rootless
           REMOTE
+
+      - name: Run clean-host installer and repair acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh_options=(-p "$SSH_PORT" -i "$SSH_KEY_FILE" -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=15)
+          remote_evidence="$REMOTE_ROOT/state/installer-acceptance-result.json"
+          ssh "${ssh_options[@]}" "$SSH_TARGET" bash -s -- "$REMOTE_REPO" "$RUN_SUFFIX" "$remote_evidence" <<'REMOTE'
+          set -euo pipefail
+          repo="$1"; run_suffix="$2"; evidence="$3"
+          cd "$repo"
+          sudo -n env \
+            STEALTH_INSTALLER_ACCEPTANCE_TAG="smoke-$run_suffix" \
+            STEALTH_INSTALLER_ACCEPTANCE_HOST_KIND="$REBOOT_HOST_KIND" \
+            STEALTH_INSTALLER_ACCEPTANCE_EVIDENCE="$evidence" \
+            go test ./internal/cli -run '^TestInstallerCleanHostAndRepairAcceptance$' -count=1
+          sudo -n chown "$(id -u):$(id -g)" "$evidence"
+          chmod 0600 "$evidence"
+          REMOTE
+          scp -P "$SSH_PORT" -i "$SSH_KEY_FILE" -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$SSH_TARGET:$remote_evidence" "$RUNNER_TEMP/installer-acceptance-result.json"
+          cp "$RUNNER_TEMP/installer-acceptance-result.json" "$GITHUB_WORKSPACE/installer-acceptance-result.json"
+
+      - name: Upload clean-host installer evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: installer-clean-host-${{ github.run_id }}-${{ github.run_attempt }}
+          path: installer-acceptance-result.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Start App acceptance stack and persist reboot baseline
+        shell: bash
+        env:
+          APP_RUNTIME_SOAK_SECONDS: "600"
+        run: |
+          set -euo pipefail
+          ssh_options=(-p "$SSH_PORT" -i "$SSH_KEY_FILE" -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=15)
           ssh "${ssh_options[@]}" "$SSH_TARGET" bash -s -- "$REMOTE_REPO" "$REMOTE_ENV" "$REMOTE_STATE" "$REMOTE_RESULT" "$SOURCE_SHA" "$APP_RUNTIME_SOAK_SECONDS" <<'REMOTE'
           set -euo pipefail
           repo="$1"; env_file="$2"; state="$3"; result="$4"; sha="$5"; soak="$6"

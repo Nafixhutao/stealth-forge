@@ -26,12 +26,26 @@ func (status ServiceStatus) Healthy() bool {
 		return false
 	}
 	if strings.EqualFold(status.Health, "healthy") {
-		return true
+		state := strings.ToLower(strings.TrimSpace(status.State))
+		return state == "" || state == "running"
 	}
 	return status.Service == "migrate" && (strings.EqualFold(status.State, "exited") || strings.EqualFold(status.State, "completed")) && status.Exit == 0
 }
 
+func (status ServiceStatus) Running() bool {
+	if strings.EqualFold(strings.TrimSpace(status.State), "running") {
+		return true
+	}
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(status.Status)), "up ")
+}
+
 func (status ServiceStatus) Display() string {
+	if status.Service == "migrate" && (strings.EqualFold(status.State, "exited") || strings.EqualFold(status.State, "completed")) && status.Exit == 0 {
+		return "completed"
+	}
+	if state := strings.TrimSpace(status.State); state != "" && !strings.EqualFold(state, "running") {
+		return strings.ToLower(state)
+	}
 	if status.Health != "" {
 		return strings.ToLower(status.Health)
 	}
@@ -46,10 +60,16 @@ func (status ServiceStatus) Display() string {
 
 func (a *App) composeArgs(layout InstallLayout, args ...string) []string {
 	composeFile := layout.ComposeFile
-	if values, err := readEnvFile(layout.EnvFile); err == nil && strings.EqualFold(values["SETUP_MODE"], "true") && layout.SetupComposeFile != "" {
+	values, _ := readEnvFile(layout.EnvFile)
+	setupMode := strings.EqualFold(strings.TrimSpace(values["SETUP_MODE"]), "true")
+	if setupMode && layout.SetupComposeFile != "" {
 		composeFile = layout.SetupComposeFile
 	}
-	result := []string{"compose", "--env-file", layout.EnvFile, "-f", composeFile}
+	result := []string{"compose"}
+	if !setupMode && strings.TrimSpace(values["CLOUDFLARE_TUNNEL_TOKEN_FILE"]) != "" {
+		result = append(result, "--profile", "cloudflare")
+	}
+	result = append(result, "--env-file", layout.EnvFile, "-f", composeFile)
 	return append(result, args...)
 }
 
@@ -57,8 +77,13 @@ func (a *App) runCompose(ctx context.Context, layout InstallLayout, args ...stri
 	return a.runCommandCaptured(ctx, layout.Root, "docker", a.composeArgs(layout, args...)...)
 }
 
-func (a *App) composeStatuses(ctx context.Context, layout InstallLayout) (map[string]ServiceStatus, error) {
-	output, err := a.runner.Output(ctx, layout.Root, "docker", a.composeArgs(layout, "ps", "--format", "json")...)
+func (a *App) composeStatuses(ctx context.Context, layout InstallLayout, includeStopped ...bool) (map[string]ServiceStatus, error) {
+	args := []string{"ps"}
+	if len(includeStopped) > 0 && includeStopped[0] {
+		args = append(args, "--all")
+	}
+	args = append(args, "--format", "json")
+	output, err := a.runner.Output(ctx, layout.Root, "docker", a.composeArgs(layout, args...)...)
 	if err != nil {
 		return nil, fmt.Errorf("docker compose ps: %w", err)
 	}
@@ -118,7 +143,11 @@ func anyServiceUnhealthy(statuses map[string]ServiceStatus) bool {
 }
 
 func anyRequiredServiceUnhealthy(statuses map[string]ServiceStatus, setup bool) bool {
-	services := []string{"api", "worker", "console", "postgres", "redis", "proxy"}
+	services := []string{
+		"postgres", "redis", "clickhouse", "migrate", "otel-collector", "telemetry-host",
+		"telemetry-docker-logs", "telemetry-docker-proxy", "telemetry-docker", "api", "worker",
+		"buildkit", "console", "proxy", "traefik",
+	}
 	if setup {
 		services = []string{"postgres", "redis", "setup", "setup-console", "setup-proxy"}
 	}

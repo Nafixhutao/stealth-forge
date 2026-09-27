@@ -89,6 +89,28 @@ func (a *App) runInstallerTUI(ctx context.Context, checks []SystemCheck, plan *I
 	return 0
 }
 
+func (a *App) runNoninteractiveRepair(ctx context.Context, checks []SystemCheck, plan *InstallPlan) int {
+	if plan == nil || !plan.Existing {
+		fmt.Fprintln(a.errOut, "repair requires an existing installation")
+		return 1
+	}
+	if !checksPass(checks) {
+		fmt.Fprintf(a.errOut, "repair preflight checks failed: %s\n", failedCheckSummary(checks))
+		return 1
+	}
+	fmt.Fprintln(a.out, "Repairing the existing Stealth installation")
+	if err := a.installEngine().Install(ctx, *plan, func(event installengine.Event) {
+		if event.Status == "started" {
+			fmt.Fprintf(a.out, "  → %s\n", event.Step)
+		}
+	}); err != nil {
+		fmt.Fprintln(a.errOut, "Repair failed. Run `stealth doctor` for diagnostics.")
+		return 1
+	}
+	fmt.Fprintln(a.out, "Repair completed successfully.")
+	return 0
+}
+
 func newInstallerModel(app *App, ctx context.Context, cancel context.CancelFunc, checks []SystemCheck, plan *InstallPlan, repair bool) installerModel {
 	input := textinput.New()
 	input.Prompt = "Instance URL  "
