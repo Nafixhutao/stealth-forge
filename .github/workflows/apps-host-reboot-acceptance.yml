@@ -316,13 +316,13 @@ jobs:
           set -euo pipefail
           ssh_options=(-p "$SSH_PORT" -i "$SSH_KEY_FILE" -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=15)
           remote_evidence="$REMOTE_ROOT/state/installer-acceptance-result.json"
-          ssh "${ssh_options[@]}" "$SSH_TARGET" bash -s -- "$REMOTE_REPO" "$RUN_SUFFIX" "$remote_evidence" <<'REMOTE'
+          ssh "${ssh_options[@]}" "$SSH_TARGET" bash -s -- "$REMOTE_REPO" "$RUN_SUFFIX" "$remote_evidence" "$REBOOT_HOST_KIND" <<'REMOTE'
           set -euo pipefail
-          repo="$1"; run_suffix="$2"; evidence="$3"
+          repo="$1"; run_suffix="$2"; evidence="$3"; host_kind="$4"
           cd "$repo"
           sudo -n env \
             STEALTH_INSTALLER_ACCEPTANCE_TAG="smoke-$run_suffix" \
-            STEALTH_INSTALLER_ACCEPTANCE_HOST_KIND="$REBOOT_HOST_KIND" \
+            STEALTH_INSTALLER_ACCEPTANCE_HOST_KIND="$host_kind" \
             STEALTH_INSTALLER_ACCEPTANCE_EVIDENCE="$evidence" \
             go test ./internal/cli -run '^TestInstallerCleanHostAndRepairAcceptance$' -count=1
           sudo -n chown "$(id -u):$(id -g)" "$evidence"
