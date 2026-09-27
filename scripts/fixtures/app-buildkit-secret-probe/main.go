@@ -72,12 +72,12 @@ func serve() {
 		marker := strings.TrimSpace(string(payload))
 		if marker != "" && len(marker) <= 200 {
 			payloadMarker = marker
+			startedAt := time.Now().UnixNano()
 			// Create the Docker JSON log file first. The production file-log
 			// receiver starts at the end of newly discovered files, so wait for
 			// it to discover this file before emitting the deterministic markers.
-			fmt.Println("STEALTH_APP_RUNTIME_LOG_DISCOVERY")
+			fmt.Printf("STEALTH_APP_RUNTIME_LOG_DISCOVERY_%d\n", startedAt)
 			time.Sleep(5 * time.Second)
-			startedAt := time.Now().UnixNano()
 			fmt.Printf("STEALTH_APP_RUNTIME_LOG_STDOUT_%s_%d\n", marker, startedAt)
 			fmt.Fprintf(os.Stderr, "STEALTH_APP_RUNTIME_LOG_STDERR_%s_%d\n", marker, startedAt)
 		}

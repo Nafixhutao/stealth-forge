@@ -1825,6 +1825,14 @@ wait_for_app_runtime_log_markers() {
 		if [ "$attempt" = "${APP_RUNTIME_SMOKE_ATTEMPTS:-90}" ]; then
 			printf 'App runtime logs API did not return %s stdout and stderr marker(s) for %s: stdout=%s stderr=%s\n' \
 				"$minimum" "$marker" "${stdout_count:-0}" "${stderr_count:-0}" >&2
+			if [ -n "$container_id" ]; then
+				local docker_log_output docker_stdout_count docker_stderr_count
+				docker_log_output="$(docker logs --tail=100 "$container_id" 2>/dev/null || true)"
+				docker_stdout_count="$(printf '%s\n' "$docker_log_output" | grep -F -c -- "STEALTH_APP_RUNTIME_LOG_STDOUT_${marker}_" || true)"
+				docker_stderr_count="$(printf '%s\n' "$docker_log_output" | grep -F -c -- "STEALTH_APP_RUNTIME_LOG_STDERR_${marker}_" || true)"
+				printf 'Direct Docker log marker counts for the current App container: stdout=%s stderr=%s\n' \
+					"${docker_stdout_count:-0}" "${docker_stderr_count:-0}" >&2
+			fi
 			return 1
 		fi
 		sleep 1
