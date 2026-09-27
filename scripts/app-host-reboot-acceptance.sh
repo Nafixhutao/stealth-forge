@@ -8,8 +8,16 @@ state_file="${APP_REBOOT_EVIDENCE_PATH:-}"
 result_file="${APP_REBOOT_RESULT_PATH:-}"
 action="${1:-}"
 if [ -z "$action" ]; then printf 'usage: %s prepare|verify|cleanup\n' "$(basename -- "$0")" >&2; exit 2; fi
+case "$action" in
+	prepare|verify|cleanup) ;;
+	*) printf 'unsupported host reboot acceptance action: %s\n' "$action" >&2; exit 2 ;;
+esac
 if [ ! -f "$env_file" ] || [ -L "$env_file" ] || [ ! -f "$compose_file" ] || [ -L "$compose_file" ]; then
 	printf '%s\n' 'host reboot acceptance requires regular Compose and environment files' >&2
+	exit 2
+fi
+if [ "$action" != cleanup ] && [ "$(stat -c '%a' "$env_file")" != 600 ]; then
+	printf 'host reboot acceptance environment file must remain mode 0600: %s\n' "$env_file" >&2
 	exit 2
 fi
 compose=(docker compose --env-file "$env_file" -f "$compose_file")
@@ -182,14 +190,17 @@ from datetime import datetime
 import sys
 if datetime.fromisoformat(sys.argv[1].replace("Z", "+00:00")).timestamp() < int(sys.argv[2]): raise SystemExit("App container start predates the current boot")
 PY
-		docker exec "$runtime_container" /buildkit-secret-probe verify-runtime-secret-v2
+		if ! docker exec "$runtime_container" /buildkit-secret-probe verify-runtime-secret-v2 >/dev/null 2>&1; then
+			printf '%s\n' 'App runtime secret verification failed after reboot' >&2
+			exit 1
+		fi
 		for check in configuration healthz version; do
 			body="$("${compose[@]}" exec -T api sh -ec 'wget -qO- --timeout=8 --header "Host: $1" "http://traefik:8080/$2"' sh "$app_host" "$check")"
 			case "$check:$body" in configuration:app-config-v2|healthz:app-runtime-smoke-ok|version:"$marker") ;; *) printf 'App route check failed after reboot: %s=%q\n' "$check" "$body" >&2; exit 1;; esac
 		done
 		artifact_row="$("${compose[@]}" exec -T postgres sh -ec 'd="$1"; a="$2"; case "$d$a" in *[!0-9a-f-]*) exit 2;; esac; psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --set ON_ERROR_STOP=1 --tuples-only --no-align --field-separator="|" --command "SELECT image_path,image_archive_sha256,image_digest,image_size_bytes FROM app_deployments WHERE id = '\''$d'\'' AND app_id = '\''$a'\''"' sh "$deployment_id" "$app_id" | tr -d '\r')"
 		IFS='|' read -r image_path archive_sha digest image_size <<<"$artifact_row"
-		if ! [[ "$image_path" =~ ^[0-9a-f-]{36}/[0-9a-f-]{36}/[0-9a-f-]{36}$ && "$archive_sha" =~ ^[0-9a-f]{64}$ && "$digest" =~ ^sha256:[0-9a-f]{64}$ && "$image_size" =~ ^[1-9][0-9]*$ ]]; then printf 'invalid persisted artifact metadata: %s\n' "$artifact_row" >&2; exit 1; fi
+		if ! [[ "$image_path" =~ ^[0-9a-f-]{36}/[0-9a-f-]{36}/[0-9a-f-]{36}$ && "$archive_sha" =~ ^[0-9a-f]{64}$ && "$digest" =~ ^sha256:[0-9a-f]{64}$ && "$image_size" =~ ^[1-9][0-9]*$ ]]; then printf '%s\n' 'invalid persisted App artifact metadata after reboot' >&2; exit 1; fi
 		actual_sha="$("${compose[@]}" exec -T worker sh -ec 'p="$1"; s="$2"; f="/var/lib/stealth/storage/app-images/$p"; test -s "$f"; a="$(sha256sum "$f" | cut -d " " -f 1)"; test "$a" = "$s"; printf "%s" "$a"' sh "$image_path" "$archive_sha")"
 		if [ "$actual_sha" != "$archive_sha" ]; then printf '%s\n' 'OCI archive checksum changed across host reboot' >&2; exit 1; fi
 		logs_url="${api_url%/}/v1/projects/${project_id}/apps/${app_id}/logs"
@@ -232,15 +243,15 @@ walk(d)
 PY
 		if [ -z "$result_file" ] || [[ "$result_file" != /* ]] || [ -e "$result_file" ] || [ -L "$result_file" ]; then printf 'APP_REBOOT_RESULT_PATH must be an unused absolute path: %s\n' "$result_file" >&2; exit 2; fi
 		mkdir -p -- "$(dirname -- "$result_file")"
-        python3 - "$result_file" "$source_sha" "$boot_before" "$boot_after" "$app_id" "$deployment_id" "$generation" "$container_started" "$archive_sha" "$actual_sha" <<'PY'
+		python3 - "$result_file" "$source_sha" "$boot_before" "$boot_after" "$app_id" "$deployment_id" "$generation" "$container_started" "$archive_sha" "$actual_sha" <<'PY'
 import json, os, sys
 from datetime import datetime, timezone
 path, source_sha, old, new, app, deployment, generation, container_started, expected, actual = sys.argv[1:]
-data={"status":"passed","source_sha":source_sha,"previous_boot_id":old,"current_boot_id":new,"app_id":app,"deployment_id":deployment,"desired_generation":int(generation),"managed_app_container_count":1,"app_container_started_at":container_started,"artifact_archive_sha256":expected,"artifact_checksum_after_reboot":actual,"verified_at":datetime.now(timezone.utc).isoformat()}
+data={"status":"passed","source_sha":source_sha,"previous_boot_id":old,"current_boot_id":new,"app_id":app,"deployment_id":deployment,"desired_generation":int(generation),"managed_app_container_count":1,"app_container_started_at":container_started,"environment_file_mode":"0600","artifact_archive_sha256":expected,"artifact_checksum_after_reboot":actual,"verified_at":datetime.now(timezone.utc).isoformat()}
 fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
 with os.fdopen(fd,"w",encoding="utf-8") as out: json.dump(data,out,sort_keys=True); out.write("\n")
 PY
-		printf 'App host reboot acceptance passed: source=%s boot=%s->%s generation=%s managed_containers=1\n' "$source_sha" "$boot_before" "$boot_after" "$generation"
+		printf 'App host reboot acceptance passed: source=%s boot=%s->%s generation=%s managed_containers=1 environment_file_mode=0600\n' "$source_sha" "$boot_before" "$boot_after" "$generation"
 		;;
 	*) printf 'unsupported host reboot action: %s\n' "$action" >&2; exit 2 ;;
 esac

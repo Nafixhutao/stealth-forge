@@ -95,6 +95,27 @@ jobs:
           command -v apparmor_parser >/dev/null
           sudo -n true
           docker info >/dev/null
+          if [ -n "$(docker ps -aq)" ]; then
+            printf '%s\n' 'acceptance VM has pre-existing containers; use a clean disposable VM' >&2
+            exit 2
+          fi
+          if [ -n "$(docker volume ls -q)" ]; then
+            printf '%s\n' 'acceptance VM has pre-existing Docker volumes; use a clean disposable VM' >&2
+            exit 2
+          fi
+          if [ -n "$(docker network ls --filter type=custom -q)" ]; then
+            printf '%s\n' 'acceptance VM has pre-existing custom Docker networks; use a clean disposable VM' >&2
+            exit 2
+          fi
+          python3 - <<'PY'
+          import socket
+          for port in (8080, 13000, 18080):
+              with socket.socket() as probe:
+                  try:
+                      probe.bind(("127.0.0.1", port))
+                  except OSError as exc:
+                      raise SystemExit(f"acceptance VM port {port} is unavailable: {exc}")
+          PY
           if [ -e /etc/apparmor.d/stealth-buildkit-rootless ]; then
             printf '%s\n' 'acceptance VM already has the managed BuildKit profile; use a clean disposable VM' >&2
             exit 2
@@ -199,7 +220,7 @@ jobs:
           echo "BUILD_TIME=$build_time" >>"$GITHUB_ENV"
           scp -P "$SSH_PORT" -i "$SSH_KEY_FILE" -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             "$RUNNER_TEMP/stealth-app-host-reboot.env" "$SSH_TARGET:$REMOTE_ENV"
-          ssh "${ssh_options[@]}" "$SSH_TARGET" "chmod 0600 '$REMOTE_ENV'"
+          ssh "${ssh_options[@]}" "$SSH_TARGET" "chmod 0600 '$REMOTE_ENV' && test \"\$(stat -c '%a' '$REMOTE_ENV')\" = 600"
 
       - name: Build coordinated images and persist App acceptance state
         shell: bash
