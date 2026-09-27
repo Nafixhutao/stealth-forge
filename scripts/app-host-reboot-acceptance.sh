@@ -221,9 +221,28 @@ PY
 		fi
 		printf '%s\n' 'App container and current secret passed; checking routed App responses.'
 		for check in configuration healthz version; do
-			printf 'Checking App route after reboot: %s\n' "$check"
-			body="$("${compose[@]}" exec -T api sh -ec 'wget -SO- --timeout=8 --header "Host: $1" "http://traefik:8080/$2"' sh "$app_host" "$check")"
-			case "$check:$body" in configuration:app-config-v2|healthz:app-runtime-smoke-ok|version:"$marker") ;; *) printf 'App route check failed after reboot: %s=%q\n' "$check" "$body" >&2; exit 1;; esac
+			case "$check" in
+				configuration) expected_body=app-config-v2 ;;
+				healthz) expected_body=app-runtime-smoke-ok ;;
+				version) expected_body="$marker" ;;
+			esac
+			printf 'Waiting for App route after reboot: %s\n' "$check"
+			body=''
+			for attempt in $(seq 1 60); do
+				if body="$("${compose[@]}" exec -T api sh -ec 'wget -qO- --timeout=8 --header "Host: $1" "http://traefik:8080/$2"' sh "$app_host" "$check")" && [ "$body" = "$expected_body" ]; then
+					break
+				fi
+				if [ "$attempt" -eq 60 ]; then
+					route_response="$("${compose[@]}" exec -T api sh -ec 'wget -S -O /dev/null --timeout=8 --header "Host: $1" "http://traefik:8080/$2"' sh "$app_host" "$check" 2>&1 || true)"
+					route_status="$(printf '%s\n' "$route_response" | sed -n 's/.*HTTP\/[^ ]* \([0-9][0-9][0-9]\).*/\1/p' | tail -n 1)"
+					printf 'App route failed to recover after reboot: path=%s HTTP=%s expected=%q body_bytes=%s\n' "$check" "${route_status:-unavailable}" "$expected_body" "${#body}" >&2
+					exit 1
+				fi
+				if [ "$attempt" -eq 1 ] || [ "$((attempt % 10))" -eq 0 ]; then
+					printf 'App route is not ready after reboot: path=%s attempt=%s/60\n' "$check" "$attempt"
+				fi
+				sleep 2
+			done
 		done
 		printf '%s\n' 'App route checks passed; verifying persisted artifact and retained logs.'
 		artifact_row="$("${compose[@]}" exec -T postgres sh -ec 'd="$1"; a="$2"; case "$d$a" in *[!0-9a-f-]*) exit 2;; esac; psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --set ON_ERROR_STOP=1 --tuples-only --no-align --field-separator="|" --command "SELECT image_path,image_archive_sha256,image_digest,image_size_bytes FROM app_deployments WHERE id = '\''$d'\'' AND app_id = '\''$a'\''"' sh "$deployment_id" "$app_id" | tr -d '\r')"
