@@ -3447,6 +3447,7 @@ verify_app_runtime_soak() {
 			printf 'App soak could not select deployment %s: HTTP %s\n' "$deployment" "$status" >&2
 			return 1
 		fi
+		fetch_app_runtime
 		new_generation="$(platform_json_field "$platform_response" app.desired_generation)"
 		if [ "$(platform_json_field "$platform_response" app.desired_deployment_id)" != "$deployment" ] ||
 			[ -z "$generation" ] || [ "$new_generation" -ne "$((generation + 1))" ]; then
