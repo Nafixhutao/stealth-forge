@@ -95,16 +95,17 @@ PY
 		ssh_ready=false
 		for attempt in $(seq 1 180); do
 			if ssh "${ssh_options[@]}" acceptance@127.0.0.1 true >/dev/null 2>&1; then ssh_ready=true; break; fi
-			if ! sudo -n kill -0 "$(cat "$pid_file")" 2>/dev/null; then
+			vm_pid="$(sudo -n cat "$pid_file" 2>/dev/null || true)"
+			if [[ ! "$vm_pid" =~ ^[0-9]+$ ]] || ! sudo -n kill -0 "$vm_pid" 2>/dev/null; then
 				printf '%s\n' 'ephemeral Linux VM stopped during cloud-init boot' >&2
-				tail -n 80 "$serial_log" "$qemu_log" >&2 || true
+				sudo -n tail -n 80 "$serial_log" "$qemu_log" >&2 || true
 				exit 1
 			fi
 			sleep 5
 		done
 		if [ "$ssh_ready" != true ]; then
 			printf '%s\n' 'ephemeral Linux VM did not enable SSH within 15 minutes' >&2
-			tail -n 80 "$serial_log" "$qemu_log" >&2 || true
+			sudo -n tail -n 80 "$serial_log" "$qemu_log" >&2 || true
 			exit 1
 		fi
 		known_hosts="$vm_root/known-hosts"
@@ -127,7 +128,7 @@ PY
 		;;
 	stop)
 		if [ -e "$pid_file" ] && [ ! -L "$pid_file" ]; then
-			pid="$(cat "$pid_file")"
+			pid="$(sudo -n cat "$pid_file")"
 			if [[ "$pid" =~ ^[0-9]+$ ]] && sudo -n kill -0 "$pid" 2>/dev/null; then
 				process_args="$(sudo -n ps -p "$pid" -o args= 2>/dev/null || true)"
 				if [[ "$process_args" != *qemu-system-x86_64* || "$process_args" != *"$pid_file"* ]]; then
