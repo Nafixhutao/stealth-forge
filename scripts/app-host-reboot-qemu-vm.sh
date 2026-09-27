@@ -116,7 +116,8 @@ PY
 		fi
 		chmod 0600 "$known_hosts"
 		ssh_options=(-p "$ssh_port" -i "$ssh_key" -o UserKnownHostsFile="$known_hosts" -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=15)
-		ssh "${ssh_options[@]}" acceptance@127.0.0.1 'cloud-init status --wait && sudo -n true && docker compose version && docker info >/dev/null'
+		ssh "${ssh_options[@]}" acceptance@127.0.0.1 'cloud-init status --wait && sudo -n true && docker compose version'
+		ssh "${ssh_options[@]}" acceptance@127.0.0.1 'id -nG | tr " " "\n" | grep -Fx docker >/dev/null && docker info >/dev/null'
 		{
 			printf 'SSH_KEY_FILE=%s\n' "$ssh_key"
 			printf 'KNOWN_HOSTS_FILE=%s\n' "$known_hosts"
