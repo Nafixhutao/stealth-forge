@@ -124,6 +124,17 @@ func (m *Moby) EnsureImage(ctx context.Context, info ociartifact.ImageInfo, arch
 		return Image{}, err
 	}
 	if !found {
+		runtimeTagClass := "runtime-tag-inspection-failed"
+		if tagged, tagFound, tagErr := m.inspectImage(ctx, runtimeTag); tagErr == nil {
+			switch {
+			case !tagFound:
+				runtimeTagClass = "runtime-tag-missing"
+			case tagged.ID == info.ConfigDigest:
+				runtimeTagClass = "runtime-tag-expected"
+			default:
+				runtimeTagClass = "runtime-tag-other-" + imageIDLogPrefix(tagged.ID)
+			}
+		}
 		if _, err := archive.Seek(0, io.SeekStart); err != nil {
 			return Image{}, ErrImageVerification
 		}
@@ -149,7 +160,9 @@ func (m *Moby) EnsureImage(ctx context.Context, info ociartifact.ImageInfo, arch
 			if importErr != nil {
 				return Image{}, errors.Join(ErrImageImport, importErr)
 			}
-			return Image{}, &imageLoadVisibilityFailure{outputClass: imageLoadOutputClass(loadResult, info.ConfigDigest)}
+			return Image{}, &imageLoadVisibilityFailure{
+				outputClass: imageLoadOutputClass(loadResult, info.ConfigDigest) + "-" + runtimeTagClass,
+			}
 		}
 	}
 	if !imageMatchesOCI(image, info) {

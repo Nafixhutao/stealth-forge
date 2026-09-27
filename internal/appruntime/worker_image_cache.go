@@ -144,6 +144,7 @@ func (w *Worker) sweepRuntimeImageCacheIfDue(ctx context.Context, currentDeploym
 			w.Logger.Warn("Stealth App runtime image cache entry could not be removed", "deployment_id", entry.DeploymentID, "reason", safeRuntimeError(err))
 			continue
 		}
+		w.Logger.Info("App runtime image cache removal [DEBUG-APP-IMAGE-IMPORT]", "deployment_id", entry.DeploymentID)
 		removed++
 		remaining := make([]RuntimeImageCacheEntry, 0, len(entries))
 		for _, candidate := range entries {
