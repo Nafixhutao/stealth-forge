@@ -1813,16 +1813,56 @@ app_runtime_log_counts() {
 	printf '%s %s\n' "$stdout_count" "$stderr_count"
 }
 
+diagnose_app_runtime_log_file() {
+	local marker="$1" container_id="$2" log_metadata log_driver log_path expected_glob_match file_exists file_metadata collector_probe
+	log_metadata="$(docker inspect --format '{{.HostConfig.LogConfig.Type}}|{{.LogPath}}' "$container_id" 2>/dev/null || true)"
+	IFS='|' read -r log_driver log_path <<<"$log_metadata"
+	expected_glob_match=false
+	if [[ "$log_path" == /var/lib/docker/containers/*/*-json.log ]]; then
+		expected_glob_match=true
+	fi
+	file_exists=false
+	file_metadata=""
+	if [ -n "$log_path" ] && [ -f "$log_path" ]; then
+		file_exists=true
+		file_metadata="$(stat --format='mode=%a owner=%u:%g bytes=%s' "$log_path" 2>/dev/null || true)"
+	fi
+	printf 'App Docker log source: driver=%s expected_filelog_glob_match=%s file_exists=%s %s\n' \
+		"${log_driver:-unknown}" "$expected_glob_match" "$file_exists" "${file_metadata:-file_metadata=unavailable}" >&2
+	if collector_probe="$(docker run --rm --log-driver=none --network none --user 10001:10001 \
+		--cap-drop ALL --cap-add DAC_READ_SEARCH \
+		--volume /var/lib/docker/containers:/hostfs:ro alpine:3.24 \
+		sh -ec '
+			container_id="$1"; marker="$2"; file="/hostfs/$container_id/$container_id-json.log"
+			case "$container_id" in *[!0-9a-f]*|"") exit 2;; esac
+			case "$marker" in *[!A-Za-z0-9_.-]*|"") exit 2;; esac
+			if [ ! -r "$file" ]; then printf "App JSON log marker probe: file=missing-or-unreadable\\n"; exit 0; fi
+			stdout_count="$(grep -F -c "STEALTH_APP_RUNTIME_LOG_STDOUT_${marker}_" "$file" || true)"
+			stderr_count="$(grep -F -c "STEALTH_APP_RUNTIME_LOG_STDERR_${marker}_" "$file" || true)"
+			printf "App JSON log marker probe as collector UID/capabilities: stdout=%s stderr=%s\\n" "$stdout_count" "$stderr_count"
+		' sh "$container_id" "$marker" 2>/dev/null)"; then
+		printf '%s\n' "$collector_probe" >&2
+	else
+		printf '%s\n' 'App JSON log marker probe could not run with the Collector UID/capabilities' >&2
+	fi
+}
+
 diagnose_app_runtime_log_marker_ingestion() {
-	local marker="$1" container_id="$2" source_count query ch_counts
+	local marker="$1" container_id="$2" source_count query ch_counts full_container_id
 	if [[ ! "$marker" =~ ^[-A-Za-z0-9_.]+$ ]] || [[ ! "$container_id" =~ ^[0-9a-f]{12,64}$ ]]; then
 		printf '%s\n' 'App runtime log ingestion diagnostics skipped because the marker or container ID was invalid' >&2
 		return 0
 	fi
+	full_container_id="$(docker inspect --format '{{.Id}}' "$container_id" 2>/dev/null || true)"
+	if [[ ! "$full_container_id" =~ ^[0-9a-f]{12,64}$ ]]; then
+		printf '%s\n' 'App runtime Docker inspection did not return a valid full container ID' >&2
+		return 0
+	fi
+	diagnose_app_runtime_log_file "$marker" "$full_container_id"
 	if source_count="$(
 		"${compose[@]}" exec -T postgres sh -ec \
 			'container_id="$1"; case "$container_id" in *[!0-9a-f]*|"") exit 2;; esac; psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --set ON_ERROR_STOP=1 --tuples-only --no-align --command "SELECT count(*) FROM app_runtime_log_sources WHERE container_id = '\''$container_id'\''"' \
-			sh "$container_id" 2>/dev/null
+			sh "$full_container_id" 2>/dev/null
 	)"; then
 		printf 'App runtime log source registration rows for the current container: %s\n' "$source_count" >&2
 	else
@@ -1830,10 +1870,10 @@ diagnose_app_runtime_log_marker_ingestion() {
 	fi
 	query="
 		SELECT
-			countIf(ResourceAttributes['container.id'] = '${container_id}' AND positionCaseInsensitiveUTF8(Body, 'STEALTH_APP_RUNTIME_LOG_STDOUT_${marker}_') > 0),
-			countIf(ResourceAttributes['container.id'] = '${container_id}' AND positionCaseInsensitiveUTF8(Body, 'STEALTH_APP_RUNTIME_LOG_STDERR_${marker}_') > 0),
-			countIf(ResourceAttributes['container.id'] = '${container_id}' AND positionCaseInsensitiveUTF8(Body, 'STEALTH_APP_RUNTIME_LOG_STDOUT_${marker}_') > 0 AND LogAttributes['stealth.log.event_id'] != ''),
-			countIf(ResourceAttributes['container.id'] = '${container_id}' AND positionCaseInsensitiveUTF8(Body, 'STEALTH_APP_RUNTIME_LOG_STDERR_${marker}_') > 0 AND LogAttributes['stealth.log.event_id'] != ''),
+			countIf(ResourceAttributes['container.id'] = '${full_container_id}' AND positionCaseInsensitiveUTF8(Body, 'STEALTH_APP_RUNTIME_LOG_STDOUT_${marker}_') > 0),
+			countIf(ResourceAttributes['container.id'] = '${full_container_id}' AND positionCaseInsensitiveUTF8(Body, 'STEALTH_APP_RUNTIME_LOG_STDERR_${marker}_') > 0),
+			countIf(ResourceAttributes['container.id'] = '${full_container_id}' AND positionCaseInsensitiveUTF8(Body, 'STEALTH_APP_RUNTIME_LOG_STDOUT_${marker}_') > 0 AND LogAttributes['stealth.log.event_id'] != ''),
+			countIf(ResourceAttributes['container.id'] = '${full_container_id}' AND positionCaseInsensitiveUTF8(Body, 'STEALTH_APP_RUNTIME_LOG_STDERR_${marker}_') > 0 AND LogAttributes['stealth.log.event_id'] != ''),
 			countIf(positionCaseInsensitiveUTF8(Body, 'STEALTH_APP_RUNTIME_LOG_STDOUT_${marker}_') > 0),
 			countIf(positionCaseInsensitiveUTF8(Body, 'STEALTH_APP_RUNTIME_LOG_STDERR_${marker}_') > 0),
 			countIf(positionCaseInsensitiveUTF8(Body, 'STEALTH_APP_RUNTIME_LOG_STDOUT_${marker}_') > 0 AND LogAttributes['stealth.log.event_id'] != ''),
@@ -1843,7 +1883,7 @@ diagnose_app_runtime_log_marker_ingestion() {
 			AND positionCaseInsensitiveUTF8(Body, 'STEALTH_APP_RUNTIME_LOG_') > 0
 		FORMAT TabSeparated"
 	if ch_counts="$(clickhouse_query "$query" 2>/dev/null)"; then
-		printf 'ClickHouse App marker rows (container stdout/stderr, container rows with event IDs, all-container stdout/stderr, all-container rows with event IDs): %s\n' "$ch_counts" >&2
+		printf 'ClickHouse App marker rows (full container ID: stdout/stderr, with event IDs, all-container stdout/stderr, with event IDs): %s\n' "$ch_counts" >&2
 	else
 		printf '%s\n' 'ClickHouse App marker row counts could not be queried' >&2
 	fi
