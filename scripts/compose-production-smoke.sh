@@ -3466,15 +3466,11 @@ verify_app_runtime_soak() {
 		if [ "$selected" = "$platform_app_deployment_id" ]; then
 			deployment="$platform_app_v1_deployment_id"
 			version="$platform_app_v1_version"
-			spec_sha="$platform_app_v1_workload_spec_sha256"
-			cpu_millis=500
 			response_marker="$smoke_marker"
 			status="$(platform_request POST "/v1/projects/${platform_project_id}/apps/${platform_app_id}/deployments/${deployment}/rollback" '' "$platform_response")"
 		elif [ "$selected" = "$platform_app_v1_deployment_id" ]; then
 			deployment="$platform_app_deployment_id"
 			version="$platform_app_v2_version"
-			spec_sha="$platform_app_v2_workload_spec_sha256"
-			cpu_millis=750
 			response_marker="${smoke_marker}-app-v2"
 			status="$(platform_request POST "/v1/projects/${platform_project_id}/apps/${platform_app_id}/deployments/${deployment}/select" '' "$platform_response")"
 		else
@@ -3487,8 +3483,12 @@ verify_app_runtime_soak() {
 		fi
 		fetch_app_runtime
 		new_generation="$(platform_json_field "$platform_response" app.desired_generation)"
-		if [ "$(platform_json_field "$platform_response" app.desired_deployment_id)" != "$deployment" ] ||
-			[ -z "$generation" ] || [ "$new_generation" -ne "$((generation + 1))" ]; then
+		selected="$(platform_json_field "$platform_response" app.desired_deployment_id)"
+		spec_sha="$(platform_json_field "$platform_response" app.workload_spec_sha256)"
+		cpu_millis="$(platform_json_field "$platform_response" app.workload.resources.cpu_millis)"
+		if [ "$selected" != "$deployment" ] || [ -z "$spec_sha" ] ||
+			! [[ "$cpu_millis" =~ ^[0-9]+$ ]] || ! [[ "$generation" =~ ^[0-9]+$ ]] ||
+			! [[ "$new_generation" =~ ^[0-9]+$ ]] || [ "$new_generation" -ne "$((generation + 1))" ]; then
 			printf 'App soak transition did not advance desired generation exactly once: before=%s after=%s deployment=%s\n' "$generation" "$new_generation" "$deployment" >&2
 			return 1
 		fi
@@ -3498,7 +3498,9 @@ verify_app_runtime_soak() {
 			[ "$(platform_json_field "$platform_response" app.observed_generation)" != "$new_generation" ] ||
 			[ "$(platform_json_field "$platform_response" app.desired_deployment_id)" != "$deployment" ] ||
 			[ "$(platform_json_field "$platform_response" app.workload_spec_sha256)" != "$spec_sha" ]; then
-			printf 'App soak transition failed desired/applied convergence for deployment %s\n' "$deployment" >&2
+			printf 'App soak transition failed desired/applied convergence: deployment=%s spec=%s expected_spec=%s generation=%s expected_generation=%s\n' \
+				"$deployment" "$(platform_json_field "$platform_response" app.workload_spec_sha256)" "$spec_sha" \
+				"$(platform_json_field "$platform_response" app.observed_generation)" "$new_generation" >&2
 			return 1
 		fi
 		new_container="$(app_runtime_container_id)"
@@ -3588,15 +3590,22 @@ PY
 			printf 'could not restore App v2 after soak: HTTP %s\n' "$status" >&2
 			return 1
 		fi
-		wait_for_app_runtime running
-		wait_for_app_health_state healthy active
 		fetch_app_runtime
 		generation="$(platform_json_field "$platform_response" app.desired_generation)"
 		selected="$(platform_json_field "$platform_response" app.desired_deployment_id)"
-		version="$platform_app_v2_version"
 		spec_sha="$(platform_json_field "$platform_response" app.workload_spec_sha256)"
+		cpu_millis="$(platform_json_field "$platform_response" app.workload.resources.cpu_millis)"
+		if [ "$selected" != "$platform_app_deployment_id" ] || [ -z "$generation" ] || [ -z "$spec_sha" ] || ! [[ "$cpu_millis" =~ ^[0-9]+$ ]]; then
+			printf 'App soak could not capture the selected v2 desired state: generation=%s deployment=%s spec=%s cpu_millis=%s\n' \
+				"$generation" "$selected" "$spec_sha" "$cpu_millis" >&2
+			return 1
+		fi
+		wait_for_app_runtime_generation "$generation" "$selected" "$spec_sha"
+		wait_for_app_health_state healthy active
+		fetch_app_runtime
+		version="$platform_app_v2_version"
 		new_container="$(app_runtime_container_id)"
-		assert_app_runtime_container "$new_container" "$generation" "$selected" "$spec_sha" 750
+		assert_app_runtime_container "$new_container" "$generation" "$selected" "$spec_sha" "$cpu_millis"
 		assert_app_diagnostics converged "$selected" "$version" "$selected" "$version"
 		assert_app_runtime_configuration 'app-config-v2'
 		wait_for_app_public_route 'app-runtime-smoke-ok'
@@ -3604,6 +3613,48 @@ PY
 			printf '%s\n' 'App v2 route did not return its marker after soak recovery' >&2
 			return 1
 		fi
+	fi
+	# Selecting a deployment preserves the current mutable WorkloadSpec; rollback
+	# restores the deployment snapshot. Restore the v2 CPU baseline after alternating
+	# releases so later smoke and reboot checks start from the original v2 state.
+	status="$(platform_request PATCH "/v1/projects/${platform_project_id}/apps/${platform_app_id}" '{"workload":{"resources":{"cpu_millis":750}}}' "$platform_response")"
+	if [ "$status" != '200' ]; then
+		printf 'could not restore v2 App CPU baseline after soak: HTTP %s\n' "$status" >&2
+		return 1
+	fi
+	fetch_app_runtime
+	generation="$(platform_json_field "$platform_response" app.desired_generation)"
+	selected="$(platform_json_field "$platform_response" app.desired_deployment_id)"
+	spec_sha="$(platform_json_field "$platform_response" app.workload_spec_sha256)"
+	cpu_millis="$(platform_json_field "$platform_response" app.workload.resources.cpu_millis)"
+	if [ "$selected" != "$platform_app_deployment_id" ] || [ -z "$generation" ] ||
+		[ "$spec_sha" != "$platform_app_v2_workload_spec_sha256" ] || [ "$cpu_millis" != '750' ]; then
+		printf 'App soak did not restore the v2 workload baseline: generation=%s deployment=%s spec=%s expected_spec=%s cpu_millis=%s\n' \
+			"$generation" "$selected" "$spec_sha" "$platform_app_v2_workload_spec_sha256" "$cpu_millis" >&2
+		return 1
+	fi
+	wait_for_app_runtime_generation "$generation" "$selected" "$spec_sha"
+	wait_for_app_health_state healthy active
+	fetch_app_runtime
+	if [ "$(platform_json_field "$platform_response" app.desired_generation)" != "$generation" ] ||
+		[ "$(platform_json_field "$platform_response" app.observed_generation)" != "$generation" ] ||
+		[ "$(platform_json_field "$platform_response" app.desired_deployment_id)" != "$selected" ] ||
+		[ "$(platform_json_field "$platform_response" app.workload_spec_sha256)" != "$spec_sha" ]; then
+		printf 'App soak v2 baseline did not converge: desired=%s observed=%s deployment=%s spec=%s expected_spec=%s\n' \
+			"$(platform_json_field "$platform_response" app.desired_generation)" \
+			"$(platform_json_field "$platform_response" app.observed_generation)" \
+			"$(platform_json_field "$platform_response" app.desired_deployment_id)" \
+			"$(platform_json_field "$platform_response" app.workload_spec_sha256)" "$spec_sha" >&2
+		return 1
+	fi
+	new_container="$(app_runtime_container_id)"
+	assert_app_runtime_container "$new_container" "$generation" "$selected" "$spec_sha" 750
+	assert_app_diagnostics converged "$selected" "$platform_app_v2_version" "$selected" "$platform_app_v2_version"
+	assert_app_runtime_configuration 'app-config-v2'
+	wait_for_app_public_route 'app-runtime-smoke-ok'
+	if [ "$(app_public_route_body /version)" != "${smoke_marker}-app-v2" ]; then
+		printf '%s\n' 'App v2 route did not return its marker after restoring the soak baseline' >&2
+		return 1
 	fi
 	fetch_app_runtime_logs
 	read -r v1_stdout v1_stderr <<<"$(app_runtime_log_counts "$smoke_marker")"
