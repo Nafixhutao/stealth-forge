@@ -324,34 +324,55 @@ jobs:
         run: |
           set -euo pipefail
           ssh_options=(-p "$SSH_PORT" -i "$SSH_KEY_FILE" -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=15)
+          printf '%s\n' 'Reading the saved host reboot baseline.'
+          set +e
           baseline="$(ssh "${ssh_options[@]}" "$SSH_TARGET" "python3 -c 'import json; s=json.load(open(\"$REMOTE_STATE\")); print(s[\"boot_id\"]); print(s[\"source_sha\"])'")"
+          baseline_status=$?
+          set -e
+          if [ "$baseline_status" -ne 0 ]; then
+            printf 'could not read the saved reboot baseline over SSH (status %s)\n' "$baseline_status" >&2
+            exit "$baseline_status"
+          fi
           boot_before="$(printf '%s\n' "$baseline" | sed -n '1p')"
           source_sha="$(printf '%s\n' "$baseline" | sed -n '2p')"
           if [ "$source_sha" != "$SOURCE_SHA" ]; then printf 'prepared source %s does not match this workflow head %s\n' "$source_sha" "$SOURCE_SHA" >&2; exit 1; fi
+          if [ -z "$boot_before" ]; then printf '%s\n' 'saved reboot baseline did not include a kernel boot ID' >&2; exit 1; fi
+          printf '%s\n' 'Baseline read and source SHA verified; requesting a host reboot.'
           set +e
           ssh "${ssh_options[@]}" "$SSH_TARGET" 'sudo -n systemctl reboot' >/dev/null 2>&1
           reboot_status=$?
           set -e
           if [ "$reboot_status" -ne 0 ] && [ "$reboot_status" -ne 255 ]; then
-            printf 'remote reboot command failed with SSH status %s\n' "$reboot_status" >&2
-            exit "$reboot_status"
+            printf 'reboot request returned SSH status %s; checking for an actual kernel boot ID change\n' "$reboot_status"
           fi
           boot_after=''
           for attempt in $(seq 1 180); do
             boot_after="$(ssh "${ssh_options[@]}" "$SSH_TARGET" 'cat /proc/sys/kernel/random/boot_id' 2>/dev/null || true)"
             if [ -n "$boot_after" ] && [ "$boot_after" != "$boot_before" ]; then break; fi
+            if [ "$attempt" -eq 1 ] || [ "$((attempt % 6))" -eq 0 ]; then
+              printf 'Waiting for a new kernel boot ID after reboot request (attempt %s/180).\n' "$attempt"
+            fi
             sleep 10
           done
           if [ -z "$boot_after" ] || [ "$boot_after" = "$boot_before" ]; then
-            printf '%s\n' 'remote host did not return with a new kernel boot ID within 30 minutes' >&2
+            printf 'remote host did not return with a new kernel boot ID within 30 minutes (reboot SSH status %s)\n' "$reboot_status" >&2
             exit 1
           fi
+          printf '%s\n' 'Observed a changed kernel boot ID; running post-reboot recovery acceptance.'
+          set +e
           ssh "${ssh_options[@]}" "$SSH_TARGET" bash -s -- "$REMOTE_REPO" "$REMOTE_ENV" "$REMOTE_STATE" "$REMOTE_RESULT" "$SOURCE_SHA" "$REBOOT_HOST_KIND" <<'REMOTE'
           set -euo pipefail
           repo="$1"; env_file="$2"; state="$3"; result="$4"; sha="$5"; host_kind="$6"
           cd "$repo"
           COMMIT_SHA="$sha" APP_REBOOT_HOST_KIND="$host_kind" ENV_FILE="$env_file" APP_REBOOT_EVIDENCE_PATH="$state" APP_REBOOT_RESULT_PATH="$result" ./scripts/app-host-reboot-acceptance.sh verify
           REMOTE
+          verify_status=$?
+          set -e
+          if [ "$verify_status" -ne 0 ]; then
+            printf 'post-reboot recovery acceptance exited with SSH status %s\n' "$verify_status" >&2
+            exit "$verify_status"
+          fi
+          printf '%s\n' 'Post-reboot recovery acceptance passed; collecting non-secret evidence.'
           scp -P "$SSH_PORT" -i "$SSH_KEY_FILE" -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             "$SSH_TARGET:$REMOTE_RESULT" "$RUNNER_TEMP/apps-host-reboot-result.json"
           cp "$RUNNER_TEMP/apps-host-reboot-result.json" "$GITHUB_WORKSPACE/apps-host-reboot-result.json"
