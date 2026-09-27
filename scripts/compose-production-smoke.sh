@@ -43,6 +43,7 @@ register_response="$(mktemp "${TMPDIR:-/tmp}/stealth-compose-smoke-registration.
 auth_cookie_header=""
 api_url=""
 console_url=""
+proxy_url=""
 filelog_smoke_pid=""
 platform_route_lock_active="false"
 platform_route_lock_name=""
@@ -3350,7 +3351,39 @@ verify_app_control_plane_restarts() {
 		printf '%s\n' 'App runtime logs exposed the current secret after Console restart' >&2
 		return 1
 	fi
-	printf 'API and Console restarts preserved App generation %s, container %s, fresh health, route, secret configuration, diagnostics, and logs\n' "$generation" "$before_container"
+
+	"${compose[@]}" restart proxy >/dev/null
+	wait_for_healthy proxy
+	status="$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' "${proxy_url%/}/v1/account")"
+	if [ "$status" != 401 ]; then
+		printf 'API route through Nginx after restart returned HTTP %s, want 401\n' "$status" >&2
+		return 1
+	fi
+	"${compose[@]}" restart traefik >/dev/null
+	wait_for_healthy traefik
+	wait_for_app_health_state healthy active
+	wait_for_app_route_snapshot true
+	wait_for_app_public_route 'app-runtime-smoke-ok'
+	if [ "$(app_public_route_body /version)" != "$expected_version" ]; then
+		printf '%s\n' 'App response changed after ingress restart' >&2
+		return 1
+	fi
+	fetch_app_runtime
+	if [ "$(platform_json_field "$platform_response" app.desired_generation)" != "$generation" ] ||
+		[ "$(platform_json_field "$platform_response" app.observed_generation)" != "$generation" ] ||
+		[ "$(platform_json_field "$platform_response" app.desired_deployment_id)" != "$selected" ] ||
+		[ "$(app_runtime_container_id)" != "$before_container" ]; then
+		printf '%s\n' 'ingress restart changed converged App desired state or runtime identity' >&2
+		return 1
+	fi
+	assert_app_diagnostics converged "$selected" "$version" "$selected" "$version"
+	assert_app_runtime_configuration 'app-config-v2'
+	fetch_app_runtime_logs "$before_container"
+	if grep -Fq -- 'fake-smoke-secret-not-real-v2' "$platform_response"; then
+		printf '%s\n' 'App runtime logs exposed the current secret after ingress restart' >&2
+		return 1
+	fi
+	printf 'API, Console, Nginx, and Traefik restarts preserved App generation %s and runtime state; health, route, secret configuration, diagnostics, and logs converged\n' "$generation"
 }
 
 verify_app_runtime_soak() {
@@ -3599,8 +3632,14 @@ write_app_host_reboot_evidence() {
 		printf '%s\n' 'refusing to save reboot baseline because the v2 route marker is not active' >&2
 		return 1
 	fi
+	if [ "$(app_public_route_body /configuration)" != 'app-config-v2' ]; then
+		printf '%s\n' 'refusing to save reboot baseline because the current v2 secret/configuration is not active' >&2
+		return 1
+	fi
 	assert_app_diagnostics converged "$selected" "$platform_app_v2_version" "$selected" "$platform_app_v2_version"
 	runtime_container="$(app_runtime_container_id)"
+	assert_app_runtime_container "$runtime_container" "$generation" "$selected" "$spec_sha" 750
+	docker exec "$runtime_container" /buildkit-secret-probe verify-runtime-secret-v2
 	wait_for_app_runtime_log_markers "${smoke_marker}-app-v2" 1 "$runtime_container"
 	fetch_app_runtime_logs "$runtime_container"
 	v2_stdout_id="$(app_runtime_log_ids "${smoke_marker}-app-v2" stdout | sed -n '1p')"
@@ -3949,10 +3988,11 @@ fi
 
 api_url="http://${api_endpoint}"
 console_url="http://${console_endpoint}"
+proxy_url="http://${proxy_endpoint}"
 
 API_URL="http://${api_endpoint}" \
 CONSOLE_URL="http://${console_endpoint}" \
-PROXY_URL="http://${proxy_endpoint}" \
+PROXY_URL="$proxy_url" \
 "$repo_root/scripts/production-smoke.sh"
 
 smoke_marker="compose-smoke-$(date -u +%Y%m%d%H%M%S)-$$"
@@ -4010,9 +4050,7 @@ verify_app_secondary_state_smoke
 verify_app_runtime_lifecycle
 verify_app_control_plane_restarts
 verify_app_runtime_soak
-if [ "$app_host_reboot_acceptance" = true ]; then
-	write_app_host_reboot_evidence
-else
+if [ "$app_host_reboot_acceptance" != true ]; then
 	clear_platform_route_smoke
 fi
 
@@ -4103,5 +4141,9 @@ write_collector_persistence_probe
 wait_for_healthy otel-collector
 verify_collector_storage
 read_collector_persistence_probe
+
+if [ "$app_host_reboot_acceptance" = true ]; then
+	write_app_host_reboot_evidence
+fi
 
 printf 'Compose telemetry ingestion and ClickHouse persistence smoke checks passed\n'
