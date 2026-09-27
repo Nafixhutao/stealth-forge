@@ -167,7 +167,9 @@ PY
 		fi
 		boot_after="$(cat /proc/sys/kernel/random/boot_id)"
 		if [ "$boot_after" = "$boot_before" ]; then printf '%s\n' 'kernel boot ID is unchanged; real reboot was not observed' >&2; exit 1; fi
+		printf '%s\n' 'Kernel boot ID changed; checking production service recovery.'
 		for service in postgres redis clickhouse otel-collector telemetry-host telemetry-docker-logs telemetry-docker-proxy telemetry-docker api worker buildkit console proxy traefik; do
+			printf 'Waiting for service recovery: %s\n' "$service"
 			container="$("${compose[@]}" ps -q "$service" 2>/dev/null || true)"; healthy=false
 			for attempt in $(seq 1 120); do
 				if [ -n "$container" ] && [ "$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container" 2>/dev/null || true)" = healthy ]; then healthy=true; break; fi
@@ -177,6 +179,7 @@ PY
 		done
 		ready="$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' "${api_url%/}/readyz")"
 		if [ "$ready" != 200 ]; then printf 'API readiness returned HTTP %s after reboot\n' "$ready" >&2; exit 1; fi
+		printf '%s\n' 'API readiness passed; authenticating the acceptance account.'
 		cookie_file="$(mktemp "${TMPDIR:-/tmp}/stealth-app-reboot-cookie.XXXXXX")"; response_file="$(mktemp "${TMPDIR:-/tmp}/stealth-app-reboot-response.XXXXXX")"
 		login_payload="$(mktemp "${TMPDIR:-/tmp}/stealth-app-reboot-login.XXXXXX")"; chmod 0600 "$cookie_file" "$response_file" "$login_payload"
 		trap 'rm -f -- "$cookie_file" "$response_file" "$login_payload"' EXIT
@@ -189,6 +192,7 @@ PY
 		if [ "$login_status" != 204 ]; then printf 'smoke account login returned HTTP %s\n' "$login_status" >&2; exit 1; fi
 		cookie="$(awk 'BEGIN { s = "" } { d=$1; if (d ~ /^#HttpOnly_/) sub(/^#HttpOnly_/,"",d); else if (d ~ /^#/) next; if (NF>=7) { printf "%s%s=%s",s,$6,$7; s="; " } }' "$cookie_file")"
 		app_url="${api_url%/}/v1/projects/${project_id}/apps/${app_id}"
+		printf '%s\n' 'Waiting for the App desired generation, fresh health, and route state to recover.'
 		for attempt in $(seq 1 180); do
 			app_status="$(curl --silent --show-error --max-time 10 --header "Cookie: $cookie" --output "$response_file" --write-out '%{http_code}' "$app_url" 2>/dev/null || true)"
 			if [ "$app_status" = 200 ] && python3 - "$response_file" "$deployment_id" "$generation" "$spec_sha" <<'PY'
@@ -215,10 +219,13 @@ PY
 			printf '%s\n' 'App runtime secret verification failed after reboot' >&2
 			exit 1
 		fi
+		printf '%s\n' 'App container and current secret passed; checking routed App responses.'
 		for check in configuration healthz version; do
-			body="$("${compose[@]}" exec -T api sh -ec 'wget -qO- --timeout=8 --header "Host: $1" "http://traefik:8080/$2"' sh "$app_host" "$check")"
+			printf 'Checking App route after reboot: %s\n' "$check"
+			body="$("${compose[@]}" exec -T api sh -ec 'wget -SO- --timeout=8 --header "Host: $1" "http://traefik:8080/$2"' sh "$app_host" "$check")"
 			case "$check:$body" in configuration:app-config-v2|healthz:app-runtime-smoke-ok|version:"$marker") ;; *) printf 'App route check failed after reboot: %s=%q\n' "$check" "$body" >&2; exit 1;; esac
 		done
+		printf '%s\n' 'App route checks passed; verifying persisted artifact and retained logs.'
 		artifact_row="$("${compose[@]}" exec -T postgres sh -ec 'd="$1"; a="$2"; case "$d$a" in *[!0-9a-f-]*) exit 2;; esac; psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --set ON_ERROR_STOP=1 --tuples-only --no-align --field-separator="|" --command "SELECT image_path,image_archive_sha256,image_digest,image_size_bytes FROM app_deployments WHERE id = '\''$d'\'' AND app_id = '\''$a'\''"' sh "$deployment_id" "$app_id" | tr -d '\r')"
 		IFS='|' read -r image_path archive_sha digest image_size <<<"$artifact_row"
 		if ! [[ "$image_path" =~ ^[0-9a-f-]{36}/[0-9a-f-]{36}/[0-9a-f-]{36}$ && "$archive_sha" =~ ^[0-9a-f]{64}$ && "$digest" =~ ^sha256:[0-9a-f]{64}$ && "$image_size" =~ ^[1-9][0-9]*$ ]]; then printf '%s\n' 'invalid persisted App artifact metadata after reboot' >&2; exit 1; fi
