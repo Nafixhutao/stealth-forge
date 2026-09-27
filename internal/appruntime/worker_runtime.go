@@ -52,6 +52,9 @@ func (w *Worker) processApp(parent context.Context, job repository.AppRuntimeJob
 	if terminalRuntimeError(err) {
 		status = "failed"
 	}
+	if errors.Is(err, ErrImageImport) {
+		w.Logger.Warn("App runtime image import diagnostic [DEBUG-APP-IMAGE-IMPORT]", "category", debugImageImportFailure(err))
+	}
 	message := safeRuntimeError(err)
 	if message == "" {
 		message = "runtime unavailable"

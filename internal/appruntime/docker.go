@@ -108,7 +108,7 @@ func safeRuntimeError(err error) string {
 	case errors.Is(err, ErrUnsupportedRuntimePlatform):
 		return "unsupported runtime platform"
 	case errors.Is(err, ErrImageImport):
-		return debugImageImportFailure(err)
+		return "image import failed"
 	case errors.Is(err, ErrContainerCreate):
 		return "container create failed"
 	case errors.Is(err, ErrContainerStart):
