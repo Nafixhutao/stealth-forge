@@ -14,7 +14,10 @@ import (
 )
 
 type Image struct {
+	// ID is the verified OCI config digest stored on the container. EngineID is
+	// Moby's image lookup ID, which can be a manifest digest with containerd.
 	ID           string
+	EngineID     string
 	Tag          string
 	OS           string
 	Architecture string
@@ -26,74 +29,28 @@ type Image struct {
 	WorkingDir   string
 	User         string
 	VolumePaths  []string
+	Config       ociartifact.RuntimeConfig
 }
 
 type imageInspect struct {
-	ID           string   `json:"Id"`
-	OS           string   `json:"Os"`
-	Architecture string   `json:"Architecture"`
-	Variant      string   `json:"Variant"`
-	RepoTags     []string `json:"RepoTags"`
-	Config       struct {
-		Entrypoint []string            `json:"Entrypoint"`
-		Cmd        []string            `json:"Cmd"`
-		Env        []string            `json:"Env"`
-		WorkingDir string              `json:"WorkingDir"`
-		User       string              `json:"User"`
-		Volumes    map[string]struct{} `json:"Volumes"`
-	} `json:"Config"`
-	RootFS struct {
+	ID           string                    `json:"Id"`
+	OS           string                    `json:"Os"`
+	Architecture string                    `json:"Architecture"`
+	Variant      string                    `json:"Variant"`
+	Config       ociartifact.RuntimeConfig `json:"Config"`
+	RootFS       struct {
 		Layers []string `json:"Layers"`
 	} `json:"RootFS"`
 }
 
-type imageLoadVisibilityFailure struct {
-	outputClass string
-}
-
-func (failure *imageLoadVisibilityFailure) Error() string {
-	return "Docker image load completed but expected image ID was not visible"
-}
-
-func (failure *imageLoadVisibilityFailure) Unwrap() error { return ErrImageImport }
-
-func imageLoadOutputClass(result CommandResult, expectedImageID string) string {
-	if result.StdoutTruncated {
-		return "load-output-truncated"
-	}
-	output := strings.ToLower(strings.TrimSpace(string(result.Stdout)))
-	expectedImageID = strings.ToLower(expectedImageID)
-	switch {
-	case output == "":
-		return "load-output-empty"
-	case strings.Contains(output, "loaded image id:"):
-		reportedImageID := loadReportedImageID(output)
-		if reportedImageID == expectedImageID {
-			return "load-reported-expected-image-id"
-		}
-		if reportedImageID == "" {
-			return "load-reported-unparsed-image-id"
-		}
-		return "load-id-mismatch-expected-" + imageIDLogPrefix(expectedImageID) + "-reported-" + imageIDLogPrefix(reportedImageID)
-	case strings.Contains(output, "loaded image:"):
-		if strings.Contains(output, expectedImageID) {
-			return "load-reported-name-with-expected-image-id"
-		}
-		return "load-reported-image-name"
-	case strings.Contains(output, expectedImageID):
-		return "load-output-mentions-expected-image-id"
-	default:
-		return "load-reported-unclassified-output"
-	}
-}
-
-func loadReportedImageID(output string) string {
+func loadReportedImageID(output []byte) string {
 	marker := "loaded image id:"
-	markerIndex := strings.Index(output, marker)
+	lowerOutput := strings.ToLower(string(output))
+	markerIndex := strings.Index(lowerOutput, marker)
 	if markerIndex < 0 {
 		return ""
 	}
-	for _, field := range strings.Fields(output[markerIndex+len(marker):]) {
+	for _, field := range strings.Fields(lowerOutput[markerIndex+len(marker):]) {
 		candidate := strings.Trim(field, " \t\r\n\"'`()[]{}.,")
 		if validImageID(candidate) {
 			return candidate
@@ -102,39 +59,11 @@ func loadReportedImageID(output string) string {
 	return ""
 }
 
-func imageLoadReportedImageClass(ctx context.Context, moby *Moby, result CommandResult, info ociartifact.ImageInfo) string {
-	reportedImageID := loadReportedImageID(strings.ToLower(string(result.Stdout)))
-	if reportedImageID == "" {
-		return "reported-image-id-unparsed"
-	}
-	image, found, err := moby.inspectImage(ctx, reportedImageID)
-	if err != nil {
-		return "reported-image-inspection-failed"
-	}
-	if !found {
-		return "reported-image-not-visible"
-	}
-	if slices.Equal(image.Layers, info.LayerDiffIDs) {
-		return "reported-image-visible-expected-layers"
-	}
-	return "reported-image-visible-different-layers"
-}
-
-func imageIDLogPrefix(imageID string) string {
-	if !validImageID(imageID) {
-		return "invalid"
-	}
-	return imageID[7:19]
-}
-
 // EnsureImage verifies the selected OCI manifest and config identity before
-// creating a deterministic Moby tag. The Docker image ID is the OCI config
-// digest; it is distinct from AppDeployment.image_digest (manifest digest).
+// creating a deterministic Moby tag. The container's image ID is the OCI
+// config digest; Moby's image lookup ID may be a manifest digest.
 func (m *Moby) EnsureImage(ctx context.Context, info ociartifact.ImageInfo, archive io.ReadSeeker, runtimeTag string) (Image, error) {
-	if archive == nil || !validImageTag(runtimeTag) || info.ManifestDigest == "" || info.ConfigDigest == "" || len(info.VolumePaths) != 0 {
-		if len(info.VolumePaths) != 0 {
-			return Image{}, ErrImageVerification
-		}
+	if archive == nil || !validImageTag(runtimeTag) || !validImageID(info.ManifestDigest) || !validImageID(info.ConfigDigest) || len(info.VolumePaths) != 0 {
 		return Image{}, ErrImageVerification
 	}
 	image, found, err := m.inspectImage(ctx, info.ConfigDigest)
@@ -142,45 +71,37 @@ func (m *Moby) EnsureImage(ctx context.Context, info ociartifact.ImageInfo, arch
 		return Image{}, err
 	}
 	if !found {
-		runtimeTagClass := "runtime-tag-inspection-failed"
-		if tagged, tagFound, tagErr := m.inspectImage(ctx, runtimeTag); tagErr == nil {
-			switch {
-			case !tagFound:
-				runtimeTagClass = "runtime-tag-missing"
-			case tagged.ID == info.ConfigDigest:
-				runtimeTagClass = "runtime-tag-expected"
-			default:
-				runtimeTagClass = "runtime-tag-other-" + imageIDLogPrefix(tagged.ID)
-			}
-		}
-		if _, err := archive.Seek(0, io.SeekStart); err != nil {
-			return Image{}, ErrImageVerification
-		}
-		importContext, cancel := context.WithTimeout(ctx, m.ImportTimeout)
-		archiveReader, archiveWriter := io.Pipe()
-		conversionDone := make(chan error, 1)
-		go func() {
-			conversionErr := ociartifact.WriteDockerArchive(archive, info, archiveWriter)
-			_ = archiveWriter.CloseWithError(conversionErr)
-			conversionDone <- conversionErr
-		}()
-		loadResult, importErr := m.run(importContext, []string{"image", "load"}, archiveReader)
-		_ = archiveReader.Close()
-		if conversionErr := <-conversionDone; conversionErr != nil {
-			importErr = errors.Join(importErr, conversionErr)
-		}
-		cancel()
-		image, found, err = m.inspectImage(ctx, info.ConfigDigest)
+		image, found, err = m.inspectImage(ctx, runtimeTag)
 		if err != nil && !errors.Is(err, ErrDockerObjectNotFound) {
 			return Image{}, err
 		}
 		if !found {
-			if importErr != nil {
-				return Image{}, errors.Join(ErrImageImport, importErr)
+			if _, err := archive.Seek(0, io.SeekStart); err != nil {
+				return Image{}, ErrImageVerification
 			}
-			return Image{}, &imageLoadVisibilityFailure{
-				outputClass: imageLoadOutputClass(loadResult, info.ConfigDigest) + "-" + runtimeTagClass + "-" +
-					imageLoadReportedImageClass(ctx, m, loadResult, info),
+			importContext, cancel := context.WithTimeout(ctx, m.ImportTimeout)
+			archiveReader, archiveWriter := io.Pipe()
+			conversionDone := make(chan error, 1)
+			go func() {
+				conversionErr := ociartifact.WriteDockerArchive(archive, info, archiveWriter)
+				_ = archiveWriter.CloseWithError(conversionErr)
+				conversionDone <- conversionErr
+			}()
+			loadResult, importErr := m.run(importContext, []string{"image", "load"}, archiveReader)
+			_ = archiveReader.Close()
+			if conversionErr := <-conversionDone; conversionErr != nil {
+				importErr = errors.Join(importErr, conversionErr)
+			}
+			cancel()
+			image, found, err = m.inspectLoadedImage(ctx, info, loadResult)
+			if err != nil {
+				return Image{}, err
+			}
+			if !found {
+				if importErr != nil {
+					return Image{}, errors.Join(ErrImageImport, importErr)
+				}
+				return Image{}, ErrImageImport
 			}
 		}
 	}
@@ -192,16 +113,42 @@ func (m *Moby) EnsureImage(ctx context.Context, info ociartifact.ImageInfo, arch
 	if err != nil && !errors.Is(err, ErrDockerObjectNotFound) {
 		return Image{}, err
 	}
-	if !found || tagged.ID != image.ID {
-		if _, err := m.runAction(ctx, []string{"image", "tag", image.ID, runtimeTag}, nil); err != nil {
+	if !found || tagged.EngineID != image.EngineID || !imageMatchesOCI(tagged, info) {
+		if _, err := m.runAction(ctx, []string{"image", "tag", image.EngineID, runtimeTag}, nil); err != nil {
 			return Image{}, errors.Join(ErrImageImport, err)
 		}
 		tagged, found, err = m.inspectImage(ctx, runtimeTag)
-		if err != nil || !found || tagged.ID != image.ID {
+		if err != nil || !found || tagged.EngineID != image.EngineID || !imageMatchesOCI(tagged, info) {
 			return Image{}, ErrImageVerification
 		}
 	}
+	image.ID = info.ConfigDigest
 	return image, nil
+}
+
+func (m *Moby) inspectLoadedImage(ctx context.Context, info ociartifact.ImageInfo, result CommandResult) (Image, bool, error) {
+	candidates := []string{loadReportedImageID(result.Stdout), info.ConfigDigest, info.ManifestDigest}
+	seen := make(map[string]struct{}, len(candidates))
+	for _, candidate := range candidates {
+		if !validImageID(candidate) {
+			continue
+		}
+		if _, duplicate := seen[candidate]; duplicate {
+			continue
+		}
+		seen[candidate] = struct{}{}
+		image, found, err := m.inspectImage(ctx, candidate)
+		if err != nil && !errors.Is(err, ErrDockerObjectNotFound) {
+			return Image{}, false, err
+		}
+		if found {
+			if !imageMatchesOCI(image, info) {
+				return Image{}, false, ErrImageVerification
+			}
+			return image, true, nil
+		}
+	}
+	return Image{}, false, nil
 }
 
 func (m *Moby) inspectImage(ctx context.Context, reference string) (Image, bool, error) {
@@ -218,12 +165,12 @@ func (m *Moby) inspectImage(ctx context.Context, reference string) (Image, bool,
 	}
 	item := values[0]
 	image := Image{
-		ID: item.ID, OS: item.OS, Architecture: item.Architecture, Variant: item.Variant,
+		ID: item.ID, EngineID: item.ID, OS: item.OS, Architecture: item.Architecture, Variant: item.Variant,
 		Layers:      append([]string(nil), item.RootFS.Layers...),
 		Entrypoint:  append([]string(nil), item.Config.Entrypoint...),
-		Command:     append([]string(nil), item.Config.Cmd...),
-		Environment: append([]string(nil), item.Config.Env...),
-		WorkingDir:  item.Config.WorkingDir, User: item.Config.User,
+		Command:     append([]string(nil), item.Config.Command...),
+		Environment: append([]string(nil), item.Config.Environment...),
+		WorkingDir:  item.Config.WorkingDir, User: item.Config.User, Config: item.Config,
 	}
 	for volume := range item.Config.Volumes {
 		image.VolumePaths = append(image.VolumePaths, volume)
@@ -236,8 +183,14 @@ func (m *Moby) inspectImage(ctx context.Context, reference string) (Image, bool,
 }
 
 func imageMatchesOCI(image Image, info ociartifact.ImageInfo) bool {
-	return image.ID == info.ConfigDigest && image.OS == info.OS && image.Architecture == info.Architecture &&
-		image.Variant == info.Variant && slices.Equal(image.Layers, info.LayerDiffIDs) && len(image.VolumePaths) == 0
+	return validImageID(image.ID) && image.ID == image.EngineID && image.OS == info.OS && image.Architecture == info.Architecture &&
+		image.Variant == info.Variant && slices.Equal(image.Layers, info.LayerDiffIDs) &&
+		len(image.VolumePaths) == 0 && len(info.VolumePaths) == 0 && image.Config.Equal(info.RuntimeConfig)
+}
+
+func imageIDMatchesContainer(image Image, containerImageID string) bool {
+	return validImageID(containerImageID) && (containerImageID == image.ID ||
+		(validImageID(image.EngineID) && containerImageID == image.EngineID))
 }
 
 func ImageTag(deploymentID uuid.UUID) string {

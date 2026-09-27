@@ -52,9 +52,6 @@ func (w *Worker) processApp(parent context.Context, job repository.AppRuntimeJob
 	if terminalRuntimeError(err) {
 		status = "failed"
 	}
-	if errors.Is(err, ErrImageImport) {
-		w.Logger.Warn("App runtime image import diagnostic [DEBUG-APP-IMAGE-IMPORT]", "category", debugImageImportFailure(err))
-	}
 	message := safeRuntimeError(err)
 	if message == "" {
 		message = "runtime unavailable"
@@ -154,7 +151,7 @@ func (w *Worker) reconcile(ctx context.Context, job repository.AppRuntimeJob) er
 			}
 		}
 		if container.State.Running {
-			return w.completeRunning(ctx, job, container, imageInfo, runtimeTag)
+			return w.completeRunning(ctx, job, container, image, imageInfo, runtimeTag)
 		}
 		// Docker restart policy is deliberately disabled. Stealth retries an
 		// exited process through this durable, backoff-controlled reconcile.
@@ -189,7 +186,7 @@ func (w *Worker) reconcile(ctx context.Context, job repository.AppRuntimeJob) er
 		if !ContainerMatchesDesired(container, job, image, w.runtimeNetworkName()) || !container.State.Running {
 			return ErrContainerStart
 		}
-		return w.completeRunning(ctx, job, container, imageInfo, runtimeTag)
+		return w.completeRunning(ctx, job, container, image, imageInfo, runtimeTag)
 	}
 
 	if found {
@@ -240,15 +237,15 @@ func (w *Worker) reconcile(ctx context.Context, job repository.AppRuntimeJob) er
 	if !container.State.Running || !ContainerMatchesDesired(container, job, image, w.runtimeNetworkName()) {
 		return ErrContainerStart
 	}
-	return w.completeRunning(ctx, job, container, imageInfo, runtimeTag)
+	return w.completeRunning(ctx, job, container, image, imageInfo, runtimeTag)
 }
 
-func (w *Worker) completeRunning(ctx context.Context, job repository.AppRuntimeJob, container Container, imageInfo ociartifact.ImageInfo, runtimeTag string) error {
+func (w *Worker) completeRunning(ctx context.Context, job repository.AppRuntimeJob, container Container, image Image, imageInfo ociartifact.ImageInfo, runtimeTag string) error {
 	if err := w.requireCurrent(ctx, job); err != nil {
 		return err
 	}
 	imageID := container.ImageID
-	if imageID != imageInfo.ConfigDigest {
+	if !imageIDMatchesContainer(image, imageID) || imageInfo.ConfigDigest != image.ID {
 		return ErrImageVerification
 	}
 	state := &repository.AppRuntimeContainer{
@@ -301,10 +298,6 @@ func (w *Worker) inspectPersistedImage(ctx context.Context, job repository.AppRu
 	}
 	closeOnError = false
 	return info, archive, nil
-}
-
-func (w *Worker) completeRunningWithDigest(ctx context.Context, job repository.AppRuntimeJob, container Container, info ociartifact.ImageInfo, runtimeTag string) error {
-	return w.completeRunning(ctx, job, container, info, runtimeTag)
 }
 
 func (w *Worker) requireCurrent(ctx context.Context, job repository.AppRuntimeJob) error {

@@ -70,6 +70,7 @@ platform_app_v1_deployment_id=""
 platform_app_v1_version=""
 platform_app_v1_workload_spec_sha256=""
 platform_app_v1_image_id=""
+platform_app_v1_container_image_id=""
 platform_app_v2_version=""
 platform_app_v2_workload_spec_sha256=""
 platform_app_runtime_unrelated_tag=""
@@ -2131,6 +2132,20 @@ wait_for_running_app_runtime_container() {
 	return 1
 }
 
+assert_app_runtime_container_uses_image_tag() {
+	local container_id="$1" reference="$2" configured_reference container_image_id engine_image_id
+	configured_reference="$(docker inspect --format '{{.Config.Image}}' "$container_id")"
+	container_image_id="$(docker inspect --format '{{.Image}}' "$container_id")"
+	engine_image_id="$(docker image inspect --format '{{.Id}}' "$reference")"
+	if [ "$configured_reference" != "$reference" ] ||
+		! [[ "$container_image_id" =~ ^sha256:[0-9a-f]{64}$ ]] ||
+		! [[ "$engine_image_id" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+		printf 'App container image reference or IDs do not match the runtime tag %s (reference=%s container_id=%s engine_id=%s)\n' \
+			"$reference" "$configured_reference" "$container_image_id" "$engine_image_id" >&2
+		return 1
+	fi
+}
+
 assert_app_runtime_network() {
 	local network_name actual
 	network_name="$(app_runtime_network_name)"
@@ -2517,12 +2532,10 @@ PY
 	fi
 	runtime_container_id="$(app_runtime_container_id)"
 	if [ -z "$platform_app_v1_image_id" ]; then
-		platform_app_v1_image_id="$(docker inspect --format '{{.Image}}' "$runtime_container_id")"
-		if [ "$(docker image inspect --format '{{.Id}}' "stealth-app/${platform_app_v1_deployment_id}:runtime")" != "$platform_app_v1_image_id" ]; then
-			printf '%s\n' 'initial selected deployment did not have its exact Stealth runtime cache tag' >&2
-			return 1
-		fi
-		platform_app_v1_image_size_bytes="$(docker image inspect --format '{{.Size}}' "$platform_app_v1_image_id")"
+		platform_app_v1_container_image_id="$(docker inspect --format '{{.Image}}' "$runtime_container_id")"
+		platform_app_v1_image_id="$(docker image inspect --format '{{.Id}}' "stealth-app/${platform_app_v1_deployment_id}:runtime")"
+		assert_app_runtime_container_uses_image_tag "$runtime_container_id" "stealth-app/${platform_app_v1_deployment_id}:runtime"
+		platform_app_v1_image_size_bytes="$(docker image inspect --format '{{.Size}}' "stealth-app/${platform_app_v1_deployment_id}:runtime")"
 		if ! [[ "$platform_app_v1_image_size_bytes" =~ ^[0-9]+$ ]] || [ "$platform_app_v1_image_size_bytes" -le 2097152 ]; then
 			printf 'selected App image is too small to exercise the 2 MiB cache limit: %s bytes\n' "$platform_app_v1_image_size_bytes" >&2
 			return 1
@@ -2625,19 +2638,17 @@ PY
 }
 
 verify_app_runtime_image_cache_gc() {
-	local old_tag current_tag old_image_size unrelated_image_id current_image_id deadline status generation observed selected spec_sha
+	local old_tag current_tag old_image_size unrelated_image_id current_image_id current_engine_image_id deadline status generation observed selected spec_sha
 	local artifact_row quota_row image_path archive_sha digest image_size actual_sha rollback_source_generation rollback_generation environment_before environment_after v1_build_logs_before v2_build_logs_before
-	if [ -z "$platform_app_v1_deployment_id" ] || [ -z "$platform_app_v1_image_id" ] || [ -z "$platform_app_v1_artifact_row" ]; then
+	if [ -z "$platform_app_v1_deployment_id" ] || [ -z "$platform_app_v1_image_id" ] || [ -z "$platform_app_v1_container_image_id" ] || [ -z "$platform_app_v1_artifact_row" ]; then
 		printf '%s\n' 'App runtime cache smoke did not capture the first persisted deployment identity' >&2
 		return 1
 	fi
 	old_tag="stealth-app/${platform_app_v1_deployment_id}:runtime"
 	current_tag="stealth-app/${platform_app_deployment_id}:runtime"
 	current_image_id="$(docker inspect --format '{{.Image}}' "$new_container")"
-	if [ "$(docker image inspect --format '{{.Id}}' "$current_tag")" != "$current_image_id" ]; then
-		printf '%s\n' 'selected App v2 does not have its expected Stealth runtime image tag before GC' >&2
-		return 1
-	fi
+	current_engine_image_id="$(docker image inspect --format '{{.Id}}' "$current_tag")"
+	assert_app_runtime_container_uses_image_tag "$new_container" "$current_tag"
 	# The worker may evict A1 immediately after the A2 selection converges.
 	# Use the size captured while A1 was selected instead of inspecting a cache
 	# entry that this proof expects the worker to have removed.
@@ -2676,10 +2687,11 @@ verify_app_runtime_image_cache_gc() {
 		printf 'evicted App image remains addressable after its only runtime tag was removed: %s\n' "$platform_app_v1_image_id" >&2
 		return 1
 	fi
-	if [ "$(docker image inspect --format '{{.Id}}' "$current_tag")" != "$current_image_id" ] || [ "$(docker inspect --format '{{.Image}}' "$new_container")" != "$current_image_id" ]; then
+	if [ "$(docker image inspect --format '{{.Id}}' "$current_tag")" != "$current_engine_image_id" ] || [ "$(docker inspect --format '{{.Image}}' "$new_container")" != "$current_image_id" ]; then
 		printf '%s\n' 'cache eviction changed the selected App v2 image or running container' >&2
 		return 1
 	fi
+	assert_app_runtime_container_uses_image_tag "$new_container" "$current_tag"
 	if [ "$(docker image inspect --format '{{.Id}}' "$platform_app_runtime_unrelated_tag")" != "$unrelated_image_id" ]; then
 		printf '%s\n' 'non-Stealth Docker image tag changed during runtime cache GC' >&2
 		return 1
@@ -2700,13 +2712,6 @@ verify_app_runtime_image_cache_gc() {
 		printf '%s\n' 'persisted App OCI archive failed checksum or metadata verification after cache eviction' >&2
 		return 1
 	fi
-	if [[ "$platform_app_v1_image_id" =~ ^sha256:[0-9a-f]{64}$ ]] && [[ "$current_image_id" =~ ^sha256:[0-9a-f]{64}$ ]]; then
-		printf '[DEBUG-APP-IMAGE-IMPORT] evicted_v1_config=%s selected_v2_config=%s\n' \
-			"${platform_app_v1_image_id:7:12}" "${current_image_id:7:12}"
-	else
-		printf '%s\n' '[DEBUG-APP-IMAGE-IMPORT] runtime image ID format was invalid'
-	fi
-
 	assert_app_diagnostics converged "$platform_app_deployment_id" "$platform_app_v2_version" "$platform_app_deployment_id" "$platform_app_v2_version"
 	fetch_app_runtime
 	rollback_source_generation="$(platform_json_field "$platform_response" app.desired_generation)"
@@ -2755,10 +2760,11 @@ verify_app_runtime_image_cache_gc() {
 	fi
 	assert_app_runtime_container "$new_container" "$generation" "$selected" "$spec_sha" 500
 	if [ "$(docker image inspect --format '{{.Id}}' "$old_tag")" != "$platform_app_v1_image_id" ] ||
-		[ "$(docker inspect --format '{{.Image}}' "$new_container")" != "$platform_app_v1_image_id" ]; then
+		[ "$(docker inspect --format '{{.Image}}' "$new_container")" != "$platform_app_v1_container_image_id" ]; then
 		printf '%s\n' 'rollback did not re-import the evicted v1 runtime tag from its persisted OCI artifact' >&2
 		return 1
 	fi
+	assert_app_runtime_container_uses_image_tag "$new_container" "$old_tag"
 	docker exec "$new_container" /buildkit-secret-probe verify-runtime-secret-v2
 	wait_for_app_health_state pending waiting_for_health
 	wait_for_app_route_snapshot false
@@ -2825,6 +2831,7 @@ verify_app_runtime_image_cache_gc() {
 		printf 'App v2 did not recover after cache re-selection: generation=%s/%s deployment=%s\n' "$observed" "$generation" "$selected" >&2
 		return 1
 	fi
+	assert_app_runtime_container_uses_image_tag "$new_container" "stealth-app/${platform_app_deployment_id}:runtime"
 	assert_app_runtime_container "$new_container" "$generation" "$selected" "$spec_sha" 750
 	wait_for_app_public_route 'app-runtime-smoke-ok'
 	if [ "$(app_public_route_body /version)" != "${smoke_marker}-app-v2" ]; then
@@ -2927,8 +2934,8 @@ wait_for_app_deployment_ready() {
 }
 
 verify_app_runtime_lifecycle() {
-	local status old_container old_image_id new_container new_image_id generation observed selected spec_sha peer_container disabled_tag_id
-	local disabled_generation foreign_managed_label runtime_name new_runtime_name foreign_container_name network_name worker worker_image upload_status runtime_tag old_tag buildkit_container replacement_image_id
+	local status old_container old_image_id new_container new_image_id generation observed selected spec_sha peer_container
+	local disabled_generation foreign_managed_label runtime_name new_runtime_name foreign_container_name network_name worker worker_image upload_status runtime_tag old_tag buildkit_container replacement_image_id new_engine_image_id
 	local old_route_target new_route_target body old_v2_stdout_id old_v2_stderr_id old_restart_stdout_id old_restart_stderr_id
 	local old_restart_cursor resume_stdout_count resume_stderr_count
 	local orphan_app orphan_project orphan_name
@@ -2945,16 +2952,6 @@ verify_app_runtime_lifecycle() {
 	wait_for_app_health_state pending not_available
 	wait_for_app_public_route_removed
 	disabled_generation="$(platform_json_field "$platform_response" app.desired_generation)"
-	disabled_tag_id="$(docker image inspect --format '{{.Id}}' "stealth-app/${platform_app_v1_deployment_id}:runtime" 2>/dev/null || true)"
-	if [[ "$disabled_tag_id" =~ ^sha256:[0-9a-f]{64}$ ]]; then
-		if [ "$disabled_tag_id" = "$old_image_id" ]; then
-			printf '%s\n' '[DEBUG-APP-IMAGE-IMPORT] v1 runtime tag after disable: expected image remains tagged'
-		else
-			printf '[DEBUG-APP-IMAGE-IMPORT] v1 runtime tag after disable: points elsewhere (%s)\n' "${disabled_tag_id:7:12}"
-		fi
-	else
-		printf '%s\n' '[DEBUG-APP-IMAGE-IMPORT] v1 runtime tag after disable: missing'
-	fi
 	if [ "$(app_runtime_container_count)" != '0' ]; then
 		printf '%s\n' 'disabled App still has a managed runtime container' >&2
 		return 1
@@ -3070,6 +3067,7 @@ verify_app_runtime_lifecycle() {
 
 	old_container="$new_container"
 	runtime_tag="stealth-app/${platform_app_deployment_id}:runtime"
+	new_engine_image_id="$(docker image inspect --format '{{.Id}}' "$runtime_tag")"
 	buildkit_container="$("${compose[@]}" ps -q buildkit)"
 	if [ -z "$buildkit_container" ]; then
 		printf '%s\n' 'BuildKit service container is missing before the OCI reimport test' >&2
@@ -3082,8 +3080,8 @@ verify_app_runtime_lifecycle() {
 	fi
 	docker rm -f "$old_container" >/dev/null
 	docker image rm --force "$runtime_tag" >/dev/null
-	if docker image inspect "$new_image_id" >/dev/null 2>&1; then
-		printf 'App runtime image still exists locally after removing tag %s (image=%s)\n' "$runtime_tag" "$new_image_id" >&2
+	if docker image inspect "$new_engine_image_id" >/dev/null 2>&1; then
+		printf 'App runtime image still exists locally after removing tag %s (image=%s)\n' "$runtime_tag" "$new_engine_image_id" >&2
 		return 1
 	fi
 	"${compose[@]}" start worker >/dev/null
@@ -3099,10 +3097,7 @@ verify_app_runtime_lifecycle() {
 		printf 'OCI reimport did not restore the selected App image: generation=%s/%s deployment=%s image=%s/%s\n' "$observed" "$generation" "$selected" "$replacement_image_id" "$new_image_id" >&2
 		return 1
 	fi
-	if [ "$(docker image inspect --format '{{.Id}}' "$runtime_tag")" != "$new_image_id" ]; then
-		printf 'OCI reimport restored an unexpected image under %s\n' "$runtime_tag" >&2
-		return 1
-	fi
+	assert_app_runtime_container_uses_image_tag "$new_container" "$runtime_tag"
 	assert_app_runtime_container "$new_container" "$generation" "$selected" "$spec_sha" 750
 	docker exec "$new_container" /buildkit-secret-probe verify-runtime
 	wait_for_app_health_state healthy active

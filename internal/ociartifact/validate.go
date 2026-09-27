@@ -11,7 +11,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"path"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -43,8 +45,8 @@ type imageManifest struct {
 	Layers        []descriptor `json:"layers"`
 }
 
-// ImageInfo contains only the OCI config fields needed by the trusted runtime
-// importer. It intentionally excludes arbitrary config labels and environment.
+// ImageInfo contains the verified OCI identity and configuration needed by the
+// trusted runtime importer.
 type ImageInfo struct {
 	ManifestDigest string
 	ConfigDigest   string
@@ -52,19 +54,65 @@ type ImageInfo struct {
 	OS             string
 	Architecture   string
 	Variant        string
+	RuntimeConfig  RuntimeConfig
 	LayerDigests   []string // OCI layer blob digests in manifest order.
 	LayerDiffIDs   []string
 	VolumePaths    []string
 }
 
+// RuntimeConfig contains the image configuration fields that Docker exposes
+// for a created container. Docker's containerd image store may report the
+// imported manifest digest as the image ID, so callers compare these fields
+// along with the platform and root filesystem instead of relying on that ID.
+type RuntimeConfig struct {
+	Entrypoint   []string                  `json:"Entrypoint"`
+	Command      []string                  `json:"Cmd"`
+	Environment  []string                  `json:"Env"`
+	WorkingDir   string                    `json:"WorkingDir"`
+	User         string                    `json:"User"`
+	Volumes      map[string]struct{}       `json:"Volumes"`
+	ExposedPorts map[string]struct{}       `json:"ExposedPorts"`
+	Labels       map[string]string         `json:"Labels"`
+	StopSignal   string                    `json:"StopSignal"`
+	Healthcheck  *RuntimeHealthcheckConfig `json:"Healthcheck"`
+	OnBuild      []string                  `json:"OnBuild"`
+	Shell        []string                  `json:"Shell"`
+}
+
+type RuntimeHealthcheckConfig struct {
+	Test          []string `json:"Test"`
+	Interval      int64    `json:"Interval"`
+	Timeout       int64    `json:"Timeout"`
+	StartPeriod   int64    `json:"StartPeriod"`
+	StartInterval int64    `json:"StartInterval"`
+	Retries       int      `json:"Retries"`
+}
+
+func (config RuntimeConfig) Equal(other RuntimeConfig) bool {
+	return slices.Equal(config.Entrypoint, other.Entrypoint) &&
+		slices.Equal(config.Command, other.Command) &&
+		slices.Equal(config.Environment, other.Environment) &&
+		config.WorkingDir == other.WorkingDir && config.User == other.User &&
+		maps.Equal(config.Volumes, other.Volumes) && maps.Equal(config.ExposedPorts, other.ExposedPorts) &&
+		maps.Equal(config.Labels, other.Labels) && config.StopSignal == other.StopSignal &&
+		equalRuntimeHealthcheck(config.Healthcheck, other.Healthcheck) &&
+		slices.Equal(config.OnBuild, other.OnBuild) && slices.Equal(config.Shell, other.Shell)
+}
+
+func equalRuntimeHealthcheck(left, right *RuntimeHealthcheckConfig) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return slices.Equal(left.Test, right.Test) && left.Interval == right.Interval && left.Timeout == right.Timeout &&
+		left.StartPeriod == right.StartPeriod && left.StartInterval == right.StartInterval && left.Retries == right.Retries
+}
+
 type imageConfig struct {
-	OS           string `json:"os"`
-	Architecture string `json:"architecture"`
-	Variant      string `json:"variant"`
-	Config       struct {
-		Volumes map[string]json.RawMessage `json:"Volumes"`
-	} `json:"config"`
-	RootFS struct {
+	OS           string        `json:"os"`
+	Architecture string        `json:"architecture"`
+	Variant      string        `json:"variant"`
+	Config       RuntimeConfig `json:"config"`
+	RootFS       struct {
 		Type    string   `json:"type"`
 		DiffIDs []string `json:"diff_ids"`
 	} `json:"rootfs"`
@@ -210,9 +258,9 @@ func Validate(reader io.Reader, expectedDigest string, maxBytes int64) error {
 }
 
 // Inspect revalidates a seekable persisted archive and extracts the selected
-// manifest's config identity and bounded runtime-relevant metadata. The Docker
-// image ID is the config digest; the external AppDeployment digest remains the
-// OCI manifest digest and must never be replaced with that local ID.
+// manifest's config identity and bounded runtime metadata. The external
+// AppDeployment digest remains the OCI manifest digest and must never be
+// replaced with a local Docker image ID.
 func Inspect(reader io.ReadSeeker, expectedDigest string, maxBytes int64) (ImageInfo, error) {
 	if reader == nil || !validDigest(expectedDigest) || maxBytes <= 0 {
 		return ImageInfo{}, ErrInvalidArchive
@@ -263,6 +311,7 @@ func Inspect(reader io.ReadSeeker, expectedDigest string, maxBytes int64) (Image
 		OS:             config.OS,
 		Architecture:   config.Architecture,
 		Variant:        config.Variant,
+		RuntimeConfig:  config.Config,
 		LayerDigests:   layerDigests(manifest.Layers),
 		LayerDiffIDs:   append([]string(nil), config.RootFS.DiffIDs...),
 		VolumePaths:    volumes,
