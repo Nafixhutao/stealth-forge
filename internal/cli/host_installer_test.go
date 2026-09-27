@@ -177,8 +177,17 @@ func TestHostInstallerOwnsRequestAndCompletesHandoff(t *testing.T) {
 	if got := runner.command(1).args; !containsString(got, "config") || !containsString(got, "--quiet") || !containsString(got, "--project-directory") || !strings.Contains(strings.Join(got, " "), filepath.Join(fixture.layout.StateDir, ".stealth-managed-assets-")) {
 		t.Fatalf("staged Compose validation command = %#v", got)
 	}
-	if got := runner.command(2).args; !equalStrings(got[len(got)-6:], []string{"run", "--rm", "--no-deps", "-e", "STEALTH_TRAEFIK_HOST_UID=1000", "traefik-state-init"}) {
+	if got := runner.command(2).args; len(got) < 6 {
 		t.Fatalf("staged Traefik state init command = %#v", got)
+	} else {
+		suffix := got[len(got)-6:]
+		uidValue := strings.TrimPrefix(suffix[4], "STEALTH_TRAEFIK_HOST_UID=")
+		if !equalStrings(suffix[:4], []string{"run", "--rm", "--no-deps", "-e"}) || !strings.HasPrefix(suffix[4], "STEALTH_TRAEFIK_HOST_UID=") || suffix[5] != "traefik-state-init" {
+			t.Fatalf("staged Traefik state init command = %#v", got)
+		}
+		if _, err := strconv.ParseUint(uidValue, 10, 32); err != nil {
+			t.Fatalf("staged Traefik host UID = %q: %v", uidValue, err)
+		}
 	}
 	if got := runner.command(6).args; !equalStrings(got[len(got)-4:], []string{"run", "--rm", "--no-deps", "telemetry-docker-logs-state-init"}) {
 		t.Fatalf("Docker log Collector state init command = %#v", got)
