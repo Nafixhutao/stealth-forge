@@ -397,6 +397,11 @@ jobs:
             sudo -n apparmor_parser -R /etc/apparmor.d/stealth-buildkit-rootless >/dev/null 2>&1 || true
             sudo -n rm -f /etc/apparmor.d/stealth-buildkit-rootless
           fi
-          if [[ "$root" =~ ^/var/tmp/stealth-app-host-reboot-[0-9]+-[0-9]+$ ]]; then rm -rf -- "$root"; else printf 'refusing unexpected cleanup root: %s\n' "$root" >&2; cleanup_status=1; fi
+          if [[ "$root" =~ ^/var/tmp/stealth-app-host-reboot-[0-9]+-[0-9]+$ ]] && [ -d "$root" ] && [ ! -L "$root" ]; then
+            sudo -n rm -rf -- "$root" || cleanup_status=$?
+          else
+            printf 'refusing unexpected cleanup root: %s\n' "$root" >&2
+            cleanup_status=1
+          fi
           exit "$cleanup_status"
           REMOTE

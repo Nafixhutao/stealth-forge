@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/Stealth-deplover/stealth/internal/ociartifact"
+	"strings"
 	"time"
 )
 
@@ -107,7 +108,7 @@ func safeRuntimeError(err error) string {
 	case errors.Is(err, ErrUnsupportedRuntimePlatform):
 		return "unsupported runtime platform"
 	case errors.Is(err, ErrImageImport):
-		return "image import failed"
+		return debugImageImportFailure(err)
 	case errors.Is(err, ErrContainerCreate):
 		return "container create failed"
 	case errors.Is(err, ErrContainerStart):
@@ -118,5 +119,35 @@ func safeRuntimeError(err error) string {
 		return "runtime unavailable"
 	default:
 		return "runtime unavailable"
+	}
+}
+
+// debugImageImportFailure exposes only a fixed diagnostic category for the
+// acceptance run. Docker's raw stderr may contain image-controlled content, so
+// it is deliberately never copied into worker logs or persisted app status.
+func debugImageImportFailure(err error) string {
+	const prefix = "image import failed [DEBUG-APP-IMAGE-IMPORT: "
+	switch {
+	case errors.Is(err, ociartifact.ErrInvalidArchive):
+		return prefix + "oci-conversion-rejected]"
+	case errors.Is(err, context.DeadlineExceeded):
+		return prefix + "import-timeout]"
+	}
+	var failure *CommandFailure
+	if !errors.As(err, &failure) {
+		return prefix + "expected-image-not-visible-after-load]"
+	}
+	message := strings.ToLower(failure.Stderr)
+	switch {
+	case strings.Contains(message, "no space left on device"):
+		return prefix + "docker-reported-no-space]"
+	case strings.Contains(message, "input/output error") || strings.Contains(message, "i/o error"):
+		return prefix + "docker-reported-storage-io-error]"
+	case strings.Contains(message, "out of memory") || strings.Contains(message, "cannot allocate memory"):
+		return prefix + "docker-reported-memory-exhaustion]"
+	case strings.Contains(message, "invalid tar") || strings.Contains(message, "unexpected eof") || strings.Contains(message, "unexpected end of file"):
+		return prefix + "docker-rejected-archive-stream]"
+	default:
+		return prefix + "docker-load-command-failed]"
 	}
 }

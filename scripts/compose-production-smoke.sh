@@ -230,6 +230,17 @@ cleanup() {
 	fi
 	if [ "$exit_code" -ne 0 ]; then
 		printf 'Compose smoke failed; collecting bounded diagnostics\n' >&2
+		if [ "$app_host_reboot_acceptance" = true ]; then
+			printf '%s\n' '[DEBUG-APP-IMAGE-IMPORT] host resource snapshot' >&2
+			docker info --format 'storage_driver={{.Driver}} docker_root={{.DockerRootDir}}' >&2 || true
+			df -Pk /var/lib/docker "$compose_root" >&2 || true
+			df -Pi /var/lib/docker "$compose_root" >&2 || true
+			docker system df >&2 || true
+			free -b >&2 || true
+			sudo -n journalctl -k --since '10 minutes ago' --no-pager 2>/dev/null |
+				grep -Ei 'out of memory|oom-kill|no space left|I/O error|overlay|ext4|xfs' |
+				tail -n 30 >&2 || true
+		fi
 		"${compose[@]}" ps >&2 || true
 		"${compose[@]}" logs --tail=80 clickhouse buildkit otelcol-state-init telemetry-docker-logs-state-init traefik-state-init cloudflare-setup-state-init cloudflare-state-init otel-collector telemetry-host telemetry-docker-logs telemetry-docker-proxy telemetry-docker api worker migrate console proxy traefik >&2 || true
 	fi
