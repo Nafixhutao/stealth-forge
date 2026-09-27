@@ -202,12 +202,18 @@ func TestProductionComposeUsesLiveScratchCompatibleCollectorCheckAndProxy(t *tes
 	}
 
 	dockerfile := readRepositoryFile(t, "Dockerfile")
-	if !strings.Contains(dockerfile, "FROM scratch AS telemetry-collector") || !strings.Contains(dockerfile, "FROM scratch AS telemetry-docker-logs") || !strings.Contains(dockerfile, "telemetry-collector-healthcheck") {
+	mainImageStart := strings.Index(dockerfile, "FROM scratch AS telemetry-collector")
+	logsImageStart := strings.Index(dockerfile, "FROM alpine:3.24 AS telemetry-docker-logs")
+	if mainImageStart < 0 || logsImageStart < 0 || !strings.Contains(dockerfile, "telemetry-collector-healthcheck") {
 		t.Fatal("Stealth Collector wrapper image targets are missing the live health probe")
 	}
-	mainImage := dockerfile[strings.Index(dockerfile, "FROM scratch AS telemetry-collector"):]
-	if strings.Contains(mainImage[:strings.Index(mainImage, "FROM alpine:3.24 AS telemetry-docker-logs-capability")], "cap_dac_read_search") {
+	mainImage := dockerfile[mainImageStart:logsImageStart]
+	if strings.Contains(mainImage, "cap_dac_read_search") {
 		t.Fatal("main Collector image target carries the Docker log capability")
+	}
+	logsImage := dockerfile[logsImageStart:]
+	if !strings.Contains(logsImage, "RUN setcap cap_dac_read_search+ep /otelcol-contrib && getcap /otelcol-contrib") {
+		t.Fatal("Docker log capability must be applied to the executable in its final image")
 	}
 }
 

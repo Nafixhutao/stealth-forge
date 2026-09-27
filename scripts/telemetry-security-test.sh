@@ -200,8 +200,13 @@ if printf '%s\n' "$capability_free_image" | grep -E 'setcap|cap_dac_read_search|
 	printf 'telemetry security check: main Collector image carries a filesystem bypass capability\n' >&2
 	exit 1
 fi
-if ! grep -F 'FROM scratch AS telemetry-docker-logs' Dockerfile >/dev/null 2>&1 || ! grep -F 'setcap cap_dac_read_search+ep' Dockerfile >/dev/null 2>&1; then
-	printf 'telemetry security check: dedicated Docker log capability image target is missing\n' >&2
+docker_logs_image=$(awk '
+	/^FROM alpine:3\.24 AS telemetry-docker-logs$/ { found = 1; next }
+	found && /^FROM / { exit }
+	found { print }
+' Dockerfile)
+if [ -z "$docker_logs_image" ] || ! printf '%s\n' "$docker_logs_image" | grep -F 'RUN setcap cap_dac_read_search+ep /otelcol-contrib && getcap /otelcol-contrib' >/dev/null 2>&1 || ! printf '%s\n' "$docker_logs_image" | grep -F 'USER 10001:10001' >/dev/null 2>&1; then
+	printf 'telemetry security check: dedicated Docker log capability must be applied in its final non-root image\n' >&2
 	exit 1
 fi
 

@@ -118,16 +118,13 @@ USER 10001:10001
 ENTRYPOINT ["/otelcol-contrib"]
 
 # Docker's json-file directories are commonly root-owned and require a narrow
-# DAC read/search capability for file_log to enumerate them. Keep that
-# capability in a dedicated image so it cannot be accidentally reused by the
-# main or host-metrics Collector.
-FROM alpine:3.24 AS telemetry-docker-logs-capability
+# DAC read/search capability for file_log to enumerate them. Apply the file
+# capability in the final image layer so the executable receives it at exec
+# time; keep the capability isolated from the main and host-metrics Collectors.
+FROM alpine:3.24 AS telemetry-docker-logs
 RUN apk add --no-cache libcap
 COPY --from=telemetry-collector-base /otelcol-contrib /otelcol-contrib
 RUN setcap cap_dac_read_search+ep /otelcol-contrib && getcap /otelcol-contrib
-
-FROM scratch AS telemetry-docker-logs
-COPY --from=telemetry-docker-logs-capability /otelcol-contrib /otelcol-contrib
 COPY --from=build /out/telemetry-collector-healthcheck /usr/local/bin/telemetry-collector-healthcheck
 USER 10001:10001
 ENTRYPOINT ["/otelcol-contrib"]

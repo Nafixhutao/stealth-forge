@@ -1814,7 +1814,7 @@ app_runtime_log_counts() {
 }
 
 diagnose_app_runtime_log_file() {
-	local marker="$1" container_id="$2" log_metadata log_driver log_path expected_glob_match file_exists file_metadata collector_probe
+	local container_id="$2" log_metadata log_driver log_path expected_glob_match file_exists file_metadata collector_container_id collector_pid collector_metadata collector_capabilities
 	log_metadata="$(docker inspect --format '{{.HostConfig.LogConfig.Type}}|{{.LogPath}}' "$container_id" 2>/dev/null || true)"
 	IFS='|' read -r log_driver log_path <<<"$log_metadata"
 	expected_glob_match=false
@@ -1834,24 +1834,19 @@ diagnose_app_runtime_log_file() {
 	fi
 	printf 'App Docker log source: driver=%s expected_filelog_glob_match=%s file_exists=%s %s\n' \
 		"${log_driver:-unknown}" "$expected_glob_match" "$file_exists" "${file_metadata:-file_metadata=unavailable}" >&2
-	if collector_probe="$(docker run --rm --log-driver=none --network none --user 10001:10001 \
-		--cap-drop ALL --cap-add DAC_READ_SEARCH \
-		--volume /var/lib/docker/containers:/hostfs:ro alpine:3.24 \
-		sh -ec '
-			container_id="$1"; marker="$2"; file="/hostfs/$container_id/$container_id-json.log"
-			case "$container_id" in *[!0-9a-f]*|"") exit 2;; esac
-			case "$marker" in *[!A-Za-z0-9_.-]*|"") exit 2;; esac
-			cap_eff="$(awk '\''$1 == "CapEff:" { print $2 }'\'' /proc/self/status)"
-			file_metadata="$(stat -c '\''%a:%u:%g:%s'\'' "$file" 2>/dev/null || true)"
-			if [ -z "$file_metadata" ]; then printf "App JSON log marker probe: stat=denied-or-missing cap_eff=%s\\n" "$cap_eff"; exit 0; fi
-			if ! head -c 1 "$file" >/dev/null 2>&1; then printf "App JSON log marker probe: open=denied cap_eff=%s file_metadata=%s\\n" "$cap_eff" "$file_metadata"; exit 0; fi
-			stdout_count="$(grep -F -c "STEALTH_APP_RUNTIME_LOG_STDOUT_${marker}_" "$file" 2>/dev/null || true)"
-			stderr_count="$(grep -F -c "STEALTH_APP_RUNTIME_LOG_STDERR_${marker}_" "$file" 2>/dev/null || true)"
-			printf "App JSON log marker probe as collector UID/capabilities: cap_eff=%s file_metadata=%s stdout=%s stderr=%s\\n" "$cap_eff" "$file_metadata" "$stdout_count" "$stderr_count"
-		' sh "$container_id" "$marker" 2>/dev/null)"; then
-		printf '%s\n' "$collector_probe" >&2
+	collector_container_id="$("${compose[@]}" ps -q telemetry-docker-logs 2>/dev/null || true)"
+	if [ -n "$collector_container_id" ]; then
+		collector_pid="$(docker inspect --format '{{.State.Pid}}' "$collector_container_id" 2>/dev/null || true)"
+		if [[ "$collector_pid" =~ ^[1-9][0-9]*$ ]]; then
+			collector_metadata="$(docker inspect --format 'image={{.Config.Image}} user={{.Config.User}} cap_add={{json .HostConfig.CapAdd}}' "$collector_container_id" 2>/dev/null || true)"
+			collector_capabilities="$(sudo -n awk '/^(Uid|Gid|CapEff|CapPrm|CapBnd):/ { printf "%s=%s ", substr($1, 1, length($1)-1), $2 }' "/proc/$collector_pid/status" 2>/dev/null || awk '/^(Uid|Gid|CapEff|CapPrm|CapBnd):/ { printf "%s=%s ", substr($1, 1, length($1)-1), $2 }' "/proc/$collector_pid/status" 2>/dev/null || true)"
+			printf 'Docker file-log Collector process: %s pid=%s %s\n' \
+				"${collector_metadata:-metadata=unavailable}" "$collector_pid" "${collector_capabilities:-capabilities=unavailable}" >&2
+		else
+			printf '%s\n' 'Docker file-log Collector process ID could not be inspected' >&2
+		fi
 	else
-		printf '%s\n' 'App JSON log marker probe could not run with the Collector UID/capabilities' >&2
+		printf '%s\n' 'Docker file-log Collector container could not be located for capability inspection' >&2
 	fi
 }
 
