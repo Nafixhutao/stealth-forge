@@ -327,8 +327,9 @@ repository owner confirmation in chat on 2026-09-26.
 - [ ] Real host reboot workflow passes on the final head. It defaults to a
   checksum-verified ephemeral QEMU VM; configure SSH secrets only when selecting
   SSH host mode.
-- [ ] Independent audit passes, PR is merged, and post-merge `main` CI is
-  green.
+- [x] Independent audit passes (repository owner confirmation, 2026-09-27).
+- [ ] PR #106 is merged.
+- [ ] Post-merge `main` CI is green.
 
 Completion of A8 means the Apps Production Runtime phase is complete.
 
