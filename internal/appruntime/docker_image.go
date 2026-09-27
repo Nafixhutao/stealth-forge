@@ -67,10 +67,14 @@ func imageLoadOutputClass(result CommandResult, expectedImageID string) string {
 	case output == "":
 		return "load-output-empty"
 	case strings.Contains(output, "loaded image id:"):
-		if strings.Contains(output, expectedImageID) {
+		reportedImageID := loadReportedImageID(output)
+		if reportedImageID == expectedImageID {
 			return "load-reported-expected-image-id"
 		}
-		return "load-reported-different-image-id"
+		if reportedImageID == "" {
+			return "load-reported-unparsed-image-id"
+		}
+		return "load-id-mismatch-expected-" + imageIDLogPrefix(expectedImageID) + "-reported-" + imageIDLogPrefix(reportedImageID)
 	case strings.Contains(output, "loaded image:"):
 		if strings.Contains(output, expectedImageID) {
 			return "load-reported-name-with-expected-image-id"
@@ -81,6 +85,28 @@ func imageLoadOutputClass(result CommandResult, expectedImageID string) string {
 	default:
 		return "load-reported-unclassified-output"
 	}
+}
+
+func loadReportedImageID(output string) string {
+	marker := "loaded image id:"
+	markerIndex := strings.Index(output, marker)
+	if markerIndex < 0 {
+		return ""
+	}
+	for _, field := range strings.Fields(output[markerIndex+len(marker):]) {
+		candidate := strings.Trim(field, " \t\r\n\"'`()[]{}.,")
+		if validImageID(candidate) {
+			return candidate
+		}
+	}
+	return ""
+}
+
+func imageIDLogPrefix(imageID string) string {
+	if !validImageID(imageID) {
+		return "invalid"
+	}
+	return imageID[7:19]
 }
 
 // EnsureImage verifies the selected OCI manifest and config identity before
