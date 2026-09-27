@@ -347,6 +347,11 @@ jobs:
           tar -czf dist/stealth_Linux_x86_64.tar.gz -C dist/amd64 stealth
           tar -czf dist/stealth_Linux_arm64.tar.gz -C dist/arm64 stealth
           (cd dist && sha256sum stealth_Linux_x86_64.tar.gz stealth_Linux_arm64.tar.gz > checksums.txt)
+          while IFS= read -r managed_asset; do
+            [[ -n "$managed_asset" ]] || continue
+            test -f "$managed_asset"
+            sha256sum "$managed_asset" >> dist/checksums.txt
+          done < release-managed-assets.txt
           rm -rf dist/amd64 dist/arm64
 
       - name: Upload CLI artifacts

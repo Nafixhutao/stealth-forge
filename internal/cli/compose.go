@@ -224,10 +224,15 @@ func (a *App) installEngine() *installengine.Engine {
 	if a.verbose {
 		output = a.errOut
 	}
+	managedAssetReleaseBase := strings.TrimRight(strings.TrimSpace(a.assetBase), "/")
+	if managedAssetReleaseBase == "" || managedAssetReleaseBase == defaultRawBaseURL {
+		managedAssetReleaseBase = a.releaseDownloadBase
+	}
 	return installengine.New(installengine.Options{
 		Runner:                      a.runner,
 		HTTPClient:                  a.httpClient,
 		AssetBaseURL:                a.assetBase,
+		ReleaseAssetBaseURL:         managedAssetReleaseBase,
 		Output:                      output,
 		PollAttempts:                a.pollAttempts,
 		PollInterval:                a.pollInterval,

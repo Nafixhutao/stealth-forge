@@ -26,7 +26,11 @@ func TestManagedAssetUpgradeSmoke(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	engine := New(Options{AssetBaseURL: assetBase, Runner: OSCommandRunner{}})
+	engine := New(Options{
+		AssetBaseURL:        assetBase,
+		ReleaseAssetBaseURL: assetBase,
+		Runner:              OSCommandRunner{},
+	})
 	plan := Plan{Layout: layout, Version: targetVersion, InstalledVersion: "v0.2.5", Existing: true}
 	if err := engine.RunStep(context.Background(), plan, StepConfiguration); err != nil {
 		t.Fatalf("upgrade configuration migration: %v", err)

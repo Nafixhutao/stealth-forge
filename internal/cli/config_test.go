@@ -291,53 +291,14 @@ func TestGenerateConfigGeneratesUsedStrongSecrets(t *testing.T) {
 
 func TestPrepareInstallationPreservesExistingConfig(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if strings.HasSuffix(request.URL.Path, "compose.production.yaml") {
-			_, _ = io.WriteString(writer, testProductionComposeAsset())
-			return
-		}
-		if strings.HasSuffix(request.URL.Path, "buildkit/buildkitd.toml") {
-			_, _ = io.WriteString(writer, testBuildKitConfigAsset())
-			return
-		}
-		if strings.HasSuffix(request.URL.Path, "buildkit/stealth-buildkit-rootless.apparmor") {
-			_, _ = io.WriteString(writer, testBuildKitAppArmorProfileAsset())
-			return
-		}
-		if strings.HasSuffix(request.URL.Path, "traefik/traefik.yaml") {
-			_, _ = writer.Write([]byte(testManagedTraefikStaticAsset()))
-			return
-		}
-		if strings.HasSuffix(request.URL.Path, "traefik/dynamic/core.yaml") {
-			_, _ = writer.Write([]byte(testManagedTraefikCoreAsset()))
-			return
-		}
-		if strings.HasSuffix(request.URL.Path, "traefik/dynamic/generated/.gitkeep") {
-			_, _ = writer.Write([]byte("# Stealth route reconciler\n"))
-			return
-		}
-		if strings.Contains(request.URL.Path, "/telemetry/") {
-			marker := "receivers:\n"
-			if strings.HasSuffix(request.URL.Path, "otel-collector.yaml") {
-				marker = "receivers:\n  otlp:\nexporters:\n  clickhouse:\n"
-			}
-			switch {
-			case strings.HasSuffix(request.URL.Path, "host-metrics.yaml"):
-				marker = "hostmetrics:\n"
-			case strings.HasSuffix(request.URL.Path, "docker-logs.yaml"):
-				marker = "file_log/docker:\n"
-			case strings.HasSuffix(request.URL.Path, "docker-stats.yaml"):
-				marker = "docker_stats:\n"
-			}
-			_, _ = writer.Write([]byte(marker))
-			return
-		}
-		_, _ = writer.Write([]byte("server {\n}"))
+		writeHostManagedAsset(writer, strings.TrimPrefix(request.URL.Path, "/v1.2.3/"))
 	}))
 	t.Cleanup(server.Close)
 	root := t.TempDir()
 	layout := newInstallLayout(filepath.Join(root, ".stealth"))
 	app := NewApp(strings.NewReader(""), &strings.Builder{}, &strings.Builder{})
 	app.assetBase = server.URL
+	app.releaseDownloadBase = server.URL
 	app.runner = &setupRunner{}
 	app.buildKitAppArmorProfilePath = isolatedBuildKitAppArmorProfilePath(t)
 	plan := InstallPlan{Layout: layout, Version: "v1.2.3", PublicURL: "http://localhost:8080", GitHubAppClientID: testGitHubAppClientID, DockerGID: 42}

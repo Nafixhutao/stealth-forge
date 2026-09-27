@@ -3,12 +3,15 @@ package installengine
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -236,7 +239,24 @@ func testTraefikCoreAsset() string {
 
 func newEngineAssetServer(t *testing.T, version string) *httptest.Server {
 	t.Helper()
-	assets := map[string]string{
+	assets := engineTestAssetContents()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		name := strings.TrimPrefix(r.URL.Path, "/"+version+"/")
+		if name == "checksums.txt" {
+			_, _ = io.WriteString(w, testAssetChecksums(assets))
+			return
+		}
+		contents, ok := assets[name]
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = io.WriteString(w, contents)
+	}))
+}
+
+func engineTestAssetContents() map[string]string {
+	return map[string]string{
 		"compose.production.yaml":                     testProductionComposeAsset(),
 		"buildkit/buildkitd.toml":                     testBuildKitConfigAsset(),
 		"buildkit/stealth-buildkit-rootless.apparmor": testBuildKitAppArmorProfileAsset(),
@@ -250,15 +270,20 @@ func newEngineAssetServer(t *testing.T, version string) *httptest.Server {
 		"traefik/dynamic/core.yaml":                   testTraefikCoreAsset(),
 		"traefik/dynamic/generated/.gitkeep":          "# Stealth route reconciler\n",
 	}
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		name := strings.TrimPrefix(r.URL.Path, "/"+version+"/")
-		contents, ok := assets[name]
-		if !ok {
-			http.NotFound(w, r)
-			return
-		}
-		_, _ = io.WriteString(w, contents)
-	}))
+}
+
+func testAssetChecksums(assets map[string]string) string {
+	names := make([]string, 0, len(assets))
+	for name := range assets {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	var manifest strings.Builder
+	for _, name := range names {
+		digest := sha256.Sum256([]byte(assets[name]))
+		fmt.Fprintf(&manifest, "%x  %s\n", digest, name)
+	}
+	return manifest.String()
 }
 
 func TestRunStepSetupUsesSetupComposeAndOnlySetupServices(t *testing.T) {
@@ -727,36 +752,33 @@ func TestProcessLockRejectsConcurrentSetupOrchestrator(t *testing.T) {
 }
 
 func TestPrepareDownloadsVersionedSetupAssetsAtomically(t *testing.T) {
+	assets := map[string]string{
+		"compose.production.yaml":                     testProductionComposeAsset(),
+		"buildkit/buildkitd.toml":                     testBuildKitConfigAsset(),
+		"buildkit/stealth-buildkit-rootless.apparmor": testBuildKitAppArmorProfileAsset(),
+		"compose.setup.yaml":                          "services:\n  setup:\n    image: example\n",
+		"telemetry/otel-collector.yaml":               testMainCollectorAsset(),
+		"telemetry/host-metrics.yaml":                 "hostmetrics:\n",
+		"telemetry/docker-logs.yaml":                  "file_log/docker:\n",
+		"telemetry/docker-stats.yaml":                 "docker_stats:\n",
+		"console/deploy/nginx.conf":                   "server {\n}",
+		"traefik/traefik.yaml":                        testTraefikStaticAsset(),
+		"traefik/dynamic/core.yaml":                   testTraefikCoreAsset(),
+		"traefik/dynamic/generated/.gitkeep":          "# Stealth route reconciler\n",
+	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
-		switch r.URL.Path {
-		case "/v1.2.3/compose.production.yaml":
-			_, _ = io.WriteString(w, testProductionComposeAsset())
-		case "/v1.2.3/buildkit/buildkitd.toml":
-			_, _ = io.WriteString(w, testBuildKitConfigAsset())
-		case "/v1.2.3/buildkit/stealth-buildkit-rootless.apparmor":
-			_, _ = io.WriteString(w, testBuildKitAppArmorProfileAsset())
-		case "/v1.2.3/compose.setup.yaml":
-			_, _ = io.WriteString(w, "services:\n  setup:\n    image: example\n")
-		case "/v1.2.3/telemetry/otel-collector.yaml":
-			_, _ = io.WriteString(w, testMainCollectorAsset())
-		case "/v1.2.3/telemetry/host-metrics.yaml":
-			_, _ = io.WriteString(w, "hostmetrics:\n")
-		case "/v1.2.3/telemetry/docker-logs.yaml":
-			_, _ = io.WriteString(w, "file_log/docker:\n")
-		case "/v1.2.3/telemetry/docker-stats.yaml":
-			_, _ = io.WriteString(w, "docker_stats:\n")
-		case "/v1.2.3/console/deploy/nginx.conf":
-			_, _ = io.WriteString(w, "server {\n}")
-		case "/v1.2.3/traefik/traefik.yaml":
-			_, _ = io.WriteString(w, testTraefikStaticAsset())
-		case "/v1.2.3/traefik/dynamic/core.yaml":
-			_, _ = io.WriteString(w, testTraefikCoreAsset())
-		case "/v1.2.3/traefik/dynamic/generated/.gitkeep":
-			_, _ = io.WriteString(w, "# Stealth route reconciler\n")
-		default:
-			http.NotFound(w, r)
+		name := strings.TrimPrefix(r.URL.Path, "/v1.2.3/")
+		if name == "checksums.txt" {
+			_, _ = io.WriteString(w, testAssetChecksums(assets))
+			return
 		}
+		contents, ok := assets[name]
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = io.WriteString(w, contents)
 	}))
 	defer server.Close()
 	layout, err := NewLayout(filepath.Join(t.TempDir(), "stealth"))
@@ -837,7 +859,12 @@ func TestPrepareMigratesPrePR83ManagedAssets(t *testing.T) {
 		"traefik/dynamic/generated/.gitkeep":          "# Stealth route reconciler\n",
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		contents, ok := targetAssets[strings.TrimPrefix(r.URL.Path, "/"+targetVersion+"/")]
+		name := strings.TrimPrefix(r.URL.Path, "/"+targetVersion+"/")
+		if name == "checksums.txt" {
+			_, _ = io.WriteString(w, testAssetChecksums(targetAssets))
+			return
+		}
+		contents, ok := targetAssets[name]
 		if !ok {
 			http.NotFound(w, r)
 			return
@@ -1142,6 +1169,58 @@ func TestPrepareFailureLeavesExistingInstallationRecoverable(t *testing.T) {
 	}
 }
 
+func TestPrepareRejectsManagedAssetChecksumMismatchBeforeCommit(t *testing.T) {
+	layout := writeEngineFixture(t, false)
+	oldCompose := []byte("services:\n  old-topology:\n")
+	if err := WriteAtomic(layout.ComposeFile, oldCompose, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	oldEnv, err := os.ReadFile(layout.EnvFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteAtomic(layout.VersionFile, []byte("v1.2.2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	assets := engineTestAssetContents()
+	checksums := testAssetChecksums(assets)
+	assets["console/deploy/nginx.conf"] = "server {\n# modified after release\n}\n"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		name := strings.TrimPrefix(r.URL.Path, "/v1.2.3/")
+		if name == "checksums.txt" {
+			_, _ = io.WriteString(w, checksums)
+			return
+		}
+		contents, ok := assets[name]
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = io.WriteString(w, contents)
+	}))
+	defer server.Close()
+	engine := New(Options{Runner: &fakeRunner{}, AssetBaseURL: server.URL})
+	err = engine.Prepare(context.Background(), Plan{
+		Layout: layout, Version: "v1.2.3", InstalledVersion: "v1.2.2",
+		DockerGID: uint32(os.Getgid()), Existing: true,
+	})
+	if err == nil || !strings.Contains(err.Error(), "release SHA-256 checksum") {
+		t.Fatalf("checksum mismatch error = %v", err)
+	}
+	if got, readErr := os.ReadFile(layout.ComposeFile); readErr != nil || !bytes.Equal(got, oldCompose) {
+		t.Fatalf("checksum failure changed Compose: %q, %v", got, readErr)
+	}
+	if got, readErr := os.ReadFile(layout.EnvFile); readErr != nil || !bytes.Equal(got, oldEnv) {
+		t.Fatalf("checksum failure changed config: %q, %v", got, readErr)
+	}
+	if got, readErr := os.ReadFile(layout.VersionFile); readErr != nil || string(got) != "v1.2.2\n" {
+		t.Fatalf("checksum failure changed VERSION: %q, %v", got, readErr)
+	}
+	if _, statErr := os.Stat(filepath.Join(layout.StateDir, managedAssetPendingFile)); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("checksum failure left a pending transaction: %v", statErr)
+	}
+}
+
 type configFailureRunner struct{}
 
 func (configFailureRunner) Run(_ context.Context, _ string, _, _ io.Writer, _ string, args ...string) error {
@@ -1283,7 +1362,12 @@ func TestTargetReleaseManifestCanAddFutureManagedAsset(t *testing.T) {
 		"telemetry/future.yaml":                       "future_receiver:\n",
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		contents, ok := assets[strings.TrimPrefix(r.URL.Path, "/"+version+"/")]
+		name := strings.TrimPrefix(r.URL.Path, "/"+version+"/")
+		if name == "checksums.txt" {
+			_, _ = io.WriteString(w, testAssetChecksums(assets))
+			return
+		}
+		contents, ok := assets[name]
 		if !ok {
 			http.NotFound(w, r)
 			return

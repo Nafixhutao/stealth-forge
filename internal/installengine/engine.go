@@ -25,9 +25,10 @@ import (
 )
 
 const (
-	defaultAssetBase = "https://raw.githubusercontent.com/Stealth-deplover/stealth"
-	maxAssetSize     = 2 << 20
-	lockFileName     = "install.lock"
+	defaultAssetBase        = "https://raw.githubusercontent.com/Stealth-deplover/stealth"
+	defaultReleaseAssetBase = "https://github.com/Stealth-deplover/stealth/releases/download"
+	maxAssetSize            = 2 << 20
+	lockFileName            = "install.lock"
 )
 
 // ErrOperationInProgress lets a recovering worker distinguish lock ownership
@@ -191,9 +192,13 @@ type Options struct {
 	Runner       CommandRunner
 	HTTPClient   *http.Client
 	AssetBaseURL string
-	Output       io.Writer
-	PollAttempts int
-	PollInterval time.Duration
+	// ReleaseAssetBaseURL points at the versioned GitHub Release that carries
+	// checksums.txt. Managed source files are accepted only when that release's
+	// checksum manifest verifies their bytes.
+	ReleaseAssetBaseURL string
+	Output              io.Writer
+	PollAttempts        int
+	PollInterval        time.Duration
 
 	// BuildKitAppArmorProfilePath is injectable for tests. Production stores
 	// the profile under AppArmor's system profile directory so it is loaded on
@@ -216,6 +221,7 @@ type Engine struct {
 	runner              CommandRunner
 	httpClient          *http.Client
 	assetBaseURL        string
+	releaseAssetBaseURL string
 	output              io.Writer
 	pollAttempts        int
 	pollInterval        time.Duration
@@ -236,6 +242,16 @@ func New(options Options) *Engine {
 	assetBaseURL := strings.TrimRight(strings.TrimSpace(options.AssetBaseURL), "/")
 	if assetBaseURL == "" {
 		assetBaseURL = defaultAssetBase
+	}
+	releaseAssetBaseURL := strings.TrimRight(strings.TrimSpace(options.ReleaseAssetBaseURL), "/")
+	if releaseAssetBaseURL == "" {
+		if strings.TrimSpace(options.AssetBaseURL) != "" {
+			// Controlled acceptance fixtures serve raw files and checksums from
+			// one local origin. Production always uses the fixed release origin.
+			releaseAssetBaseURL = strings.TrimRight(strings.TrimSpace(options.AssetBaseURL), "/")
+		} else {
+			releaseAssetBaseURL = defaultReleaseAssetBase
+		}
 	}
 	attempts := options.PollAttempts
 	if attempts < 1 {
@@ -258,7 +274,8 @@ func New(options Options) *Engine {
 		managedAssets = DefaultManagedAssets()
 	}
 	return &Engine{
-		runner: runner, httpClient: httpClient, assetBaseURL: assetBaseURL, output: output,
+		runner: runner, httpClient: httpClient, assetBaseURL: assetBaseURL,
+		releaseAssetBaseURL: releaseAssetBaseURL, output: output,
 		pollAttempts: attempts, pollInterval: interval, appArmorProfilePath: appArmorProfilePath,
 		managedAssets: append([]ManagedAsset(nil), managedAssets...),
 		migrationHook: options.MigrationHook,
@@ -836,6 +853,15 @@ func (e *Engine) stageManagedAssets(ctx context.Context, plan Plan) (*managedAss
 	if err := recoverInterruptedManagedAssetMigration(plan.Layout, allowedPaths); err != nil {
 		return nil, fmt.Errorf("recover interrupted managed asset migration: %w", err)
 	}
+	checksumURL := e.releaseAssetBaseURL + "/" + strings.TrimSpace(plan.Version) + "/checksums.txt"
+	checksumContents, err := e.fetchAsset(ctx, checksumURL)
+	if err != nil {
+		return nil, fmt.Errorf("download managed asset checksum manifest for %s: %w", strings.TrimSpace(plan.Version), err)
+	}
+	checksums, err := parseChecksumsManifest(checksumContents)
+	if err != nil {
+		return nil, fmt.Errorf("parse managed asset checksum manifest for %s: %w", strings.TrimSpace(plan.Version), err)
+	}
 	stageDir, err := os.MkdirTemp(plan.Layout.StateDir, ".stealth-managed-assets-")
 	if err != nil {
 		return nil, fmt.Errorf("create managed asset staging directory: %w", err)
@@ -854,6 +880,10 @@ func (e *Engine) stageManagedAssets(ctx context.Context, plan Plan) (*managedAss
 		if err != nil {
 			cleanup()
 			return nil, fmt.Errorf("download managed asset %q: %w", spec.RemotePath, err)
+		}
+		if err := verifyManagedAssetChecksum(contents, spec.RemotePath, checksums); err != nil {
+			cleanup()
+			return nil, err
 		}
 		if !bytes.Contains(contents, []byte(spec.Marker)) {
 			cleanup()

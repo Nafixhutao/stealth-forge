@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -103,13 +105,27 @@ func newHostInstallFixture(t *testing.T) *hostInstallFixture {
 	app.runner = &setupRunner{}
 	app.httpClient = server.Client()
 	app.assetBase = server.URL
+	app.releaseDownloadBase = server.URL
 	app.pollAttempts = 1
 	app.pollInterval = time.Millisecond
 	return &hostInstallFixture{app: app, layout: layout, store: store, state: state, values: values, server: server}
 }
 
 func writeHostManagedAsset(w http.ResponseWriter, name string) {
-	assets := map[string]string{
+	assets := hostManagedAssetContents()
+	if name == "checksums.txt" {
+		_, _ = io.WriteString(w, hostManagedAssetChecksums(assets))
+		return
+	}
+	if contents, ok := assets[name]; ok {
+		_, _ = io.WriteString(w, contents)
+		return
+	}
+	w.WriteHeader(http.StatusNotFound)
+}
+
+func hostManagedAssetContents() map[string]string {
+	return map[string]string{
 		"compose.production.yaml":                     testProductionComposeAsset(),
 		"buildkit/buildkitd.toml":                     testBuildKitConfigAsset(),
 		"buildkit/stealth-buildkit-rootless.apparmor": testBuildKitAppArmorProfileAsset(),
@@ -123,11 +139,20 @@ func writeHostManagedAsset(w http.ResponseWriter, name string) {
 		"traefik/dynamic/core.yaml":                   testManagedTraefikCoreAsset(),
 		"traefik/dynamic/generated/.gitkeep":          "# Stealth route reconciler\n",
 	}
-	if contents, ok := assets[name]; ok {
-		_, _ = io.WriteString(w, contents)
-		return
+}
+
+func hostManagedAssetChecksums(assets map[string]string) string {
+	names := make([]string, 0, len(assets))
+	for name := range assets {
+		names = append(names, name)
 	}
-	w.WriteHeader(http.StatusNotFound)
+	sort.Strings(names)
+	var manifest strings.Builder
+	for _, name := range names {
+		digest := sha256.Sum256([]byte(assets[name]))
+		fmt.Fprintf(&manifest, "%x  %s\n", digest, name)
+	}
+	return manifest.String()
 }
 
 func TestHostInstallerOwnsRequestAndCompletesHandoff(t *testing.T) {
@@ -391,6 +416,7 @@ func TestHostInstallerRestartResumesInstallingRun(t *testing.T) {
 	resumed.runner = &setupRunner{}
 	resumed.httpClient = fixture.server.Client()
 	resumed.assetBase = fixture.server.URL
+	resumed.releaseDownloadBase = fixture.server.URL
 	resumed.pollAttempts = 1
 	resumed.pollInterval = time.Millisecond
 	if err := resumed.executeHostInstallation(context.Background(), fixture.layout, fixture.values, fixture.store, "run-1"); err != nil {
