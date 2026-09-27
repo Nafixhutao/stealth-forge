@@ -133,6 +133,10 @@ func debugImageImportFailure(err error) string {
 	case errors.Is(err, context.DeadlineExceeded):
 		return prefix + "import-timeout]"
 	}
+	var visibilityFailure *imageLoadVisibilityFailure
+	if errors.As(err, &visibilityFailure) {
+		return prefix + visibilityFailure.outputClass + "]"
+	}
 	var failure *CommandFailure
 	if !errors.As(err, &failure) {
 		return prefix + "expected-image-not-visible-after-load]"

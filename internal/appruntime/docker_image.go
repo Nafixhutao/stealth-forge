@@ -47,6 +47,33 @@ type imageInspect struct {
 	} `json:"RootFS"`
 }
 
+type imageLoadVisibilityFailure struct {
+	outputClass string
+}
+
+func (failure *imageLoadVisibilityFailure) Error() string {
+	return "Docker image load completed but expected image ID was not visible"
+}
+
+func (failure *imageLoadVisibilityFailure) Unwrap() error { return ErrImageImport }
+
+func imageLoadOutputClass(result CommandResult) string {
+	if result.StdoutTruncated {
+		return "load-output-truncated"
+	}
+	output := strings.ToLower(strings.TrimSpace(string(result.Stdout)))
+	switch {
+	case output == "":
+		return "load-output-empty"
+	case strings.Contains(output, "loaded image id:"):
+		return "load-reported-image-id"
+	case strings.Contains(output, "loaded image:"):
+		return "load-reported-image-name"
+	default:
+		return "load-reported-unclassified-output"
+	}
+}
+
 // EnsureImage verifies the selected OCI manifest and config identity before
 // creating a deterministic Moby tag. The Docker image ID is the OCI config
 // digest; it is distinct from AppDeployment.image_digest (manifest digest).
@@ -73,7 +100,7 @@ func (m *Moby) EnsureImage(ctx context.Context, info ociartifact.ImageInfo, arch
 			_ = archiveWriter.CloseWithError(conversionErr)
 			conversionDone <- conversionErr
 		}()
-		_, importErr := m.run(importContext, []string{"image", "load"}, archiveReader)
+		loadResult, importErr := m.run(importContext, []string{"image", "load"}, archiveReader)
 		_ = archiveReader.Close()
 		if conversionErr := <-conversionDone; conversionErr != nil {
 			importErr = errors.Join(importErr, conversionErr)
@@ -87,7 +114,7 @@ func (m *Moby) EnsureImage(ctx context.Context, info ociartifact.ImageInfo, arch
 			if importErr != nil {
 				return Image{}, errors.Join(ErrImageImport, importErr)
 			}
-			return Image{}, ErrImageImport
+			return Image{}, &imageLoadVisibilityFailure{outputClass: imageLoadOutputClass(loadResult)}
 		}
 	}
 	if !imageMatchesOCI(image, info) {
