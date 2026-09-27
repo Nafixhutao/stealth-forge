@@ -202,15 +202,14 @@ func TestInstallerCleanHostAndRepairAcceptance(t *testing.T) {
 		t.Fatalf("BuildKit worker key permissions = %v, %v", keyInfo, err)
 	}
 
-	app.out = io.Discard
 	app.errOut = io.Discard
-	if code := app.runStatusCommand(nil); code != 0 {
-		t.Fatal("stealth status reported the repaired clean-host stack unhealthy")
-	}
-	var doctorOutput strings.Builder
+	var statusOutput, doctorOutput strings.Builder
+	app.out = &statusOutput
+	statusCode := app.runStatusCommand(nil)
 	app.out = &doctorOutput
-	if code := app.runDoctorCommand(nil); code != 0 {
-		t.Fatalf("stealth doctor reported the repaired host unhealthy: %s", doctorOutput.String())
+	doctorCode := app.runDoctorCommand(nil)
+	if statusCode != 0 || doctorCode != 0 {
+		t.Fatalf("repaired clean-host checks failed: status=%d\n%s\ndoctor=%d\n%s", statusCode, statusOutput.String(), doctorCode, doctorOutput.String())
 	}
 
 	evidencePath := strings.TrimSpace(os.Getenv("STEALTH_INSTALLER_ACCEPTANCE_EVIDENCE"))
