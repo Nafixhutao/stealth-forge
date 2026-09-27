@@ -1,0 +1,311 @@
+name: Apps Host Reboot Acceptance
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apps-host-reboot-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  host-reboot:
+    # A same-repository maintainer must explicitly apply the acceptance label;
+    # forked PR code never receives the VM access secrets.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.label.name == 'apps-host-reboot')
+    name: Build, reboot, and verify Apps recovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    environment: apps-host-reboot
+    env:
+      APP_REBOOT_SSH_HOST: ${{ secrets.APP_REBOOT_SSH_HOST }}
+      APP_REBOOT_SSH_USER: ${{ secrets.APP_REBOOT_SSH_USER }}
+      APP_REBOOT_SSH_PRIVATE_KEY: ${{ secrets.APP_REBOOT_SSH_PRIVATE_KEY }}
+      APP_REBOOT_SSH_KNOWN_HOSTS: ${{ secrets.APP_REBOOT_SSH_KNOWN_HOSTS }}
+      APP_REBOOT_SSH_PORT: ${{ vars.APP_REBOOT_SSH_PORT || '22' }}
+      RUN_SUFFIX: ${{ github.run_id }}-${{ github.run_attempt }}
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Check out the requested head
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Validate remote host configuration and prepare SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in APP_REBOOT_SSH_HOST APP_REBOOT_SSH_USER APP_REBOOT_SSH_PRIVATE_KEY APP_REBOOT_SSH_KNOWN_HOSTS; do
+            if [ -z "${!name}" ]; then
+              printf 'Configure repository environment secret %s in apps-host-reboot before running this acceptance.\n' "$name" >&2
+              exit 2
+            fi
+          done
+          [[ "$APP_REBOOT_SSH_HOST" =~ ^[A-Za-z0-9.-]+$ ]]
+          [[ "$APP_REBOOT_SSH_USER" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]]
+          [[ "$APP_REBOOT_SSH_PORT" =~ ^[0-9]+$ ]]
+          if [ "$APP_REBOOT_SSH_PORT" -lt 1 ] || [ "$APP_REBOOT_SSH_PORT" -gt 65535 ]; then
+            printf '%s\n' 'APP_REBOOT_SSH_PORT must be between 1 and 65535' >&2
+            exit 2
+          fi
+          ssh_key_file="$RUNNER_TEMP/apps-host-reboot-key"
+          known_hosts_file="$RUNNER_TEMP/apps-host-reboot-known-hosts"
+          install -m 0600 /dev/null "$ssh_key_file"
+          install -m 0600 /dev/null "$known_hosts_file"
+          printf '%s\n' "$APP_REBOOT_SSH_PRIVATE_KEY" >"$ssh_key_file"
+          printf '%s\n' "$APP_REBOOT_SSH_KNOWN_HOSTS" >"$known_hosts_file"
+          remote_root="/var/tmp/stealth-app-host-reboot-${RUN_SUFFIX}"
+          {
+            echo "SSH_KEY_FILE=$ssh_key_file"
+            echo "KNOWN_HOSTS_FILE=$known_hosts_file"
+            echo "SSH_TARGET=$APP_REBOOT_SSH_USER@$APP_REBOOT_SSH_HOST"
+            echo "SSH_PORT=$APP_REBOOT_SSH_PORT"
+            echo "REMOTE_ROOT=$remote_root"
+            echo "REMOTE_REPO=$remote_root/repo"
+            echo "REMOTE_ENV=$remote_root/config.env"
+            echo "REMOTE_STATE=$remote_root/reboot-state.json"
+            echo "REMOTE_RESULT=$remote_root/reboot-result.json"
+            echo "REMOTE_CLEAN_MARKER=$remote_root/state/clean-host"
+            echo "REMOTE_PROFILE_MARKER=$remote_root/state/apparmor-installed"
+          } >>"$GITHUB_ENV"
+
+      - name: Prepare clean remote host and transfer source
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh_options=(-p "$SSH_PORT" -i "$SSH_KEY_FILE" -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=15)
+          ssh "${ssh_options[@]}" "$SSH_TARGET" bash -s -- "$REMOTE_ROOT" "$RUN_SUFFIX" <<'REMOTE'
+          set -euo pipefail
+          root="$1"; run_suffix="$2"
+          test ! -e "$root" && test ! -L "$root"
+          command -v docker >/dev/null
+          docker compose version
+          command -v go >/dev/null
+          [[ "$(go env GOVERSION)" == go1.26.* ]]
+          command -v python3 >/dev/null
+          command -v curl >/dev/null
+          command -v apparmor_parser >/dev/null
+          sudo -n true
+          docker info >/dev/null
+          if [ -e /etc/apparmor.d/stealth-buildkit-rootless ]; then
+            printf '%s\n' 'acceptance VM already has the managed BuildKit profile; use a clean disposable VM' >&2
+            exit 2
+          fi
+          if [ -n "$(docker ps -aq --filter label=stealth.managed=true)" ]; then
+            printf '%s\n' 'acceptance VM already has Stealth-managed containers; use a clean disposable VM' >&2
+            exit 2
+          fi
+          runtime_images="$(docker image ls --format '{{.Repository}}:{{.Tag}}' | awk '$1 ~ /^stealth-app\/[0-9a-f-]+:runtime$/ { print }')"
+          if [ -n "$runtime_images" ]; then
+            printf '%s\n' 'acceptance VM already has Stealth App runtime images; use a clean disposable VM' >&2
+            exit 2
+          fi
+          mkdir -m 0700 -p "$root/repo" "$root/state"
+          project="stealth-host-reboot-${run_suffix}"
+          printf 'clean:%s\n' "$project" >"$root/state/clean-host"
+          chmod 0600 "$root/state/clean-host"
+          REMOTE
+          source_archive="$RUNNER_TEMP/stealth-host-reboot-source.tar.gz"
+          git archive --format=tar "$SOURCE_SHA" | gzip -n >"$source_archive"
+          scp -P "$SSH_PORT" -i "$SSH_KEY_FILE" -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$source_archive" "$SSH_TARGET:$REMOTE_ROOT/source.tar.gz"
+          ssh "${ssh_options[@]}" "$SSH_TARGET" bash -s -- "$REMOTE_ROOT" <<'REMOTE'
+          set -euo pipefail
+          root="$1"
+          tar -xzf "$root/source.tar.gz" -C "$root/repo"
+          chmod 0700 "$root/state"
+          REMOTE
+
+      - name: Generate isolated acceptance configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh_options=(-p "$SSH_PORT" -i "$SSH_KEY_FILE" -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=15)
+          docker_gid="$(ssh "${ssh_options[@]}" "$SSH_TARGET" 'stat -c %g /var/run/docker.sock')"
+          [[ "$docker_gid" =~ ^[0-9]+$ ]]
+          tag="smoke-${RUN_SUFFIX}"
+          build_time="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          postgres_password="$(openssl rand -hex 24)"
+          redis_password="$(openssl rand -hex 24)"
+          clickhouse_password="$(openssl rand -hex 24)"
+          functions_secret_key="$(openssl rand -base64 32 | tr -d '\n')"
+          apps_secret_key="$(openssl rand -base64 32 | tr -d '\n')"
+          bootstrap_cli_key="$(openssl rand -base64 32 | tr -d '\n')"
+          metrics_token="$(openssl rand -hex 32)"
+          cat >"$RUNNER_TEMP/stealth-app-host-reboot.env" <<EOF
+          COMPOSE_PROJECT_NAME=stealth-host-reboot-${RUN_SUFFIX}
+          STEALTH_INSTALL_ROOT=${REMOTE_REPO}
+          STEALTH_API_IMAGE=stealth-api:${tag}
+          STEALTH_WORKER_IMAGE=stealth-worker:${tag}
+          STEALTH_INGRESS_CONTROL_IMAGE=stealth-ingress-control:${tag}
+          STEALTH_MIGRATE_IMAGE=stealth-migrate:${tag}
+          STEALTH_CONSOLE_IMAGE=stealth-console:${tag}
+          OTEL_COLLECTOR_IMAGE=stealth-otel-collector:${tag}
+          OTEL_HOST_COLLECTOR_IMAGE=stealth-otel-collector:${tag}
+          OTEL_DOCKER_COLLECTOR_IMAGE=stealth-otel-collector:${tag}
+          OTEL_DOCKER_LOGS_COLLECTOR_IMAGE=stealth-otel-docker-logs:${tag}
+          STEALTH_TELEMETRY_DOCKER_PROXY_IMAGE=stealth-telemetry-docker-proxy:${tag}
+          TRAEFIK_IMAGE=traefik:v3.7.13@sha256:1c32e7c368204fd72812152ebdd2ac0425993df6fd982317deb02e48f2d5423c
+          POSTGRES_DB=stealth
+          POSTGRES_USER=stealth
+          POSTGRES_PASSWORD=${postgres_password}
+          REDIS_PASSWORD=${redis_password}
+          CLICKHOUSE_DATABASE=stealth_telemetry
+          CLICKHOUSE_USER=stealth
+          CLICKHOUSE_PASSWORD=${clickhouse_password}
+          FUNCTIONS_SECRET_KEY=${functions_secret_key}
+          APPS_SECRET_KEY=${apps_secret_key}
+          BOOTSTRAP_CLI_KEY=${bootstrap_cli_key}
+          GITHUB_APP_CLIENT_ID=smoke-client-id
+          PUBLIC_APP_URL=http://127.0.0.1:13000
+          COOKIE_SECURE=false
+          TRUSTED_PROXY_CIDRS=172.30.0.0/24,172.31.0.254/32
+          STEALTH_NETWORK_SUBNET=172.30.0.0/24
+          STEALTH_NETWORK_NAME=stealth_host_reboot_network_${RUN_SUFFIX}
+          STEALTH_INGRESS_NETWORK_NAME=stealth_host_reboot_ingress_${RUN_SUFFIX}
+          STEALTH_INGRESS_NETWORK_SUBNET=172.31.0.0/24
+          STEALTH_INGRESS_IP_RANGE=172.31.0.64/26
+          STEALTH_TRAEFIK_INGRESS_IP=172.31.0.254
+          STEALTH_CLOUDFLARED_INGRESS_IP=172.31.0.10
+          STEALTH_TELEMETRY_STORE_NETWORK_NAME=stealth_host_reboot_store_${RUN_SUFFIX}
+          STEALTH_TELEMETRY_INGEST_NETWORK_NAME=stealth_host_reboot_ingest_${RUN_SUFFIX}
+          STEALTH_TELEMETRY_DOCKER_NETWORK_NAME=stealth_host_reboot_docker_${RUN_SUFFIX}
+          APPS_RUNTIME_NETWORK_NAME=stealth_host_reboot_runtime_${RUN_SUFFIX}
+          APPS_BUILDKIT_APPARMOR_PROFILE=stealth-buildkit-rootless
+          DOCKER_GID=${docker_gid}
+          METRICS_TOKEN=${metrics_token}
+          FUNCTIONS_RUNNER_ENABLED=true
+          PLATFORM_ROUTE_RECONCILE_INTERVAL=30s
+          FUNCTIONS_RUNNER_STAGING_VOLUME=stealth_host_reboot_staging_${RUN_SUFFIX}
+          POSTGRES_VOLUME_NAME=stealth_host_reboot_postgres_${RUN_SUFFIX}
+          STORAGE_VOLUME_NAME=stealth_host_reboot_storage_${RUN_SUFFIX}
+          CLICKHOUSE_VOLUME_NAME=stealth_host_reboot_clickhouse_${RUN_SUFFIX}
+          OTELCOL_VOLUME_NAME=stealth_host_reboot_otelcol_${RUN_SUFFIX}
+          OTEL_DOCKER_LOGS_VOLUME_NAME=stealth_host_reboot_docker_logs_${RUN_SUFFIX}
+          PROXY_HTTP_BIND=127.0.0.1
+          PROXY_HTTP_PORT=8080
+          API_HOST_PORT=18080
+          CONSOLE_HOST_PORT=13000
+          EOF
+          chmod 0600 "$RUNNER_TEMP/stealth-app-host-reboot.env"
+          echo "BUILD_TIME=$build_time" >>"$GITHUB_ENV"
+          scp -P "$SSH_PORT" -i "$SSH_KEY_FILE" -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$RUNNER_TEMP/stealth-app-host-reboot.env" "$SSH_TARGET:$REMOTE_ENV"
+          ssh "${ssh_options[@]}" "$SSH_TARGET" "chmod 0600 '$REMOTE_ENV'"
+
+      - name: Build coordinated images and persist App acceptance state
+        shell: bash
+        env:
+          APP_RUNTIME_SOAK_SECONDS: "600"
+        run: |
+          set -euo pipefail
+          ssh_options=(-p "$SSH_PORT" -i "$SSH_KEY_FILE" -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=15)
+          ssh "${ssh_options[@]}" "$SSH_TARGET" bash -s -- "$REMOTE_REPO" "$RUN_SUFFIX" "$SOURCE_SHA" "$BUILD_TIME" "$REMOTE_PROFILE_MARKER" <<'REMOTE'
+          set -euo pipefail
+          repo="$1"; run_id="$2"; sha="$3"; build_time="$4"; profile_marker="$5"; tag="smoke-$run_id"
+          cd "$repo"
+          for target in api setup worker ingress-control migrate telemetry-collector telemetry-docker-logs telemetry-docker-proxy; do
+            image="stealth-$target"
+            case "$target" in telemetry-collector) image=stealth-otel-collector ;; telemetry-docker-logs) image=stealth-otel-docker-logs ;; telemetry-docker-proxy) image=stealth-telemetry-docker-proxy ;; esac
+            docker build --target "$target" --build-arg VERSION=ci --build-arg COMMIT_SHA="$sha" --build-arg BUILD_TIME="$build_time" -t "$image:$tag" .
+          done
+          docker build -f console/Dockerfile --build-arg NEXT_PUBLIC_API_BASE_URL= --build-arg VERSION=ci --build-arg COMMIT_SHA="$sha" --build-arg BUILD_TIME="$build_time" -t "stealth-console:$tag" .
+          printf '%s\n' stealth-buildkit-rootless >"$profile_marker"
+          chmod 0600 "$profile_marker"
+          sudo -n install -m 0644 buildkit/stealth-buildkit-rootless.apparmor /etc/apparmor.d/stealth-buildkit-rootless
+          sudo -n apparmor_parser -r -W /etc/apparmor.d/stealth-buildkit-rootless
+          REMOTE
+          ssh "${ssh_options[@]}" "$SSH_TARGET" bash -s -- "$REMOTE_REPO" "$REMOTE_ENV" "$REMOTE_STATE" "$REMOTE_RESULT" "$SOURCE_SHA" "$APP_RUNTIME_SOAK_SECONDS" <<'REMOTE'
+          set -euo pipefail
+          repo="$1"; env_file="$2"; state="$3"; result="$4"; sha="$5"; soak="$6"
+          cd "$repo"
+          docker compose --env-file "$env_file" -f compose.production.yaml config --quiet
+          COMMIT_SHA="$sha" APP_RUNTIME_SOAK_SECONDS="$soak" ENV_FILE="$env_file" APP_REBOOT_EVIDENCE_PATH="$state" APP_REBOOT_RESULT_PATH="$result" ./scripts/app-host-reboot-acceptance.sh prepare
+          REMOTE
+
+      - name: Reboot the remote Linux VM and verify recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh_options=(-p "$SSH_PORT" -i "$SSH_KEY_FILE" -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=15)
+          baseline="$(ssh "${ssh_options[@]}" "$SSH_TARGET" "python3 -c 'import json; s=json.load(open(\"$REMOTE_STATE\")); print(s[\"boot_id\"]); print(s[\"source_sha\"])'")"
+          boot_before="$(printf '%s\n' "$baseline" | sed -n '1p')"
+          source_sha="$(printf '%s\n' "$baseline" | sed -n '2p')"
+          if [ "$source_sha" != "$SOURCE_SHA" ]; then printf 'prepared source %s does not match this workflow head %s\n' "$source_sha" "$SOURCE_SHA" >&2; exit 1; fi
+          set +e
+          ssh "${ssh_options[@]}" "$SSH_TARGET" 'sudo -n systemctl reboot' >/dev/null 2>&1
+          reboot_status=$?
+          set -e
+          if [ "$reboot_status" -ne 0 ] && [ "$reboot_status" -ne 255 ]; then
+            printf 'remote reboot command failed with SSH status %s\n' "$reboot_status" >&2
+            exit "$reboot_status"
+          fi
+          boot_after=''
+          for attempt in $(seq 1 180); do
+            boot_after="$(ssh "${ssh_options[@]}" "$SSH_TARGET" 'cat /proc/sys/kernel/random/boot_id' 2>/dev/null || true)"
+            if [ -n "$boot_after" ] && [ "$boot_after" != "$boot_before" ]; then break; fi
+            sleep 10
+          done
+          if [ -z "$boot_after" ] || [ "$boot_after" = "$boot_before" ]; then
+            printf '%s\n' 'remote host did not return with a new kernel boot ID within 30 minutes' >&2
+            exit 1
+          fi
+          ssh "${ssh_options[@]}" "$SSH_TARGET" bash -s -- "$REMOTE_REPO" "$REMOTE_ENV" "$REMOTE_STATE" "$REMOTE_RESULT" "$SOURCE_SHA" <<'REMOTE'
+          set -euo pipefail
+          repo="$1"; env_file="$2"; state="$3"; result="$4"; sha="$5"
+          cd "$repo"
+          COMMIT_SHA="$sha" ENV_FILE="$env_file" APP_REBOOT_EVIDENCE_PATH="$state" APP_REBOOT_RESULT_PATH="$result" ./scripts/app-host-reboot-acceptance.sh verify
+          REMOTE
+          scp -P "$SSH_PORT" -i "$SSH_KEY_FILE" -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$SSH_TARGET:$REMOTE_RESULT" "$RUNNER_TEMP/apps-host-reboot-result.json"
+          cp "$RUNNER_TEMP/apps-host-reboot-result.json" "$GITHUB_WORKSPACE/apps-host-reboot-result.json"
+
+      - name: Upload non-secret reboot evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: apps-host-reboot-${{ github.run_id }}-${{ github.run_attempt }}
+          path: apps-host-reboot-result.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove the disposable acceptance stack and host profile
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          local_cleanup() {
+            rm -f -- "$RUNNER_TEMP/stealth-app-host-reboot.env" "$RUNNER_TEMP/stealth-host-reboot-source.tar.gz" "$RUNNER_TEMP/apps-host-reboot-key" "$RUNNER_TEMP/apps-host-reboot-known-hosts"
+          }
+          trap local_cleanup EXIT
+          if [ -z "${SSH_TARGET:-}" ] || [ -z "${SSH_KEY_FILE:-}" ] || [ -z "${REMOTE_ROOT:-}" ]; then
+            exit 0
+          fi
+          ssh_options=(-p "$SSH_PORT" -i "$SSH_KEY_FILE" -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=15)
+          ssh "${ssh_options[@]}" "$SSH_TARGET" bash -s -- "$REMOTE_REPO" "$REMOTE_ENV" "$REMOTE_STATE" "$REMOTE_RESULT" "$SOURCE_SHA" "$REMOTE_ROOT" "$REMOTE_CLEAN_MARKER" "$REMOTE_PROFILE_MARKER" <<'REMOTE'
+          set -euo pipefail
+          repo="$1"; env_file="$2"; state="$3"; result="$4"; sha="$5"; root="$6"; marker="$7"; profile_marker="$8"
+          cleanup_status=0
+          if [ -f "$env_file" ] && [ -f "$repo/scripts/app-host-reboot-acceptance.sh" ]; then
+            cd "$repo"
+            COMMIT_SHA="$sha" ENV_FILE="$env_file" APP_REBOOT_EVIDENCE_PATH="$state" APP_REBOOT_RESULT_PATH="$result" APP_REBOOT_CLEAN_HOST_MARKER="$marker" ./scripts/app-host-reboot-acceptance.sh cleanup || cleanup_status=$?
+            if [ "$cleanup_status" -ne 0 ] && [ -f "$marker" ]; then
+              if COMMIT_SHA="$sha" ENV_FILE="$env_file" APP_REBOOT_EVIDENCE_PATH="$root/state/no-reboot-state" APP_REBOOT_RESULT_PATH="$result" APP_REBOOT_CLEAN_HOST_MARKER="$marker" ./scripts/app-host-reboot-acceptance.sh cleanup; then cleanup_status=0; else cleanup_status=$?; fi
+            fi
+          elif [ -f "$env_file" ] && [ -f "$repo/compose.production.yaml" ]; then
+            docker compose --env-file "$env_file" -f "$repo/compose.production.yaml" down --volumes --rmi local --remove-orphans || cleanup_status=$?
+          fi
+          if [ -f "$profile_marker" ] && [ ! -L "$profile_marker" ] && [ "$(cat "$profile_marker")" = stealth-buildkit-rootless ]; then
+            sudo -n apparmor_parser -R /etc/apparmor.d/stealth-buildkit-rootless >/dev/null 2>&1 || true
+            sudo -n rm -f /etc/apparmor.d/stealth-buildkit-rootless
+          fi
+          if [[ "$root" =~ ^/var/tmp/stealth-app-host-reboot-[0-9]+-[0-9]+$ ]]; then rm -rf -- "$root"; else printf 'refusing unexpected cleanup root: %s\n' "$root" >&2; cleanup_status=1; fi
+          exit "$cleanup_status"
+          REMOTE

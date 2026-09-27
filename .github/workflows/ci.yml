@@ -333,7 +333,7 @@ jobs:
 
       - name: Validate bootstrap and release scripts
         run: |
-          for script in scripts/bootstrap.sh scripts/bootstrap_test.sh scripts/release_workflow_test.sh scripts/managed-asset-upgrade-smoke.sh scripts/real-v025-upgrade-smoke.sh scripts/compose-production-smoke.sh scripts/public-hosting-acceptance.sh scripts/public-hosting-addresses.sh scripts/public-hosting-addresses-test.sh scripts/traefik-security-test.sh; do
+          for script in scripts/bootstrap.sh scripts/bootstrap_test.sh scripts/release_workflow_test.sh scripts/managed-asset-upgrade-smoke.sh scripts/real-v025-upgrade-smoke.sh scripts/compose-production-smoke.sh scripts/app-host-reboot-acceptance.sh scripts/public-hosting-acceptance.sh scripts/public-hosting-addresses.sh scripts/public-hosting-addresses-test.sh scripts/traefik-security-test.sh; do
             bash -n "$script"
           done
 

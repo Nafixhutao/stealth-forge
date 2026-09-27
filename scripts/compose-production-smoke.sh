@@ -4,6 +4,7 @@ set -Eeuo pipefail
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 env_file="${ENV_FILE:-$repo_root/.env.production}"
 compose_file="${COMPOSE_FILE:-$repo_root/compose.production.yaml}"
+app_host_reboot_acceptance="${APP_HOST_REBOOT_ACCEPTANCE:-false}"
 
 if [ ! -f "$env_file" ]; then
 	printf 'environment file not found: %s\n' "$env_file" >&2
@@ -17,6 +18,21 @@ fi
 compose=(docker compose --env-file "$env_file" -f "$compose_file")
 compose_root="$(cd -- "$(dirname -- "$compose_file")" && pwd)"
 export STEALTH_INSTALL_ROOT="$compose_root"
+app_host_reboot_evidence_path="${APP_REBOOT_EVIDENCE_PATH:-}"
+case "$app_host_reboot_acceptance" in
+	true|false) ;;
+	*) printf 'APP_HOST_REBOOT_ACCEPTANCE must be true or false\n' >&2; exit 2 ;;
+esac
+if [ "$app_host_reboot_acceptance" = true ]; then
+	if [ -z "$app_host_reboot_evidence_path" ] || [[ "$app_host_reboot_evidence_path" != /* ]]; then
+		printf '%s\n' 'APP_REBOOT_EVIDENCE_PATH must be an absolute path for preserved host reboot acceptance' >&2
+		exit 2
+	fi
+	if [ -e "$app_host_reboot_evidence_path" ] || [ -L "$app_host_reboot_evidence_path" ]; then
+		printf 'refusing to overwrite existing host reboot evidence: %s\n' "$app_host_reboot_evidence_path" >&2
+		exit 2
+	fi
+fi
 cloudflare_handoff_fixture=""
 cloudflare_smoke_key=""
 cloudflare_handoff_artifact_copy=""
@@ -173,13 +189,15 @@ cleanup() {
 		wait "$filelog_smoke_pid" 2>/dev/null || true
 		filelog_smoke_pid=""
 	fi
-	# Best-effort cleanup keeps a persistent smoke database from retaining the
-	# temporary Site, project, workload domain, or elevated role if a later
-	# assertion fails. The database remains authoritative throughout the probe.
-	if [ -n "$platform_site_id" ] && [ -n "$api_url" ] && [ -n "$auth_cookie_header" ]; then
+# Best-effort cleanup keeps a persistent smoke database from retaining the
+# temporary Site, project, workload domain, or elevated role if a later
+# assertion fails. The database remains authoritative throughout the probe.
+# Host reboot acceptance deliberately retains this test account and App until
+# a separate verifier observes recovery from a different kernel boot ID.
+	if [ "$app_host_reboot_acceptance" != true ] && [ -n "$platform_site_id" ] && [ -n "$api_url" ] && [ -n "$auth_cookie_header" ]; then
 		curl --silent --show-error --max-time 10 --header "Cookie: $auth_cookie_header" --request DELETE "${api_url%/}/v1/projects/${platform_project_id}/sites/${platform_site_id}" >/dev/null 2>&1 || true
 	fi
-	if [ -n "$api_url" ] && [ -n "$auth_cookie_header" ]; then
+	if [ "$app_host_reboot_acceptance" != true ] && [ -n "$api_url" ] && [ -n "$auth_cookie_header" ]; then
 		if [ -n "$app_runtime_foreign_container" ]; then
 			docker rm -f "$app_runtime_foreign_container" >/dev/null 2>&1 || true
 		fi
@@ -199,10 +217,10 @@ cleanup() {
 			curl --silent --show-error --max-time 10 --header "Cookie: $auth_cookie_header" --request DELETE "${api_url%/}/v1/projects/${platform_project_id}/apps/${cleanup_app_id}" >/dev/null 2>&1 || true
 		done
 	fi
-	if [ -n "$platform_project_id" ] && [ -n "$api_url" ] && [ -n "$auth_cookie_header" ]; then
+	if [ "$app_host_reboot_acceptance" != true ] && [ -n "$platform_project_id" ] && [ -n "$api_url" ] && [ -n "$auth_cookie_header" ]; then
 		curl --silent --show-error --max-time 10 --header "Cookie: $auth_cookie_header" --header 'Content-Type: application/json' --request DELETE --data '{"confirm_name":"platform-route-smoke"}' "${api_url%/}/v1/projects/${platform_project_id}" >/dev/null 2>&1 || true
 	fi
-	if [ "$platform_domain_changed" = "true" ]; then
+	if [ "$app_host_reboot_acceptance" != true ] && [ "$platform_domain_changed" = "true" ]; then
 		if [ -n "$platform_previous_base_domain" ]; then
 			"${compose[@]}" exec -T postgres sh -ec 'previous_domain="$1"; case "$previous_domain" in *[!A-Za-z0-9.-]*) exit 2;; esac; psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --set ON_ERROR_STOP=1 --command "UPDATE instance_domain_settings SET workload_base_domain = '\''$previous_domain'\'', updated_at = now() WHERE id = TRUE"' sh "$platform_previous_base_domain" >/dev/null 2>&1 || true
 		else
@@ -214,25 +232,29 @@ cleanup() {
 		"${compose[@]}" ps >&2 || true
 		"${compose[@]}" logs --tail=80 clickhouse buildkit otelcol-state-init telemetry-docker-logs-state-init traefik-state-init cloudflare-setup-state-init cloudflare-state-init otel-collector telemetry-host telemetry-docker-logs telemetry-docker-proxy telemetry-docker api worker migrate console proxy traefik >&2 || true
 	fi
-	if [ "${SMOKE_REMOVE_VOLUMES:-false}" = "true" ]; then
+	if [ "$app_host_reboot_acceptance" = true ]; then
+		printf 'preserving Compose services, volumes, generated routes, and App state for host reboot acceptance: %s\n' "$app_host_reboot_evidence_path"
+	elif [ "${SMOKE_REMOVE_VOLUMES:-false}" = "true" ]; then
 		"${compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
 	else
 		"${compose[@]}" down --remove-orphans >/dev/null 2>&1 || true
 	fi
-	if [ "$buildkit_apparmor_profile_loaded" = "true" ] && [ -n "$buildkit_apparmor_profile_file" ]; then
+	if [ "$app_host_reboot_acceptance" != true ] && [ "$buildkit_apparmor_profile_loaded" = "true" ] && [ -n "$buildkit_apparmor_profile_file" ]; then
 		if [ "$(id -u)" -eq 0 ]; then
 			apparmor_parser -R "$buildkit_apparmor_profile_file" >/dev/null 2>&1 || true
 		else
 			sudo apparmor_parser -R "$buildkit_apparmor_profile_file" >/dev/null 2>&1 || true
 		fi
 	fi
-	if [ "$core_modified" = "true" ] && [ -n "$core_backup" ]; then
+	if [ "$app_host_reboot_acceptance" != true ] && [ "$core_modified" = "true" ] && [ -n "$core_backup" ]; then
 		cp -- "$core_backup" "$core_file" || true
 	fi
-	if [ "$static_modified" = "true" ] && [ -n "$static_backup" ]; then
+	if [ "$app_host_reboot_acceptance" != true ] && [ "$static_modified" = "true" ] && [ -n "$static_backup" ]; then
 		cp -- "$static_backup" "$static_file" || true
 	fi
-	restore_traefik_state_after_smoke
+	if [ "$app_host_reboot_acceptance" != true ]; then
+		restore_traefik_state_after_smoke
+	fi
 	if [ -n "$buildkit_wrong_identity_dir" ]; then
 		worker_container="$("${compose[@]}" ps -q worker 2>/dev/null || true)"
 		if [ -n "$worker_container" ]; then
@@ -240,7 +262,7 @@ cleanup() {
 		fi
 		rm -rf -- "$buildkit_wrong_identity_dir"
 	fi
-	if [ "$buildkit_pki_smoke_created" = "true" ]; then
+	if [ "$app_host_reboot_acceptance" != true ] && [ "$buildkit_pki_smoke_created" = "true" ]; then
 		pki_path="$compose_root/private/buildkit-mtls"
 		if [ -d "$pki_path" ] && [ ! -L "$pki_path" ]; then
 			rm -rf -- "$pki_path"
@@ -482,15 +504,32 @@ prepare_buildkit_apparmor() {
 		*)
 			printf 'unsupported AppArmor unprivileged user namespace setting: %s\n' "$restriction" >&2
 			return 1
-			;;
+		;;
 	esac
+	profile_dir="$(dirname -- "$compose_file")/buildkit"
+	if [ "$app_host_reboot_acceptance" = true ]; then
+		buildkit_apparmor_profile_file="$profile_dir/stealth-buildkit-rootless.apparmor"
+		if [ ! -f "$buildkit_apparmor_profile_file" ]; then
+			printf 'managed BuildKit AppArmor profile asset is missing: %s\n' "$buildkit_apparmor_profile_file" >&2
+			return 1
+		fi
+		if [ "$(id -u)" -eq 0 ]; then
+			apparmor_parser -r -W "$buildkit_apparmor_profile_file"
+		else
+			sudo apparmor_parser -r -W "$buildkit_apparmor_profile_file"
+		fi
+		buildkit_apparmor_profile_loaded="true"
+		buildkit_apparmor_profile_name='stealth-buildkit-rootless'
+		export APPS_BUILDKIT_APPARMOR_PROFILE="$buildkit_apparmor_profile_name"
+		printf 'Loaded persistent managed BuildKit AppArmor profile for host reboot acceptance: %s\n' "$buildkit_apparmor_profile_name"
+		return 0
+	fi
 	if ! command -v apparmor_parser >/dev/null 2>&1; then
 		printf '%s\n' 'AppArmor restricts unprivileged user namespaces but apparmor_parser is unavailable' >&2
 		return 1
 	fi
 	buildkit_apparmor_profile_name="stealth-buildkit-rootless-smoke-$$"
 	buildkit_apparmor_profile_file="$(mktemp "${TMPDIR:-/tmp}/stealth-buildkit-apparmor.XXXXXX")"
-	profile_dir="$(dirname -- "$compose_file")/buildkit"
 	cat >"$buildkit_apparmor_profile_file" <<EOF
 abi <abi/4.0>,
 include <tunables/global>
@@ -3241,7 +3280,7 @@ verify_app_runtime_lifecycle() {
 }
 
 verify_app_control_plane_restarts() {
-	local status before_container generation selected spec_sha version expected_version
+	local status before_container generation selected spec_sha version expected_version console_root_response console_location console_organizations_status
 	fetch_app_runtime
 	generation="$(platform_json_field "$platform_response" app.desired_generation)"
 	selected="$(platform_json_field "$platform_response" app.desired_deployment_id)"
@@ -3286,9 +3325,12 @@ verify_app_control_plane_restarts() {
 
 	"${compose[@]}" restart console >/dev/null
 	wait_for_healthy console
-	status="$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' "${console_url%/}/")"
-	if [[ ! "$status" =~ ^2[0-9][0-9]$ ]]; then
-		printf 'Console root after restart returned HTTP %s\n' "$status" >&2
+	console_root_response="$(curl --silent --show-error --max-time 10 --dump-header - --output /dev/null "${console_url%/}/")"
+	status="$(http_probe_first_status "$console_root_response")"
+	console_location="$(http_probe_header "$console_root_response" Location)"
+	console_organizations_status="$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' "${console_url%/}/organizations")"
+	if [ "$status" != 307 ] || [ "$console_location" != '/organizations' ] || [ "$console_organizations_status" != 200 ]; then
+		printf 'Console root after restart mismatch: initial=%s location=%q /organizations=%s\n' "$status" "$console_location" "$console_organizations_status" >&2
 		return 1
 	fi
 	fetch_app_runtime
@@ -3518,6 +3560,90 @@ PY
 		return 1
 	fi
 	printf 'App runtime soak passed for %ss: samples=%s deployment_rows=%s bounded logs=%s worker_lines=%s worker_restart=%s\n' "$duration" "$steps" "$initial_deployments" "$total_log_rows" "$worker_log_lines" "$restart_done"
+}
+
+write_app_host_reboot_evidence() {
+	local parent_dir generation selected observed runtime health route spec_sha source_sha runtime_container v2_stdout_id v2_stderr_id v2_stdout_count v2_stderr_count
+	if [ "$app_host_reboot_acceptance" != true ]; then
+		return 0
+	fi
+	parent_dir="$(dirname -- "$app_host_reboot_evidence_path")"
+	if [ -L "$parent_dir" ]; then
+		printf 'host reboot evidence directory must not be a symlink: %s\n' "$parent_dir" >&2
+		return 1
+	fi
+	mkdir -p -- "$parent_dir"
+	if [ -L "$parent_dir" ] || [ ! -d "$parent_dir" ] || [ "$(stat -c '%u' "$parent_dir")" != "$(id -u)" ]; then
+		printf 'host reboot evidence directory is not owned by the invoking user: %s\n' "$parent_dir" >&2
+		return 1
+	fi
+	if [ -e "$app_host_reboot_evidence_path" ] || [ -L "$app_host_reboot_evidence_path" ]; then
+		printf 'refusing to overwrite host reboot evidence: %s\n' "$app_host_reboot_evidence_path" >&2
+		return 1
+	fi
+	fetch_app_runtime
+	generation="$(platform_json_field "$platform_response" app.desired_generation)"
+	observed="$(platform_json_field "$platform_response" app.observed_generation)"
+	selected="$(platform_json_field "$platform_response" app.desired_deployment_id)"
+	runtime="$(platform_json_field "$platform_response" app.runtime_status)"
+	health="$(platform_json_field "$platform_response" app.health_status)"
+	route="$(platform_json_field "$platform_response" app.route_status)"
+	spec_sha="$(platform_json_field "$platform_response" app.workload_spec_sha256)"
+	if [ "$selected" != "$platform_app_deployment_id" ] || [ "$runtime" != running ] ||
+		[ -z "$generation" ] || [ "$observed" != "$generation" ] || [ "$health" != healthy ] || [ "$route" != active ]; then
+		printf 'refusing to save reboot baseline before the v2 App converges: runtime=%s generation=%s/%s health=%s route=%s deployment=%s\n' \
+			"$runtime" "$observed" "$generation" "$health" "$route" "$selected" >&2
+		return 1
+	fi
+	if [ "$(app_public_route_body /version)" != "${smoke_marker}-app-v2" ]; then
+		printf '%s\n' 'refusing to save reboot baseline because the v2 route marker is not active' >&2
+		return 1
+	fi
+	assert_app_diagnostics converged "$selected" "$platform_app_v2_version" "$selected" "$platform_app_v2_version"
+	runtime_container="$(app_runtime_container_id)"
+	wait_for_app_runtime_log_markers "${smoke_marker}-app-v2" 1 "$runtime_container"
+	fetch_app_runtime_logs "$runtime_container"
+	v2_stdout_id="$(app_runtime_log_ids "${smoke_marker}-app-v2" stdout | sed -n '1p')"
+	v2_stderr_id="$(app_runtime_log_ids "${smoke_marker}-app-v2" stderr | sed -n '1p')"
+	read -r v2_stdout_count v2_stderr_count <<<"$(app_runtime_log_counts "${smoke_marker}-app-v2")"
+	if [ -z "$v2_stdout_id" ] || [ -z "$v2_stderr_id" ]; then
+		printf '%s\n' 'refusing to save reboot baseline without retained v2 stdout/stderr log IDs' >&2
+		return 1
+	fi
+	source_sha="${COMMIT_SHA:-$(git -C "$repo_root" rev-parse HEAD 2>/dev/null || printf 'unknown')}"
+	python3 - "$app_host_reboot_evidence_path" "$(cat /proc/sys/kernel/random/boot_id)" "$source_sha" "$api_url" "$smoke_email" "$smoke_password" \
+		"$platform_project_id" "$platform_app_id" "$platform_app_host" "$platform_app_deployment_id" "$generation" "$spec_sha" "${smoke_marker}-app-v2" "$v2_stdout_id" "$v2_stderr_id" "$v2_stdout_count" "$v2_stderr_count" "$platform_app_v1_deployment_id" <<'PY'
+import json
+import os
+import sys
+
+path, boot_id, source_sha, api_url, email, password, project_id, app_id, app_host, deployment_id, generation, spec_sha, marker, stdout_id, stderr_id, stdout_count, stderr_count, prior_deployment_id = sys.argv[1:]
+state = {
+    "boot_id": boot_id,
+    "source_sha": source_sha,
+    "api_url": api_url,
+    "email": email,
+    "password": password,
+    "project_id": project_id,
+    "app_id": app_id,
+    "app_host": app_host,
+    "deployment_id": deployment_id,
+    "generation": int(generation),
+    "workload_spec_sha256": spec_sha,
+    "marker": marker,
+    "stdout_log_id": stdout_id,
+    "stderr_log_id": stderr_id,
+    "stdout_log_count": int(stdout_count),
+    "stderr_log_count": int(stderr_count),
+    "prior_deployment_id": prior_deployment_id,
+}
+fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+with os.fdopen(fd, "w", encoding="utf-8") as output:
+    json.dump(state, output, sort_keys=True)
+    output.write("\n")
+PY
+	chmod 0600 "$app_host_reboot_evidence_path"
+	printf 'saved v2 App host-reboot baseline at generation %s, kernel boot ID %s\n' "$generation" "$(cat /proc/sys/kernel/random/boot_id)"
 }
 
 clear_platform_route_smoke() {
@@ -3884,7 +4010,11 @@ verify_app_secondary_state_smoke
 verify_app_runtime_lifecycle
 verify_app_control_plane_restarts
 verify_app_runtime_soak
-clear_platform_route_smoke
+if [ "$app_host_reboot_acceptance" = true ]; then
+	write_app_host_reboot_evidence
+else
+	clear_platform_route_smoke
+fi
 
 filelog_marker="${smoke_marker}-docker-log"
 start_docker_filelog_smoke "compose filelog smoke ${filelog_marker}"
