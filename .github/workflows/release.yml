@@ -101,7 +101,7 @@ jobs:
         run: ./scripts/setup-security-test.sh
 
       - name: Validate smoke scripts
-        run: bash -n scripts/production-smoke.sh scripts/compose-production-smoke.sh scripts/app-host-reboot-acceptance.sh scripts/public-hosting-acceptance.sh scripts/bootstrap.sh scripts/bootstrap_test.sh scripts/setup-security-test.sh scripts/traefik-security-test.sh scripts/release_workflow_test.sh
+        run: bash -n scripts/production-smoke.sh scripts/compose-production-smoke.sh scripts/app-host-reboot-acceptance.sh scripts/app-host-reboot-qemu-vm.sh scripts/public-hosting-acceptance.sh scripts/bootstrap.sh scripts/bootstrap_test.sh scripts/setup-security-test.sh scripts/traefik-security-test.sh scripts/release_workflow_test.sh
 
       - name: Verify release bootstrap is revision-pinned
         run: ./scripts/release_workflow_test.sh

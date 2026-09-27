@@ -3,6 +3,23 @@ name: Production Compose Smoke
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      acceptance:
+        description: Acceptance suite to run
+        type: choice
+        options:
+          - compose-smoke
+          - apps-host-reboot
+        default: compose-smoke
+        required: true
+      host_mode:
+        description: Host for the Apps reboot acceptance
+        type: choice
+        options:
+          - ephemeral-qemu
+          - ssh
+        default: ephemeral-qemu
+        required: true
 
 permissions:
   contents: read
@@ -13,6 +30,7 @@ concurrency:
 
 jobs:
   production-smoke:
+    if: github.event_name != 'workflow_dispatch' || inputs.acceptance == 'compose-smoke'
     name: Build local images and run production smoke
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -170,3 +188,9 @@ jobs:
           ENV_FILE: ${{ runner.temp }}/stealth-production-smoke.env
           SMOKE_REMOVE_VOLUMES: "true"
         run: ./scripts/real-v025-upgrade-smoke.sh
+
+  apps-host-reboot:
+    if: github.event_name == 'workflow_dispatch' && inputs.acceptance == 'apps-host-reboot'
+    uses: ./.github/workflows/apps-host-reboot-acceptance.yml
+    with:
+      host_mode: ${{ inputs.host_mode }}

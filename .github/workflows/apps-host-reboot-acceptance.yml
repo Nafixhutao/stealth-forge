@@ -2,6 +2,22 @@ name: Apps Host Reboot Acceptance
 
 on:
   workflow_dispatch:
+    inputs:
+      host_mode:
+        description: Acceptance host
+        type: choice
+        options:
+          - ephemeral-qemu
+          - ssh
+        default: ephemeral-qemu
+        required: true
+  workflow_call:
+    inputs:
+      host_mode:
+        description: Acceptance host
+        type: string
+        default: ephemeral-qemu
+        required: false
   pull_request:
     types: [labeled]
 
@@ -9,24 +25,25 @@ permissions:
   contents: read
 
 concurrency:
-  # This environment uses one disposable acceptance VM, so serialize all runs.
+  # Serialize use of the acceptance VM and its forwarded SSH port.
   group: apps-host-reboot
   cancel-in-progress: false
 
 jobs:
   host-reboot:
-    # A same-repository maintainer must explicitly apply the acceptance label;
-    # forked PR code never receives the VM access secrets.
+    # Forked PR code never receives the SSH environment or its secrets.
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'workflow_call' ||
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository &&
        github.event.label.name == 'apps-host-reboot')
     name: Build, reboot, and verify Apps recovery
     runs-on: ubuntu-latest
     timeout-minutes: 180
-    environment: apps-host-reboot
+    environment: ${{ inputs.host_mode == 'ssh' && 'apps-host-reboot' || 'apps-host-reboot-ephemeral' }}
     env:
+      HOST_MODE: ${{ inputs.host_mode || 'ephemeral-qemu' }}
       APP_REBOOT_SSH_HOST: ${{ secrets.APP_REBOOT_SSH_HOST }}
       APP_REBOOT_SSH_USER: ${{ secrets.APP_REBOOT_SSH_USER }}
       APP_REBOOT_SSH_PRIVATE_KEY: ${{ secrets.APP_REBOOT_SSH_PRIVATE_KEY }}
@@ -40,35 +57,58 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Validate remote host configuration and prepare SSH
+      - name: Set up Go for an ephemeral acceptance VM
+        if: env.HOST_MODE == 'ephemeral-qemu'
+        uses: actions/setup-go@v7
+        with:
+          go-version: 1.26.x
+          cache: false
+
+      - name: Start ephemeral Linux VM or configure SSH host
         shell: bash
         run: |
           set -euo pipefail
-          for name in APP_REBOOT_SSH_HOST APP_REBOOT_SSH_USER APP_REBOOT_SSH_PRIVATE_KEY APP_REBOOT_SSH_KNOWN_HOSTS; do
-            if [ -z "${!name}" ]; then
-              printf 'Configure repository environment secret %s in apps-host-reboot before running this acceptance.\n' "$name" >&2
+          if [ "$HOST_MODE" = ephemeral-qemu ]; then
+            vm_env="$RUNNER_TEMP/apps-host-reboot-vm.env"
+            ./scripts/app-host-reboot-qemu-vm.sh start "$RUN_SUFFIX" "$vm_env"
+            cat "$vm_env" >>"$GITHUB_ENV"
+            rm -f -- "$vm_env"
+          elif [ "$HOST_MODE" = ssh ]; then
+            for name in APP_REBOOT_SSH_HOST APP_REBOOT_SSH_USER APP_REBOOT_SSH_PRIVATE_KEY APP_REBOOT_SSH_KNOWN_HOSTS; do
+              if [ -z "${!name}" ]; then
+                printf 'Configure repository environment secret %s in apps-host-reboot before using SSH mode.\n' "$name" >&2
+                exit 2
+              fi
+            done
+            [[ "$APP_REBOOT_SSH_HOST" =~ ^[A-Za-z0-9.-]+$ ]]
+            [[ "$APP_REBOOT_SSH_USER" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]]
+            [[ "$APP_REBOOT_SSH_PORT" =~ ^[0-9]+$ ]]
+            if [ "$APP_REBOOT_SSH_PORT" -lt 1 ] || [ "$APP_REBOOT_SSH_PORT" -gt 65535 ]; then
+              printf '%s\n' 'APP_REBOOT_SSH_PORT must be between 1 and 65535' >&2
               exit 2
             fi
-          done
-          [[ "$APP_REBOOT_SSH_HOST" =~ ^[A-Za-z0-9.-]+$ ]]
-          [[ "$APP_REBOOT_SSH_USER" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]]
-          [[ "$APP_REBOOT_SSH_PORT" =~ ^[0-9]+$ ]]
-          if [ "$APP_REBOOT_SSH_PORT" -lt 1 ] || [ "$APP_REBOOT_SSH_PORT" -gt 65535 ]; then
-            printf '%s\n' 'APP_REBOOT_SSH_PORT must be between 1 and 65535' >&2
+            ssh_key_file="$RUNNER_TEMP/apps-host-reboot-key"
+            known_hosts_file="$RUNNER_TEMP/apps-host-reboot-known-hosts"
+            install -m 0600 /dev/null "$ssh_key_file"
+            install -m 0600 /dev/null "$known_hosts_file"
+            printf '%s\n' "$APP_REBOOT_SSH_PRIVATE_KEY" >"$ssh_key_file"
+            printf '%s\n' "$APP_REBOOT_SSH_KNOWN_HOSTS" >"$known_hosts_file"
+            ssh_target="$APP_REBOOT_SSH_USER@$APP_REBOOT_SSH_HOST"
+            ssh_port="$APP_REBOOT_SSH_PORT"
+            reboot_host_kind=external-ssh-vm
+          else
+            printf 'unsupported host mode: %s\n' "$HOST_MODE" >&2
             exit 2
           fi
-          ssh_key_file="$RUNNER_TEMP/apps-host-reboot-key"
-          known_hosts_file="$RUNNER_TEMP/apps-host-reboot-known-hosts"
-          install -m 0600 /dev/null "$ssh_key_file"
-          install -m 0600 /dev/null "$known_hosts_file"
-          printf '%s\n' "$APP_REBOOT_SSH_PRIVATE_KEY" >"$ssh_key_file"
-          printf '%s\n' "$APP_REBOOT_SSH_KNOWN_HOSTS" >"$known_hosts_file"
           remote_root="/var/tmp/stealth-app-host-reboot-${RUN_SUFFIX}"
           {
-            echo "SSH_KEY_FILE=$ssh_key_file"
-            echo "KNOWN_HOSTS_FILE=$known_hosts_file"
-            echo "SSH_TARGET=$APP_REBOOT_SSH_USER@$APP_REBOOT_SSH_HOST"
-            echo "SSH_PORT=$APP_REBOOT_SSH_PORT"
+            if [ "$HOST_MODE" = ssh ]; then
+              echo "SSH_KEY_FILE=$ssh_key_file"
+              echo "KNOWN_HOSTS_FILE=$known_hosts_file"
+              echo "SSH_TARGET=$ssh_target"
+              echo "SSH_PORT=$ssh_port"
+              echo "REBOOT_HOST_KIND=$reboot_host_kind"
+            fi
             echo "REMOTE_ROOT=$remote_root"
             echo "REMOTE_REPO=$remote_root/repo"
             echo "REMOTE_ENV=$remote_root/config.env"
@@ -77,6 +117,30 @@ jobs:
             echo "REMOTE_CLEAN_MARKER=$remote_root/state/clean-host"
             echo "REMOTE_PROFILE_MARKER=$remote_root/state/apparmor-installed"
           } >>"$GITHUB_ENV"
+
+      - name: Install the verified Go toolchain in the ephemeral VM
+        if: env.HOST_MODE == 'ephemeral-qemu'
+        shell: bash
+        run: |
+          set -euo pipefail
+          toolchain_archive="$RUNNER_TEMP/stealth-go-toolchain.tar.gz"
+          remote_toolchain="/tmp/stealth-go-toolchain-${RUN_SUFFIX}.tar.gz"
+          tar -czf "$toolchain_archive" -C "$(go env GOROOT)" .
+          scp -P "$SSH_PORT" -i "$SSH_KEY_FILE" -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$toolchain_archive" "$SSH_TARGET:$remote_toolchain"
+          ssh -p "$SSH_PORT" -i "$SSH_KEY_FILE" -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$SSH_TARGET" bash -s -- "$RUN_SUFFIX" <<'REMOTE'
+          set -euo pipefail
+          run_suffix="$1"
+          [[ "$run_suffix" =~ ^[0-9]+-[0-9]+$ ]]
+          remote_toolchain="/tmp/stealth-go-toolchain-${run_suffix}.tar.gz"
+          sudo -n install -d -m 0755 /usr/local/go
+          sudo -n tar -xzf "$remote_toolchain" -C /usr/local/go
+          sudo -n ln -sfn /usr/local/go/bin/go /usr/local/bin/go
+          rm -f -- "$remote_toolchain"
+          [[ "$(go env GOVERSION)" == go1.26.* ]]
+          REMOTE
+          rm -f -- "$toolchain_archive"
 
       - name: Prepare clean remote host and transfer source
         shell: bash
@@ -280,11 +344,11 @@ jobs:
             printf '%s\n' 'remote host did not return with a new kernel boot ID within 30 minutes' >&2
             exit 1
           fi
-          ssh "${ssh_options[@]}" "$SSH_TARGET" bash -s -- "$REMOTE_REPO" "$REMOTE_ENV" "$REMOTE_STATE" "$REMOTE_RESULT" "$SOURCE_SHA" <<'REMOTE'
+          ssh "${ssh_options[@]}" "$SSH_TARGET" bash -s -- "$REMOTE_REPO" "$REMOTE_ENV" "$REMOTE_STATE" "$REMOTE_RESULT" "$SOURCE_SHA" "$REBOOT_HOST_KIND" <<'REMOTE'
           set -euo pipefail
-          repo="$1"; env_file="$2"; state="$3"; result="$4"; sha="$5"
+          repo="$1"; env_file="$2"; state="$3"; result="$4"; sha="$5"; host_kind="$6"
           cd "$repo"
-          COMMIT_SHA="$sha" ENV_FILE="$env_file" APP_REBOOT_EVIDENCE_PATH="$state" APP_REBOOT_RESULT_PATH="$result" ./scripts/app-host-reboot-acceptance.sh verify
+          COMMIT_SHA="$sha" APP_REBOOT_HOST_KIND="$host_kind" ENV_FILE="$env_file" APP_REBOOT_EVIDENCE_PATH="$state" APP_REBOOT_RESULT_PATH="$result" ./scripts/app-host-reboot-acceptance.sh verify
           REMOTE
           scp -P "$SSH_PORT" -i "$SSH_KEY_FILE" -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             "$SSH_TARGET:$REMOTE_RESULT" "$RUNNER_TEMP/apps-host-reboot-result.json"
@@ -304,7 +368,10 @@ jobs:
         run: |
           set -euo pipefail
           local_cleanup() {
-            rm -f -- "$RUNNER_TEMP/stealth-app-host-reboot.env" "$RUNNER_TEMP/stealth-host-reboot-source.tar.gz" "$RUNNER_TEMP/apps-host-reboot-key" "$RUNNER_TEMP/apps-host-reboot-known-hosts"
+            rm -f -- "$RUNNER_TEMP/apps-host-reboot-vm.env" "$RUNNER_TEMP/stealth-app-host-reboot.env" "$RUNNER_TEMP/stealth-host-reboot-source.tar.gz" "$RUNNER_TEMP/stealth-go-toolchain.tar.gz" "$RUNNER_TEMP/apps-host-reboot-key" "$RUNNER_TEMP/apps-host-reboot-known-hosts"
+            if [ "${HOST_MODE:-}" = ephemeral-qemu ] && [ -x "$GITHUB_WORKSPACE/scripts/app-host-reboot-qemu-vm.sh" ]; then
+              "$GITHUB_WORKSPACE/scripts/app-host-reboot-qemu-vm.sh" stop "$RUN_SUFFIX" || true
+            fi
           }
           trap local_cleanup EXIT
           if [ -z "${SSH_TARGET:-}" ] || [ -z "${SSH_KEY_FILE:-}" ] || [ -z "${REMOTE_ROOT:-}" ]; then

@@ -314,6 +314,10 @@ repository owner confirmation in chat on 2026-09-26.
 - [x] A dedicated clean-host reboot workflow verifies changed kernel boot ID,
   persisted App state/artifact, current secret, route health, and retained logs
   (`92989d2`, hardened in `b49c32e`).
+- [x] The reboot workflow can provision a checksum-verified Ubuntu 24.04 QEMU
+  guest on a KVM-capable GitHub runner and can be dispatched through the
+  existing production-smoke workflow without adding VM credentials; actual
+  guest reboot evidence remains a separate acceptance gate.
 
 #### Acceptance evidence still required
 

@@ -243,11 +243,13 @@ walk(d)
 PY
 		if [ -z "$result_file" ] || [[ "$result_file" != /* ]] || [ -e "$result_file" ] || [ -L "$result_file" ]; then printf 'APP_REBOOT_RESULT_PATH must be an unused absolute path: %s\n' "$result_file" >&2; exit 2; fi
 		mkdir -p -- "$(dirname -- "$result_file")"
-		python3 - "$result_file" "$source_sha" "$boot_before" "$boot_after" "$app_id" "$deployment_id" "$generation" "$container_started" "$archive_sha" "$actual_sha" <<'PY'
+		host_kind="${APP_REBOOT_HOST_KIND:-external-ssh-vm}"
+		case "$host_kind" in external-ssh-vm|github-actions-kvm-vm) ;; *) printf 'invalid App reboot host kind: %s\n' "$host_kind" >&2; exit 2 ;; esac
+		python3 - "$result_file" "$source_sha" "$boot_before" "$boot_after" "$app_id" "$deployment_id" "$generation" "$container_started" "$archive_sha" "$actual_sha" "$host_kind" <<'PY'
 import json, os, sys
 from datetime import datetime, timezone
-path, source_sha, old, new, app, deployment, generation, container_started, expected, actual = sys.argv[1:]
-data={"status":"passed","source_sha":source_sha,"previous_boot_id":old,"current_boot_id":new,"app_id":app,"deployment_id":deployment,"desired_generation":int(generation),"managed_app_container_count":1,"app_container_started_at":container_started,"environment_file_mode":"0600","artifact_archive_sha256":expected,"artifact_checksum_after_reboot":actual,"verified_at":datetime.now(timezone.utc).isoformat()}
+path, source_sha, old, new, app, deployment, generation, container_started, expected, actual, host_kind = sys.argv[1:]
+data={"status":"passed","source_sha":source_sha,"host_kind":host_kind,"previous_boot_id":old,"current_boot_id":new,"app_id":app,"deployment_id":deployment,"desired_generation":int(generation),"managed_app_container_count":1,"app_container_started_at":container_started,"environment_file_mode":"0600","artifact_archive_sha256":expected,"artifact_checksum_after_reboot":actual,"verified_at":datetime.now(timezone.utc).isoformat()}
 fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
 with os.fdopen(fd,"w",encoding="utf-8") as out: json.dump(data,out,sort_keys=True); out.write("\n")
 PY
