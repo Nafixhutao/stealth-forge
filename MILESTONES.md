@@ -356,7 +356,15 @@ Completion of A8 means the Apps Production Runtime phase is complete.
   noninteractive repair are covered by commits `8688259`, `e549ef5`, and
   `b5082b0`. Clean-host repair acceptance passes on the current head; final
   head CI and real VM reboot evidence are recorded above.
-- [ ] B2. Platform upgrades.
+- [x] B2. Platform upgrades — the target CLI archive checksum/version is
+  verified before handoff; operator config and keys are preserved; staged
+  Compose is validated before activation; the journal supports retry/recovery;
+  version skew and downgrades are detected; service order is deterministic.
+  Focused installer/CLI tests and full `go test ./... -count=1` pass. Production
+  Compose Smoke, including the real v0.2.5-to-target upgrade, passed on code
+  commit `0bcffd5` ([run](https://github.com/Stealth-deplover/stealth/actions/runs/36347643386));
+  current-head CI and CodeQL pass on `3e422b2` ([CI](https://github.com/Stealth-deplover/stealth/actions/runs/36350789460),
+  [CodeQL](https://github.com/Stealth-deplover/stealth/actions/runs/36350789555)).
 - [ ] B3. Platform rollback.
 - [ ] B4. Backup, restore, and disaster recovery.
 - [ ] B5. Host reboot, storage pressure, and cleanup.
