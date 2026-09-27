@@ -144,7 +144,7 @@ active files, `config.env`, and `VERSION` remain at the previous release. A
 later service or migration failure leaves a coherent prepared asset set and can
 be retried with `stealth install --repair`; this process does not promise
 zero-downtime upgrades or automatic database rollback. The supported legacy
-bridge begins at `v0.2.5`; use the bridge procedure above, then upgrade through
+baseline is `v0.2.5`; use the bridge procedure above, then upgrade through
 coordinated releases. Database migrations are forward migrations. A binary or
 image downgrade is not a database rollback: use a compatible backup restore
 when the previous release cannot read the current schema. If target platform
