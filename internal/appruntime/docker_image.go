@@ -57,18 +57,27 @@ func (failure *imageLoadVisibilityFailure) Error() string {
 
 func (failure *imageLoadVisibilityFailure) Unwrap() error { return ErrImageImport }
 
-func imageLoadOutputClass(result CommandResult) string {
+func imageLoadOutputClass(result CommandResult, expectedImageID string) string {
 	if result.StdoutTruncated {
 		return "load-output-truncated"
 	}
 	output := strings.ToLower(strings.TrimSpace(string(result.Stdout)))
+	expectedImageID = strings.ToLower(expectedImageID)
 	switch {
 	case output == "":
 		return "load-output-empty"
 	case strings.Contains(output, "loaded image id:"):
-		return "load-reported-image-id"
+		if strings.Contains(output, expectedImageID) {
+			return "load-reported-expected-image-id"
+		}
+		return "load-reported-different-image-id"
 	case strings.Contains(output, "loaded image:"):
+		if strings.Contains(output, expectedImageID) {
+			return "load-reported-name-with-expected-image-id"
+		}
 		return "load-reported-image-name"
+	case strings.Contains(output, expectedImageID):
+		return "load-output-mentions-expected-image-id"
 	default:
 		return "load-reported-unclassified-output"
 	}
@@ -114,7 +123,7 @@ func (m *Moby) EnsureImage(ctx context.Context, info ociartifact.ImageInfo, arch
 			if importErr != nil {
 				return Image{}, errors.Join(ErrImageImport, importErr)
 			}
-			return Image{}, &imageLoadVisibilityFailure{outputClass: imageLoadOutputClass(loadResult)}
+			return Image{}, &imageLoadVisibilityFailure{outputClass: imageLoadOutputClass(loadResult, info.ConfigDigest)}
 		}
 	}
 	if !imageMatchesOCI(image, info) {
