@@ -2700,6 +2700,12 @@ verify_app_runtime_image_cache_gc() {
 		printf '%s\n' 'persisted App OCI archive failed checksum or metadata verification after cache eviction' >&2
 		return 1
 	fi
+	if [[ "$platform_app_v1_image_id" =~ ^sha256:[0-9a-f]{64}$ ]] && [[ "$current_image_id" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+		printf '[DEBUG-APP-IMAGE-IMPORT] evicted_v1_config=%s selected_v2_config=%s\n' \
+			"${platform_app_v1_image_id:7:12}" "${current_image_id:7:12}"
+	else
+		printf '%s\n' '[DEBUG-APP-IMAGE-IMPORT] runtime image ID format was invalid'
+	fi
 
 	assert_app_diagnostics converged "$platform_app_deployment_id" "$platform_app_v2_version" "$platform_app_deployment_id" "$platform_app_v2_version"
 	fetch_app_runtime
