@@ -331,6 +331,18 @@ repository owner confirmation in chat on 2026-09-26.
   ID changed, the App recovered with one managed container, and the persisted
   OCI checksum matched after reboot. Evidence artifact:
   `apps-host-reboot-36330708896-1` ([workflow](https://github.com/Stealth-deplover/stealth/actions/runs/36330708896)).
+- [x] Current integration head `b5082b00004980da9742411fd9390dd63713661c`
+  passes [CI](https://github.com/Stealth-deplover/stealth/actions/runs/36343508050),
+  [CodeQL](https://github.com/Stealth-deplover/stealth/actions/runs/36343508093),
+  and [Production Compose Smoke, including the real v0.2.5 upgrade](https://github.com/Stealth-deplover/stealth/actions/runs/36343508248).
+- [x] Clean-host install and repair, `status`, and `doctor` pass on the current
+  head in the [ephemeral Ubuntu 24.04 QEMU VM](https://github.com/Stealth-deplover/stealth/actions/runs/36343508077).
+  `config.env` and the BuildKit worker key are both mode `0600`; evidence:
+  `installer-clean-host-36343508077-1`.
+- [x] Real host reboot and recovery pass on the current head. The kernel boot
+  ID changed, one managed App container returned, and the persisted OCI
+  checksum matched before and after reboot. Evidence:
+  `apps-host-reboot-36343508077-1` ([workflow](https://github.com/Stealth-deplover/stealth/actions/runs/36343508077)).
 - [x] Independent audit passes (repository owner confirmation, 2026-09-27).
 - [ ] PR #106 is merged.
 - [ ] Post-merge `main` CI is green.
@@ -339,7 +351,11 @@ Completion of A8 means the Apps Production Runtime phase is complete.
 
 ## Phase B — Production Operations
 
-- [ ] B1. Installer production completion.
+- [x] B1. Installer production completion — managed asset checksums, expanded
+  `status`/`doctor`, bounded service readiness after install/repair, and
+  noninteractive repair are covered by commits `8688259`, `e549ef5`, and
+  `b5082b0`. Clean-host repair acceptance passes on the current head; final
+  head CI and real VM reboot evidence are recorded above.
 - [ ] B2. Platform upgrades.
 - [ ] B3. Platform rollback.
 - [ ] B4. Backup, restore, and disaster recovery.
