@@ -321,12 +321,16 @@ repository owner confirmation in chat on 2026-09-26.
 
 #### Acceptance evidence still required
 
-- [ ] Final-head required CI and Production Compose Smoke pass.
-- [ ] Clean-host installation and full App acceptance pass on a supported Linux
-  VM.
-- [ ] Real host reboot workflow passes on the final head. It defaults to a
-  checksum-verified ephemeral QEMU VM; configure SSH secrets only when selecting
-  SSH host mode.
+- [x] Final code-bearing head `81e73557ae38e5ebb7e5806e7024223e9c18559e`
+  passes [CI](https://github.com/Stealth-deplover/stealth/actions/runs/36330708890),
+  [CodeQL](https://github.com/Stealth-deplover/stealth/actions/runs/36330708887),
+  and [Production Compose Smoke, including v0.2.5 upgrade](https://github.com/Stealth-deplover/stealth/actions/runs/36330709117).
+- [x] Clean-host installation and full App acceptance pass on the
+  [checksum-verified ephemeral Ubuntu 24.04 QEMU VM](https://github.com/Stealth-deplover/stealth/actions/runs/36330708896).
+- [x] Real host reboot passes on that final code-bearing head: the kernel boot
+  ID changed, the App recovered with one managed container, and the persisted
+  OCI checksum matched after reboot. Evidence artifact:
+  `apps-host-reboot-36330708896-1` ([workflow](https://github.com/Stealth-deplover/stealth/actions/runs/36330708896)).
 - [x] Independent audit passes (repository owner confirmation, 2026-09-27).
 - [ ] PR #106 is merged.
 - [ ] Post-merge `main` CI is green.
