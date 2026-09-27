@@ -1823,9 +1823,14 @@ diagnose_app_runtime_log_file() {
 	fi
 	file_exists=false
 	file_metadata=""
-	if [ -n "$log_path" ] && [ -f "$log_path" ]; then
-		file_exists=true
+	if [ -n "$log_path" ]; then
 		file_metadata="$(stat --format='mode=%a owner=%u:%g bytes=%s' "$log_path" 2>/dev/null || true)"
+		if [ -z "$file_metadata" ] && command -v sudo >/dev/null 2>&1; then
+			file_metadata="$(sudo -n stat --format='mode=%a owner=%u:%g bytes=%s' "$log_path" 2>/dev/null || true)"
+		fi
+		if [ -n "$file_metadata" ]; then
+			file_exists=true
+		fi
 	fi
 	printf 'App Docker log source: driver=%s expected_filelog_glob_match=%s file_exists=%s %s\n' \
 		"${log_driver:-unknown}" "$expected_glob_match" "$file_exists" "${file_metadata:-file_metadata=unavailable}" >&2
@@ -1836,10 +1841,13 @@ diagnose_app_runtime_log_file() {
 			container_id="$1"; marker="$2"; file="/hostfs/$container_id/$container_id-json.log"
 			case "$container_id" in *[!0-9a-f]*|"") exit 2;; esac
 			case "$marker" in *[!A-Za-z0-9_.-]*|"") exit 2;; esac
-			if [ ! -r "$file" ]; then printf "App JSON log marker probe: file=missing-or-unreadable\\n"; exit 0; fi
-			stdout_count="$(grep -F -c "STEALTH_APP_RUNTIME_LOG_STDOUT_${marker}_" "$file" || true)"
-			stderr_count="$(grep -F -c "STEALTH_APP_RUNTIME_LOG_STDERR_${marker}_" "$file" || true)"
-			printf "App JSON log marker probe as collector UID/capabilities: stdout=%s stderr=%s\\n" "$stdout_count" "$stderr_count"
+			cap_eff="$(awk '\''$1 == "CapEff:" { print $2 }'\'' /proc/self/status)"
+			file_metadata="$(stat -c '\''%a:%u:%g:%s'\'' "$file" 2>/dev/null || true)"
+			if [ -z "$file_metadata" ]; then printf "App JSON log marker probe: stat=denied-or-missing cap_eff=%s\\n" "$cap_eff"; exit 0; fi
+			if ! head -c 1 "$file" >/dev/null 2>&1; then printf "App JSON log marker probe: open=denied cap_eff=%s file_metadata=%s\\n" "$cap_eff" "$file_metadata"; exit 0; fi
+			stdout_count="$(grep -F -c "STEALTH_APP_RUNTIME_LOG_STDOUT_${marker}_" "$file" 2>/dev/null || true)"
+			stderr_count="$(grep -F -c "STEALTH_APP_RUNTIME_LOG_STDERR_${marker}_" "$file" 2>/dev/null || true)"
+			printf "App JSON log marker probe as collector UID/capabilities: cap_eff=%s file_metadata=%s stdout=%s stderr=%s\\n" "$cap_eff" "$file_metadata" "$stdout_count" "$stderr_count"
 		' sh "$container_id" "$marker" 2>/dev/null)"; then
 		printf '%s\n' "$collector_probe" >&2
 	else
