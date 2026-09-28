@@ -37,6 +37,10 @@ func (r installerAcceptanceRunner) Run(ctx context.Context, dir string, stdout, 
 	return r.command.Run(ctx, dir, stdout, stderr, name, args...)
 }
 
+func (r installerAcceptanceRunner) RunWithEnv(ctx context.Context, dir string, env []string, stdout, stderr io.Writer, name string, args ...string) error {
+	return r.command.RunWithEnv(ctx, dir, env, stdout, stderr, name, args...)
+}
+
 func (r installerAcceptanceRunner) Output(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
 	return r.command.Output(ctx, dir, name, args...)
 }

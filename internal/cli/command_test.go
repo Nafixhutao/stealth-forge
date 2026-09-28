@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"io"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -40,5 +41,12 @@ func TestExecCommandRunnerCombinedOutputCapturesBothStreams(t *testing.T) {
 	}
 	if strings.Contains(string(stdout), "to-stderr") {
 		t.Fatalf("Output() = %q unexpectedly captured stderr", stdout)
+	}
+}
+
+func TestExecCommandRunnerRunWithEnvOverridesInheritedValue(t *testing.T) {
+	t.Setenv("STEALTH_ENV_FILE", "stale-config.env")
+	if err := (execCommandRunner{}).RunWithEnv(context.Background(), t.TempDir(), []string{"STEALTH_ENV_FILE=staged-config.env"}, io.Discard, io.Discard, "sh", "-ec", `test "$STEALTH_ENV_FILE" = staged-config.env`); err != nil {
+		t.Fatalf("RunWithEnv() did not apply the staged env-file override: %v", err)
 	}
 }

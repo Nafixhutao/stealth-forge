@@ -23,6 +23,10 @@ func (realUpgradeCommandRunner) Run(context.Context, string, io.Writer, io.Write
 	return nil
 }
 
+func (realUpgradeCommandRunner) RunWithEnv(context.Context, string, []string, io.Writer, io.Writer, string, ...string) error {
+	return nil
+}
+
 func (realUpgradeCommandRunner) Output(_ context.Context, _ string, name string, args ...string) ([]byte, error) {
 	if name == "docker" && len(args) >= 2 &&
 		args[len(args)-2] == "migrate" && args[len(args)-1] == "schema-fingerprint" {
