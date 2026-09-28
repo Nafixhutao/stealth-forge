@@ -556,4 +556,64 @@ if grep -R -q 'test-only-placeholder' "${temporary_dir}"; then
 	exit 1
 fi
 
+flow_bin="${temporary_dir}/flow-bin"
+flow_cli="${temporary_dir}/flow-cli"
+flow_install="${temporary_dir}/flow-install"
+mkdir -p "$flow_bin" "$flow_cli"
+cp "${mock_bin}/docker" "$flow_bin/docker"
+cp "${mock_bin}/id" "$flow_bin/id"
+cp "${mock_bin}/uname" "$flow_bin/uname"
+cat > "$flow_cli/stealth" <<'MOCK_STEALTH'
+#!/bin/sh
+if [ -n "${STEALTH_TEST_CLI_LOG:-}" ]; then printf '%s\n' "$*" >> "$STEALTH_TEST_CLI_LOG"; fi
+exit 99
+MOCK_STEALTH
+chmod 0755 "$flow_cli/stealth"
+flow_archive="${temporary_dir}/stealth_Linux_x86_64.tar.gz"
+flow_checksums="${temporary_dir}/flow-checksums.txt"
+tar -czf "$flow_archive" -C "$flow_cli" stealth
+flow_checksum="$(sha256sum "$flow_archive" | awk '{print $1}')"
+printf '%s  stealth_Linux_x86_64.tar.gz\n' "$flow_checksum" > "$flow_checksums"
+cat > "$flow_bin/curl" <<'MOCK_FLOW_CURL'
+#!/bin/sh
+output=''
+url=''
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+		-o) output="$2"; shift 2 ;;
+		https://*) url="$1"; shift ;;
+		*) shift ;;
+	esac
+done
+case "$url" in
+	*/checksums.txt) source_file="$STEALTH_TEST_CHECKSUMS" ;;
+	*/stealth_Linux_x86_64.tar.gz) source_file="$STEALTH_TEST_ARCHIVE" ;;
+	*) exit 1 ;;
+esac
+cp "$source_file" "$output"
+MOCK_FLOW_CURL
+chmod 0755 "$flow_bin/curl"
+flow_cli_log="${temporary_dir}/flow-cli.log"
+if STEALTH_TEST_UID=0 STEALTH_TEST_ARCHIVE="$flow_archive" STEALTH_TEST_CHECKSUMS="$flow_checksums" \
+	STEALTH_TEST_CLI_LOG="$flow_cli_log" STEALTH_BIN_DIR="$flow_install" HOME="$temporary_dir" \
+	PATH="$flow_bin:$PATH" "$script" --version v1.2.3 >"${temporary_dir}/flow-no-tty.out" 2>&1; then
+	printf '%s\n' 'bootstrap unexpectedly continued setup without a TTY' >&2
+	exit 1
+fi
+grep -qi 'interactive setup requires a TTY' "${temporary_dir}/flow-no-tty.out"
+[ -x "$flow_install/stealth" ] || { printf '%s\n' 'CLI was not installed before the no-TTY handoff error' >&2; exit 1; }
+[ ! -e "$flow_cli_log" ] || { printf '%s\n' 'bootstrap invoked install --wait without a TTY' >&2; exit 1; }
+
+tty_handoff_script="${temporary_dir}/bootstrap-tty-handoff.sh"
+sed 's/if \[ -t 1 \] \&\& \[ -t 2 \]; then/if true; then/' "$script" > "$tty_handoff_script"
+chmod 0755 "$tty_handoff_script"
+rm -rf "$flow_install"
+if STEALTH_TEST_UID=0 STEALTH_TEST_ARCHIVE="$flow_archive" STEALTH_TEST_CHECKSUMS="$flow_checksums" \
+	STEALTH_TEST_CLI_LOG="$flow_cli_log" STEALTH_BIN_DIR="$flow_install" HOME="$temporary_dir" \
+	PATH="$flow_bin:$PATH" "$tty_handoff_script" --version v1.2.3 >"${temporary_dir}/flow-tty.out" 2>&1; then
+	printf '%s\n' 'fake CLI unexpectedly succeeded during the TTY handoff test' >&2
+	exit 1
+fi
+grep -qx 'install' "$flow_cli_log"
+
 printf '%s\n' 'bootstrap tests passed'
