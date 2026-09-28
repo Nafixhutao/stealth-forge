@@ -20,6 +20,7 @@ import (
 type recordedCommand struct {
 	name  string
 	args  []string
+	env   []string
 	stdin []byte
 }
 
@@ -33,6 +34,13 @@ func (r *fakeRunner) Run(_ context.Context, _ string, _, _ io.Writer, name strin
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, recordedCommand{name: name, args: append([]string(nil), args...)})
+	return r.err
+}
+
+func (r *fakeRunner) RunWithEnv(_ context.Context, _ string, env []string, _, _ io.Writer, name string, args ...string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.calls = append(r.calls, recordedCommand{name: name, args: append([]string(nil), args...), env: append([]string(nil), env...)})
 	return r.err
 }
 
@@ -107,6 +115,37 @@ func writeEngineFixture(t *testing.T, setup bool) Layout {
 		}
 	}
 	return layout
+}
+
+func TestStagedComposeValidationUsesStagedEnvironmentFile(t *testing.T) {
+	layout := writeEngineFixture(t, true)
+	stageDir := filepath.Join(layout.StateDir, ".stealth-managed-assets-test")
+	stagedCompose := filepath.Join(stageDir, "compose.setup.yaml")
+	stageEnvFile := filepath.Join(stageDir, "config.env")
+	runner := &fakeRunner{}
+	engine := New(Options{Runner: runner})
+	plan := Plan{Layout: layout, Setup: true}
+
+	if err := engine.runComposeFileWithEnv(context.Background(), plan, stagedCompose, layout.Root, stageEnvFile, "config", "--quiet"); err != nil {
+		t.Fatal(err)
+	}
+	calls := runner.snapshot()
+	if len(calls) != 1 {
+		t.Fatalf("Compose calls = %#v, want one staged validation", calls)
+	}
+	if got, want := calls[0].env, []string{"STEALTH_ENV_FILE=" + stageEnvFile}; !equalArgs(got, want) {
+		t.Fatalf("staged Compose environment = %#v, want %#v", got, want)
+	}
+	if !containsPair(calls[0].args, "--project-directory", layout.Root) || !containsPair(calls[0].args, "--env-file", stageEnvFile) {
+		t.Fatalf("staged Compose arguments = %#v, want install root and staged config", calls[0].args)
+	}
+}
+
+func TestOSCommandRunnerRunWithEnvOverridesInheritedValue(t *testing.T) {
+	t.Setenv("STEALTH_ENV_FILE", "stale-config.env")
+	if err := (OSCommandRunner{}).RunWithEnv(context.Background(), t.TempDir(), []string{"STEALTH_ENV_FILE=staged-config.env"}, io.Discard, io.Discard, "sh", "-ec", `test "$STEALTH_ENV_FILE" = staged-config.env`); err != nil {
+		t.Fatalf("RunWithEnv() did not apply the staged env-file override: %v", err)
+	}
 }
 
 func testProductionComposeAsset() string {
@@ -1251,6 +1290,10 @@ func (r configFailureRunner) Run(_ context.Context, _ string, _, _ io.Writer, _ 
 		return errors.New("compose config rejected target asset")
 	}
 	return nil
+}
+
+func (r configFailureRunner) RunWithEnv(ctx context.Context, dir string, _ []string, stdout, stderr io.Writer, name string, args ...string) error {
+	return r.Run(ctx, dir, stdout, stderr, name, args...)
 }
 
 func (configFailureRunner) Output(context.Context, string, string, ...string) ([]byte, error) {

@@ -45,6 +45,13 @@ type CommandRunner interface {
 	Output(context.Context, string, string, ...string) ([]byte, error)
 }
 
+// EnvironmentCommandRunner runs a command with explicit process environment
+// overrides. Staged Compose validation uses this to point env_file entries at
+// the staged config.env before the final installation files are activated.
+type EnvironmentCommandRunner interface {
+	RunWithEnv(context.Context, string, []string, io.Writer, io.Writer, string, ...string) error
+}
+
 // InputCommandRunner extends the process boundary for fixed trusted input.
 // It is used when a narrow privileged host command must consume a validated
 // release asset without reopening a user-writable source path.
@@ -59,6 +66,15 @@ type OSCommandRunner struct{}
 func (OSCommandRunner) Run(ctx context.Context, dir string, stdout, stderr io.Writer, name string, args ...string) error {
 	command := exec.CommandContext(ctx, name, args...)
 	command.Dir = dir
+	command.Stdout = stdout
+	command.Stderr = stderr
+	return command.Run()
+}
+
+func (OSCommandRunner) RunWithEnv(ctx context.Context, dir string, env []string, stdout, stderr io.Writer, name string, args ...string) error {
+	command := exec.CommandContext(ctx, name, args...)
+	command.Dir = dir
+	command.Env = append(os.Environ(), env...)
 	command.Stdout = stdout
 	command.Stderr = stderr
 	return command.Run()
@@ -1858,7 +1874,17 @@ func (e *Engine) runComposeFileWithEnv(ctx context.Context, plan Plan, composeFi
 	}
 	composeArgs = append(composeArgs, "--env-file", envFile, "-f", composeFile)
 	composeArgs = append(composeArgs, args...)
-	if err := e.runner.Run(ctx, plan.Layout.Root, e.output, e.output, "docker", composeArgs...); err != nil {
+	var err error
+	if filepath.Clean(envFile) != filepath.Clean(plan.Layout.EnvFile) {
+		runner, ok := e.runner.(EnvironmentCommandRunner)
+		if !ok {
+			return errors.New("command runner cannot set STEALTH_ENV_FILE for staged Compose validation")
+		}
+		err = runner.RunWithEnv(ctx, plan.Layout.Root, []string{"STEALTH_ENV_FILE=" + envFile}, e.output, e.output, "docker", composeArgs...)
+	} else {
+		err = e.runner.Run(ctx, plan.Layout.Root, e.output, e.output, "docker", composeArgs...)
+	}
+	if err != nil {
 		return fmt.Errorf("docker compose %v failed: %w", args, err)
 	}
 	return nil

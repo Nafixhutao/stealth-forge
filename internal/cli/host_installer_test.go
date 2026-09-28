@@ -393,6 +393,10 @@ func (r *blockingHostRunner) Run(ctx context.Context, _ string, _, _ io.Writer, 
 	return nil
 }
 
+func (r *blockingHostRunner) RunWithEnv(ctx context.Context, dir string, _ []string, stdout, stderr io.Writer, name string, args ...string) error {
+	return r.Run(ctx, dir, stdout, stderr, name, args...)
+}
+
 func (r *blockingHostRunner) Output(_ context.Context, _ string, name string, args ...string) ([]byte, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

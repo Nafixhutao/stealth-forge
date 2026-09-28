@@ -33,6 +33,10 @@ func (runner updateTestRunner) Run(context.Context, string, io.Writer, io.Writer
 	return runner.err
 }
 
+func (runner updateTestRunner) RunWithEnv(ctx context.Context, dir string, _ []string, stdout, stderr io.Writer, name string, args ...string) error {
+	return runner.Run(ctx, dir, stdout, stderr, name, args...)
+}
+
 func (runner updateTestRunner) Output(ctx context.Context, _ string, _ string, args ...string) ([]byte, error) {
 	if runner.before != nil {
 		runner.before()
