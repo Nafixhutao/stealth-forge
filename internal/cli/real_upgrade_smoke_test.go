@@ -258,7 +258,7 @@ func runRealV025BridgeReconciliation(t *testing.T, fixtureRoot, assetBase, bridg
 		},
 	}
 	app.releaseAPIBase = releaseServer.server.URL
-	app.releaseDownloadBase = releaseServer.server.URL
+	app.releaseDownloadBase = assetBase
 	app.currentVersion = func() string { return bridgeVersion }
 	app.runner = &setupRunner{}
 	app.pollAttempts = 1

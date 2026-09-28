@@ -31,15 +31,23 @@ is the supported install target. Read its release notes before installing, and
 use [Upgrade and rollback](docs/upgrade.md) for operational changes and recovery
 boundaries.
 
-Supported host: Linux amd64 or arm64 with Docker Engine, Docker Compose v2,
-access to `/var/run/docker.sock`, and a writable installation directory.
-Public deployments also need DNS and TLS termination in front of the bundled
-proxy.
+Supported host: Linux amd64 or arm64 with a writable installation directory.
+The bootstrap can install missing Docker Engine and the Compose plugin on
+Ubuntu 22.04/24.04/26.04 and Debian 12/13. Other distributions need Docker
+Engine, the Docker Compose plugin, and access to `/var/run/docker.sock`
+installed before running Stealth. Public deployments also need DNS and TLS
+termination in front of the bundled proxy.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Stealth-deplover/stealth/HEAD/scripts/bootstrap.sh | sh
 ```
 
+When Docker prerequisites are missing on a supported distribution, bootstrap
+installs them using Docker's signed APT repository. A root invocation installs
+them automatically; otherwise bootstrap uses normal `sudo` authentication and
+requires a controlling terminal if a password prompt is needed. Stealth never
+reads or stores the sudo password. If Docker group access needs a refreshed
+login session, bootstrap explains when to log out and back in before rerunning.
 The bootstrap verifies the downloaded archive and SHA-256 checksum, then
 starts `stealth install`. To invoke the installed CLI directly, run
 `stealth install`. On a fresh host it performs local Docker checks, starts the

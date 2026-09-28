@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+const realUpgradeSchemaFingerprint = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
 // This file is compiled only into the CI upgrade-smoke target binary. It
 // keeps the production binary's asset base and command runner injectable so
 // the subprocess test can use a local target-asset server without starting a
@@ -21,7 +23,11 @@ func (realUpgradeCommandRunner) Run(context.Context, string, io.Writer, io.Write
 	return nil
 }
 
-func (realUpgradeCommandRunner) Output(context.Context, string, string, ...string) ([]byte, error) {
+func (realUpgradeCommandRunner) Output(_ context.Context, _ string, name string, args ...string) ([]byte, error) {
+	if name == "docker" && len(args) >= 2 &&
+		args[len(args)-2] == "migrate" && args[len(args)-1] == "schema-fingerprint" {
+		return []byte(realUpgradeSchemaFingerprint + "\n"), nil
+	}
 	return nil, nil
 }
 

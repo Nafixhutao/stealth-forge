@@ -7,6 +7,7 @@ package installengine
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,9 +26,10 @@ import (
 )
 
 const (
-	defaultAssetBase = "https://raw.githubusercontent.com/Stealth-deplover/stealth"
-	maxAssetSize     = 2 << 20
-	lockFileName     = "install.lock"
+	defaultAssetBase        = "https://raw.githubusercontent.com/Stealth-deplover/stealth"
+	defaultReleaseAssetBase = "https://github.com/Stealth-deplover/stealth/releases/download"
+	maxAssetSize            = 2 << 20
+	lockFileName            = "install.lock"
 )
 
 // ErrOperationInProgress lets a recovering worker distinguish lock ownership
@@ -138,6 +140,10 @@ func NewLayout(root string) (Layout, error) {
 type Plan struct {
 	Layout  Layout
 	Version string
+	// CLIVersion identifies the host binary that requested a platform rollback.
+	// The doctor command uses the resulting rollback state to distinguish the
+	// intentional platform/CLI version skew from a failed self-update.
+	CLIVersion string
 	// InstalledVersion is the release currently recorded by an existing
 	// installation. Version is the target release for this operation. Keeping
 	// both values lets managed configuration advance canonical image references
@@ -191,9 +197,13 @@ type Options struct {
 	Runner       CommandRunner
 	HTTPClient   *http.Client
 	AssetBaseURL string
-	Output       io.Writer
-	PollAttempts int
-	PollInterval time.Duration
+	// ReleaseAssetBaseURL points at the versioned GitHub Release that carries
+	// checksums.txt. Managed source files are accepted only when that release's
+	// checksum manifest verifies their bytes.
+	ReleaseAssetBaseURL string
+	Output              io.Writer
+	PollAttempts        int
+	PollInterval        time.Duration
 
 	// BuildKitAppArmorProfilePath is injectable for tests. Production stores
 	// the profile under AppArmor's system profile directory so it is loaded on
@@ -216,6 +226,7 @@ type Engine struct {
 	runner              CommandRunner
 	httpClient          *http.Client
 	assetBaseURL        string
+	releaseAssetBaseURL string
 	output              io.Writer
 	pollAttempts        int
 	pollInterval        time.Duration
@@ -236,6 +247,16 @@ func New(options Options) *Engine {
 	assetBaseURL := strings.TrimRight(strings.TrimSpace(options.AssetBaseURL), "/")
 	if assetBaseURL == "" {
 		assetBaseURL = defaultAssetBase
+	}
+	releaseAssetBaseURL := strings.TrimRight(strings.TrimSpace(options.ReleaseAssetBaseURL), "/")
+	if releaseAssetBaseURL == "" {
+		if strings.TrimSpace(options.AssetBaseURL) != "" {
+			// Controlled acceptance fixtures serve raw files and checksums from
+			// one local origin. Production always uses the fixed release origin.
+			releaseAssetBaseURL = strings.TrimRight(strings.TrimSpace(options.AssetBaseURL), "/")
+		} else {
+			releaseAssetBaseURL = defaultReleaseAssetBase
+		}
 	}
 	attempts := options.PollAttempts
 	if attempts < 1 {
@@ -258,7 +279,8 @@ func New(options Options) *Engine {
 		managedAssets = DefaultManagedAssets()
 	}
 	return &Engine{
-		runner: runner, httpClient: httpClient, assetBaseURL: assetBaseURL, output: output,
+		runner: runner, httpClient: httpClient, assetBaseURL: assetBaseURL,
+		releaseAssetBaseURL: releaseAssetBaseURL, output: output,
 		pollAttempts: attempts, pollInterval: interval, appArmorProfilePath: appArmorProfilePath,
 		managedAssets: append([]ManagedAsset(nil), managedAssets...),
 		migrationHook: options.MigrationHook,
@@ -320,6 +342,17 @@ func (e *Engine) RunStep(ctx context.Context, plan Plan, step Step) error {
 		if err != nil {
 			return err
 		}
+		// Validate the target Compose file and target config while both are still
+		// staged. This rejects interpolation and topology errors before any
+		// release-managed path, config.env, or VERSION is activated.
+		if err := e.validateStagedCompose(ctx, plan, prepared); err != nil {
+			return errors.Join(err, prepared.rollback())
+		}
+		if !plan.Setup {
+			if err := ensureTraefikDirectories(plan.Layout); err != nil {
+				return errors.Join(err, prepared.rollback())
+			}
+		}
 		// Existing installations from the previous release may still have the
 		// dynamic directory owned by the fixed worker UID. Run the target
 		// release's narrow init service against the staged Compose file before
@@ -330,7 +363,14 @@ func (e *Engine) RunStep(ctx context.Context, plan Plan, step Step) error {
 			if !ok {
 				return prepared.failCommit(errors.New("staged production Compose asset is missing"))
 			}
-			if err := e.runTraefikStateInit(ctx, plan, composePath, plan.Layout.Root); err != nil {
+			stageEnvFile := filepath.Join(prepared.assets.stageDir, "config.env")
+			if err := WritePrivateFile(stageEnvFile, string(prepared.newEnv)); err != nil {
+				return prepared.failCommit(fmt.Errorf("stage target configuration for Traefik state initialization: %w", err))
+			}
+			if err := e.runComposeFileWithEnv(ctx, plan, composePath, plan.Layout.Root, stageEnvFile,
+				"run", "--rm", "--no-deps",
+				"-e", fmt.Sprintf("STEALTH_TRAEFIK_HOST_UID=%d", os.Geteuid()),
+				"traefik-state-init"); err != nil {
 				return prepared.failCommit(err)
 			}
 		}
@@ -404,6 +444,17 @@ func (e *Engine) RunStep(ctx context.Context, plan Plan, step Step) error {
 		}
 		return e.runCompose(ctx, plan, append([]string{"up", "-d"}, services...)...)
 	case StepMigration:
+		if plan.Existing && !plan.Setup {
+			installedVersion := strings.TrimSpace(plan.InstalledVersion)
+			if installedVersion == "" {
+				return errors.New("existing platform migration requires the recorded installed version")
+			}
+			if installedVersion != strings.TrimSpace(plan.Version) {
+				if err := e.recordUpgradeSchemaFingerprint(ctx, plan); err != nil {
+					return err
+				}
+			}
+		}
 		if plan.ExternalDatabase {
 			return e.runCompose(ctx, plan, "run", "--rm", "--no-deps", "migrate")
 		}
@@ -509,6 +560,7 @@ type stagedManagedAsset struct {
 	targetPath string
 	stagePath  string
 	backupPath string
+	remove     bool
 	existed    bool
 	backedUp   bool
 	installed  bool
@@ -531,6 +583,7 @@ type managedAssetRecoveryManifest struct {
 type managedAssetRecoveryEntry struct {
 	RelativePath string `json:"relative_path"`
 	Existed      bool   `json:"existed"`
+	SHA256       string `json:"sha256,omitempty"`
 }
 
 type managedAssetRecoveryFile struct {
@@ -649,14 +702,21 @@ func (e *Engine) prepareInstallation(ctx context.Context, plan Plan) (*preparedI
 			originalValues[key] = value
 		}
 		installedVersion := strings.TrimSpace(plan.InstalledVersion)
-		if installedVersion == "" && prepared.originalVersionSet {
-			installedVersion = strings.TrimSpace(string(prepared.originalVersion))
-			if err := ValidateReleaseVersion(installedVersion); err != nil {
+		recordedVersion := strings.TrimSpace(string(prepared.originalVersion))
+		if prepared.originalVersionSet {
+			if err := ValidateReleaseVersion(recordedVersion); err != nil {
 				return nil, fmt.Errorf("existing VERSION is invalid: %w", err)
 			}
+			if installedVersion != "" && installedVersion != recordedVersion {
+				return nil, fmt.Errorf("installation version skew: plan reports %s but VERSION records %s", installedVersion, recordedVersion)
+			}
+			installedVersion = recordedVersion
 		}
 		if installedVersion == "" {
 			installedVersion = strings.TrimSpace(plan.Version)
+		}
+		if err := rejectReleaseDowngrade(plan.Version, installedVersion); err != nil {
+			return nil, err
 		}
 		migrated, err := MigrateReleaseConfig(values, plan.Version, installedVersion)
 		if err != nil {
@@ -731,12 +791,29 @@ func (e *Engine) prepareInstallation(ctx context.Context, plan Plan) (*preparedI
 		return nil, err
 	}
 	prepared.assets = assets
-	if !plan.Setup {
-		if err := ensureTraefikDirectories(plan.Layout); err != nil {
-			return nil, err
-		}
-	}
 	return prepared, nil
+}
+
+func (e *Engine) validateStagedCompose(ctx context.Context, plan Plan, prepared *preparedInstallation) error {
+	if prepared == nil || prepared.assets == nil {
+		return errors.New("prepared installation is incomplete")
+	}
+	composePath := "compose.production.yaml"
+	if plan.Setup {
+		composePath = "compose.setup.yaml"
+	}
+	stagedCompose, ok := prepared.assets.stagedAssetPath(composePath)
+	if !ok {
+		return fmt.Errorf("staged %s asset is missing", composePath)
+	}
+	stageEnvFile := filepath.Join(prepared.assets.stageDir, "config.env")
+	if err := WritePrivateFile(stageEnvFile, string(prepared.newEnv)); err != nil {
+		return fmt.Errorf("stage target configuration for Compose validation: %w", err)
+	}
+	if err := e.runComposeFileWithEnv(ctx, plan, stagedCompose, plan.Layout.Root, stageEnvFile, "config", "--quiet"); err != nil {
+		return fmt.Errorf("validate staged Compose configuration: %w", err)
+	}
+	return nil
 }
 
 func validateInstallRootBeforeCreation(root string) error {
@@ -836,6 +913,15 @@ func (e *Engine) stageManagedAssets(ctx context.Context, plan Plan) (*managedAss
 	if err := recoverInterruptedManagedAssetMigration(plan.Layout, allowedPaths); err != nil {
 		return nil, fmt.Errorf("recover interrupted managed asset migration: %w", err)
 	}
+	checksumURL := e.releaseAssetBaseURL + "/" + strings.TrimSpace(plan.Version) + "/checksums.txt"
+	checksumContents, err := e.fetchAsset(ctx, checksumURL)
+	if err != nil {
+		return nil, fmt.Errorf("download managed asset checksum manifest for %s: %w", strings.TrimSpace(plan.Version), err)
+	}
+	checksums, err := parseChecksumsManifest(checksumContents)
+	if err != nil {
+		return nil, fmt.Errorf("parse managed asset checksum manifest for %s: %w", strings.TrimSpace(plan.Version), err)
+	}
 	stageDir, err := os.MkdirTemp(plan.Layout.StateDir, ".stealth-managed-assets-")
 	if err != nil {
 		return nil, fmt.Errorf("create managed asset staging directory: %w", err)
@@ -854,6 +940,10 @@ func (e *Engine) stageManagedAssets(ctx context.Context, plan Plan) (*managedAss
 		if err != nil {
 			cleanup()
 			return nil, fmt.Errorf("download managed asset %q: %w", spec.RemotePath, err)
+		}
+		if err := verifyManagedAssetChecksum(contents, spec.RemotePath, checksums); err != nil {
+			cleanup()
+			return nil, err
 		}
 		if !bytes.Contains(contents, []byte(spec.Marker)) {
 			cleanup()
@@ -1006,6 +1096,16 @@ func rollbackManagedAssetMigration(layout Layout, manifest managedAssetRecoveryM
 		} else if !sourceInfo.Mode().IsRegular() || sourceInfo.Mode()&os.ModeSymlink != 0 {
 			return fmt.Errorf("recover previous managed asset %q: backup is not a regular file", entry.RelativePath)
 		}
+		if entry.SHA256 != "" {
+			contents, err := os.ReadFile(sourcePath)
+			if err != nil {
+				return fmt.Errorf("read recovery backup for managed asset %q: %w", entry.RelativePath, err)
+			}
+			digest := sha256.Sum256(contents)
+			if fmt.Sprintf("%x", digest) != entry.SHA256 {
+				return fmt.Errorf("recover previous managed asset %q: backup checksum mismatch", entry.RelativePath)
+			}
+		}
 		if err := removeManagedAssetTarget(targetPath); err != nil {
 			return fmt.Errorf("clear interrupted managed asset %q: %w", entry.RelativePath, err)
 		}
@@ -1041,11 +1141,30 @@ func publishManagedAssetRecoverySet(layout Layout, manifest managedAssetRecovery
 		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 			return errors.New("completed managed asset recovery set is not a directory")
 		}
-		if err := removeAllAndSync(previous); err != nil {
-			return fmt.Errorf("replace previous managed asset recovery set: %w", err)
-		}
-		if err := renameAndSync(backupDir, previous); err != nil {
-			return fmt.Errorf("publish managed asset recovery set: %w", err)
+		if manifest.OriginalVersion != "" && manifest.OriginalVersion == manifest.TargetVersion {
+			if previousInfo, previousErr := os.Lstat(previous); previousErr == nil {
+				if !previousInfo.IsDir() || previousInfo.Mode()&os.ModeSymlink != 0 {
+					return errors.New("existing previous release recovery set is not a directory")
+				}
+				// A same-version repair is not a new release boundary. Keep the
+				// last distinct release snapshot available for explicit rollback.
+				if err := removeAllAndSync(backupDir); err != nil {
+					return fmt.Errorf("remove same-version repair recovery set: %w", err)
+				}
+			} else if errors.Is(previousErr, os.ErrNotExist) {
+				if err := renameAndSync(backupDir, previous); err != nil {
+					return fmt.Errorf("publish initial managed asset recovery set: %w", err)
+				}
+			} else {
+				return fmt.Errorf("inspect existing previous release recovery set: %w", previousErr)
+			}
+		} else {
+			if err := removeAllAndSync(previous); err != nil {
+				return fmt.Errorf("replace previous managed asset recovery set: %w", err)
+			}
+			if err := renameAndSync(backupDir, previous); err != nil {
+				return fmt.Errorf("publish managed asset recovery set: %w", err)
+			}
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("inspect completed managed asset recovery set: %w", err)
@@ -1509,7 +1628,24 @@ func (m *managedAssetMigration) commit(plan Plan, originalEnv []byte, originalEn
 		if err := os.MkdirAll(filepath.Dir(asset.backupPath), 0o700); err != nil {
 			return m.failCommit(fmt.Errorf("prepare recovery path for %q: %w", asset.spec.Path, err))
 		}
-		m.manifest.Assets = append(m.manifest.Assets, managedAssetRecoveryEntry{RelativePath: asset.spec.Path, Existed: true})
+		contents, err := os.ReadFile(asset.targetPath)
+		if err != nil {
+			return m.failCommit(fmt.Errorf("read previous managed asset %q: %w", asset.spec.Path, err))
+		}
+		digest := sha256.Sum256(contents)
+		m.manifest.Assets = append(m.manifest.Assets, managedAssetRecoveryEntry{
+			RelativePath: asset.spec.Path, Existed: true, SHA256: fmt.Sprintf("%x", digest),
+		})
+	}
+	if plan.Existing && !plan.Setup && m.manifest.OriginalVersion != "" {
+		if err := writeManagedReleaseMetadata(backupDir, managedReleaseMetadata{
+			FormatVersion:   1,
+			PreviousVersion: m.manifest.OriginalVersion,
+			TargetVersion:   strings.TrimSpace(plan.Version),
+			Assets:          append([]managedAssetRecoveryEntry(nil), m.manifest.Assets...),
+		}); err != nil {
+			return m.failCommit(fmt.Errorf("record previous release metadata: %w", err))
+		}
 	}
 	if err := m.writeJournal(); err != nil {
 		return m.failCommit(err)
@@ -1538,6 +1674,9 @@ func (m *managedAssetMigration) commit(plan Plan, originalEnv []byte, originalEn
 	}
 	for index := range m.assets {
 		asset := &m.assets[index]
+		if asset.remove {
+			continue
+		}
 		if err := os.MkdirAll(filepath.Dir(asset.targetPath), 0o700); err != nil {
 			return m.failCommit(fmt.Errorf("create managed asset directory for %q: %w", asset.spec.Path, err))
 		}
@@ -1700,6 +1839,10 @@ func (e *Engine) runTraefikStateInit(ctx context.Context, plan Plan, composeFile
 }
 
 func (e *Engine) runComposeFile(ctx context.Context, plan Plan, composeFile, projectDirectory string, args ...string) error {
+	return e.runComposeFileWithEnv(ctx, plan, composeFile, projectDirectory, plan.Layout.EnvFile, args...)
+}
+
+func (e *Engine) runComposeFileWithEnv(ctx context.Context, plan Plan, composeFile, projectDirectory, envFile string, args ...string) error {
 	composeArgs := []string{"compose"}
 	if plan.Cloudflare {
 		composeArgs = append(composeArgs, "--profile", "cloudflare")
@@ -1710,7 +1853,10 @@ func (e *Engine) runComposeFile(ctx context.Context, plan Plan, composeFile, pro
 	if strings.TrimSpace(composeFile) == "" {
 		return errors.New("Compose file is required")
 	}
-	composeArgs = append(composeArgs, "--env-file", plan.Layout.EnvFile, "-f", composeFile)
+	if strings.TrimSpace(envFile) == "" {
+		return errors.New("Compose environment file is required")
+	}
+	composeArgs = append(composeArgs, "--env-file", envFile, "-f", composeFile)
 	composeArgs = append(composeArgs, args...)
 	if err := e.runner.Run(ctx, plan.Layout.Root, e.output, e.output, "docker", composeArgs...); err != nil {
 		return fmt.Errorf("docker compose %v failed: %w", args, err)

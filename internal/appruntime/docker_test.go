@@ -575,7 +575,7 @@ func TestEnsureImageIsIdempotentAndRepairsOnlyExpectedTag(t *testing.T) {
 	image := func(id string) []byte {
 		return mustJSON([]map[string]any{{
 			"Id": id, "Os": "linux", "Architecture": "amd64", "Variant": "",
-			"RepoTags": []string{tag}, "Config": map[string]any{}, "RootFS": map[string]any{"Layers": []string{}},
+			"RepoTags": []string{tag}, "Config": info.RuntimeConfig, "RootFS": map[string]any{"Layers": info.LayerDiffIDs},
 		}})
 	}
 	t.Run("already imported with expected tag", func(t *testing.T) {
@@ -613,25 +613,30 @@ func TestEnsureImageIsIdempotentAndRepairsOnlyExpectedTag(t *testing.T) {
 			t.Fatal(err)
 		}
 		configID := info.ConfigDigest
+		engineID := "sha256:" + strings.Repeat("e", 64)
 		image := func(id string) []byte {
 			return mustJSON([]map[string]any{{
 				"Id": id, "Os": "linux", "Architecture": runtimeArchitecture(), "Variant": "",
-				"RepoTags": []string{tag}, "Config": map[string]any{}, "RootFS": map[string]any{"Layers": []string{}},
+				"RepoTags": []string{tag}, "Config": info.RuntimeConfig, "RootFS": map[string]any{"Layers": info.LayerDiffIDs},
 			}})
 		}
 		notFound := &CommandFailure{ExitCode: 1, Stderr: "Error: No such image: " + configID}
 		runner := &scriptedRuntimeRunner{
-			results: []CommandResult{{}, {}, {Stdout: image(configID)}, {}, {}, {Stdout: image(configID)}},
-			errors:  []error{notFound, nil, nil, notFound, nil, nil},
+			results: []CommandResult{{}, {}, {Stdout: []byte("Loaded image ID: " + engineID + "\n")}, {Stdout: image(engineID)}, {}, {}, {Stdout: image(engineID)}},
+			errors:  []error{notFound, notFound, nil, nil, notFound, nil, nil},
 		}
 		moby, _ := NewMoby(runner, "stealth_app_runtime", 30*time.Second, time.Minute)
-		if _, err := moby.EnsureImage(context.Background(), info, bytes.NewReader(archive), tag); err != nil {
+		got, err := moby.EnsureImage(context.Background(), info, bytes.NewReader(archive), tag)
+		if err != nil {
 			t.Fatal(err)
 		}
-		if len(runner.calls) != 6 || !slices.Equal(runner.calls[1].args, []string{"image", "load"}) {
+		if got.ID != configID || got.EngineID != engineID {
+			t.Fatalf("verified image identities = config %s, engine %s; want %s, %s", got.ID, got.EngineID, configID, engineID)
+		}
+		if len(runner.calls) != 7 || !slices.Equal(runner.calls[2].args, []string{"image", "load"}) {
 			t.Fatalf("image import command sequence = %#v", runner.calls)
 		}
-		loadedArchive := tar.NewReader(strings.NewReader(runner.calls[1].stdin))
+		loadedArchive := tar.NewReader(strings.NewReader(runner.calls[2].stdin))
 		var loadManifest []byte
 		for {
 			header, err := loadedArchive.Next()
@@ -659,10 +664,35 @@ func TestEnsureImageIsIdempotentAndRepairsOnlyExpectedTag(t *testing.T) {
 		if loadedImages[0].Config != "blobs/sha256/"+strings.TrimPrefix(configID, "sha256:") || len(loadedImages[0].RepoTags) != 0 || len(loadedImages[0].Layers) != 0 {
 			t.Fatalf("Docker load manifest = %+v", loadedImages[0])
 		}
-		if !slices.Equal(runner.calls[4].args, []string{"image", "tag", configID, tag}) {
+		if !slices.Equal(runner.calls[5].args, []string{"image", "tag", engineID, tag}) {
 			t.Fatalf("runtime tag was not assigned after image verification: %#v", runner.calls)
 		}
 	})
+}
+
+func TestImageMatchesOCIAcceptsDifferentEngineIDOnlyWithMatchingConfig(t *testing.T) {
+	info := ociartifact.ImageInfo{
+		ManifestDigest: "sha256:" + strings.Repeat("a", 64),
+		ConfigDigest:   "sha256:" + strings.Repeat("b", 64),
+		OS:             "linux",
+		Architecture:   "amd64",
+		LayerDiffIDs:   []string{"sha256:" + strings.Repeat("c", 64)},
+		RuntimeConfig: ociartifact.RuntimeConfig{
+			Entrypoint: []string{"/probe"}, Command: []string{"serve"}, Environment: []string{"MODE=probe"},
+			WorkingDir: "/app", User: "10001:10001", Labels: map[string]string{"example": "value"},
+		},
+	}
+	image := Image{
+		ID: "sha256:" + strings.Repeat("d", 64), EngineID: "sha256:" + strings.Repeat("d", 64),
+		OS: "linux", Architecture: "amd64", Layers: slices.Clone(info.LayerDiffIDs), Config: info.RuntimeConfig,
+	}
+	if !imageMatchesOCI(image, info) {
+		t.Fatal("matching OCI config and root filesystem rejected when the engine ID differs")
+	}
+	image.Config.Environment = []string{"MODE=unverified"}
+	if imageMatchesOCI(image, info) {
+		t.Fatal("image with a different runtime environment matched the verified OCI config")
+	}
 }
 
 func TestContainerInspectionRejectsMalformedOrOversizedOutput(t *testing.T) {
@@ -714,10 +744,23 @@ func TestMobyRenameRotatesManagedContainerDNSIdentity(t *testing.T) {
 	}
 }
 
+func TestMobyRenameReportsMissingContainerAsDockerNotFound(t *testing.T) {
+	job := runtimeTestJob()
+	containerID := strings.Repeat("a", 64)
+	runner := &scriptedRuntimeRunner{errors: []error{&CommandFailure{ExitCode: 1, Stderr: "Error: No such container: " + containerID}}}
+	moby, err := NewMoby(runner, "stealth_app_runtime", 30*time.Second, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := moby.RenameApp(context.Background(), job, containerID, job.ContainerName); !errors.Is(err, ErrDockerObjectNotFound) || errors.Is(err, ErrRuntimeOwnershipConflict) {
+		t.Fatalf("RenameApp() = %v, want a distinct Docker not-found result", err)
+	}
+}
+
 func TestContainerMatchesDesiredRejectsPrivilegeAndDrift(t *testing.T) {
 	job := runtimeTestJob()
 	image := Image{
-		ID: "sha256:" + strings.Repeat("b", 64), Tag: "stealth-app/test:runtime",
+		ID: "sha256:" + strings.Repeat("b", 64), EngineID: "sha256:" + strings.Repeat("c", 64), Tag: "stealth-app/test:runtime",
 		Entrypoint: []string{"/app"}, Command: []string{"serve"}, Environment: []string{"MODE=production"},
 		WorkingDir: "/app", User: "10001:10001",
 	}
@@ -755,6 +798,11 @@ func TestContainerMatchesDesiredRejectsPrivilegeAndDrift(t *testing.T) {
 	}
 	if !ContainerMatchesDesired(container, job, image, "stealth_app_runtime") {
 		t.Fatal("complete isolated container did not match desired state")
+	}
+	engineIDContainer := container
+	engineIDContainer.ImageID = image.EngineID
+	if !ContainerMatchesDesired(engineIDContainer, job, image, "stealth_app_runtime") {
+		t.Fatal("container using the engine's verified image ID did not match desired state")
 	}
 	withAppEnvironment := container
 	withAppEnvironment.Config.Env = append(slices.Clone(image.Environment), "TOKEN=fake-runtime-value")

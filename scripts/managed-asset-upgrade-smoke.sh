@@ -34,16 +34,20 @@ cleanup() {
 }
 trap cleanup EXIT
 
-mkdir -p "$smoke_root/telemetry" "$smoke_root/console/deploy" "$asset_root/$target_version/telemetry" "$asset_root/$target_version/console/deploy" "$asset_root/$target_version/traefik/dynamic/generated"
-cp "$repo_root/compose.production.yaml" "$asset_root/$target_version/compose.production.yaml"
-cp "$repo_root/telemetry/otel-collector.yaml" "$asset_root/$target_version/telemetry/otel-collector.yaml"
-cp "$repo_root/telemetry/host-metrics.yaml" "$asset_root/$target_version/telemetry/host-metrics.yaml"
-cp "$repo_root/telemetry/docker-logs.yaml" "$asset_root/$target_version/telemetry/docker-logs.yaml"
-cp "$repo_root/telemetry/docker-stats.yaml" "$asset_root/$target_version/telemetry/docker-stats.yaml"
-cp "$repo_root/console/deploy/nginx.conf" "$asset_root/$target_version/console/deploy/nginx.conf"
-cp "$repo_root/traefik/traefik.yaml" "$asset_root/$target_version/traefik/traefik.yaml"
-cp "$repo_root/traefik/dynamic/core.yaml" "$asset_root/$target_version/traefik/dynamic/core.yaml"
-cp "$repo_root/traefik/dynamic/generated/.gitkeep" "$asset_root/$target_version/traefik/dynamic/generated/.gitkeep"
+mkdir -p "$smoke_root/telemetry" "$smoke_root/console/deploy" "$asset_root/$target_version"
+while IFS= read -r managed_asset; do
+	[ -n "$managed_asset" ] || continue
+	mkdir -p "$asset_root/$target_version/$(dirname -- "$managed_asset")"
+	cp "$repo_root/$managed_asset" "$asset_root/$target_version/$managed_asset"
+done < "$repo_root/release-managed-assets.txt"
+(
+	cd "$asset_root/$target_version"
+	: > checksums.txt
+	while IFS= read -r managed_asset; do
+		[ -n "$managed_asset" ] || continue
+		sha256sum -- "$managed_asset" >> checksums.txt
+	done < "$repo_root/release-managed-assets.txt"
+)
 cp "$source_env" "$smoke_root/config.env"
 chmod 600 "$smoke_root/config.env"
 

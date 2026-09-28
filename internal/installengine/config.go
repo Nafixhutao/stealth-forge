@@ -380,6 +380,75 @@ func MigrateReleaseConfig(values map[string]string, targetVersion, installedVers
 	return MergeEnv(result, updates)
 }
 
+func rejectReleaseDowngrade(targetVersion, installedVersion string) error {
+	comparison, err := compareReleaseVersionOrder(targetVersion, installedVersion)
+	if err != nil {
+		return fmt.Errorf("compare installed release versions: %w", err)
+	}
+	if comparison < 0 {
+		return fmt.Errorf("refusing platform downgrade from %s to %s; use the matching release or restore a compatible backup", installedVersion, targetVersion)
+	}
+	return nil
+}
+
+func compareReleaseVersionOrder(left, right string) (int, error) {
+	leftParts, leftRC, leftIsRC, err := splitReleaseVersion(left)
+	if err != nil {
+		return 0, err
+	}
+	rightParts, rightRC, rightIsRC, err := splitReleaseVersion(right)
+	if err != nil {
+		return 0, err
+	}
+	for index := range leftParts {
+		if comparison := compareDecimalVersionPart(leftParts[index], rightParts[index]); comparison != 0 {
+			return comparison, nil
+		}
+	}
+	if leftIsRC != rightIsRC {
+		if leftIsRC {
+			return -1, nil
+		}
+		return 1, nil
+	}
+	if leftIsRC {
+		return compareDecimalVersionPart(leftRC, rightRC), nil
+	}
+	return 0, nil
+}
+
+func splitReleaseVersion(version string) ([3]string, string, bool, error) {
+	if err := ValidateReleaseVersion(version); err != nil {
+		return [3]string{}, "", false, err
+	}
+	value := strings.TrimPrefix(strings.TrimSpace(version), "v")
+	core, rc, isRC := strings.Cut(value, "-rc.")
+	parts := strings.Split(core, ".")
+	if len(parts) != 3 {
+		return [3]string{}, "", false, fmt.Errorf("invalid release version %q", version)
+	}
+	return [3]string{parts[0], parts[1], parts[2]}, rc, isRC, nil
+}
+
+func compareDecimalVersionPart(left, right string) int {
+	left = strings.TrimLeft(left, "0")
+	if left == "" {
+		left = "0"
+	}
+	right = strings.TrimLeft(right, "0")
+	if right == "" {
+		right = "0"
+	}
+	switch {
+	case len(left) < len(right):
+		return -1
+	case len(left) > len(right):
+		return 1
+	default:
+		return strings.Compare(left, right)
+	}
+}
+
 func ensureTraefikTrustedProxyCIDR(value, fallbackSubnet, traefikPeerCIDR string) string {
 	trusted := strings.TrimSpace(value)
 	if trusted == "" {

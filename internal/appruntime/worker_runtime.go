@@ -137,56 +137,62 @@ func (w *Worker) reconcile(ctx context.Context, job repository.AppRuntimeJob) er
 	if found && !container.State.Running {
 		w.recordAppProcessExit(job, container)
 	}
+	identityRotated := false
 	if found && ContainerMatchesDesiredExceptName(container, job, image, w.runtimeNetworkName()) {
 		if strings.TrimPrefix(container.Name, "/") != job.ContainerName {
 			if err := w.requireCurrent(ctx, job); err != nil {
 				return err
 			}
-			container, err = w.Runtime.RenameApp(ctx, job, container.ID, job.ContainerName)
+			container, found, err = w.renameAppOrConfirmMissing(ctx, job, container.ID, job.ContainerName)
 			if err != nil {
-				return errors.Join(ErrRuntimeOwnershipConflict, err)
+				return err
 			}
-			if !ContainerMatchesDesired(container, job, image, w.runtimeNetworkName()) {
+			if found && !ContainerMatchesDesired(container, job, image, w.runtimeNetworkName()) {
 				return ErrRuntimeOwnershipConflict
 			}
 		}
-		if container.State.Running {
-			return w.completeRunning(ctx, job, container, imageInfo, runtimeTag)
+		if found && container.State.Running {
+			return w.completeRunning(ctx, job, container, image, imageInfo, runtimeTag)
 		}
 		// Docker restart policy is deliberately disabled. Stealth retries an
 		// exited process through this durable, backoff-controlled reconcile.
-		if err := w.requireCurrent(ctx, job); err != nil {
-			return err
+		if found {
+			if err := w.requireCurrent(ctx, job); err != nil {
+				return err
+			}
+			identity, err := repository.NewAppRuntimeRouteIdentity()
+			if err != nil {
+				return err
+			}
+			if err := w.Store.ResetAppHealthBeforeRuntimeRestart(ctx, job, identity); err != nil {
+				return err
+			}
+			job.RouteIdentity = identity
+			job.ContainerName = repository.AppRuntimeContainerNameForIncarnation(appID, identity)
+			identityRotated = true
+			// The reset is a durable route fence. Recheck the lease before the
+			// Docker side effect so an expired worker cannot restart after handoff.
+			if err := w.requireCurrent(ctx, job); err != nil {
+				return err
+			}
+			container, found, err = w.renameAppOrConfirmMissing(ctx, job, container.ID, job.ContainerName)
+			if err != nil {
+				return err
+			}
+			if found {
+				if err := w.requireCurrent(ctx, job); err != nil {
+					return err
+				}
+				container, err = w.Runtime.StartApp(ctx, job, container.ID)
+				if err != nil {
+					return errors.Join(ErrContainerStart, err)
+				}
+				if !ContainerMatchesDesired(container, job, image, w.runtimeNetworkName()) || !container.State.Running {
+					return ErrContainerStart
+				}
+				return w.completeRunning(ctx, job, container, image, imageInfo, runtimeTag)
+			}
 		}
-		identity, err := repository.NewAppRuntimeRouteIdentity()
-		if err != nil {
-			return err
-		}
-		if err := w.Store.ResetAppHealthBeforeRuntimeRestart(ctx, job, identity); err != nil {
-			return err
-		}
-		job.RouteIdentity = identity
-		job.ContainerName = repository.AppRuntimeContainerNameForIncarnation(appID, identity)
-		// The reset is a durable route fence. Recheck the lease before the
-		// Docker side effect so an expired worker cannot restart after handoff.
-		if err := w.requireCurrent(ctx, job); err != nil {
-			return err
-		}
-		container, err = w.Runtime.RenameApp(ctx, job, container.ID, job.ContainerName)
-		if err != nil {
-			return errors.Join(ErrRuntimeOwnershipConflict, err)
-		}
-		if err := w.requireCurrent(ctx, job); err != nil {
-			return err
-		}
-		container, err = w.Runtime.StartApp(ctx, job, container.ID)
-		if err != nil {
-			return errors.Join(ErrContainerStart, err)
-		}
-		if !ContainerMatchesDesired(container, job, image, w.runtimeNetworkName()) || !container.State.Running {
-			return ErrContainerStart
-		}
-		return w.completeRunning(ctx, job, container, imageInfo, runtimeTag)
 	}
 
 	if found {
@@ -197,15 +203,17 @@ func (w *Worker) reconcile(ctx context.Context, job repository.AppRuntimeJob) er
 			return err
 		}
 	}
-	identity, err := repository.NewAppRuntimeRouteIdentity()
-	if err != nil {
-		return err
+	if !identityRotated {
+		identity, err := repository.NewAppRuntimeRouteIdentity()
+		if err != nil {
+			return err
+		}
+		if err := w.Store.RotateAppRuntimeIdentityBeforeCreate(ctx, job, identity); err != nil {
+			return err
+		}
+		job.RouteIdentity = identity
+		job.ContainerName = repository.AppRuntimeContainerNameForIncarnation(appID, identity)
 	}
-	if err := w.Store.RotateAppRuntimeIdentityBeforeCreate(ctx, job, identity); err != nil {
-		return err
-	}
-	job.RouteIdentity = identity
-	job.ContainerName = repository.AppRuntimeContainerNameForIncarnation(appID, identity)
 	if err := w.requireCurrent(ctx, job); err != nil {
 		return err
 	}
@@ -237,15 +245,36 @@ func (w *Worker) reconcile(ctx context.Context, job repository.AppRuntimeJob) er
 	if !container.State.Running || !ContainerMatchesDesired(container, job, image, w.runtimeNetworkName()) {
 		return ErrContainerStart
 	}
-	return w.completeRunning(ctx, job, container, imageInfo, runtimeTag)
+	return w.completeRunning(ctx, job, container, image, imageInfo, runtimeTag)
 }
 
-func (w *Worker) completeRunning(ctx context.Context, job repository.AppRuntimeJob, container Container, imageInfo ociartifact.ImageInfo, runtimeTag string) error {
+// renameAppOrConfirmMissing returns absent only after a Docker not-found from
+// the exact container rename is followed by an App-wide inspection that finds
+// no managed container. A replacement or ownership conflict stays fail-closed.
+func (w *Worker) renameAppOrConfirmMissing(ctx context.Context, job repository.AppRuntimeJob, containerID, targetName string) (Container, bool, error) {
+	container, err := w.Runtime.RenameApp(ctx, job, containerID, targetName)
+	if err == nil {
+		return container, true, nil
+	}
+	if !errors.Is(err, ErrDockerObjectNotFound) {
+		return Container{}, false, errors.Join(ErrRuntimeOwnershipConflict, err)
+	}
+	_, found, inspectErr := w.Runtime.InspectApp(ctx, uuid.MustParse(job.App.ID))
+	if inspectErr != nil {
+		return Container{}, false, inspectErr
+	}
+	if found {
+		return Container{}, false, ErrRuntimeOwnershipConflict
+	}
+	return Container{}, false, nil
+}
+
+func (w *Worker) completeRunning(ctx context.Context, job repository.AppRuntimeJob, container Container, image Image, imageInfo ociartifact.ImageInfo, runtimeTag string) error {
 	if err := w.requireCurrent(ctx, job); err != nil {
 		return err
 	}
 	imageID := container.ImageID
-	if imageID != imageInfo.ConfigDigest {
+	if !imageIDMatchesContainer(image, imageID) || imageInfo.ConfigDigest != image.ID {
 		return ErrImageVerification
 	}
 	state := &repository.AppRuntimeContainer{
@@ -298,10 +327,6 @@ func (w *Worker) inspectPersistedImage(ctx context.Context, job repository.AppRu
 	}
 	closeOnError = false
 	return info, archive, nil
-}
-
-func (w *Worker) completeRunningWithDigest(ctx context.Context, job repository.AppRuntimeJob, container Container, info ociartifact.ImageInfo, runtimeTag string) error {
-	return w.completeRunning(ctx, job, container, info, runtimeTag)
 }
 
 func (w *Worker) requireCurrent(ctx context.Context, job repository.AppRuntimeJob) error {

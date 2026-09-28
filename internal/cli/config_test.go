@@ -291,53 +291,14 @@ func TestGenerateConfigGeneratesUsedStrongSecrets(t *testing.T) {
 
 func TestPrepareInstallationPreservesExistingConfig(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if strings.HasSuffix(request.URL.Path, "compose.production.yaml") {
-			_, _ = io.WriteString(writer, testProductionComposeAsset())
-			return
-		}
-		if strings.HasSuffix(request.URL.Path, "buildkit/buildkitd.toml") {
-			_, _ = io.WriteString(writer, testBuildKitConfigAsset())
-			return
-		}
-		if strings.HasSuffix(request.URL.Path, "buildkit/stealth-buildkit-rootless.apparmor") {
-			_, _ = io.WriteString(writer, testBuildKitAppArmorProfileAsset())
-			return
-		}
-		if strings.HasSuffix(request.URL.Path, "traefik/traefik.yaml") {
-			_, _ = writer.Write([]byte(testManagedTraefikStaticAsset()))
-			return
-		}
-		if strings.HasSuffix(request.URL.Path, "traefik/dynamic/core.yaml") {
-			_, _ = writer.Write([]byte(testManagedTraefikCoreAsset()))
-			return
-		}
-		if strings.HasSuffix(request.URL.Path, "traefik/dynamic/generated/.gitkeep") {
-			_, _ = writer.Write([]byte("# Stealth route reconciler\n"))
-			return
-		}
-		if strings.Contains(request.URL.Path, "/telemetry/") {
-			marker := "receivers:\n"
-			if strings.HasSuffix(request.URL.Path, "otel-collector.yaml") {
-				marker = "receivers:\n  otlp:\nexporters:\n  clickhouse:\n"
-			}
-			switch {
-			case strings.HasSuffix(request.URL.Path, "host-metrics.yaml"):
-				marker = "hostmetrics:\n"
-			case strings.HasSuffix(request.URL.Path, "docker-logs.yaml"):
-				marker = "file_log/docker:\n"
-			case strings.HasSuffix(request.URL.Path, "docker-stats.yaml"):
-				marker = "docker_stats:\n"
-			}
-			_, _ = writer.Write([]byte(marker))
-			return
-		}
-		_, _ = writer.Write([]byte("server {\n}"))
+		writeHostManagedAsset(writer, strings.TrimPrefix(request.URL.Path, "/v1.2.3/"))
 	}))
 	t.Cleanup(server.Close)
 	root := t.TempDir()
 	layout := newInstallLayout(filepath.Join(root, ".stealth"))
 	app := NewApp(strings.NewReader(""), &strings.Builder{}, &strings.Builder{})
 	app.assetBase = server.URL
+	app.releaseDownloadBase = server.URL
 	app.runner = &setupRunner{}
 	app.buildKitAppArmorProfilePath = isolatedBuildKitAppArmorProfilePath(t)
 	plan := InstallPlan{Layout: layout, Version: "v1.2.3", PublicURL: "http://localhost:8080", GitHubAppClientID: testGitHubAppClientID, DockerGID: 42}
@@ -377,6 +338,31 @@ func TestLoadExistingPlanUsesVersionFile(t *testing.T) {
 	}
 	if plan.Version != "v1.0.0" || !plan.Existing {
 		t.Fatalf("existing plan = %#v", plan)
+	}
+}
+
+func TestLoadExistingPlanRestoresExternalAndCloudflareModes(t *testing.T) {
+	layout := writeExistingConfig(t, "v1.2.3")
+	if err := os.WriteFile(layout.VersionFile, []byte("v1.2.3\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	values, err := readEnvFile(layout.EnvFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	values["DATABASE_URL"] = "postgres://user:password@db.example.test:5432/stealth"
+	values["REDIS_URL"] = "rediss://:password@cache.example.test:6379/0"
+	values["CLOUDFLARE_TUNNEL_TOKEN_FILE"] = "./state/cloudflare-tunnel-token"
+	if err := writePrivateFile(layout.EnvFile, formatEnvFile(values)); err != nil {
+		t.Fatal(err)
+	}
+	app := NewApp(strings.NewReader(""), &strings.Builder{}, &strings.Builder{})
+	plan, err := app.loadExistingPlan(layout)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !plan.ExternalDatabase || !plan.ExternalRedis || !plan.Cloudflare || !plan.VerifyPublicURL {
+		t.Fatalf("loaded repair plan lost configured service modes: %#v", plan)
 	}
 }
 

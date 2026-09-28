@@ -24,6 +24,12 @@ func TestServiceStatusDisplayAndMissingState(t *testing.T) {
 	if (ServiceStatus{Service: "api", State: "exited"}).Healthy() {
 		t.Fatal("exited API reported healthy")
 	}
+	if (ServiceStatus{Service: "api", State: "exited", Health: "healthy"}).Healthy() {
+		t.Fatal("exited API with stale health state reported healthy")
+	}
+	if got := (ServiceStatus{Service: "api", State: "exited", Health: "healthy"}).Display(); got != "exited" {
+		t.Fatalf("stopped service display = %q, want exited", got)
+	}
 	if anyServiceUnhealthy(map[string]ServiceStatus{}) == false {
 		t.Fatal("missing services reported healthy")
 	}

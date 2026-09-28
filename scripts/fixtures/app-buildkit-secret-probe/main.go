@@ -67,13 +67,17 @@ func verifyBuildKitSecrets() {
 }
 
 func serve() {
+	payloadMarker := ""
 	if payload, err := os.ReadFile("/payload.txt"); err == nil {
 		marker := strings.TrimSpace(string(payload))
 		if marker != "" && len(marker) <= 200 {
-			// Give the production file-log receiver time to discover the new
-			// Docker JSON log file before the first deterministic fixture lines.
-			time.Sleep(1500 * time.Millisecond)
+			payloadMarker = marker
 			startedAt := time.Now().UnixNano()
+			// Create the Docker JSON log file first. The production file-log
+			// receiver starts at the end of newly discovered files, so wait for
+			// it to discover this file before emitting the deterministic markers.
+			fmt.Printf("STEALTH_APP_RUNTIME_LOG_DISCOVERY_%d\n", startedAt)
+			time.Sleep(5 * time.Second)
 			fmt.Printf("STEALTH_APP_RUNTIME_LOG_STDOUT_%s_%d\n", marker, startedAt)
 			fmt.Fprintf(os.Stderr, "STEALTH_APP_RUNTIME_LOG_STDERR_%s_%d\n", marker, startedAt)
 		}
@@ -99,6 +103,9 @@ func serve() {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			_, _ = w.Write([]byte("app-config-unavailable\n"))
 		}
+	})
+	http.HandleFunc("/version", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprintln(w, payloadMarker)
 	})
 	if err := http.ListenAndServe("0.0.0.0:8080", nil); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "app runtime smoke server failed: %v\n", err)

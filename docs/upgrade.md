@@ -32,12 +32,14 @@ For releases containing the coordinated updater, the running CLI downloads,
 checksum-verifies, extracts, and version-verifies the target binary first. It
 then invokes that verified target binary in a narrow internal host-only
 migration mode. The target binary owns the target release's managed-asset
-manifest, acquires `install.lock`, migrates the installation, validates Compose,
-pulls target images, runs the existing database/telemetry state initialization
-and migrations, recreates production services, and performs the normal health
-checks. Only after that succeeds does the original CLI atomically replace its
-own executable. On a host without an installation it remains a CLI-only
-self-update.
+manifest, acquires `install.lock`, validates the staged Compose file against
+the staged `config.env`, then activates the coordinated platform files. It
+revalidates the active Compose configuration before pulling target images,
+runs the existing database/telemetry state initialization and migrations,
+recreates production services in a deterministic order, and performs the
+normal health checks. Only after that succeeds does the original CLI atomically
+replace its own executable. On a host without an installation it remains a
+CLI-only self-update.
 
 ### Transition from v0.2.5
 
@@ -87,6 +89,8 @@ or damaged runtime asset.
 The host CLI treats these repository-controlled files as release-managed:
 
 - `compose.production.yaml` and `compose.setup.yaml` when setup assets are present;
+- `buildkit/buildkitd.toml` and the managed BuildKit AppArmor profile;
+- `traefik/traefik.yaml`, `traefik/dynamic/core.yaml`, and the managed route placeholder;
 - `telemetry/otel-collector.yaml`, `telemetry/host-metrics.yaml`,
   `telemetry/docker-logs.yaml`, and `telemetry/docker-stats.yaml`;
 - `console/deploy/nginx.conf`.
@@ -113,7 +117,22 @@ is preserved; a missing setting uses the production Compose default. These
 settings add no database migration and do not change persisted App OCI
 artifacts or quota.
 
-Compose configuration is validated before image pulls or service recreation.
+The automatic update path accepts stable releases only and verifies both the
+release archive checksum and the extracted CLI version before target migration.
+The installed `VERSION` must agree with the migration plan; an older target is
+refused as a platform downgrade. `stealth doctor` reports a CLI/platform
+release mismatch and recommends `stealth update` when the CLI was left behind.
+
+For a version-changing upgrade, before migrations run the installer snapshots
+the sorted `schema_migrations` ledger using the target release's migration
+image and stores its SHA-256 fingerprint beside checksummed previous managed
+assets. Compose configuration is first validated from the staged target
+Compose file and private staged `config.env`, before release-managed files are
+activated.
+After activation, Compose is validated again before image pulls or service
+recreation; that second validation is the journal's durable forward-recovery
+point. The stage and config files are private and are removed on success or
+recovery.
 The migration journal is durable through these states: `PREPARED`,
 `BACKED_UP`, `ASSETS_ACTIVATED`, `CONFIG_ACTIVATED`, `VERSION_ACTIVATED`,
 `COMPOSE_VALIDATED`, and `FINALIZED`. Before `COMPOSE_VALIDATED`, a later
@@ -128,7 +147,11 @@ If target assets cannot be downloaded/validated, or Compose rejects them, the
 active files, `config.env`, and `VERSION` remain at the previous release. A
 later service or migration failure leaves a coherent prepared asset set and can
 be retried with `stealth install --repair`; this process does not promise
-zero-downtime upgrades or automatic database rollback. If target platform
+zero-downtime upgrades or automatic database rollback. The supported legacy
+baseline is `v0.2.5`; use the bridge procedure above, then upgrade through
+coordinated releases. Database migrations are forward migrations. A binary or
+image downgrade is not a database rollback: use a compatible backup restore
+when the previous release cannot read the current schema. If target platform
 migration succeeds but the final CLI executable replacement fails, the stack
 is already at the target coordinated release while the old CLI remains. The
 command reports that bounded skew explicitly; rerun `stealth update` to
@@ -189,14 +212,31 @@ App key and generates one only when missing. The App key is not interchangeable
 with `FUNCTIONS_SECRET_KEY`.
 Stop or coordinate the old application processes before applying migrations.
 
-## Rollback boundary
+## Coordinated platform rollback
 
-Changing an image back is safe only when the database schema remains backward
-compatible with that application version. After an incompatible or
-irreversible migration, application rollback may require restoring PostgreSQL
-and object storage from verified backups before starting the older release.
-Do not claim a database rollback merely because an older image is available.
+For a managed installation, run:
 
-If the migration has not changed schema compatibility and the issue is limited
-to application code, pin the production images back to the previous release,
-run the smoke checks, and inspect worker leases before resuming traffic.
+```bash
+stealth rollback
+```
+
+The command checks the previous-release metadata and compares the live
+`schema_migrations` fingerprint with the snapshot taken before the upgrade.
+It proceeds only when the ledger is identical. It then restores the previous
+managed files and `VERSION`, retargets canonical image references, preserves
+the active operator configuration and rotated secrets, recreates API, Worker,
+BuildKit, Console, ingress, and telemetry services, and checks readiness. The
+operator UID and outcome are written to the private
+`state/platform-rollback.jsonl` audit log. Run `stealth rollback` again after
+an interrupted operation; its journal either restores the current release or
+continues a Compose-validated rollback before retrying service checks.
+
+This is an application/image rollback only. It never runs reverse migrations
+or restores database/object-storage data. If the migration ledger advanced,
+the command refuses before changing active files. Restore PostgreSQL and
+object storage from verified backups by following
+[`backup-restore.md`](backup-restore.md), then start a release compatible with
+that backup. Previous-release sets without B3 metadata or a schema snapshot
+also fail closed and require the verified backup path. The ledger cannot detect
+manual schema edits or data changes outside recorded migrations, so keep and
+verify backups before every production upgrade.

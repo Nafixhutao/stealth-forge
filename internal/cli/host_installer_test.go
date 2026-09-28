@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -103,13 +105,27 @@ func newHostInstallFixture(t *testing.T) *hostInstallFixture {
 	app.runner = &setupRunner{}
 	app.httpClient = server.Client()
 	app.assetBase = server.URL
+	app.releaseDownloadBase = server.URL
 	app.pollAttempts = 1
 	app.pollInterval = time.Millisecond
 	return &hostInstallFixture{app: app, layout: layout, store: store, state: state, values: values, server: server}
 }
 
 func writeHostManagedAsset(w http.ResponseWriter, name string) {
-	assets := map[string]string{
+	assets := hostManagedAssetContents()
+	if name == "checksums.txt" {
+		_, _ = io.WriteString(w, hostManagedAssetChecksums(assets))
+		return
+	}
+	if contents, ok := assets[name]; ok {
+		_, _ = io.WriteString(w, contents)
+		return
+	}
+	w.WriteHeader(http.StatusNotFound)
+}
+
+func hostManagedAssetContents() map[string]string {
+	return map[string]string{
 		"compose.production.yaml":                     testProductionComposeAsset(),
 		"buildkit/buildkitd.toml":                     testBuildKitConfigAsset(),
 		"buildkit/stealth-buildkit-rootless.apparmor": testBuildKitAppArmorProfileAsset(),
@@ -123,11 +139,20 @@ func writeHostManagedAsset(w http.ResponseWriter, name string) {
 		"traefik/dynamic/core.yaml":                   testManagedTraefikCoreAsset(),
 		"traefik/dynamic/generated/.gitkeep":          "# Stealth route reconciler\n",
 	}
-	if contents, ok := assets[name]; ok {
-		_, _ = io.WriteString(w, contents)
-		return
+}
+
+func hostManagedAssetChecksums(assets map[string]string) string {
+	names := make([]string, 0, len(assets))
+	for name := range assets {
+		names = append(names, name)
 	}
-	w.WriteHeader(http.StatusNotFound)
+	sort.Strings(names)
+	var manifest strings.Builder
+	for _, name := range names {
+		digest := sha256.Sum256([]byte(assets[name]))
+		fmt.Fprintf(&manifest, "%x  %s\n", digest, name)
+	}
+	return manifest.String()
 }
 
 func TestHostInstallerOwnsRequestAndCompletesHandoff(t *testing.T) {
@@ -146,23 +171,41 @@ func TestHostInstallerOwnsRequestAndCompletesHandoff(t *testing.T) {
 		t.Fatalf("host progress did not advance durable event ID: %d", state.LastEventID)
 	}
 	runner := fixture.app.runner.(*setupRunner)
-	if len(runner.calls) != 16 {
-		t.Fatalf("host Docker calls = %#v, want preflight, seven state inits, production steps, and setup cleanup", runner.calls)
+	if len(runner.calls) != 17 {
+		t.Fatalf("host Docker calls = %#v, want preflight, staged Compose validation, seven state inits, production steps, and setup cleanup", runner.calls)
 	}
-	if got := runner.command(5).args; !equalStrings(got[len(got)-4:], []string{"run", "--rm", "--no-deps", "telemetry-docker-logs-state-init"}) {
+	if got := runner.command(1).args; !containsString(got, "config") || !containsString(got, "--quiet") || !containsString(got, "--project-directory") || !strings.Contains(strings.Join(got, " "), filepath.Join(fixture.layout.StateDir, ".stealth-managed-assets-")) {
+		t.Fatalf("staged Compose validation command = %#v", got)
+	}
+	if got := runner.command(2).args; len(got) < 6 {
+		t.Fatalf("staged Traefik state init command = %#v", got)
+	} else {
+		suffix := got[len(got)-6:]
+		uidValue := strings.TrimPrefix(suffix[4], "STEALTH_TRAEFIK_HOST_UID=")
+		if !equalStrings(suffix[:4], []string{"run", "--rm", "--no-deps", "-e"}) || !strings.HasPrefix(suffix[4], "STEALTH_TRAEFIK_HOST_UID=") || suffix[5] != "traefik-state-init" {
+			t.Fatalf("staged Traefik state init command = %#v", got)
+		}
+		if _, err := strconv.ParseUint(uidValue, 10, 32); err != nil {
+			t.Fatalf("staged Traefik host UID = %q: %v", uidValue, err)
+		}
+	}
+	if got := runner.command(6).args; !equalStrings(got[len(got)-4:], []string{"run", "--rm", "--no-deps", "telemetry-docker-logs-state-init"}) {
 		t.Fatalf("Docker log Collector state init command = %#v", got)
 	}
-	if got := runner.command(7).args; !equalStrings(got[len(got)-4:], []string{"run", "--rm", "--no-deps", "cloudflare-setup-state-init"}) {
+	if got := runner.command(8).args; !equalStrings(got[len(got)-4:], []string{"run", "--rm", "--no-deps", "cloudflare-setup-state-init"}) {
 		t.Fatalf("Cloudflare source state init command = %#v", got)
 	}
-	if got := runner.command(8).args; !equalStrings(got[len(got)-4:], []string{"run", "--rm", "--no-deps", "cloudflare-state-init"}) {
+	if got := runner.command(9).args; !equalStrings(got[len(got)-4:], []string{"run", "--rm", "--no-deps", "cloudflare-state-init"}) {
 		t.Fatalf("Cloudflare state init command = %#v", got)
 	}
-	if got := runner.command(9).args; !equalStrings(got[len(got)-4:], []string{"run", "--rm", "--no-deps", "buildkit-worker-credentials-init"}) {
+	if got := runner.command(10).args; !equalStrings(got[len(got)-4:], []string{"run", "--rm", "--no-deps", "buildkit-worker-credentials-init"}) {
 		t.Fatalf("worker BuildKit credential init command = %#v", got)
 	}
-	if got := runner.command(10).args; !equalStrings(got[len(got)-4:], []string{"run", "--rm", "--no-deps", "buildkit-server-credentials-init"}) {
+	if got := runner.command(11).args; !equalStrings(got[len(got)-4:], []string{"run", "--rm", "--no-deps", "buildkit-server-credentials-init"}) {
 		t.Fatalf("BuildKit credential init command = %#v", got)
+	}
+	if got := runner.command(13).args; !equalStrings(got[len(got)-2:], []string{"up", "migrate"}) {
+		t.Fatalf("migration command = %#v", got)
 	}
 	if got := runner.command(len(runner.calls) - 1).args; !equalStrings(got, []string{"compose", "--env-file", fixture.layout.EnvFile, "-f", fixture.layout.SetupComposeFile, "rm", "-sf", "setup", "setup-console", "setup-proxy"}) {
 		t.Fatalf("setup cleanup command = %#v", got)
@@ -354,6 +397,9 @@ func (r *blockingHostRunner) Output(_ context.Context, _ string, name string, ar
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, recordedCommand{name: name, args: append([]string(nil), args...)})
+	if containsArgs(args, "schema-fingerprint") {
+		return []byte("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"), nil
+	}
 	return nil, nil
 }
 
@@ -391,6 +437,7 @@ func TestHostInstallerRestartResumesInstallingRun(t *testing.T) {
 	resumed.runner = &setupRunner{}
 	resumed.httpClient = fixture.server.Client()
 	resumed.assetBase = fixture.server.URL
+	resumed.releaseDownloadBase = fixture.server.URL
 	resumed.pollAttempts = 1
 	resumed.pollInterval = time.Millisecond
 	if err := resumed.executeHostInstallation(context.Background(), fixture.layout, fixture.values, fixture.store, "run-1"); err != nil {

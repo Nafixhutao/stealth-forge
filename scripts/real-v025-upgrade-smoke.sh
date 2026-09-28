@@ -60,6 +60,22 @@ for asset_version in "$bridge_version" "$target_version"; do
 	cp "$repo_root/traefik/traefik.yaml" "$asset_root/$asset_version/traefik/traefik.yaml"
 	cp "$repo_root/traefik/dynamic/core.yaml" "$asset_root/$asset_version/traefik/dynamic/core.yaml"
 	cp "$repo_root/traefik/dynamic/generated/.gitkeep" "$asset_root/$asset_version/traefik/dynamic/generated/.gitkeep"
+	(
+		cd "$asset_root/$asset_version"
+		sha256sum \
+			compose.production.yaml \
+			buildkit/buildkitd.toml \
+			buildkit/stealth-buildkit-rootless.apparmor \
+			console/deploy/nginx.conf \
+			traefik/traefik.yaml \
+			traefik/dynamic/core.yaml \
+			traefik/dynamic/generated/.gitkeep \
+			telemetry/otel-collector.yaml \
+			telemetry/host-metrics.yaml \
+			telemetry/docker-logs.yaml \
+			telemetry/docker-stats.yaml \
+			compose.setup.yaml > checksums.txt
+	)
 done
 
 config_value() {

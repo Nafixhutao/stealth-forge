@@ -46,6 +46,9 @@ func (r *setupRunner) Output(_ context.Context, _ string, name string, args ...s
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, recordedCommand{name: name, args: append([]string(nil), args...)})
+	if containsArgs(args, "schema-fingerprint") {
+		return []byte("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"), nil
+	}
 	if len(r.outputs) == 0 {
 		return nil, nil
 	}

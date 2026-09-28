@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Stealth-deplover/stealth/internal/config"
+	"github.com/Stealth-deplover/stealth/internal/migrate"
 	"github.com/Stealth-deplover/stealth/internal/runtime"
 )
 
@@ -28,6 +30,25 @@ func main() {
 	defer stop()
 	ctx, cancel := context.WithTimeout(signalContext, 10*time.Minute)
 	defer cancel()
+	if len(os.Args) > 1 {
+		if len(os.Args) != 2 || os.Args[1] != "schema-fingerprint" {
+			logger.Error("unsupported migrate command")
+			os.Exit(2)
+		}
+		resources, err := runtime.Open(ctx, cfg, runtime.OpenOptions{})
+		if err != nil {
+			logger.Error("database configuration error", "error", err)
+			os.Exit(1)
+		}
+		defer resources.Close()
+		fingerprint, err := migrate.SchemaFingerprint(ctx, resources.Pool)
+		if err != nil {
+			logger.Error("schema fingerprint failed", "error", err)
+			os.Exit(1)
+		}
+		fmt.Fprintln(os.Stdout, fingerprint)
+		return
+	}
 
 	logger.Info("applying database migrations")
 	resources, err := runtime.Open(ctx, cfg, runtime.OpenOptions{ApplyMigrations: true})

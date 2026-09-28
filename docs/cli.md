@@ -16,8 +16,38 @@ curl -fsSL https://raw.githubusercontent.com/Stealth-deplover/stealth/HEAD/scrip
 
 The bootstrap detects Linux amd64/arm64, resolves the latest stable SemVer
 release (or `STEALTH_VERSION`), downloads the matching release archive and
-`checksums.txt`, verifies SHA-256, and then starts `stealth install`. It does
-not install Docker or run a large deployment script.
+`checksums.txt`, verifies SHA-256, and then starts `stealth install`. If Docker
+Engine or the Docker Compose plugin is missing, bootstrap can install the
+prerequisites on supported Ubuntu and Debian releases before it installs the
+CLI.
+
+Automatic package installation is supported on Ubuntu 22.04, 24.04, and 26.04,
+and Debian 12 and 13, on amd64 and arm64. It uses Docker's signed APT
+repository and installs Docker Engine, the CLI, containerd, Buildx, and the
+Compose plugin. If Engine already works but the Compose plugin is missing,
+bootstrap installs only that plugin. Existing working Docker installations
+are left alone; an installed but inaccessible daemon causes bootstrap to stop
+with a diagnostic. Other distributions are not guessed at: bootstrap reports
+the missing Docker prerequisites and asks you to install them using that
+distribution's documented packages. The package source follows Docker's
+official [Ubuntu](https://docs.docker.com/engine/install/ubuntu/) and
+[Debian](https://docs.docker.com/engine/install/debian/) Engine instructions,
+including the signed APT repository and Compose plugin package.
+
+When administrator access is needed, a root invocation installs
+prerequisites automatically. A non-root invocation uses normal `sudo`; the
+usual `[sudo] password for ...:` prompt is handled only by `sudo`. Stealth
+never reads, receives, stores, or logs the sudo password. If sudo needs
+authentication but no controlling terminal is available, bootstrap stops and
+asks you to rerun it from an interactive terminal.
+
+Docker group membership may be needed after a non-root installation. When the
+current shell cannot access Docker yet, bootstrap adds the login user to the
+`docker` group and uses a fresh group context for installation when available.
+If that context cannot be used safely, Docker remains installed and the user
+must log out and back in, then rerun bootstrap. The `docker` group grants
+root-equivalent access to the host, as described in Docker's
+[post-installation guide](https://docs.docker.com/engine/install/linux-postinstall/).
 
 For an inspect-first install:
 
@@ -38,7 +68,7 @@ To test a release candidate, pin it explicitly; the unpinned bootstrap path
 and `stealth update` never select prereleases automatically:
 
 ```bash
-STEALTH_VERSION=v0.3.0-rc.1 \
+STEALTH_VERSION=v0.2.6-rc.1 \
   sh bootstrap.sh
 ```
 

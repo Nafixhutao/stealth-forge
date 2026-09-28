@@ -243,7 +243,11 @@ and CodeQL JavaScript/TypeScript passed on the verified main SHA.
 - [x] PR merged.
 - [x] Post-merge `main` CI green.
 
-### [ ] ▶ CURRENT A7. Deployment History + Rollback + Diagnostics
+### [x] A7. Deployment History + Rollback + Diagnostics
+
+Evidence: PR #105 merged as `eb9c096c6f8ec677f37761099af14beb82150a5e`;
+post-merge CI and CodeQL passed on that SHA. Independent audit passed per
+repository owner confirmation in chat on 2026-09-26.
 
 #### Deployment history
 
@@ -292,25 +296,81 @@ and CodeQL JavaScript/TypeScript passed on the verified main SHA.
 - [x] Production Compose Smoke proves image re-import, WorkloadSpec restore, current env/secrets, and health-gated route recovery.
 - [x] Existing build, runtime, logs, secrets, cache-GC, and recovery smoke remains green.
 - [x] No dependency expansion; no migration unless required by durable correctness.
-- [ ] Independent audit passes.
-- [ ] PR merged.
-- [ ] Post-merge `main` CI green.
+- [x] Independent audit passes (repository owner confirmation, 2026-09-26).
+- [x] PR #105 merged as `eb9c096c6f8ec677f37761099af14beb82150a5e`.
+- [x] Post-merge `main` CI green on `eb9c096c6f8ec677f37761099af14beb82150a5e`: [CI](https://github.com/Stealth-deplover/stealth/actions/runs/36277406391), [CodeQL](https://github.com/Stealth-deplover/stealth/actions/runs/36277406374).
 
-### [ ] A8. Apps Production Acceptance
+### [ ] ▶ CURRENT A8. Apps Production Acceptance
 
-- [ ] Clean install and real App deploy/update.
-- [ ] Variable/secret update, crash, same-container restart, and recreation.
-- [ ] Worker, Collector, and host reboot recovery.
-- [ ] Routing recovery, retained logs, and rollback.
-- [ ] Disk pressure and long-running soak.
+#### Acceptance implementation
+
+- [x] Production Compose coverage exercises distinct v1/v2 responses, variable
+  and secret rotation, cache eviction with persisted OCI re-import, rollback,
+  runtime limits, crash/recreation recovery, diagnostics, and retained logs
+  (`2e3d12e`).
+- [x] Recovery coverage includes API, Console, Nginx, Traefik, App worker,
+  Collector, and telemetry restarts; the bounded 10-minute soak runs in the
+  smoke and release workflows (`292e46d`).
+- [x] A dedicated clean-host reboot workflow verifies changed kernel boot ID,
+  persisted App state/artifact, current secret, route health, and retained logs
+  (`92989d2`, hardened in `b49c32e`).
+- [x] The reboot workflow can provision a checksum-verified Ubuntu 24.04 QEMU
+  guest on a KVM-capable GitHub runner and can be dispatched through the
+  existing production-smoke workflow without adding VM credentials; actual
+  guest reboot evidence remains a separate acceptance gate.
+
+#### Acceptance evidence still required
+
+- [x] Final code-bearing head `81e73557ae38e5ebb7e5806e7024223e9c18559e`
+  passes [CI](https://github.com/Stealth-deplover/stealth/actions/runs/36330708890),
+  [CodeQL](https://github.com/Stealth-deplover/stealth/actions/runs/36330708887),
+  and [Production Compose Smoke, including v0.2.5 upgrade](https://github.com/Stealth-deplover/stealth/actions/runs/36330709117).
+- [x] Clean-host installation and full App acceptance pass on the
+  [checksum-verified ephemeral Ubuntu 24.04 QEMU VM](https://github.com/Stealth-deplover/stealth/actions/runs/36330708896).
+- [x] Real host reboot passes on that final code-bearing head: the kernel boot
+  ID changed, the App recovered with one managed container, and the persisted
+  OCI checksum matched after reboot. Evidence artifact:
+  `apps-host-reboot-36330708896-1` ([workflow](https://github.com/Stealth-deplover/stealth/actions/runs/36330708896)).
+- [x] Current integration head `b5082b00004980da9742411fd9390dd63713661c`
+  passes [CI](https://github.com/Stealth-deplover/stealth/actions/runs/36343508050),
+  [CodeQL](https://github.com/Stealth-deplover/stealth/actions/runs/36343508093),
+  and [Production Compose Smoke, including the real v0.2.5 upgrade](https://github.com/Stealth-deplover/stealth/actions/runs/36343508248).
+- [x] Clean-host install and repair, `status`, and `doctor` pass on the current
+  head in the [ephemeral Ubuntu 24.04 QEMU VM](https://github.com/Stealth-deplover/stealth/actions/runs/36343508077).
+  `config.env` and the BuildKit worker key are both mode `0600`; evidence:
+  `installer-clean-host-36343508077-1`.
+- [x] Real host reboot and recovery pass on the current head. The kernel boot
+  ID changed, one managed App container returned, and the persisted OCI
+  checksum matched before and after reboot. Evidence:
+  `apps-host-reboot-36343508077-1` ([workflow](https://github.com/Stealth-deplover/stealth/actions/runs/36343508077)).
+- [x] Independent audit passes (repository owner confirmation, 2026-09-27).
+- [ ] PR #106 is merged.
+- [ ] Post-merge `main` CI is green.
 
 Completion of A8 means the Apps Production Runtime phase is complete.
 
 ## Phase B — Production Operations
 
-- [ ] B1. Installer production completion.
-- [ ] B2. Platform upgrades.
-- [ ] B3. Platform rollback.
+- [x] B1. Installer production completion — managed asset checksums, expanded
+  `status`/`doctor`, bounded service readiness after install/repair, and
+  noninteractive repair are covered by commits `8688259`, `e549ef5`, and
+  `b5082b0`. Clean-host repair acceptance passes on the current head; final
+  head CI and real VM reboot evidence are recorded above.
+- [x] B2. Platform upgrades — the target CLI archive checksum/version is
+  verified before handoff; operator config and keys are preserved; staged
+  Compose is validated before activation; the journal supports retry/recovery;
+  version skew and downgrades are detected; service order is deterministic.
+  Focused installer/CLI tests and full `go test ./... -count=1` pass. Production
+  Compose Smoke, including the real v0.2.5-to-target upgrade, passed on code
+  commit `0bcffd5` ([run](https://github.com/Stealth-deplover/stealth/actions/runs/36347643386));
+  current-head CI and CodeQL pass on `3e422b2` ([CI](https://github.com/Stealth-deplover/stealth/actions/runs/36350789460),
+  [CodeQL](https://github.com/Stealth-deplover/stealth/actions/runs/36350789555)).
+- [ ] B3. Platform rollback — explicit rollback, previous-release checksummed
+  assets, pre-migration schema fingerprint, fail-closed ledger compatibility,
+  private operator audit, retry journal, API/service health checks, and backup
+  boundary documentation are implemented. Focused and full local Go tests plus
+  `go vet ./...` pass; required PostgreSQL integration and final-head CI,
+  CodeQL, and Production Compose Smoke are pending.
 - [ ] B4. Backup, restore, and disaster recovery.
 - [ ] B5. Host reboot, storage pressure, and cleanup.
 

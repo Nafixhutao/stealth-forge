@@ -23,7 +23,7 @@ func ContainerMatchesDesiredExceptName(container Container, job repository.AppRu
 	if err != nil || !managedForApp(container, uuid.MustParse(job.App.ID), uuid.MustParse(job.App.ProjectID)) || !hasLabels(container.Config.Labels, labels) {
 		return false
 	}
-	if container.ImageID != image.ID || container.HostConfig.NetworkMode != networkName || container.HostConfig.Privileged || container.HostConfig.AutoRemove || len(container.HostConfig.CapAdd) != 0 || !container.HostConfig.ReadonlyRootfs ||
+	if !imageIDMatchesContainer(image, container.ImageID) || container.HostConfig.NetworkMode != networkName || container.HostConfig.Privileged || container.HostConfig.AutoRemove || len(container.HostConfig.CapAdd) != 0 || !container.HostConfig.ReadonlyRootfs ||
 		!slices.Contains(container.HostConfig.CapDrop, "ALL") || !slices.Contains(container.HostConfig.SecurityOpt, "no-new-privileges:true") ||
 		container.HostConfig.Memory != job.App.Workload.Resources.MemoryBytes || container.HostConfig.MemorySwap != job.App.Workload.Resources.MemoryBytes ||
 		container.HostConfig.NanoCpus != int64(job.App.Workload.Resources.CPUMillis)*1_000_000 || container.HostConfig.PidsLimit == nil || *container.HostConfig.PidsLimit != int64(job.App.Workload.Resources.PIDsLimit) ||

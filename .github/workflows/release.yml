@@ -101,7 +101,7 @@ jobs:
         run: ./scripts/setup-security-test.sh
 
       - name: Validate smoke scripts
-        run: bash -n scripts/production-smoke.sh scripts/compose-production-smoke.sh scripts/public-hosting-acceptance.sh scripts/bootstrap.sh scripts/bootstrap_test.sh scripts/setup-security-test.sh scripts/traefik-security-test.sh scripts/release_workflow_test.sh
+        run: bash -n scripts/production-smoke.sh scripts/compose-production-smoke.sh scripts/app-host-reboot-acceptance.sh scripts/app-host-reboot-qemu-vm.sh scripts/public-hosting-acceptance.sh scripts/bootstrap.sh scripts/bootstrap_test.sh scripts/setup-security-test.sh scripts/traefik-security-test.sh scripts/release_workflow_test.sh
 
       - name: Verify release bootstrap is revision-pinned
         run: ./scripts/release_workflow_test.sh
@@ -309,6 +309,7 @@ jobs:
       - name: Run production Compose HTTP smoke
         env:
           ENV_FILE: ${{ runner.temp }}/stealth-production-smoke.env
+          APP_RUNTIME_SOAK_SECONDS: "600"
           SMOKE_REMOVE_VOLUMES: "true"
         run: ./scripts/compose-production-smoke.sh
 
@@ -346,6 +347,11 @@ jobs:
           tar -czf dist/stealth_Linux_x86_64.tar.gz -C dist/amd64 stealth
           tar -czf dist/stealth_Linux_arm64.tar.gz -C dist/arm64 stealth
           (cd dist && sha256sum stealth_Linux_x86_64.tar.gz stealth_Linux_arm64.tar.gz > checksums.txt)
+          while IFS= read -r managed_asset; do
+            [[ -n "$managed_asset" ]] || continue
+            test -f "$managed_asset"
+            sha256sum "$managed_asset" >> dist/checksums.txt
+          done < release-managed-assets.txt
           rm -rf dist/amd64 dist/arm64
 
       - name: Upload CLI artifacts
