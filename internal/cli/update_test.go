@@ -120,6 +120,9 @@ func newUpdateTestServer(t *testing.T, archive []byte, checksums string) *update
 
 func newUpdateTestApp(t *testing.T, state *updateTestServer, current, target string) (*App, *bytes.Buffer, *bytes.Buffer) {
 	t.Helper()
+	// Keep release comparisons isolated from a real installation in the test
+	// runner's home directory.
+	t.Setenv("STEALTH_INSTALL_DIR", filepath.Join(t.TempDir(), "stealth-install"))
 	var output bytes.Buffer
 	var errorsOutput bytes.Buffer
 	app := NewApp(strings.NewReader(""), &output, &errorsOutput)

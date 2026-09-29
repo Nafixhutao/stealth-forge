@@ -27,7 +27,7 @@ var requiredBrowserSecurityHeaders = []struct{ name, value string }{
 	{"Referrer-Policy", "strict-origin-when-cross-origin"},
 	{"Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()"},
 	{"X-Frame-Options", "DENY"},
-	{"Content-Security-Policy", "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self';"},
+	{"Content-Security-Policy", "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' https://github.com; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self';"},
 }
 
 var publicConsolePaths = []string{"/", "/v1/account", "/healthz", "/readyz", "/version", "/__stealth_ingress_acceptance_unknown__"}
