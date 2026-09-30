@@ -116,6 +116,11 @@ func newUpdateTestServer(t *testing.T, archive []byte, checksums string) *update
 
 func newUpdateTestApp(t *testing.T, state *updateTestServer, current, target string) (*App, *bytes.Buffer, *bytes.Buffer) {
 	t.Helper()
+	// The update path reads the platform version from the install layout, which
+	// defaults to $HOME/.stealth. Isolate it to a temp directory so these tests
+	// do not pick up a real installation on the host, which would surface as a
+	// spurious "refusing platform downgrade" failure.
+	t.Setenv("STEALTH_INSTALL_DIR", t.TempDir())
 	var output bytes.Buffer
 	var errorsOutput bytes.Buffer
 	app := NewApp(strings.NewReader(""), &output, &errorsOutput)
