@@ -28,6 +28,12 @@ const (
 	lockFileMode   = 0o640
 )
 
+// HandoffLifetime bounds a single-use handoff ticket. Issue refreshes an
+// expired ticket up to this window so a setup browser that finished the wizard
+// after the initial owner creation can still prepare the production session.
+// The refresh never extends beyond the underlying session expiry.
+const HandoffLifetime = 15 * time.Minute
+
 var (
 	ErrUnavailable = errors.New("setup handoff is unavailable")
 	ErrInvalid     = errors.New("setup handoff is invalid or expired")
@@ -52,13 +58,15 @@ type PendingStore interface {
 type FileStore struct {
 	path   string
 	cipher *functionsecret.Cipher
+	now    func() time.Time
 	mu     sync.Mutex
 }
 
 type handoff struct {
-	TokenHash    []byte    `json:"token_hash"`
-	SessionToken string    `json:"session_token"`
-	ExpiresAt    time.Time `json:"expires_at"`
+	TokenHash        []byte    `json:"token_hash"`
+	SessionToken     string    `json:"session_token"`
+	ExpiresAt        time.Time `json:"expires_at"`
+	SessionExpiresAt time.Time `json:"session_expires_at"`
 }
 
 func NewFileStore(path string, cipher *functionsecret.Cipher) (*FileStore, error) {
@@ -70,14 +78,34 @@ func NewFileStore(path string, cipher *functionsecret.Cipher) (*FileStore, error
 	if err != nil || filepath.Clean(abs) == string(filepath.Separator) {
 		return nil, ErrUnavailable
 	}
-	return &FileStore{path: filepath.Clean(abs), cipher: cipher}, nil
+	return &FileStore{path: filepath.Clean(abs), cipher: cipher, now: func() time.Time { return time.Now().UTC() }}, nil
 }
 
-func (s *FileStore) Save(ctx context.Context, token, sessionToken string, expiresAt time.Time) error {
+// currentTime returns the store clock in UTC. Tests inject a deterministic
+// clock through the now field; production always uses the wall clock.
+func (s *FileStore) currentTime() time.Time {
+	if s.now != nil {
+		return s.now().UTC()
+	}
+	return time.Now().UTC()
+}
+
+// Save persists a fresh handoff ticket. sessionExpiresAt is the expiry of the
+// underlying account session; the ticket is capped so it can never outlive the
+// session it bridges, and Issue refreshes it within that same bound.
+func (s *FileStore) Save(ctx context.Context, token, sessionToken string, sessionExpiresAt time.Time) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if s == nil || s.cipher == nil || !validToken(token) || !validToken(sessionToken) || !expiresAt.After(time.Now().UTC()) {
+	if s == nil || s.cipher == nil || !validToken(token) || !validToken(sessionToken) {
+		return ErrInvalid
+	}
+	now := s.currentTime()
+	expiresAt := now.Add(HandoffLifetime)
+	if !sessionExpiresAt.IsZero() && sessionExpiresAt.Before(expiresAt) {
+		expiresAt = sessionExpiresAt
+	}
+	if !expiresAt.After(now) {
 		return ErrInvalid
 	}
 	s.mu.Lock()
@@ -87,7 +115,7 @@ func (s *FileStore) Save(ctx context.Context, token, sessionToken string, expire
 		return err
 	}
 	defer unlock()
-	value := handoff{TokenHash: hash(token), SessionToken: sessionToken, ExpiresAt: expiresAt}
+	value := handoff{TokenHash: hash(token), SessionToken: sessionToken, ExpiresAt: expiresAt, SessionExpiresAt: sessionExpiresAt}
 	return s.save(value)
 }
 
@@ -145,7 +173,10 @@ func (s *FileStore) Pending(ctx context.Context) (bool, error) {
 
 // Issue rotates the single-use browser ticket without exposing the underlying
 // production session token. This lets a refreshed setup browser recover a
-// handoff while its authenticated setup claim is still valid.
+// handoff while its authenticated setup claim is still valid. It also refreshes
+// an expired ticket within HandoffLifetime, because the wizard can legitimately
+// outlive the ticket issued when the first owner was created. A ticket is never
+// refreshed past the underlying session expiry.
 func (s *FileStore) Issue(ctx context.Context) (string, error) {
 	if err := ctx.Err(); err != nil {
 		return "", err
@@ -160,15 +191,24 @@ func (s *FileStore) Issue(ctx context.Context) (string, error) {
 		return "", err
 	}
 	defer unlock()
-	value, err := s.load()
+	value, err := s.loadRaw()
 	if err != nil {
 		return "", ErrInvalid
+	}
+	now := s.currentTime()
+	if !value.SessionExpiresAt.IsZero() && !value.SessionExpiresAt.After(now) {
+		return "", ErrInvalid
+	}
+	expiresAt := now.Add(HandoffLifetime)
+	if !value.SessionExpiresAt.IsZero() && value.SessionExpiresAt.Before(expiresAt) {
+		expiresAt = value.SessionExpiresAt
 	}
 	token, _, err := auth.NewSessionToken()
 	if err != nil {
 		return "", fmt.Errorf("generate setup handoff: %w", err)
 	}
 	value.TokenHash = hash(token)
+	value.ExpiresAt = expiresAt
 	if err := s.save(value); err != nil {
 		return "", err
 	}
@@ -253,7 +293,22 @@ func (s *FileStore) lock() (func(), error) {
 	}, nil
 }
 
+// load returns a handoff only while its ticket is still within its expiry
+// window. Callers that may legitimately refresh an expired ticket use loadRaw.
 func (s *FileStore) load() (handoff, error) {
+	value, err := s.loadRaw()
+	if err != nil {
+		return handoff{}, err
+	}
+	if !value.ExpiresAt.After(s.currentTime()) {
+		return handoff{}, ErrInvalid
+	}
+	return value, nil
+}
+
+// loadRaw decrypts and structurally validates the stored handoff without
+// enforcing the ticket expiry, so Issue can refresh a stale ticket.
+func (s *FileStore) loadRaw() (handoff, error) {
 	contents, err := os.ReadFile(s.path)
 	if err != nil {
 		return handoff{}, err
@@ -263,7 +318,7 @@ func (s *FileStore) load() (handoff, error) {
 		return handoff{}, ErrInvalid
 	}
 	var value handoff
-	if err := json.Unmarshal(plaintext, &value); err != nil || !validToken(value.SessionToken) || len(value.TokenHash) != sha256.Size || !value.ExpiresAt.After(time.Now().UTC()) {
+	if err := json.Unmarshal(plaintext, &value); err != nil || !validToken(value.SessionToken) || len(value.TokenHash) != sha256.Size {
 		return handoff{}, ErrInvalid
 	}
 	return value, nil

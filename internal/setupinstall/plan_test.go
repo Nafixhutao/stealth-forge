@@ -71,7 +71,7 @@ func TestBuildPlanRendersReviewedCredentialsAndKeepsExistingValues(t *testing.T)
 	}
 }
 
-func TestBuildPlanWritesCloudflareTokenAsPrivateFile(t *testing.T) {
+func TestBuildPlanWritesCloudflareTokenReadableByCloudflared(t *testing.T) {
 	root := t.TempDir()
 	layout, err := installengine.NewLayout(root)
 	if err != nil {
@@ -93,8 +93,14 @@ func TestBuildPlanWritesCloudflareTokenAsPrivateFile(t *testing.T) {
 	if err != nil || string(contents) != "tunnel-secret\n" {
 		t.Fatalf("Cloudflare token = %q, %v", contents, err)
 	}
-	if mode := fileMode(t, tokenPath); mode != 0o600 {
-		t.Fatalf("Cloudflare token mode = %o, want 600", mode)
+	// The cloudflared image runs as an unprivileged uid, so the token file must
+	// be readable beyond its owner. It must never be group/other writable.
+	mode := fileMode(t, tokenPath)
+	if mode&0o004 == 0 {
+		t.Fatalf("Cloudflare token mode = %o, want other-readable for the cloudflared container user", mode)
+	}
+	if mode&0o022 != 0 {
+		t.Fatalf("Cloudflare token mode = %o, want not group/other writable", mode)
 	}
 	values, err := installengine.ReadEnvFile(layout.EnvFile)
 	if err != nil {

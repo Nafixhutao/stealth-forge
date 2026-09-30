@@ -35,7 +35,7 @@ var errHostInstallerIncomplete = errors.New("host installer returned before pers
 
 func setupInstallationPending(state setupstate.State) bool {
 	switch state.Phase {
-	case setupstate.PhaseInstallRequested, setupstate.PhaseInstalling, setupstate.PhaseHandoff:
+	case setupstate.PhaseInstallRequested, setupstate.PhaseInstalling, setupstate.PhaseHandoff, setupstate.PhaseFailed:
 		return true
 	default:
 		return false

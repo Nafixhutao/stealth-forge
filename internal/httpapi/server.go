@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -190,6 +191,15 @@ func NewWithDependenciesAndPlatformSiteHandler(cfg config.Config, repo *reposito
 	if appArtifactErr != nil {
 		logger.Error("App artifact storage configuration error", "error", appArtifactErr)
 	}
+	if cfg.SetupMode {
+		// The setup service runs as root, but the production API, worker, and
+		// BuildKit containers run as the fixed unprivileged application uid.
+		// The storage namespaces created above would otherwise stay root-owned
+		// and unreadable by production, so a resumed install fails readiness
+		// with "permission denied". Hand the still-empty tree to the runtime uid
+		// before production ever mounts it.
+		adoptStorageOwnershipForRuntime(cfg.StorageRoot)
+	}
 	functionCipher, functionCipherErr := functionsecret.New(cfg.FunctionsSecretKey)
 	if functionCipherErr != nil {
 		logger.Error("function secret configuration error", "error", functionCipherErr)
@@ -246,6 +256,26 @@ func NewWithDependenciesAndPlatformSiteHandler(cfg config.Config, repo *reposito
 	}
 	s := &Server{config: cfg, repo: repo, bootstrap: bootstrapStore, logger: logger, limiter: deps.AuthLimiter, storage: storageStore, storageReady: storageReady, functions: functionStore, functionCipher: functionCipher, appSecretCipher: appSecretCipher, functionsReady: functionsReady, sites: siteStore, siteArchives: siteArchiveStore, siteGitFetcher: deps.SiteGitFetcher, siteGitSlots: make(chan struct{}, cfg.SitesGitFetchConcurrency), sitesReady: sitesReady, apps: appArtifactStore, appsReady: appsReady, metrics: observability.NewAPIMetrics(), realtimeSlots: make(chan struct{}, 256), adminRealtimeAuthRecheckInterval: authRecheckInterval, realtimeBroker: deps.RealtimeBroker, authEmailSender: authEmailSender, githubClient: deps.GitHubClient, githubOAuth: githubOAuth, setupState: setupStateStore, setupHandoff: setupHandoffStore, githubManifest: githubManifest, cloudflareOAuth: cloudflareOAuth, cloudflareFactory: cloudflareFactory, telemetry: deps.TelemetryStore, redis: deps.Redis}
 	return s.routes(), s.platformSiteRoutes()
+}
+
+// productionStorageUID mirrors the fixed unprivileged application uid baked into
+// the production images. It is intentionally not configurable: the host
+// installer and the images share this ownership contract.
+const productionStorageUID = 10001
+
+// adoptStorageOwnershipForRuntime hands the setup-created local storage
+// namespaces to the production runtime uid. The setup service runs as root, so
+// without this the directories stay root-owned and the non-root production
+// API, worker, and BuildKit containers cannot use them.
+func adoptStorageOwnershipForRuntime(root string) {
+	root = strings.TrimSpace(root)
+	if root == "" {
+		return
+	}
+	_ = os.Chown(root, productionStorageUID, productionStorageUID)
+	for _, name := range []string{"functions", "sites", "site-archives", "app-sources", "app-images"} {
+		_ = os.Chown(filepath.Join(root, name), productionStorageUID, productionStorageUID)
+	}
 }
 
 type CloudflareOAuthClient interface {
