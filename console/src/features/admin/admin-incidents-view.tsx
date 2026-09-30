@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { FormEvent, ReactNode } from "react";
+import type { FormEvent } from "react";
 import { AlertTriangle, Plus } from "lucide-react";
 import {
   useAddAdminIncidentEvent,
@@ -35,6 +35,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDate } from "@/lib/format";
 import { AdminShell } from "./admin-shell";
+import { FormField } from "@/components/form-field";
 
 export function AdminIncidentsView() {
   const incidents = useAdminIncidents({ limit: 100 });
@@ -169,7 +170,7 @@ function CreateIncidentDialog({ onCreated }: { onCreated: () => void }) {
         </DialogDescription>
       </DialogHeader>
       <form className="space-y-4" onSubmit={submit}>
-        <Field label="Title" htmlFor="incident-title">
+        <FormField label="Title" htmlFor="incident-title">
           <Input
             id="incident-title"
             required
@@ -177,9 +178,9 @@ function CreateIncidentDialog({ onCreated }: { onCreated: () => void }) {
             onChange={(event) => setTitle(event.target.value)}
             placeholder="API responses degraded"
           />
-        </Field>
+        </FormField>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Severity" htmlFor="incident-severity">
+          <FormField label="Severity" htmlFor="incident-severity">
             <select
               id="incident-severity"
               value={severity}
@@ -194,8 +195,8 @@ function CreateIncidentDialog({ onCreated }: { onCreated: () => void }) {
               <option value="warning">Warning</option>
               <option value="critical">Critical</option>
             </select>
-          </Field>
-          <Field
+          </FormField>
+          <FormField
             label="Services"
             htmlFor="incident-services"
             hint="Comma-separated component names."
@@ -206,16 +207,16 @@ function CreateIncidentDialog({ onCreated }: { onCreated: () => void }) {
               value={services}
               onChange={(event) => setServices(event.target.value)}
             />
-          </Field>
+          </FormField>
         </div>
-        <Field label="Opening note" htmlFor="incident-message">
+        <FormField label="Opening note" htmlFor="incident-message">
           <Textarea
             id="incident-message"
             value={message}
             onChange={(event) => setMessage(event.target.value)}
             placeholder="What is known so far?"
           />
-        </Field>
+        </FormField>
         {mutation.error ? (
           <p className="text-sm text-coral-red" role="alert">
             {errorMessage(mutation.error)}
@@ -373,27 +374,6 @@ function IncidentDetail({
     </Dialog>
   );
 }
-
-function Field({
-  label,
-  htmlFor,
-  hint,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  hint?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={htmlFor}>{label}</Label>
-      {children}
-      {hint ? <p className="text-[11px] text-fog">{hint}</p> : null}
-    </div>
-  );
-}
-
 function EmptyIncidents({ onAdd }: { onAdd: () => void }) {
   return (
     <div className="rounded-xl border border-dashed border-graphite bg-carbon/50 p-10 text-center">
