@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Stealth-deplover/stealth/internal/domain"
+	"github.com/Stealth-deplover/stealth/internal/domainname"
 )
 
 type routingFakeStore struct {
@@ -207,7 +208,7 @@ func (c *routingFakeClient) ListDNSRecords(_ context.Context, zoneID, name strin
 	c.dnsCalls++
 	var result []DNSRecord
 	for _, record := range c.records[zoneID] {
-		if canonicalDNSName(record.Name) == canonicalDNSName(name) {
+		if domainname.Canonical(record.Name) == domainname.Canonical(name) {
 			result = append(result, record)
 		}
 	}

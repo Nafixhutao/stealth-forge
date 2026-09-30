@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Stealth-deplover/stealth/internal/domainname"
 	"github.com/Stealth-deplover/stealth/internal/setupstate"
 	"github.com/google/uuid"
 )
@@ -364,17 +365,17 @@ func matchingTunnels(tunnels []Tunnel, name string) []Tunnel {
 }
 
 func reconcileDNSRecord(ctx context.Context, client Client, zoneID string, desired DNSRecord, records []DNSRecord) (string, error) {
-	hostname := canonicalDNSName(desired.Name)
-	target := canonicalDNSName(desired.Content)
+	hostname := domainname.Canonical(desired.Name)
+	target := domainname.Canonical(desired.Content)
 	var matching DNSRecord
 	for _, record := range records {
-		if canonicalDNSName(record.Name) != hostname {
+		if domainname.Canonical(record.Name) != hostname {
 			continue
 		}
 		if strings.ToUpper(strings.TrimSpace(record.Type)) != "CNAME" {
 			return "", provisioningError(ErrConflict, "DNS lookup", errors.New("the requested hostname already has a non-CNAME DNS record"))
 		}
-		if canonicalDNSName(record.Content) != target {
+		if domainname.Canonical(record.Content) != target {
 			return "", provisioningError(ErrConflict, "DNS lookup", errors.New("the requested hostname already has a different CNAME record"))
 		}
 		if matching.ID != "" {
@@ -396,10 +397,6 @@ func reconcileDNSRecord(ctx context.Context, client Client, zoneID string, desir
 		return "", provisioningError(ErrProvider, "DNS configure", err)
 	}
 	return strings.TrimSpace(matching.ID), nil
-}
-
-func canonicalDNSName(value string) string {
-	return strings.ToLower(strings.TrimSuffix(strings.TrimSpace(value), "."))
 }
 
 func zoneContainsHostname(zones []Zone, zoneID, hostname string) bool {

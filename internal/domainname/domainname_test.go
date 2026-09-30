@@ -116,3 +116,21 @@ func TestIsSubdomain(t *testing.T) {
 		t.Fatal("IsSubdomain accepted an IP hostname")
 	}
 }
+
+func TestCanonicalTrimsLowercasesAndDropsTrailingDot(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{input: "example.com", want: "example.com"},
+		{input: "  Example.COM.  ", want: "example.com"},
+		{input: "sub.Example.com.", want: "sub.example.com"},
+		{input: "", want: ""},
+		{input: ".", want: ""},
+	}
+	for _, test := range tests {
+		if got := Canonical(test.input); got != test.want {
+			t.Fatalf("Canonical(%q) = %q, want %q", test.input, got, test.want)
+		}
+	}
+}

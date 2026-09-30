@@ -682,7 +682,7 @@ func migrateState(state *State, legacy legacyState) error {
 	state.SetSetupCredentials(credentials)
 	if state.Cloudflare.Binding.IsZero() {
 		binding := cloudflareBindingFromLegacyDraft(legacy.Draft)
-		binding.Hostname = canonicalHostname(state.Draft.Hostname)
+		binding.Hostname = domainname.Canonical(state.Draft.Hostname)
 		if binding.HasIntent() {
 			state.Cloudflare.Binding = binding
 		}
