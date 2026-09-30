@@ -105,6 +105,109 @@ func TestFileStoreIssuesReplacementTicketWithoutChangingSession(t *testing.T) {
 	}
 }
 
+// TestFileStoreIssueRefreshesExpiredTicketWithinSession covers the wizard
+// outliving the ticket issued at owner creation: the ticket is expired but the
+// account session is still valid, so Issue must refresh the ticket instead of
+// failing with a conflict.
+func TestFileStoreIssueRefreshesExpiredTicketWithinSession(t *testing.T) {
+	cipher, err := functionsecret.New(bytes.Repeat([]byte{0x6d}, functionsecret.KeySize))
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := NewFileStore(filepath.Join(t.TempDir(), "handoff.enc"), cipher)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := time.Now().UTC()
+	store.now = func() time.Time { return base }
+
+	original, _, _ := auth.NewSessionToken()
+	sessionToken, _, _ := auth.NewSessionToken()
+	if err := store.Save(context.Background(), original, sessionToken, base.Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+
+	// Move past the initial ticket lifetime while the session stays valid.
+	store.now = func() time.Time { return base.Add(HandoffLifetime + time.Minute) }
+	if _, err := store.Consume(context.Background(), original); err == nil {
+		t.Fatal("expired handoff was still consumable")
+	}
+
+	refreshed, err := store.Issue(context.Background())
+	if err != nil || refreshed == "" || refreshed == original {
+		t.Fatalf("Issue() = %q, %v", refreshed, err)
+	}
+	if _, err := store.Consume(context.Background(), original); err == nil {
+		t.Fatal("Issue() left the expired ticket usable")
+	}
+	consumed, err := store.Consume(context.Background(), refreshed)
+	if err != nil || consumed != sessionToken {
+		t.Fatalf("Consume() = %q, %v", consumed, err)
+	}
+}
+
+// TestFileStoreIssueRefreshesLegacyTicketWithoutSessionExpiry covers an
+// existing handoff written before the session expiry was persisted. Such a
+// record has no session bound, so Issue must still refresh the expired ticket
+// rather than wedging the resumed wizard.
+func TestFileStoreIssueRefreshesLegacyTicketWithoutSessionExpiry(t *testing.T) {
+	cipher, err := functionsecret.New(bytes.Repeat([]byte{0x8f}, functionsecret.KeySize))
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := NewFileStore(filepath.Join(t.TempDir(), "handoff.enc"), cipher)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := time.Now().UTC()
+	store.now = func() time.Time { return base }
+
+	token, _, _ := auth.NewSessionToken()
+	sessionToken, _, _ := auth.NewSessionToken()
+	legacy := handoff{TokenHash: hash(token), SessionToken: sessionToken, ExpiresAt: base.Add(-time.Minute)}
+	if err := store.save(legacy); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Consume(context.Background(), token); err == nil {
+		t.Fatal("expired legacy handoff was consumable")
+	}
+
+	refreshed, err := store.Issue(context.Background())
+	if err != nil || refreshed == "" || refreshed == token {
+		t.Fatalf("Issue() = %q, %v", refreshed, err)
+	}
+	consumed, err := store.Consume(context.Background(), refreshed)
+	if err != nil || consumed != sessionToken {
+		t.Fatalf("Consume() = %q, %v", consumed, err)
+	}
+}
+
+// TestFileStoreIssueRejectsExpiredSession ensures a refreshed ticket can never
+// outlive the account session it bridges.
+func TestFileStoreIssueRejectsExpiredSession(t *testing.T) {
+	cipher, err := functionsecret.New(bytes.Repeat([]byte{0x7e}, functionsecret.KeySize))
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := NewFileStore(filepath.Join(t.TempDir(), "handoff.enc"), cipher)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := time.Now().UTC()
+	store.now = func() time.Time { return base }
+
+	token, _, _ := auth.NewSessionToken()
+	sessionToken, _, _ := auth.NewSessionToken()
+	if err := store.Save(context.Background(), token, sessionToken, base.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+
+	store.now = func() time.Time { return base.Add(2 * time.Minute) }
+	if _, err := store.Issue(context.Background()); err == nil {
+		t.Fatal("Issue() refreshed a ticket for an expired session")
+	}
+}
+
 func fileMode(t *testing.T, path string) os.FileMode {
 	t.Helper()
 	info, err := os.Stat(path)
