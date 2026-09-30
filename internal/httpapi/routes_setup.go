@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -662,7 +663,7 @@ func (s *Server) createCloudflareTunnel(w http.ResponseWriter, r *http.Request) 
 			if provisioningErr != nil && errors.As(provisioningErr.Err, &bindingConflict) {
 				writeError(w, http.StatusConflict, "cloudflare_tunnel_reconfiguration_required", bindingConflict.Error())
 			} else {
-				writeError(w, http.StatusConflict, "cloudflare_tunnel_conflict", "the saved Cloudflare tunnel conflicts with the requested account, zone, hostname, or provider resource")
+				writeError(w, http.StatusConflict, "cloudflare_tunnel_conflict", cloudflareTunnelConflictMessage(err))
 			}
 		case errors.Is(err, cloudflare.ErrState):
 			writeError(w, http.StatusConflict, "setup_state_conflict", "Cloudflare setup state could not be saved")
@@ -696,6 +697,23 @@ func (s *Server) createCloudflareTunnel(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 	writeJSON(w, http.StatusOK, state.Public())
+}
+
+// cloudflareTunnelConflictMessage turns a generic provisioning conflict into a
+// stage-specific instruction. The previous single sentence hid whether the
+// hostname was already bound in DNS or the tunnel name was already taken, which
+// left operators unable to tell what to clean up before retrying.
+func cloudflareTunnelConflictMessage(err error) string {
+	var provisioningErr *cloudflare.ProvisionError
+	if errors.As(err, &provisioningErr) {
+		switch provisioningErr.Stage {
+		case "DNS lookup":
+			return fmt.Sprintf("%v. The hostname is already bound in Cloudflare. Remove or update that DNS record, or reuse the existing tunnel, then retry this step.", provisioningErr.Err)
+		case "tunnel lookup":
+			return fmt.Sprintf("%v. Remove the conflicting tunnel in Cloudflare or choose a different tunnel name, then retry this step.", provisioningErr.Err)
+		}
+	}
+	return "the saved Cloudflare tunnel conflicts with the requested account, zone, hostname, or provider resource"
 }
 
 func (s *Server) cloudflareTunnelStatus(w http.ResponseWriter, r *http.Request) {
