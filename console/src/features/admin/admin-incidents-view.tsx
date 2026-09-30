@@ -35,6 +35,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDate } from "@/lib/format";
 import { AdminShell } from "./admin-shell";
+import { AdminEmptyState } from "./admin-empty-state";
 import { FormField } from "@/components/form-field";
 
 export function AdminIncidentsView() {
@@ -67,7 +68,13 @@ export function AdminIncidentsView() {
         />
       ) : null}
       {incidents.data && !incidents.data.items.length ? (
-        <EmptyIncidents onAdd={() => setDialogOpen(true)} />
+        <AdminEmptyState
+          icon={AlertTriangle}
+          title="No incidents recorded"
+          description="Open an incident when an alert needs a human timeline."
+          actionLabel="Open incident"
+          onAction={() => setDialogOpen(true)}
+        />
       ) : null}
       {incidents.data?.items.length ? (
         <div className="overflow-hidden rounded-xl border border-graphite bg-carbon">
@@ -372,19 +379,5 @@ function IncidentDetail({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-function EmptyIncidents({ onAdd }: { onAdd: () => void }) {
-  return (
-    <div className="rounded-xl border border-dashed border-graphite bg-carbon/50 p-10 text-center">
-      <AlertTriangle className="mx-auto size-5 text-fog" aria-hidden="true" />
-      <h2 className="mt-4 text-sm text-paper">No incidents recorded</h2>
-      <p className="mt-2 text-sm text-fog">
-        Open an incident when an alert needs a human timeline.
-      </p>
-      <Button className="mt-5" size="sm" onClick={onAdd}>
-        <Plus className="size-3.5" aria-hidden="true" /> Open incident
-      </Button>
-    </div>
   );
 }
