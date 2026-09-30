@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/Stealth-deplover/stealth/internal/domainname"
 )
 
 // CloudflareBinding is the durable identity of the Cloudflare resources that
@@ -60,7 +62,7 @@ func (e *CloudflareBindingConflict) Error() string {
 // binding selector. Provider resource identities live only in CloudflareState.
 func CloudflareBindingFromDraft(draft Draft) CloudflareBinding {
 	return CloudflareBinding{
-		Hostname: canonicalHostname(draft.Hostname),
+		Hostname: domainname.Canonical(draft.Hostname),
 	}
 }
 
@@ -88,7 +90,7 @@ func (b CloudflareBinding) Normalized() CloudflareBinding {
 	return CloudflareBinding{
 		AccountID:  strings.TrimSpace(b.AccountID),
 		ZoneID:     strings.TrimSpace(b.ZoneID),
-		Hostname:   canonicalHostname(b.Hostname),
+		Hostname:   domainname.Canonical(b.Hostname),
 		TunnelName: strings.TrimSpace(b.TunnelName),
 		TunnelID:   strings.TrimSpace(b.TunnelID),
 		RecordID:   strings.TrimSpace(b.RecordID),
@@ -169,8 +171,4 @@ func (b CloudflareBinding) ValidateDraft(draft Draft) error {
 		return &CloudflareBindingConflict{Existing: existing, Field: "hostname"}
 	}
 	return nil
-}
-
-func canonicalHostname(value string) string {
-	return strings.ToLower(strings.TrimSuffix(strings.TrimSpace(value), "."))
 }
