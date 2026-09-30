@@ -398,7 +398,7 @@ function CreateMonitorDialog({
                   const nextKind = event.target.value as MonitorKind;
                   setForm((current) => ({ ...current, kind: nextKind }));
                 }}
-                className="min-h-11 w-full rounded-md border border-graphite bg-carbon px-3.5 text-sm text-mist outline-none focus:border-acid-lime/70 focus:ring-2 focus:ring-acid-lime/15"
+                className="min-h-11 w-full rounded-md border border-graphite bg-carbon px-3.5 text-sm text-mist outline-none focus-visible:border-acid-lime/70 focus-visible:ring-2 focus-visible:ring-acid-lime/15"
               >
                 {monitorKinds.map((item) => (
                   <option key={item.value} value={item.value}>
@@ -464,7 +464,7 @@ function CreateMonitorDialog({
                         event.target.value as CreateAdminMonitorRequestMethod,
                       )
                     }
-                    className="min-h-11 w-full rounded-md border border-graphite bg-carbon px-3.5 text-sm text-mist outline-none focus:border-acid-lime/70 focus:ring-2 focus:ring-acid-lime/15"
+                    className="min-h-11 w-full rounded-md border border-graphite bg-carbon px-3.5 text-sm text-mist outline-none focus-visible:border-acid-lime/70 focus-visible:ring-2 focus-visible:ring-acid-lime/15"
                   >
                     {["GET", "HEAD", "POST", "PUT", "PATCH", "OPTIONS"].map(
                       (method) => (
@@ -571,7 +571,7 @@ function CreateMonitorDialog({
                         .value as CreateAdminMonitorRequestRecord_type,
                     )
                   }
-                  className="min-h-11 w-full rounded-md border border-graphite bg-carbon px-3.5 text-sm text-mist outline-none focus:border-acid-lime/70 focus:ring-2 focus:ring-acid-lime/15"
+                  className="min-h-11 w-full rounded-md border border-graphite bg-carbon px-3.5 text-sm text-mist outline-none focus-visible:border-acid-lime/70 focus-visible:ring-2 focus-visible:ring-acid-lime/15"
                 >
                   {["A", "AAAA", "CNAME", "TXT"].map((recordType) => (
                     <option key={recordType} value={recordType}>

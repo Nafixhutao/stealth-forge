@@ -21,7 +21,9 @@ type VolumeChartOption = ComposeOption<
 
 type VolumeBucket = { timestamp: string; count: number };
 
-export function AdminLogVolumeChart({ items }: { items: VolumeBucket[] }) {
+export type AdminLogVolumeChartProps = { items: VolumeBucket[] };
+
+export function AdminLogVolumeChart({ items }: AdminLogVolumeChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const descriptionId = useId();
 

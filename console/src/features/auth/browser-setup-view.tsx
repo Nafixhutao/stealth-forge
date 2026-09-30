@@ -267,7 +267,7 @@ function StageActions({
       {next ? (
         <Button type="button" onClick={next} disabled={nextDisabled || pending}>
           {pending ? <Loader2 className="size-4 animate-spin" /> : null}
-          {pending ? "Saving" : nextLabel}
+          {pending ? "Saving…" : nextLabel}
           {!pending ? <ArrowRight className="size-4" /> : null}
         </Button>
       ) : null}
@@ -882,7 +882,7 @@ export function BrowserSetupView() {
                           <ShieldCheck className="size-4" />
                         )}
                         {saveManual.isPending
-                          ? "Saving securely"
+                          ? "Saving securely…"
                           : "Save GitHub App"}
                       </Button>
                     </form>
@@ -1076,7 +1076,7 @@ export function BrowserSetupView() {
                               setCloudflareAccountID(event.target.value);
                               setCloudflareZoneID("");
                             }}
-                            className="min-h-11 w-full rounded-lg border border-stealth-border bg-stealth-panel px-3 text-sm text-white focus:border-cyan-300/60"
+                            className="min-h-11 w-full rounded-lg border border-stealth-border bg-stealth-panel px-3 text-sm text-white focus-visible:border-cyan-300/60"
                           >
                             <option value="">
                               {accounts.isPending
@@ -1104,7 +1104,7 @@ export function BrowserSetupView() {
                               setCloudflareZoneID(event.target.value)
                             }
                             disabled={!selectedAccount}
-                            className="min-h-11 w-full rounded-lg border border-stealth-border bg-stealth-panel px-3 text-sm text-white focus:border-cyan-300/60 disabled:opacity-50"
+                            className="min-h-11 w-full rounded-lg border border-stealth-border bg-stealth-panel px-3 text-sm text-white focus-visible:border-cyan-300/60 disabled:opacity-50"
                           >
                             <option value="">
                               {zones.isPending

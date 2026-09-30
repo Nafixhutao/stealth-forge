@@ -351,7 +351,7 @@ function ResourceStat({
           {state !== "ready" ? (
             <p className="mt-2 text-[11px] text-fog">
               {state === "loading"
-                ? "Loading sample"
+                ? "Loading sample…"
                 : state === "unavailable"
                   ? "Telemetry unavailable"
                   : "No sample in this window"}

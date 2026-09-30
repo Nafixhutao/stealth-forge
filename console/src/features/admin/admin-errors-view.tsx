@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { formatDate } from "@/lib/format";
-import { AdminLogVolumeChart } from "./admin-log-volume-chart";
+import { AdminLogVolumeChartLoader } from "./admin-log-volume-chart-loader";
 import { AdminShell } from "./admin-shell";
 import { AdminTimeRange, useAdminTimeRange } from "./admin-time-range";
 
@@ -84,7 +84,7 @@ export function AdminErrorsView() {
             <CardTitle>Log volume</CardTitle>
           </CardHeader>
           <CardContent>
-            <AdminLogVolumeChart items={volume.data.items} />
+            <AdminLogVolumeChartLoader items={volume.data.items} />
           </CardContent>
         </Card>
       ) : null}
@@ -171,7 +171,7 @@ function ErrorGroupTable({
                           status: event.target.value as ErrorStatus,
                         })
                       }
-                      className="min-h-11 rounded-md border border-graphite bg-carbon px-2 py-1.5 text-xs text-mist focus:border-acid-lime/70 focus:outline-none disabled:opacity-50"
+                      className="min-h-11 rounded-md border border-graphite bg-carbon px-2 py-1.5 text-xs text-mist focus-visible:border-acid-lime/70 focus-visible:outline-none disabled:opacity-50"
                     >
                       <option value="open">Open</option>
                       <option value="acknowledged">Acknowledged</option>

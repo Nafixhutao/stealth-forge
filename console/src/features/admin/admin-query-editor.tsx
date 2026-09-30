@@ -33,17 +33,19 @@ function completionSource(context: CompletionContext): CompletionResult | null {
   };
 }
 
+export type AdminQueryEditorProps = {
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit?: () => void;
+  invalid?: boolean;
+};
+
 export function AdminQueryEditor({
   value,
   onChange,
   onSubmit,
   invalid = false,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  onSubmit?: () => void;
-  invalid?: boolean;
-}) {
+}: AdminQueryEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const valueRef = useRef(value);

@@ -53,7 +53,9 @@ function metricValueLabel(item: AdminMetric) {
   return "Structured value";
 }
 
-export function AdminMetricChart({ items }: { items: AdminMetric[] }) {
+export type AdminMetricChartProps = { items: AdminMetric[] };
+
+export function AdminMetricChart({ items }: AdminMetricChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const descriptionId = useId();
 

@@ -404,7 +404,7 @@ function CreateAlertDialog({
             onChange={(event) => {
               resetKindFields(event.target.value as CreateAlertRequest["kind"]);
             }}
-            className="min-h-11 w-full rounded-md border border-graphite bg-carbon px-3.5 text-sm text-mist outline-none focus:border-acid-lime/70 focus:ring-2 focus:ring-acid-lime/15"
+            className="min-h-11 w-full rounded-md border border-graphite bg-carbon px-3.5 text-sm text-mist outline-none focus-visible:border-acid-lime/70 focus-visible:ring-2 focus-visible:ring-acid-lime/15"
           >
             <option value={CreateAdminAlertRuleRequestKind.metric_threshold}>
               Metric threshold
@@ -442,7 +442,7 @@ function CreateAlertDialog({
               required
               value={monitorId}
               onChange={(event) => setMonitorId(event.target.value)}
-              className="min-h-11 w-full rounded-md border border-graphite bg-carbon px-3.5 text-sm text-mist outline-none focus:border-acid-lime/70 focus:ring-2 focus:ring-acid-lime/15"
+              className="min-h-11 w-full rounded-md border border-graphite bg-carbon px-3.5 text-sm text-mist outline-none focus-visible:border-acid-lime/70 focus-visible:ring-2 focus-visible:ring-acid-lime/15"
             >
               <option value="">Select a monitor</option>
               {availableMonitors.map((monitor) => (
@@ -498,7 +498,7 @@ function CreateAlertDialog({
                     id="alert-aggregation"
                     value={aggregation}
                     onChange={(event) => setAggregation(event.target.value)}
-                    className="min-h-11 w-full rounded-md border border-graphite bg-carbon px-3 text-sm text-mist outline-none focus:border-acid-lime/70"
+                    className="min-h-11 w-full rounded-md border border-graphite bg-carbon px-3 text-sm text-mist outline-none focus-visible:border-acid-lime/70"
                   >
                     <option value="avg">Average</option>
                     <option value="latest">Latest</option>
@@ -571,7 +571,7 @@ function CreateAlertDialog({
                   id="alert-percentile"
                   value={percentile}
                   onChange={(event) => setPercentile(event.target.value)}
-                  className="min-h-11 w-full rounded-md border border-graphite bg-carbon px-3 text-sm text-mist outline-none focus:border-acid-lime/70"
+                  className="min-h-11 w-full rounded-md border border-graphite bg-carbon px-3 text-sm text-mist outline-none focus-visible:border-acid-lime/70"
                 >
                   <option value="p50">p50</option>
                   <option value="p95">p95</option>
@@ -585,7 +585,7 @@ function CreateAlertDialog({
                   id="alert-operator"
                   value={operator}
                   onChange={(event) => setOperator(event.target.value)}
-                  className="min-h-11 w-full rounded-md border border-graphite bg-carbon px-3 text-sm text-mist outline-none focus:border-acid-lime/70"
+                  className="min-h-11 w-full rounded-md border border-graphite bg-carbon px-3 text-sm text-mist outline-none focus-visible:border-acid-lime/70"
                 >
                   <option value="gt">Greater than</option>
                   <option value="gte">At least</option>
@@ -641,7 +641,7 @@ function CreateAlertDialog({
                   event.target.value as CreateAlertRequest["severity"],
                 )
               }
-              className="min-h-11 w-full rounded-md border border-graphite bg-carbon px-3.5 text-sm text-mist outline-none focus:border-acid-lime/70 focus:ring-2 focus:ring-acid-lime/15"
+              className="min-h-11 w-full rounded-md border border-graphite bg-carbon px-3.5 text-sm text-mist outline-none focus-visible:border-acid-lime/70 focus-visible:ring-2 focus-visible:ring-acid-lime/15"
             >
               <option value="info">Info</option>
               <option value="warning">Warning</option>
