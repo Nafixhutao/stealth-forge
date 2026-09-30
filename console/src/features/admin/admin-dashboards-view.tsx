@@ -36,6 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatDate } from "@/lib/format";
 import { AdminMetricChart } from "./admin-metric-chart";
 import { AdminShell } from "./admin-shell";
+import { AdminEmptyState } from "./admin-empty-state";
 import { AdminTimeRange, useAdminTimeRange } from "./admin-time-range";
 import { FormField } from "@/components/form-field";
 
@@ -164,7 +165,13 @@ export function AdminDashboardsView() {
         </div>
         <div className="min-w-0">
           {!selectedId ? (
-            <EmptyDashboard onAdd={() => setDialogOpen(true)} />
+            <AdminEmptyState
+              icon={LayoutDashboard}
+              title="Choose a saved dashboard"
+              description="Dashboards query the authenticated telemetry API and show an explicit empty state when no signal has arrived."
+              actionLabel="New dashboard"
+              onAction={() => setDialogOpen(true)}
+            />
           ) : null}
           {selectedId && detail.isPending ? <LoadingState rows={3} /> : null}
           {selectedId && detail.error ? (
@@ -680,20 +687,5 @@ function panelsFromDefinition(
       "type" in value &&
       typeof value.type === "string",
     ),
-  );
-}
-function EmptyDashboard({ onAdd }: { onAdd: () => void }) {
-  return (
-    <div className="rounded-xl border border-dashed border-graphite bg-carbon/50 p-10 text-center">
-      <LayoutDashboard className="mx-auto size-5 text-fog" aria-hidden="true" />
-      <h2 className="mt-4 text-sm text-paper">Choose a saved dashboard</h2>
-      <p className="mt-2 text-sm text-fog">
-        Dashboards query the authenticated telemetry API and show an explicit
-        empty state when no signal has arrived.
-      </p>
-      <Button className="mt-5" size="sm" onClick={onAdd}>
-        <Plus className="size-3.5" aria-hidden="true" /> New dashboard
-      </Button>
-    </div>
   );
 }

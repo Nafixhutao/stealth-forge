@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDate, formatDuration } from "@/lib/format";
 import { AdminShell } from "./admin-shell";
+import { AdminEmptyState } from "./admin-empty-state";
 import { AdminTimeRange, useAdminTimeRange } from "./admin-time-range";
 import { FormField } from "@/components/form-field";
 
@@ -136,7 +137,14 @@ export function AdminMonitorsView() {
         />
       ) : null}
       {monitors.data && !sortedMonitors.length ? (
-        <EmptyMonitors onAdd={() => setDialogOpen(true)} />
+        <AdminEmptyState
+          icon={Activity}
+          title="No monitors configured"
+          description="Create an HTTP, TCP, DNS, TLS, or heartbeat check. Results will appear here after the worker completes its first run."
+          descriptionClassName="mx-auto max-w-md leading-6"
+          actionLabel="Add monitor"
+          onAction={() => setDialogOpen(true)}
+        />
       ) : null}
       {sortedMonitors.length ? (
         <div className="space-y-4">
@@ -777,22 +785,6 @@ function MonitorSummary({
     <div className="rounded-xl border border-graphite bg-carbon p-4">
       <p className="text-xs uppercase tracking-[0.1em] text-fog">{label}</p>
       <p className={`mt-2 font-mono text-2xl tabular-nums ${color}`}>{value}</p>
-    </div>
-  );
-}
-
-function EmptyMonitors({ onAdd }: { onAdd: () => void }) {
-  return (
-    <div className="rounded-xl border border-dashed border-graphite bg-carbon/50 p-10 text-center">
-      <Activity className="mx-auto size-5 text-fog" aria-hidden="true" />
-      <h2 className="mt-4 text-sm text-paper">No monitors configured</h2>
-      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-fog">
-        Create an HTTP, TCP, DNS, TLS, or heartbeat check. Results will appear
-        here after the worker completes its first run.
-      </p>
-      <Button className="mt-5" size="sm" onClick={onAdd}>
-        <Plus className="size-3.5" aria-hidden="true" /> Add monitor
-      </Button>
     </div>
   );
 }
