@@ -27,11 +27,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDate, formatDuration } from "@/lib/format";
 import { AdminShell } from "./admin-shell";
 import { AdminTimeRange, useAdminTimeRange } from "./admin-time-range";
+import { FormField } from "@/components/form-field";
 
 type MonitorKind = components["schemas"]["CreateAdminMonitorRequest"]["kind"];
 type CreateMonitorRequest = components["schemas"]["CreateAdminMonitorRequest"];
@@ -381,7 +381,7 @@ function CreateMonitorDialog({
       ) : (
         <form className="space-y-4" onSubmit={submit}>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Name" htmlFor="monitor-name">
+            <FormField label="Name" htmlFor="monitor-name">
               <Input
                 id="monitor-name"
                 required
@@ -389,8 +389,8 @@ function CreateMonitorDialog({
                 onChange={(event) => set("name", event.target.value)}
                 placeholder="Public API"
               />
-            </Field>
-            <Field label="Type" htmlFor="monitor-kind">
+            </FormField>
+            <FormField label="Type" htmlFor="monitor-kind">
               <select
                 id="monitor-kind"
                 value={form.kind}
@@ -406,9 +406,9 @@ function CreateMonitorDialog({
                   </option>
                 ))}
               </select>
-            </Field>
+            </FormField>
           </div>
-          <Field
+          <FormField
             label="Target"
             htmlFor="monitor-target"
             hint={
@@ -424,9 +424,9 @@ function CreateMonitorDialog({
               onChange={(event) => set("target", event.target.value)}
               placeholder={targetPlaceholder(kind)}
             />
-          </Field>
+          </FormField>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Interval (seconds)" htmlFor="monitor-interval">
+            <FormField label="Interval (seconds)" htmlFor="monitor-interval">
               <Input
                 id="monitor-interval"
                 type="number"
@@ -437,8 +437,8 @@ function CreateMonitorDialog({
                   set("interval_seconds", Number(event.target.value))
                 }
               />
-            </Field>
-            <Field label="Timeout (milliseconds)" htmlFor="monitor-timeout">
+            </FormField>
+            <FormField label="Timeout (milliseconds)" htmlFor="monitor-timeout">
               <Input
                 id="monitor-timeout"
                 type="number"
@@ -449,12 +449,12 @@ function CreateMonitorDialog({
                   set("timeout_ms", Number(event.target.value))
                 }
               />
-            </Field>
+            </FormField>
           </div>
           {kind === "http" ? (
             <div className="space-y-4 rounded-md border border-graphite bg-void/40 p-4">
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Method" htmlFor="monitor-method">
+                <FormField label="Method" htmlFor="monitor-method">
                   <select
                     id="monitor-method"
                     value={form.method ?? "GET"}
@@ -474,8 +474,8 @@ function CreateMonitorDialog({
                       ),
                     )}
                   </select>
-                </Field>
-                <Field label="Expected status" htmlFor="monitor-status">
+                </FormField>
+                <FormField label="Expected status" htmlFor="monitor-status">
                   <Input
                     id="monitor-status"
                     type="number"
@@ -486,9 +486,9 @@ function CreateMonitorDialog({
                       set("expected_status", Number(event.target.value))
                     }
                   />
-                </Field>
+                </FormField>
               </div>
-              <Field
+              <FormField
                 label="Secret headers (JSON)"
                 htmlFor="monitor-headers"
                 hint="Write-only. Values are encrypted before persistence; they are not shown again."
@@ -501,8 +501,8 @@ function CreateMonitorDialog({
                   className="min-h-20 font-mono text-xs"
                   autoComplete="off"
                 />
-              </Field>
-              <Field
+              </FormField>
+              <FormField
                 label="Request body"
                 htmlFor="monitor-body"
                 hint="Write-only; max 1 MiB."
@@ -514,8 +514,8 @@ function CreateMonitorDialog({
                   className="min-h-20 font-mono text-xs"
                   autoComplete="off"
                 />
-              </Field>
-              <Field
+              </FormField>
+              <FormField
                 label="Body contains"
                 htmlFor="monitor-body-contains"
                 hint="Write-only assertion; exact substring match."
@@ -526,12 +526,12 @@ function CreateMonitorDialog({
                   onChange={(event) => set("body_contains", event.target.value)}
                   autoComplete="off"
                 />
-              </Field>
+              </FormField>
             </div>
           ) : null}
           {kind === "tcp" || kind === "tls" ? (
             <div className="grid gap-4 rounded-md border border-graphite bg-void/40 p-4 sm:grid-cols-[1fr_160px]">
-              <Field
+              <FormField
                 label="Host (optional)"
                 htmlFor="monitor-host"
                 hint="If omitted, use host:port in Target."
@@ -541,8 +541,8 @@ function CreateMonitorDialog({
                   value={form.host ?? ""}
                   onChange={(event) => set("host", event.target.value)}
                 />
-              </Field>
-              <Field label="Port (optional)" htmlFor="monitor-port">
+              </FormField>
+              <FormField label="Port (optional)" htmlFor="monitor-port">
                 <Input
                   id="monitor-port"
                   type="number"
@@ -553,12 +553,12 @@ function CreateMonitorDialog({
                     set("port", Number(event.target.value) || undefined)
                   }
                 />
-              </Field>
+              </FormField>
             </div>
           ) : null}
           {kind === "dns" ? (
             <div className="grid gap-4 rounded-md border border-graphite bg-void/40 p-4 sm:grid-cols-2">
-              <Field label="Record type" htmlFor="monitor-record-type">
+              <FormField label="Record type" htmlFor="monitor-record-type">
                 <select
                   id="monitor-record-type"
                   value={
@@ -579,8 +579,8 @@ function CreateMonitorDialog({
                     </option>
                   ))}
                 </select>
-              </Field>
-              <Field
+              </FormField>
+              <FormField
                 label="Expected values"
                 htmlFor="monitor-expected-values"
                 hint="Comma-separated; every value must be present, extra DNS records are allowed. Leave blank to assert lookup success only."
@@ -598,11 +598,11 @@ function CreateMonitorDialog({
                     )
                   }
                 />
-              </Field>
+              </FormField>
             </div>
           ) : null}
           {kind === "heartbeat" ? (
-            <Field
+            <FormField
               label="Grace period (seconds)"
               htmlFor="monitor-grace"
               hint="The token is generated after creation and shown once."
@@ -617,7 +617,7 @@ function CreateMonitorDialog({
                   set("grace_seconds", Number(event.target.value))
                 }
               />
-            </Field>
+            </FormField>
           ) : null}
           {parseError ? (
             <p className="text-sm text-coral-red" role="alert">
@@ -758,27 +758,6 @@ function Detail({ label, children }: { label: string; children: ReactNode }) {
     </div>
   );
 }
-
-function Field({
-  label,
-  htmlFor,
-  hint,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  hint?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={htmlFor}>{label}</Label>
-      {children}
-      {hint ? <p className="text-[11px] leading-5 text-fog">{hint}</p> : null}
-    </div>
-  );
-}
-
 function MonitorSummary({
   label,
   value,

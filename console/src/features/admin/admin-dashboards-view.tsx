@@ -32,12 +32,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDate } from "@/lib/format";
 import { AdminMetricChart } from "./admin-metric-chart";
 import { AdminShell } from "./admin-shell";
 import { AdminTimeRange, useAdminTimeRange } from "./admin-time-range";
+import { FormField } from "@/components/form-field";
 
 type DashboardRequest = components["schemas"]["CreateAdminDashboardRequest"];
 type Panel = {
@@ -305,7 +305,7 @@ function CreateDashboardDialog({
         </DialogDescription>
       </DialogHeader>
       <form className="space-y-4" onSubmit={submit}>
-        <Field label="Name" htmlFor="dashboard-name">
+        <FormField label="Name" htmlFor="dashboard-name">
           <Input
             id="dashboard-name"
             required
@@ -313,15 +313,15 @@ function CreateDashboardDialog({
             onChange={(event) => setName(event.target.value)}
             placeholder="Instance health"
           />
-        </Field>
-        <Field label="Description" htmlFor="dashboard-description">
+        </FormField>
+        <FormField label="Description" htmlFor="dashboard-description">
           <Textarea
             id="dashboard-description"
             value={description}
             onChange={(event) => setDescription(event.target.value)}
           />
-        </Field>
-        <Field
+        </FormField>
+        <FormField
           label="Metric name"
           htmlFor="dashboard-metric"
           hint="Use the exact OTel/Prometheus metric name emitted by this instance."
@@ -332,15 +332,15 @@ function CreateDashboardDialog({
             value={metric}
             onChange={(event) => setMetric(event.target.value)}
           />
-        </Field>
-        <Field label="Service filter" htmlFor="dashboard-service">
+        </FormField>
+        <FormField label="Service filter" htmlFor="dashboard-service">
           <Input
             id="dashboard-service"
             value={service}
             onChange={(event) => setService(event.target.value)}
             placeholder="Optional"
           />
-        </Field>
+        </FormField>
         {mutation.error ? (
           <p className="text-sm text-coral-red" role="alert">
             {errorMessage(mutation.error)}
@@ -391,7 +391,7 @@ function AddPanelDialog({ onAdd }: { onAdd: (panel: Panel) => void }) {
         </DialogDescription>
       </DialogHeader>
       <form className="space-y-4" onSubmit={submit}>
-        <Field label="Panel type" htmlFor="dashboard-panel-type">
+        <FormField label="Panel type" htmlFor="dashboard-panel-type">
           <select
             id="dashboard-panel-type"
             value={type}
@@ -402,18 +402,18 @@ function AddPanelDialog({ onAdd }: { onAdd: (panel: Panel) => void }) {
             <option value="logs">Recent logs</option>
             <option value="monitor_status">Monitor status</option>
           </select>
-        </Field>
-        <Field label="Title" htmlFor="dashboard-panel-title">
+        </FormField>
+        <FormField label="Title" htmlFor="dashboard-panel-title">
           <Input
             id="dashboard-panel-title"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="Optional"
           />
-        </Field>
+        </FormField>
         {type === "time_series" ? (
           <>
-            <Field
+            <FormField
               label="Metric name"
               htmlFor="dashboard-panel-metric"
               hint="Use the exact OTel metric name emitted by this instance."
@@ -424,43 +424,43 @@ function AddPanelDialog({ onAdd }: { onAdd: (panel: Panel) => void }) {
                 onChange={(event) => setMetric(event.target.value)}
                 required
               />
-            </Field>
-            <Field label="Service filter" htmlFor="dashboard-panel-service">
+            </FormField>
+            <FormField label="Service filter" htmlFor="dashboard-panel-service">
               <Input
                 id="dashboard-panel-service"
                 value={service}
                 onChange={(event) => setService(event.target.value)}
                 placeholder="Optional"
               />
-            </Field>
+            </FormField>
           </>
         ) : null}
         {type === "logs" ? (
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Search text" htmlFor="dashboard-panel-query">
+            <FormField label="Search text" htmlFor="dashboard-panel-query">
               <Input
                 id="dashboard-panel-query"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Optional"
               />
-            </Field>
-            <Field label="Level" htmlFor="dashboard-panel-level">
+            </FormField>
+            <FormField label="Level" htmlFor="dashboard-panel-level">
               <Input
                 id="dashboard-panel-level"
                 value={level}
                 onChange={(event) => setLevel(event.target.value)}
                 placeholder="Optional"
               />
-            </Field>
-            <Field label="Service filter" htmlFor="dashboard-log-service">
+            </FormField>
+            <FormField label="Service filter" htmlFor="dashboard-log-service">
               <Input
                 id="dashboard-log-service"
                 value={service}
                 onChange={(event) => setService(event.target.value)}
                 placeholder="Optional"
               />
-            </Field>
+            </FormField>
           </div>
         ) : null}
         <DialogFooter>
@@ -680,25 +680,6 @@ function panelsFromDefinition(
       "type" in value &&
       typeof value.type === "string",
     ),
-  );
-}
-function Field({
-  label,
-  htmlFor,
-  hint,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  hint?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={htmlFor}>{label}</Label>
-      {children}
-      {hint ? <p className="text-[11px] text-fog">{hint}</p> : null}
-    </div>
   );
 }
 function EmptyDashboard({ onAdd }: { onAdd: () => void }) {
