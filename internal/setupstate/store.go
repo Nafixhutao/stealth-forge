@@ -319,6 +319,18 @@ func BeginInstallation(state *State, runID string) error {
 	switch state.Phase {
 	case PhaseInstallRequested:
 		state.Phase = PhaseInstalling
+		state.ErrorCode = ""
+		state.ErrorMessage = ""
+		state.Step = ""
+		return nil
+	case PhaseFailed:
+		// A failed host installation is resumable. Re-claiming the same run
+		// lets the documented `stealth install --repair` path re-run the engine
+		// instead of only re-displaying the previous failure.
+		state.Phase = PhaseInstalling
+		state.ErrorCode = ""
+		state.ErrorMessage = ""
+		state.Step = ""
 		return nil
 	case PhaseInstalling:
 		return nil
