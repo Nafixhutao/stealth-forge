@@ -57,7 +57,11 @@ func ValidateConfig(kind, target string, config []byte) error {
 	return validate(kind, target, value)
 }
 
-func Check(ctx context.Context, job repository.AdminMonitorJob, cipher *functionsecret.Cipher) repository.AdminMonitorCheckInput {
+func Check(
+	ctx context.Context,
+	job repository.AdminMonitorJob,
+	cipher *functionsecret.Cipher,
+) repository.AdminMonitorCheckInput {
 	started := time.Now()
 	result := repository.AdminMonitorCheckInput{Details: json.RawMessage(`{}`)}
 	if cipher == nil {
@@ -118,13 +122,23 @@ func validate(kind, target string, config monitorConfig) error {
 	if target == "" || strings.ContainsAny(target, "\x00\r\n") {
 		return errors.New("target is invalid")
 	}
-	if config.LatencyThresholdMS < 0 || config.LatencyThresholdMS > 120000 || config.GraceSeconds < 0 || config.GraceSeconds > 7*86400 || config.CertificateExpiryDays < 0 || config.CertificateExpiryDays > 3650 {
+	latencyThresholdValid := config.LatencyThresholdMS >= 0 && config.LatencyThresholdMS <= 120000
+	graceSecondsValid := config.GraceSeconds >= 0 && config.GraceSeconds <= 7*86400
+	certificateExpiryDaysValid := config.CertificateExpiryDays >= 0 && config.CertificateExpiryDays <= 3650
+	if !latencyThresholdValid || !graceSecondsValid || !certificateExpiryDaysValid {
 		return errors.New("threshold is invalid")
 	}
 	switch kind {
 	case "http":
 		parsed, err := url.Parse(target)
-		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Hostname() == "" || parsed.User != nil || parsed.Fragment != "" {
+		if err != nil {
+			return errors.New("HTTP target must be an absolute HTTP(S) URL")
+		}
+		validScheme := parsed.Scheme == "http" || parsed.Scheme == "https"
+		hasHostname := parsed.Hostname() != ""
+		hasNoUserInfo := parsed.User == nil
+		hasNoFragment := parsed.Fragment == ""
+		if !validScheme || !hasHostname || !hasNoUserInfo || !hasNoFragment {
 			return errors.New("HTTP target must be an absolute HTTP(S) URL")
 		}
 		method := strings.ToUpper(strings.TrimSpace(config.Method))
@@ -147,7 +161,8 @@ func validate(kind, target string, config monitorConfig) error {
 		}
 	case "tcp", "tls":
 		host, port, err := hostPort(target, config)
-		if err != nil || host == "" || port < 1 || port > 65535 {
+		validTarget := host != "" && port >= 1 && port <= 65535
+		if err != nil || !validTarget {
 			return errors.New("network target is invalid")
 		}
 	case "dns":
@@ -176,7 +191,12 @@ func validate(kind, target string, config monitorConfig) error {
 	return nil
 }
 
-func checkHTTP(ctx context.Context, job repository.AdminMonitorJob, config monitorConfig, details *json.RawMessage) (*int, error) {
+func checkHTTP(
+	ctx context.Context,
+	job repository.AdminMonitorJob,
+	config monitorConfig,
+	details *json.RawMessage,
+) (*int, error) {
 	method := strings.ToUpper(strings.TrimSpace(config.Method))
 	if method == "" {
 		method = http.MethodGet
@@ -238,7 +258,12 @@ func checkHTTP(ctx context.Context, job repository.AdminMonitorJob, config monit
 	return &response.StatusCode, nil
 }
 
-func checkTCP(ctx context.Context, job repository.AdminMonitorJob, config monitorConfig, details *json.RawMessage) error {
+func checkTCP(
+	ctx context.Context,
+	job repository.AdminMonitorJob,
+	config monitorConfig,
+	details *json.RawMessage,
+) error {
 	host, port, _ := hostPort(job.Target, config)
 	connection, err := safeDialContext(ctx, "tcp", net.JoinHostPort(host, strconv.Itoa(port)))
 	if err != nil {
@@ -250,7 +275,12 @@ func checkTCP(ctx context.Context, job repository.AdminMonitorJob, config monito
 	return nil
 }
 
-func checkDNS(ctx context.Context, job repository.AdminMonitorJob, config monitorConfig, details *json.RawMessage) error {
+func checkDNS(
+	ctx context.Context,
+	job repository.AdminMonitorJob,
+	config monitorConfig,
+	details *json.RawMessage,
+) error {
 	recordType := strings.ToUpper(strings.TrimSpace(config.RecordType))
 	if recordType == "" {
 		recordType = "A"
@@ -287,7 +317,12 @@ func checkDNS(ctx context.Context, job repository.AdminMonitorJob, config monito
 	return nil
 }
 
-func checkTLS(ctx context.Context, job repository.AdminMonitorJob, config monitorConfig, details *json.RawMessage) error {
+func checkTLS(
+	ctx context.Context,
+	job repository.AdminMonitorJob,
+	config monitorConfig,
+	details *json.RawMessage,
+) error {
 	host, port, _ := hostPort(job.Target, config)
 	connection, err := safeDialContext(ctx, "tcp", net.JoinHostPort(host, strconv.Itoa(port)))
 	if err != nil {
@@ -308,7 +343,13 @@ func checkTLS(ctx context.Context, job repository.AdminMonitorJob, config monito
 		return errors.New("TLS certificate is not currently valid")
 	}
 	days := int(time.Until(certificate.NotAfter).Hours() / 24)
-	encoded, _ := json.Marshal(map[string]any{"expires_at": certificate.NotAfter.UTC(), "issuer": certificate.Issuer.String(), "days_remaining": days})
+	encoded, _ := json.Marshal(
+		map[string]any{
+			"expires_at":     certificate.NotAfter.UTC(),
+			"issuer":         certificate.Issuer.String(),
+			"days_remaining": days,
+		},
+	)
 	*details = encoded
 	if config.CertificateExpiryDays > 0 && days < config.CertificateExpiryDays {
 		return errors.New("TLS certificate is approaching expiry")
@@ -316,18 +357,27 @@ func checkTLS(ctx context.Context, job repository.AdminMonitorJob, config monito
 	return nil
 }
 
-func checkHeartbeat(now time.Time, job repository.AdminMonitorJob, config monitorConfig, details *json.RawMessage) error {
+func checkHeartbeat(
+	now time.Time,
+	job repository.AdminMonitorJob,
+	config monitorConfig,
+	details *json.RawMessage,
+) error {
 	if job.LastHeartbeatAt == nil {
 		return errors.New("heartbeat has not been received")
 	}
 	age := now.Sub(job.LastHeartbeatAt.UTC())
 	grace := time.Duration(config.GraceSeconds) * time.Second
 	if age > time.Duration(job.IntervalSeconds)*time.Second+grace {
-		encoded, _ := json.Marshal(map[string]any{"last_heartbeat_at": job.LastHeartbeatAt.UTC(), "age_seconds": int64(age.Seconds())})
+		encoded, _ := json.Marshal(
+			map[string]any{"last_heartbeat_at": job.LastHeartbeatAt.UTC(), "age_seconds": int64(age.Seconds())},
+		)
 		*details = encoded
 		return errors.New("heartbeat is late")
 	}
-	encoded, _ := json.Marshal(map[string]any{"last_heartbeat_at": job.LastHeartbeatAt.UTC(), "age_seconds": int64(age.Seconds())})
+	encoded, _ := json.Marshal(
+		map[string]any{"last_heartbeat_at": job.LastHeartbeatAt.UTC(), "age_seconds": int64(age.Seconds())},
+	)
 	*details = encoded
 	return nil
 }
@@ -355,7 +405,9 @@ func validatePublicURL(ctx context.Context, value *url.URL) error {
 }
 
 func validatePublicURLWithResolver(ctx context.Context, resolver ipResolver, value *url.URL) error {
-	if value == nil || (value.Scheme != "http" && value.Scheme != "https") || value.Hostname() == "" || value.User != nil || value.Fragment != "" {
+	if value == nil || (value.Scheme != "http" && value.Scheme != "https") || value.Hostname() == "" ||
+		value.User != nil ||
+		value.Fragment != "" {
 		return errors.New("monitor URL is invalid")
 	}
 	if _, err := resolvePublicHostWithResolver(ctx, resolver, value.Hostname()); err != nil {
@@ -478,7 +530,13 @@ func isPublicIP(ip net.IP) bool {
 	if address.Is4In6() {
 		address = address.Unmap()
 	}
-	if !address.IsGlobalUnicast() || address.IsPrivate() || address.IsLoopback() || address.IsLinkLocalUnicast() || address.IsMulticast() || address.IsUnspecified() {
+	isGlobalUnicast := address.IsGlobalUnicast()
+	isPrivate := address.IsPrivate()
+	isLoopback := address.IsLoopback()
+	isLinkLocalUnicast := address.IsLinkLocalUnicast()
+	isMulticast := address.IsMulticast()
+	isUnspecified := address.IsUnspecified()
+	if !isGlobalUnicast || isPrivate || isLoopback || isLinkLocalUnicast || isMulticast || isUnspecified {
 		return false
 	}
 	for _, prefix := range monitorDeniedPrefixes {
@@ -551,7 +609,8 @@ func validHTTPMethod(value string) bool {
 }
 
 func validHeader(key, value string) bool {
-	return strings.TrimSpace(key) != "" && len(key) <= 128 && len(value) <= 4096 && !strings.ContainsAny(key+value, "\x00\r\n")
+	return strings.TrimSpace(key) != "" && len(key) <= 128 && len(value) <= 4096 &&
+		!strings.ContainsAny(key+value, "\x00\r\n")
 }
 
 func validDNSName(value string) bool {
@@ -564,7 +623,9 @@ func validDNSName(value string) bool {
 			return false
 		}
 		for _, character := range label {
-			if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') || character == '-' {
+			if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+				(character >= '0' && character <= '9') ||
+				character == '-' {
 				continue
 			}
 			return false

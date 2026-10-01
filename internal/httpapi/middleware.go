@@ -57,7 +57,11 @@ func (s *Server) requireProjectManagement(next http.Handler) http.Handler {
 				internalError(s, w, err)
 				return
 			}
-			ctx := context.WithValue(r.Context(), projectActorContextKey, projectActor{kind: apiKeyProjectActor, apiKeyID: keyID, scopes: key.Scopes})
+			ctx := context.WithValue(
+				r.Context(),
+				projectActorContextKey,
+				projectActor{kind: apiKeyProjectActor, apiKeyID: keyID, scopes: key.Scopes},
+			)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
@@ -119,7 +123,11 @@ func (s *Server) requireFunctionExecutionActor(next http.Handler) http.Handler {
 				internalError(s, w, err)
 				return
 			}
-			ctx := context.WithValue(r.Context(), projectActorContextKey, projectActor{kind: apiKeyProjectActor, apiKeyID: keyID, scopes: key.Scopes})
+			ctx := context.WithValue(
+				r.Context(),
+				projectActorContextKey,
+				projectActor{kind: apiKeyProjectActor, apiKeyID: keyID, scopes: key.Scopes},
+			)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
@@ -156,10 +164,20 @@ func (s *Server) requireFunctionExecutionActor(next http.Handler) http.Handler {
 }
 
 func (s *Server) allowFailedProjectAPIKeyAuth(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) bool {
-	decision, err := s.limiter.Allow(r.Context(), ratelimit.ProjectIPKey("api_key_auth", projectID.String(), s.requestClientIP(r)), s.config.AuthRateLimit, s.config.AuthRateWindow)
+	decision, err := s.limiter.Allow(
+		r.Context(),
+		ratelimit.ProjectIPKey("api_key_auth", projectID.String(), s.requestClientIP(r)),
+		s.config.AuthRateLimit,
+		s.config.AuthRateWindow,
+	)
 	if err != nil {
 		s.logger.Error("API key rate limiter failed", "error", err)
-		writeError(w, http.StatusServiceUnavailable, "service_unavailable", "authentication protection is temporarily unavailable")
+		writeError(
+			w,
+			http.StatusServiceUnavailable,
+			"service_unavailable",
+			"authentication protection is temporarily unavailable",
+		)
 		return false
 	}
 	if !decision.Allowed {
@@ -184,7 +202,11 @@ func (s *Server) requireProjectAppSession(next http.Handler) http.Handler {
 			writeError(w, http.StatusUnauthorized, "unauthorized", "application authentication is required")
 			return
 		}
-		item, sessionID, err := s.repo.ApplicationUserBySession(r.Context(), projectID, auth.HashSessionToken(cookie.Value))
+		item, sessionID, err := s.repo.ApplicationUserBySession(
+			r.Context(),
+			projectID,
+			auth.HashSessionToken(cookie.Value),
+		)
 		if errors.Is(err, repository.ErrNotFound) {
 			writeError(w, http.StatusUnauthorized, "unauthorized", "application authentication is required")
 			return
@@ -252,7 +274,13 @@ func projectSessionSameSite(secure bool) http.SameSite {
 	return http.SameSiteLaxMode
 }
 
-func (s *Server) allowPublicAuth(w http.ResponseWriter, r *http.Request, operation string, projectID uuid.UUID, normalizedEmail string) bool {
+func (s *Server) allowPublicAuth(
+	w http.ResponseWriter,
+	r *http.Request,
+	operation string,
+	projectID uuid.UUID,
+	normalizedEmail string,
+) bool {
 	clientIP := s.requestClientIP(r)
 	keys := []string{
 		ratelimit.ProjectIPKey(operation, projectID.String(), clientIP),
@@ -262,7 +290,12 @@ func (s *Server) allowPublicAuth(w http.ResponseWriter, r *http.Request, operati
 		decision, err := s.limiter.Allow(r.Context(), key, s.config.AuthRateLimit, s.config.AuthRateWindow)
 		if err != nil {
 			s.logger.Error("public auth rate limiter failed", "operation", operation, "error", err)
-			writeError(w, http.StatusServiceUnavailable, "service_unavailable", "authentication protection is temporarily unavailable")
+			writeError(
+				w,
+				http.StatusServiceUnavailable,
+				"service_unavailable",
+				"authentication protection is temporarily unavailable",
+			)
 			return false
 		}
 		if decision.Allowed {
@@ -287,7 +320,12 @@ func (s *Server) allowAccountAuth(w http.ResponseWriter, r *http.Request, operat
 		decision, err := s.limiter.Allow(r.Context(), key, s.config.AuthRateLimit, s.config.AuthRateWindow)
 		if err != nil {
 			s.logger.Error("account auth rate limiter failed", "operation", operation, "error", err)
-			writeError(w, http.StatusServiceUnavailable, "service_unavailable", "authentication protection is temporarily unavailable")
+			writeError(
+				w,
+				http.StatusServiceUnavailable,
+				"service_unavailable",
+				"authentication protection is temporarily unavailable",
+			)
 			return false
 		}
 		if decision.Allowed {
@@ -349,15 +387,39 @@ func (s *Server) rateLimitAgentRun(next http.Handler) http.Handler {
 	})
 }
 
-func (s *Server) allowOperationRateLimit(w http.ResponseWriter, r *http.Request, operation, scope, actorID string) bool {
+func (s *Server) allowOperationRateLimit(
+	w http.ResponseWriter,
+	r *http.Request,
+	operation, scope, actorID string,
+) bool {
 	key := ratelimit.ActorKey(operation, scope, actorID)
 	if actorID == "" {
 		key = ratelimit.ProjectIPKey(operation, scope, s.requestClientIP(r))
 	}
-	decision, err := s.limiter.Allow(r.Context(), key, s.config.ProjectOperationRateLimit, s.config.ProjectOperationRateWindow)
+	decision, err := s.limiter.Allow(
+		r.Context(),
+		key,
+		s.config.ProjectOperationRateLimit,
+		s.config.ProjectOperationRateWindow,
+	)
 	if err != nil {
-		s.logger.Error("project operation rate limiter failed", "operation", operation, "scope", scope, "request_id", requestIDFrom(r.Context()), "error", err)
-		writeError(w, http.StatusServiceUnavailable, "service_unavailable", "rate limiting protection is temporarily unavailable")
+		s.logger.Error(
+			"project operation rate limiter failed",
+			"operation",
+			operation,
+			"scope",
+			scope,
+			"request_id",
+			requestIDFrom(r.Context()),
+			"error",
+			err,
+		)
+		writeError(
+			w,
+			http.StatusServiceUnavailable,
+			"service_unavailable",
+			"rate limiting protection is temporarily unavailable",
+		)
 		return false
 	}
 	if !decision.Allowed {
@@ -446,17 +508,47 @@ func accountFrom(r *http.Request) domain.Account {
 }
 func sessionFrom(r *http.Request) uuid.UUID { return r.Context().Value(sessionContextKey).(uuid.UUID) }
 func (s *Server) setSessionCookie(w http.ResponseWriter, token string) {
-	http.SetCookie(w, &http.Cookie{Name: s.config.SessionCookieName, Value: token, Path: "/", HttpOnly: true, Secure: s.config.CookieSecure, SameSite: projectSessionSameSite(s.config.CookieSecure), MaxAge: int(s.config.SessionTTL.Seconds()), Expires: time.Now().UTC().Add(s.config.SessionTTL)})
+	http.SetCookie(
+		w,
+		&http.Cookie{
+			Name:     s.config.SessionCookieName,
+			Value:    token,
+			Path:     "/",
+			HttpOnly: true,
+			Secure:   s.config.CookieSecure,
+			SameSite: projectSessionSameSite(s.config.CookieSecure),
+			MaxAge:   int(s.config.SessionTTL.Seconds()),
+			Expires:  time.Now().UTC().Add(s.config.SessionTTL),
+		},
+	)
 }
 func (s *Server) clearSessionCookie(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{Name: s.config.SessionCookieName, Value: "", Path: "/", HttpOnly: true, Secure: s.config.CookieSecure, SameSite: projectSessionSameSite(s.config.CookieSecure), MaxAge: -1, Expires: time.Unix(1, 0)})
+	http.SetCookie(
+		w,
+		&http.Cookie{
+			Name:     s.config.SessionCookieName,
+			Value:    "",
+			Path:     "/",
+			HttpOnly: true,
+			Secure:   s.config.CookieSecure,
+			SameSite: projectSessionSameSite(s.config.CookieSecure),
+			MaxAge:   -1,
+			Expires:  time.Unix(1, 0),
+		},
+	)
 }
 
 func (s *Server) limitRequestBody(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		limit := int64(maxBodyBytes)
 		contentType := strings.ToLower(r.Header.Get("Content-Type"))
-		if strings.HasPrefix(contentType, "multipart/form-data") && (strings.Contains(r.URL.Path, "/storage/") || strings.Contains(r.URL.Path, "/functions/") && strings.Contains(r.URL.Path, "/deployments") || strings.Contains(r.URL.Path, "/sites/") && strings.Contains(r.URL.Path, "/deployments") || strings.Contains(r.URL.Path, "/apps/") && strings.Contains(r.URL.Path, "/deployments")) {
+		isMultipart := strings.HasPrefix(contentType, "multipart/form-data")
+		path := r.URL.Path
+		isStorageUpload := strings.Contains(path, "/storage/")
+		isFunctionDeployment := strings.Contains(path, "/functions/") && strings.Contains(path, "/deployments")
+		isSiteDeployment := strings.Contains(path, "/sites/") && strings.Contains(path, "/deployments")
+		isAppDeployment := strings.Contains(path, "/apps/") && strings.Contains(path, "/deployments")
+		if isMultipart && (isStorageUpload || isFunctionDeployment || isSiteDeployment || isAppDeployment) {
 			configured := s.config.StorageMaxFileSize
 			if strings.Contains(r.URL.Path, "/functions/") {
 				configured = s.config.FunctionsMaxArtifactSize
@@ -473,7 +565,12 @@ func (s *Server) limitRequestBody(next http.Handler) http.Handler {
 			}
 		}
 		if r.ContentLength > limit {
-			writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "request body exceeds the configured upload limit")
+			writeError(
+				w,
+				http.StatusRequestEntityTooLarge,
+				"payload_too_large",
+				"request body exceeds the configured upload limit",
+			)
 			return
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, limit)

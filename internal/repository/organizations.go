@@ -10,8 +10,19 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (r *Repository) ListOrganizations(ctx context.Context, accountID uuid.UUID, limit int, cursor string) ([]domain.Organization, string, error) {
-	rows, err := r.pool.Query(ctx, `SELECT o.id,o.name,o.slug,o.created_at FROM organizations o JOIN organization_memberships m ON m.organization_id=o.id WHERE m.account_id=$1 AND ($2='' OR o.id::text > $2) ORDER BY o.id LIMIT $3`, accountID, cursor, limit+1)
+func (r *Repository) ListOrganizations(
+	ctx context.Context,
+	accountID uuid.UUID,
+	limit int,
+	cursor string,
+) ([]domain.Organization, string, error) {
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT o.id,o.name,o.slug,o.created_at FROM organizations o JOIN organization_memberships m ON m.organization_id=o.id WHERE m.account_id=$1 AND ($2='' OR o.id::text > $2) ORDER BY o.id LIMIT $3`,
+		accountID,
+		cursor,
+		limit+1,
+	)
 	if err != nil {
 		return nil, "", err
 	}
@@ -34,7 +45,12 @@ func (r *Repository) ListOrganizations(ctx context.Context, accountID uuid.UUID,
 	}
 	return items, next, nil
 }
-func (r *Repository) CreateOrganization(ctx context.Context, id, accountID uuid.UUID, name, slug string) (domain.Organization, error) {
+
+func (r *Repository) CreateOrganization(
+	ctx context.Context,
+	id, accountID uuid.UUID,
+	name, slug string,
+) (domain.Organization, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.Organization{}, err
@@ -62,16 +78,23 @@ func (r *Repository) CreateOrganization(ctx context.Context, id, accountID uuid.
 // UpdateOrganization changes organization identity metadata. Owners and
 // admins may edit the name and slug, while the immutable organization ID keeps
 // SDK configuration and audit history stable.
-func (r *Repository) UpdateOrganization(ctx context.Context, organizationID, accountID uuid.UUID, name, slug string) (domain.Organization, error) {
+func (r *Repository) UpdateOrganization(
+	ctx context.Context,
+	organizationID, accountID uuid.UUID,
+	name, slug string,
+) (domain.Organization, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.Organization{}, err
 	}
 	defer tx.Rollback(ctx)
 	var item domain.Organization
-	if err := tx.QueryRow(ctx, `SELECT id,name,slug,created_at FROM organizations WHERE id=$1 FOR UPDATE`, organizationID).Scan(&item.ID, &item.Name, &item.Slug, &item.CreatedAt); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT id,name,slug,created_at FROM organizations WHERE id=$1 FOR UPDATE`, organizationID).
+		Scan(&item.ID, &item.Name, &item.Slug, &item.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Organization{}, ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return domain.Organization{}, err
 	}
 	if err := requireRoleTx(ctx, tx, organizationID, accountID, "owner", "admin"); err != nil {
@@ -101,7 +124,13 @@ func (r *Repository) UpdateOrganization(ctx context.Context, organizationID, acc
 	}
 	return item, nil
 }
-func (r *Repository) ListMemberships(ctx context.Context, organizationID, accountID uuid.UUID, limit int, cursor string) ([]domain.Membership, string, bool, error) {
+
+func (r *Repository) ListMemberships(
+	ctx context.Context,
+	organizationID, accountID uuid.UUID,
+	limit int,
+	cursor string,
+) ([]domain.Membership, string, bool, error) {
 	if err := r.requireMembership(ctx, organizationID, accountID); err != nil {
 		return nil, "", false, err
 	}
@@ -109,7 +138,13 @@ func (r *Repository) ListMemberships(ctx context.Context, organizationID, accoun
 	if err := r.pool.QueryRow(ctx, `SELECT role FROM organization_memberships WHERE organization_id=$1 AND account_id=$2`, organizationID, accountID).Scan(&role); err != nil {
 		return nil, "", false, err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT m.organization_id,m.account_id,a.email,ai.provider,ai.provider_login,m.role,m.created_at FROM organization_memberships m JOIN accounts a ON a.id=m.account_id LEFT JOIN account_identities ai ON ai.account_id=a.id AND ai.provider='github' WHERE m.organization_id=$1 AND ($2='' OR m.account_id::text>$2) ORDER BY m.account_id LIMIT $3`, organizationID, cursor, limit+1)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT m.organization_id,m.account_id,a.email,ai.provider,ai.provider_login,m.role,m.created_at FROM organization_memberships m JOIN accounts a ON a.id=m.account_id LEFT JOIN account_identities ai ON ai.account_id=a.id AND ai.provider='github' WHERE m.organization_id=$1 AND ($2='' OR m.account_id::text>$2) ORDER BY m.account_id LIMIT $3`,
+		organizationID,
+		cursor,
+		limit+1,
+	)
 	if err != nil {
 		return nil, "", false, err
 	}

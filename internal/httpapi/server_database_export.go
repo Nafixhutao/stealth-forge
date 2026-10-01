@@ -69,12 +69,22 @@ func parseDatabaseExportLimit(raw string) (int, error) {
 	}
 	limit, err := strconv.Atoi(raw)
 	if err != nil || limit < 1 || limit > repository.DatabaseRowExportMaxLimit {
-		return 0, fmt.Errorf("%w: export limit must be between 1 and %d", repository.ErrInvalidQuery, repository.DatabaseRowExportMaxLimit)
+		return 0, fmt.Errorf(
+			"%w: export limit must be between 1 and %d",
+			repository.ErrInvalidQuery,
+			repository.DatabaseRowExportMaxLimit,
+		)
 	}
 	return limit, nil
 }
 
-func (s *Server) exportDatabaseRowsJSON(w http.ResponseWriter, r *http.Request, projectID, databaseID, tableID uuid.UUID, actor repository.DatabaseActor, limit int) {
+func (s *Server) exportDatabaseRowsJSON(
+	w http.ResponseWriter,
+	r *http.Request,
+	projectID, databaseID, tableID uuid.UUID,
+	actor repository.DatabaseActor,
+	limit int,
+) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	if _, err := w.Write([]byte(`{"rows":[`)); err != nil {
@@ -82,20 +92,28 @@ func (s *Server) exportDatabaseRowsJSON(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	first := true
-	count, err := s.repo.StreamDatabaseRows(r.Context(), projectID, databaseID, tableID, actor, limit, func(row domain.DatabaseRow) error {
-		if !first {
-			if _, err := w.Write([]byte(",")); err != nil {
+	count, err := s.repo.StreamDatabaseRows(
+		r.Context(),
+		projectID,
+		databaseID,
+		tableID,
+		actor,
+		limit,
+		func(row domain.DatabaseRow) error {
+			if !first {
+				if _, err := w.Write([]byte(",")); err != nil {
+					return err
+				}
+			}
+			first = false
+			encoded, err := json.Marshal(row)
+			if err != nil {
 				return err
 			}
-		}
-		first = false
-		encoded, err := json.Marshal(row)
-		if err != nil {
+			_, err = w.Write(encoded)
 			return err
-		}
-		_, err = w.Write(encoded)
-		return err
-	})
+		},
+	)
 	if err != nil {
 		s.logger.Warn("database JSON export failed", "table_id", tableID, "count", count, "error", err)
 		return
@@ -105,7 +123,14 @@ func (s *Server) exportDatabaseRowsJSON(w http.ResponseWriter, r *http.Request, 
 	}
 }
 
-func (s *Server) exportDatabaseRowsCSV(w http.ResponseWriter, r *http.Request, projectID, databaseID, tableID uuid.UUID, actor repository.DatabaseActor, schema repository.DatabaseTableSchema, limit int) {
+func (s *Server) exportDatabaseRowsCSV(
+	w http.ResponseWriter,
+	r *http.Request,
+	projectID, databaseID, tableID uuid.UUID,
+	actor repository.DatabaseActor,
+	schema repository.DatabaseTableSchema,
+	limit int,
+) {
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	writer := csv.NewWriter(w)
@@ -117,22 +142,36 @@ func (s *Server) exportDatabaseRowsCSV(w http.ResponseWriter, r *http.Request, p
 		s.logger.Warn("database CSV export failed", "table_id", tableID, "error", err)
 		return
 	}
-	count, err := s.repo.StreamDatabaseRows(r.Context(), projectID, databaseID, tableID, actor, limit, func(row domain.DatabaseRow) error {
-		record := []string{row.ID, row.ProjectID, row.TableID, row.CreatedAt.UTC().Format("2006-01-02T15:04:05.999999999Z07:00"), row.UpdatedAt.UTC().Format("2006-01-02T15:04:05.999999999Z07:00")}
-		for _, column := range schema.Columns {
-			value, exists := row.Data[column.Key]
-			if !exists {
-				record = append(record, "")
-				continue
+	count, err := s.repo.StreamDatabaseRows(
+		r.Context(),
+		projectID,
+		databaseID,
+		tableID,
+		actor,
+		limit,
+		func(row domain.DatabaseRow) error {
+			record := []string{
+				row.ID,
+				row.ProjectID,
+				row.TableID,
+				row.CreatedAt.UTC().Format("2006-01-02T15:04:05.999999999Z07:00"),
+				row.UpdatedAt.UTC().Format("2006-01-02T15:04:05.999999999Z07:00"),
 			}
-			encoded, marshalErr := json.Marshal(value)
-			if marshalErr != nil {
-				return marshalErr
+			for _, column := range schema.Columns {
+				value, exists := row.Data[column.Key]
+				if !exists {
+					record = append(record, "")
+					continue
+				}
+				encoded, marshalErr := json.Marshal(value)
+				if marshalErr != nil {
+					return marshalErr
+				}
+				record = append(record, string(encoded))
 			}
-			record = append(record, string(encoded))
-		}
-		return writer.Write(record)
-	})
+			return writer.Write(record)
+		},
+	)
 	writer.Flush()
 	if err != nil || writer.Error() != nil {
 		if err == nil {

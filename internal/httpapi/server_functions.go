@@ -77,7 +77,11 @@ func functionActorFrom(r *http.Request) repository.FunctionActor {
 		return repository.FunctionActor{}
 	}
 	if actor.kind == apiKeyProjectActor {
-		return repository.FunctionActor{Kind: repository.FunctionAPIKeyActor, APIKeyID: actor.apiKeyID, APIKeyScopes: actor.scopes}
+		return repository.FunctionActor{
+			Kind:         repository.FunctionAPIKeyActor,
+			APIKeyID:     actor.apiKeyID,
+			APIKeyScopes: actor.scopes,
+		}
 	}
 	account, ok := r.Context().Value(accountContextKey).(domain.Account)
 	if !ok {
@@ -87,7 +91,7 @@ func functionActorFrom(r *http.Request) repository.FunctionActor {
 }
 
 func parseFunctionCreateRequest(s *Server, req functionRequest) (repository.FunctionInput, error) {
-	nameValue := ""
+	var nameValue string
 	if req.Name != nil {
 		nameValue = *req.Name
 	}
@@ -111,7 +115,7 @@ func parseFunctionCreateRequest(s *Server, req functionRequest) (repository.Func
 	if err != nil {
 		return repository.FunctionInput{}, err
 	}
-	commandsValue := ""
+	var commandsValue string
 	if req.Commands != nil {
 		commandsValue = *req.Commands
 	}
@@ -169,7 +173,7 @@ func parseFunctionCreateRequest(s *Server, req functionRequest) (repository.Func
 
 func parseFunctionPatchRequest(req functionRequest) (repository.FunctionPatch, error) {
 	patch := repository.FunctionPatch{}
-	changed := false
+	var changed bool
 	if req.Name != nil {
 		value, err := validateFunctionName(*req.Name)
 		if err != nil {
@@ -263,7 +267,11 @@ func validateFunctionRuntime(value string) (string, error) {
 
 func validateFunctionEntrypoint(value string) (string, error) {
 	value = strings.TrimSpace(value)
-	if value == "" || len(value) > 255 || value == "." || value == ".." || strings.HasPrefix(value, "/") || strings.ContainsAny(value, "\\\x00\r\n") {
+	emptyOrTooLong := value == "" || len(value) > 255
+	isDotSegment := value == "." || value == ".."
+	hasInvalidPrefix := strings.HasPrefix(value, "/")
+	hasUnsafeChars := strings.ContainsAny(value, "\\\x00\r\n")
+	if emptyOrTooLong || isDotSegment || hasInvalidPrefix || hasUnsafeChars {
 		return "", errors.New("entrypoint must be a non-empty safe path")
 	}
 	for _, segment := range strings.Split(value, "/") {
@@ -313,7 +321,11 @@ func (s *Server) listFunctions(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"functions": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"functions": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) getFunction(w http.ResponseWriter, r *http.Request) {
@@ -427,7 +439,14 @@ func (s *Server) listFunctionVariables(w http.ResponseWriter, r *http.Request) {
 		parsed := mustUUID(cursor)
 		cursorID = &parsed
 	}
-	items, next, canManage, err := s.repo.ListFunctionVariables(r.Context(), projectID, functionID, functionActorFrom(r), limit, cursorID)
+	items, next, canManage, err := s.repo.ListFunctionVariables(
+		r.Context(),
+		projectID,
+		functionID,
+		functionActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if functionResourceError(w, err) {
 		return
 	}
@@ -435,7 +454,11 @@ func (s *Server) listFunctionVariables(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"variables": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"variables": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) getFunctionVariable(w http.ResponseWriter, r *http.Request) {
@@ -464,15 +487,31 @@ func (s *Server) createFunctionVariable(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if !functionVariablePattern.MatchString(req.Key) {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "key must start with a letter or underscore and contain only letters, numbers, and underscores")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"key must start with a letter or underscore and contain only letters, numbers, and underscores",
+		)
 		return
 	}
 	if req.Value == nil || len(*req.Value) == 0 || len(*req.Value) > functionVariableMaxValueBytes {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "value must contain between 1 and 65536 bytes")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"value must contain between 1 and 65536 bytes",
+		)
 		return
 	}
-	if req.Description != nil && (len(*req.Description) > functionVariableMaxDescriptionBytes || strings.ContainsRune(*req.Description, '\x00')) {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "description must be at most 2000 bytes and cannot contain NUL")
+	if req.Description != nil &&
+		(len(*req.Description) > functionVariableMaxDescriptionBytes || strings.ContainsRune(*req.Description, '\x00')) {
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"description must be at most 2000 bytes and cannot contain NUL",
+		)
 		return
 	}
 	kind, secret, err := functionVariableKind(req.Kind, req.IsSecret)
@@ -484,7 +523,21 @@ func (s *Server) createFunctionVariable(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusServiceUnavailable, "not_ready", "function secret encryption is not ready")
 		return
 	}
-	item, err := s.repo.CreateFunctionVariable(r.Context(), uuid.Must(uuid.NewV7()), projectID, functionID, functionActorFrom(r), repository.FunctionVariableInput{Key: req.Key, Kind: kind, IsSecret: &secret, Value: req.Value, Description: req.Description, Cipher: s.functionCipher})
+	item, err := s.repo.CreateFunctionVariable(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		projectID,
+		functionID,
+		functionActorFrom(r),
+		repository.FunctionVariableInput{
+			Key:         req.Key,
+			Kind:        kind,
+			IsSecret:    &secret,
+			Value:       req.Value,
+			Description: req.Description,
+			Cipher:      s.functionCipher,
+		},
+	)
 	if functionResourceError(w, err) {
 		return
 	}
@@ -510,15 +563,31 @@ func (s *Server) updateFunctionVariable(w http.ResponseWriter, r *http.Request) 
 		patch.SetDescription = true
 	}
 	if patch.Key != nil && !functionVariablePattern.MatchString(*patch.Key) {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "key must start with a letter or underscore and contain only letters, numbers, and underscores")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"key must start with a letter or underscore and contain only letters, numbers, and underscores",
+		)
 		return
 	}
 	if patch.Value != nil && (len(*patch.Value) == 0 || len(*patch.Value) > functionVariableMaxValueBytes) {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "value must contain between 1 and 65536 bytes")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"value must contain between 1 and 65536 bytes",
+		)
 		return
 	}
-	if patch.Description != nil && (len(*patch.Description) > functionVariableMaxDescriptionBytes || strings.ContainsRune(*patch.Description, '\x00')) {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "description must be at most 2000 bytes and cannot contain NUL")
+	if patch.Description != nil &&
+		(len(*patch.Description) > functionVariableMaxDescriptionBytes || strings.ContainsRune(*patch.Description, '\x00')) {
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"description must be at most 2000 bytes and cannot contain NUL",
+		)
 		return
 	}
 	if patch.SetValue || patch.ClearValue {
@@ -531,7 +600,14 @@ func (s *Server) updateFunctionVariable(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", "at least one variable setting is required")
 		return
 	}
-	item, err := s.repo.UpdateFunctionVariable(r.Context(), projectID, functionID, variableID, functionActorFrom(r), patch)
+	item, err := s.repo.UpdateFunctionVariable(
+		r.Context(),
+		projectID,
+		functionID,
+		variableID,
+		functionActorFrom(r),
+		patch,
+	)
 	if functionResourceError(w, err) {
 		return
 	}
@@ -572,7 +648,14 @@ func (s *Server) listFunctionDeployments(w http.ResponseWriter, r *http.Request)
 		parsed := mustUUID(cursor)
 		cursorID = &parsed
 	}
-	items, next, canManage, err := s.repo.ListFunctionDeployments(r.Context(), projectID, functionID, functionActorFrom(r), limit, cursorID)
+	items, next, canManage, err := s.repo.ListFunctionDeployments(
+		r.Context(),
+		projectID,
+		functionID,
+		functionActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if functionResourceError(w, err) {
 		return
 	}
@@ -580,7 +663,11 @@ func (s *Server) listFunctionDeployments(w http.ResponseWriter, r *http.Request)
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"deployments": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"deployments": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) getFunctionDeployment(w http.ResponseWriter, r *http.Request) {
@@ -610,7 +697,12 @@ func (s *Server) uploadFunctionDeployment(w http.ResponseWriter, r *http.Request
 	}
 	mediaType, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || mediaType != "multipart/form-data" || params["boundary"] == "" {
-		writeError(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "Content-Type must be multipart/form-data")
+		writeError(
+			w,
+			http.StatusUnsupportedMediaType,
+			"unsupported_media_type",
+			"Content-Type must be multipart/form-data",
+		)
 		return
 	}
 	reader := multipart.NewReader(r.Body, params["boundary"])
@@ -618,7 +710,7 @@ func (s *Server) uploadFunctionDeployment(w http.ResponseWriter, r *http.Request
 	var prepared functionstore.PreparedArtifact
 	var sourceName string
 	var activate bool
-	haveSource, haveActivate := false, false
+	var haveSource, haveActivate bool
 	cleanup := func() { s.functions.Cleanup(&prepared) }
 	defer cleanup()
 	for {
@@ -628,7 +720,12 @@ func (s *Server) uploadFunctionDeployment(w http.ResponseWriter, r *http.Request
 		}
 		if nextErr != nil {
 			if isMaxBytesError(nextErr) {
-				writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "request body exceeds the configured upload limit")
+				writeError(
+					w,
+					http.StatusRequestEntityTooLarge,
+					"payload_too_large",
+					"request body exceeds the configured upload limit",
+				)
 			} else {
 				writeError(w, http.StatusBadRequest, "invalid_request", "invalid multipart upload")
 			}
@@ -651,10 +748,22 @@ func (s *Server) uploadFunctionDeployment(w http.ResponseWriter, r *http.Request
 					return
 				}
 			}
-			prepared, err = s.functions.BeginUploadWithLimit(r.Context(), projectID, functionID, deploymentID, part, s.config.FunctionsMaxArtifactSize)
+			prepared, err = s.functions.BeginUploadWithLimit(
+				r.Context(),
+				projectID,
+				functionID,
+				deploymentID,
+				part,
+				s.config.FunctionsMaxArtifactSize,
+			)
 			_ = part.Close()
 			if errors.Is(err, functionstore.ErrTooLarge) {
-				writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "source artifact exceeds the configured maximum size")
+				writeError(
+					w,
+					http.StatusRequestEntityTooLarge,
+					"payload_too_large",
+					"source artifact exceeds the configured maximum size",
+				)
 				return
 			}
 			if err != nil {
@@ -730,7 +839,23 @@ func (s *Server) uploadFunctionDeployment(w http.ResponseWriter, r *http.Request
 	if actor.Kind == repository.FunctionConsoleActor && actor.AccountID != uuid.Nil {
 		createdBy = &actor.AccountID
 	}
-	item, err := s.repo.CreateFunctionDeployment(r.Context(), deploymentID, projectID, functionID, actor, repository.FunctionDeploymentInput{Source: "upload", SourceName: &name, SizeBytes: prepared.Size, ChecksumSHA256: prepared.Checksum, SourcePath: prepared.RelativePath, CreatedByAccountID: createdBy, Activate: activate, PublishCleanup: &publishCleanup})
+	item, err := s.repo.CreateFunctionDeployment(
+		r.Context(),
+		deploymentID,
+		projectID,
+		functionID,
+		actor,
+		repository.FunctionDeploymentInput{
+			Source:             "upload",
+			SourceName:         &name,
+			SizeBytes:          prepared.Size,
+			ChecksumSHA256:     prepared.Checksum,
+			SourcePath:         prepared.RelativePath,
+			CreatedByAccountID: createdBy,
+			Activate:           activate,
+			PublishCleanup:     &publishCleanup,
+		},
+	)
 	if functionResourceError(w, err) {
 		return
 	}
@@ -760,7 +885,13 @@ func (s *Server) deleteFunctionDeployment(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
-	_, err := s.repo.DeleteFunctionDeploymentWithArtifacts(r.Context(), projectID, functionID, deploymentID, functionActorFrom(r))
+	_, err := s.repo.DeleteFunctionDeploymentWithArtifacts(
+		r.Context(),
+		projectID,
+		functionID,
+		deploymentID,
+		functionActorFrom(r),
+	)
 	if functionResourceError(w, err) {
 		return
 	}
@@ -802,7 +933,14 @@ func (s *Server) listFunctionExecutions(w http.ResponseWriter, r *http.Request) 
 		parsed := mustUUID(cursor)
 		cursorID = &parsed
 	}
-	items, next, err := s.repo.ListFunctionExecutions(r.Context(), projectID, functionID, functionActorFrom(r), limit, cursorID)
+	items, next, err := s.repo.ListFunctionExecutions(
+		r.Context(),
+		projectID,
+		functionID,
+		functionActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if functionResourceError(w, err) {
 		return
 	}
@@ -832,7 +970,12 @@ func (s *Server) createFunctionExecution(w http.ResponseWriter, r *http.Request)
 		trigger = "manual"
 	}
 	if !functionExecutionTriggerPattern.MatchString(trigger) {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "trigger must start with a letter or number and contain only letters, numbers, dots, underscores, or hyphens")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"trigger must start with a letter or number and contain only letters, numbers, dots, underscores, or hyphens",
+		)
 		return
 	}
 	input := req.Input
@@ -840,7 +983,12 @@ func (s *Server) createFunctionExecution(w http.ResponseWriter, r *http.Request)
 		input = json.RawMessage(`{}`)
 	}
 	if len(input) > 65536 {
-		writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "input must be valid JSON no larger than 65536 bytes")
+		writeError(
+			w,
+			http.StatusRequestEntityTooLarge,
+			"payload_too_large",
+			"input must be valid JSON no larger than 65536 bytes",
+		)
 		return
 	}
 	if !json.Valid(input) {
@@ -850,7 +998,15 @@ func (s *Server) createFunctionExecution(w http.ResponseWriter, r *http.Request)
 	var item domain.FunctionExecution
 	var err error
 	if _, management := r.Context().Value(projectActorContextKey).(projectActor); management {
-		item, err = s.repo.CreateFunctionExecutionForActor(r.Context(), uuid.Must(uuid.NewV7()), projectID, functionID, functionActorFrom(r), trigger, input)
+		item, err = s.repo.CreateFunctionExecutionForActor(
+			r.Context(),
+			uuid.Must(uuid.NewV7()),
+			projectID,
+			functionID,
+			functionActorFrom(r),
+			trigger,
+			input,
+		)
 	} else {
 		var projectUserID *uuid.UUID
 		if user, ok := r.Context().Value(projectUserContextKey).(domain.ApplicationUser); ok {
@@ -903,7 +1059,15 @@ func (s *Server) listFunctionExecutionLogs(w http.ResponseWriter, r *http.Reques
 		}
 		after = parsed
 	}
-	items, err := s.repo.ListFunctionExecutionLogs(r.Context(), projectID, functionID, executionID, functionActorFrom(r), limit, after)
+	items, err := s.repo.ListFunctionExecutionLogs(
+		r.Context(),
+		projectID,
+		functionID,
+		executionID,
+		functionActorFrom(r),
+		limit,
+		after,
+	)
 	if functionResourceError(w, err) {
 		return
 	}
@@ -911,7 +1075,7 @@ func (s *Server) listFunctionExecutionLogs(w http.ResponseWriter, r *http.Reques
 		internalError(s, w, err)
 		return
 	}
-	next := ""
+	var next string
 	if len(items) == limit {
 		next = strconv.FormatInt(items[len(items)-1].Sequence, 10)
 	}
@@ -919,7 +1083,11 @@ func (s *Server) listFunctionExecutionLogs(w http.ResponseWriter, r *http.Reques
 	if next != "" {
 		nextCursor = &next
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"logs": items, "pagination": pagination{Limit: limit, NextCursor: nextCursor}})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"logs": items, "pagination": pagination{Limit: limit, NextCursor: nextCursor}},
+	)
 }
 
 func (s *Server) listFunctionBuildLogs(w http.ResponseWriter, r *http.Request) {
@@ -940,7 +1108,15 @@ func (s *Server) listFunctionBuildLogs(w http.ResponseWriter, r *http.Request) {
 		}
 		after = parsed
 	}
-	items, err := s.repo.ListFunctionBuildLogs(r.Context(), projectID, functionID, deploymentID, functionActorFrom(r), limit, after)
+	items, err := s.repo.ListFunctionBuildLogs(
+		r.Context(),
+		projectID,
+		functionID,
+		deploymentID,
+		functionActorFrom(r),
+		limit,
+		after,
+	)
 	if functionResourceError(w, err) {
 		return
 	}
@@ -948,7 +1124,7 @@ func (s *Server) listFunctionBuildLogs(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	next := ""
+	var next string
 	if len(items) == limit {
 		next = strconv.FormatInt(items[len(items)-1].Sequence, 10)
 	}
@@ -956,7 +1132,11 @@ func (s *Server) listFunctionBuildLogs(w http.ResponseWriter, r *http.Request) {
 	if next != "" {
 		nextCursor = &next
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"logs": items, "pagination": pagination{Limit: limit, NextCursor: nextCursor}})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"logs": items, "pagination": pagination{Limit: limit, NextCursor: nextCursor}},
+	)
 }
 
 func functionPathIDs(w http.ResponseWriter, r *http.Request) (uuid.UUID, uuid.UUID, bool) {
@@ -1042,18 +1222,36 @@ func functionResourceError(w http.ResponseWriter, err error) bool {
 		writeError(w, http.StatusConflict, "conflict", "function resource conflicts with an existing resource")
 		return true
 	case errors.Is(err, repository.ErrFunctionQuotaExceeded):
-		writeError(w, http.StatusRequestEntityTooLarge, "function_quota_exceeded", "function artifact quota would be exceeded")
+		writeError(
+			w,
+			http.StatusRequestEntityTooLarge,
+			"function_quota_exceeded",
+			"function artifact quota would be exceeded",
+		)
 		return true
 	case errors.Is(err, repository.ErrFunctionArtifactTooLarge), errors.Is(err, functionstore.ErrTooLarge):
-		writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "function source artifact exceeds the configured maximum size")
+		writeError(
+			w,
+			http.StatusRequestEntityTooLarge,
+			"payload_too_large",
+			"function source artifact exceeds the configured maximum size",
+		)
 		return true
 	case errors.Is(err, repository.ErrFunctionSecretUnavailable):
 		writeError(w, http.StatusServiceUnavailable, "not_ready", "function secret encryption is not ready")
 		return true
-	case errors.Is(err, repository.ErrDeploymentActive), errors.Is(err, repository.ErrInvalidFunctionTransition), errors.Is(err, repository.ErrExecutionNotAvailable), errors.Is(err, repository.ErrFunctionDisabled):
+	case errors.Is(err, repository.ErrDeploymentActive),
+		errors.Is(err, repository.ErrInvalidFunctionTransition),
+		errors.Is(err, repository.ErrExecutionNotAvailable),
+		errors.Is(err, repository.ErrFunctionDisabled):
 		writeError(w, http.StatusConflict, "conflict", err.Error())
 		return true
-	case errors.Is(err, repository.ErrInvalidFunctionVariable), errors.Is(err, repository.ErrInvalidFunctionSettings), errors.Is(err, database.ErrInvalidPermissions), errors.Is(err, database.ErrDuplicatePermission), errors.Is(err, storage.ErrInvalidFilename), errors.Is(err, functionstore.ErrInvalidPath):
+	case errors.Is(err, repository.ErrInvalidFunctionVariable),
+		errors.Is(err, repository.ErrInvalidFunctionSettings),
+		errors.Is(err, database.ErrInvalidPermissions),
+		errors.Is(err, database.ErrDuplicatePermission),
+		errors.Is(err, storage.ErrInvalidFilename),
+		errors.Is(err, functionstore.ErrInvalidPath):
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", err.Error())
 		return true
 	}

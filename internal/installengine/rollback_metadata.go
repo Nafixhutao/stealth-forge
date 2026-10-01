@@ -82,11 +82,22 @@ func writeManagedReleaseMetadata(directory string, metadata managedReleaseMetada
 	return WriteAtomic(filepath.Join(directory, managedReleaseMetadataFile), contents, 0o600)
 }
 
-func readManagedReleaseMetadata(layout Layout, currentVersion string, allowedPaths map[string]struct{}) (managedReleaseMetadata, error) {
-	return readManagedReleaseMetadataFromDirectory(filepath.Join(layout.StateDir, "managed-assets.previous"), currentVersion, allowedPaths)
+func readManagedReleaseMetadata(
+	layout Layout,
+	currentVersion string,
+	allowedPaths map[string]struct{},
+) (managedReleaseMetadata, error) {
+	return readManagedReleaseMetadataFromDirectory(
+		filepath.Join(layout.StateDir, "managed-assets.previous"),
+		currentVersion,
+		allowedPaths,
+	)
 }
 
-func readManagedReleaseMetadataFromDirectory(directory, currentVersion string, allowedPaths map[string]struct{}) (managedReleaseMetadata, error) {
+func readManagedReleaseMetadataFromDirectory(
+	directory, currentVersion string,
+	allowedPaths map[string]struct{},
+) (managedReleaseMetadata, error) {
 	info, err := os.Lstat(directory)
 	if err != nil {
 		return managedReleaseMetadata{}, err
@@ -97,7 +108,9 @@ func readManagedReleaseMetadataFromDirectory(directory, currentVersion string, a
 	path := filepath.Join(directory, managedReleaseMetadataFile)
 	info, err = os.Lstat(path)
 	if err != nil {
-		return managedReleaseMetadata{}, errors.New("previous release metadata is missing; a rollback-safe release snapshot is required")
+		return managedReleaseMetadata{}, errors.New(
+			"previous release metadata is missing; a rollback-safe release snapshot is required",
+		)
 	}
 	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0o077 != 0 {
 		return managedReleaseMetadata{}, errors.New("previous release metadata is not a private regular file")
@@ -120,22 +133,32 @@ func readManagedReleaseMetadataFromDirectory(directory, currentVersion string, a
 		return managedReleaseMetadata{}, errors.New("previous release metadata has an invalid target version")
 	}
 	if strings.TrimSpace(currentVersion) != "" && metadata.TargetVersion != strings.TrimSpace(currentVersion) {
-		return managedReleaseMetadata{}, errors.New("previous release metadata does not match the active platform version")
+		return managedReleaseMetadata{}, errors.New(
+			"previous release metadata does not match the active platform version",
+		)
 	}
 	if metadata.SchemaFingerprint != "" && !schemaFingerprintPattern.MatchString(metadata.SchemaFingerprint) {
 		return managedReleaseMetadata{}, errors.New("previous release metadata contains an invalid schema fingerprint")
 	}
 	seen := make(map[string]struct{}, len(metadata.Assets))
-	hasCompose := false
+	var hasCompose bool
 	for _, entry := range metadata.Assets {
 		if !validManagedAssetPath(entry.RelativePath) {
-			return managedReleaseMetadata{}, errors.New("previous release metadata contains an invalid managed asset path")
+			return managedReleaseMetadata{}, errors.New(
+				"previous release metadata contains an invalid managed asset path",
+			)
 		}
 		if _, allowed := allowedPaths[entry.RelativePath]; !allowed {
-			return managedReleaseMetadata{}, fmt.Errorf("previous release metadata contains unknown asset %q", entry.RelativePath)
+			return managedReleaseMetadata{}, fmt.Errorf(
+				"previous release metadata contains unknown asset %q",
+				entry.RelativePath,
+			)
 		}
 		if _, duplicate := seen[entry.RelativePath]; duplicate {
-			return managedReleaseMetadata{}, fmt.Errorf("previous release metadata duplicates asset %q", entry.RelativePath)
+			return managedReleaseMetadata{}, fmt.Errorf(
+				"previous release metadata duplicates asset %q",
+				entry.RelativePath,
+			)
 		}
 		seen[entry.RelativePath] = struct{}{}
 		if entry.RelativePath == "compose.production.yaml" && entry.Existed {
@@ -143,25 +166,36 @@ func readManagedReleaseMetadataFromDirectory(directory, currentVersion string, a
 		}
 		if !entry.Existed {
 			if entry.SHA256 != "" {
-				return managedReleaseMetadata{}, errors.New("previous release metadata has a checksum for an absent asset")
+				return managedReleaseMetadata{}, errors.New(
+					"previous release metadata has a checksum for an absent asset",
+				)
 			}
 			continue
 		}
 		if _, err := hex.DecodeString(entry.SHA256); err != nil || len(entry.SHA256) != sha256.Size*2 {
-			return managedReleaseMetadata{}, fmt.Errorf("previous release metadata has an invalid checksum for %q", entry.RelativePath)
+			return managedReleaseMetadata{}, fmt.Errorf(
+				"previous release metadata has an invalid checksum for %q",
+				entry.RelativePath,
+			)
 		}
 		assetPath := filepath.Join(directory, filepath.FromSlash(entry.RelativePath))
 		assetInfo, err := os.Lstat(assetPath)
 		if err != nil || !assetInfo.Mode().IsRegular() || assetInfo.Mode()&os.ModeSymlink != 0 {
-			return managedReleaseMetadata{}, fmt.Errorf("previous managed asset %q is missing or unsafe", entry.RelativePath)
+			return managedReleaseMetadata{}, fmt.Errorf(
+				"previous managed asset %q is missing or unsafe",
+				entry.RelativePath,
+			)
 		}
 		assetContents, err := os.ReadFile(assetPath)
 		if err != nil {
 			return managedReleaseMetadata{}, fmt.Errorf("read previous managed asset %q: %w", entry.RelativePath, err)
 		}
 		digest := sha256.Sum256(assetContents)
-		if fmt.Sprintf("%x", digest) != entry.SHA256 {
-			return managedReleaseMetadata{}, fmt.Errorf("previous managed asset %q failed its recorded checksum", entry.RelativePath)
+		if hex.EncodeToString(digest[:]) != entry.SHA256 {
+			return managedReleaseMetadata{}, fmt.Errorf(
+				"previous managed asset %q failed its recorded checksum",
+				entry.RelativePath,
+			)
 		}
 	}
 	if !hasCompose {
@@ -195,7 +229,8 @@ func readManagedVersion(path string) (string, error) {
 }
 
 func writePlatformRollbackRecord(layout Layout, record platformRollbackRecord) error {
-	if record.FormatVersion != 1 || record.FromVersion == record.ToVersion || !schemaFingerprintPattern.MatchString(record.SchemaFingerprint) {
+	if record.FormatVersion != 1 || record.FromVersion == record.ToVersion ||
+		!schemaFingerprintPattern.MatchString(record.SchemaFingerprint) {
 		return errors.New("platform rollback recovery record is invalid")
 	}
 	if err := ValidateReleaseVersion(record.FromVersion); err != nil {
@@ -235,7 +270,8 @@ func readPlatformRollbackRecord(layout Layout) (*platformRollbackRecord, error) 
 	if err := json.Unmarshal(contents, &record); err != nil {
 		return nil, fmt.Errorf("parse platform rollback recovery state: %w", err)
 	}
-	if record.FormatVersion != 1 || record.FromVersion == record.ToVersion || !schemaFingerprintPattern.MatchString(record.SchemaFingerprint) {
+	if record.FormatVersion != 1 || record.FromVersion == record.ToVersion ||
+		!schemaFingerprintPattern.MatchString(record.SchemaFingerprint) {
 		return nil, errors.New("platform rollback recovery state is invalid")
 	}
 	if ValidateReleaseVersion(record.FromVersion) != nil || ValidateReleaseVersion(record.ToVersion) != nil {
@@ -254,7 +290,12 @@ func writeCurrentPlatformRollbackState(layout Layout, record platformRollbackRec
 		Platform      string    `json:"platform_version"`
 		CLI           string    `json:"cli_version"`
 		RolledBackAt  time.Time `json:"rolled_back_at"`
-	}{1, record.ToVersion, record.CLIVersion, time.Now().UTC()}
+	}{
+		FormatVersion: 1,
+		Platform:      record.ToVersion,
+		CLI:           record.CLIVersion,
+		RolledBackAt:  time.Now().UTC(),
+	}
 	contents, err := json.Marshal(state)
 	if err != nil {
 		return err

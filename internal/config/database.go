@@ -34,11 +34,15 @@ func loadDatabaseSettings() (databaseSettings, error) {
 	}
 	maxConnLifetime, err := time.ParseDuration(value("DATABASE_MAX_CONN_LIFETIME", "1h"))
 	if err != nil || maxConnLifetime <= 0 || maxConnLifetime > 7*24*time.Hour {
-		return databaseSettings{}, fmt.Errorf("DATABASE_MAX_CONN_LIFETIME must be a positive duration no longer than 168h")
+		return databaseSettings{}, fmt.Errorf(
+			"DATABASE_MAX_CONN_LIFETIME must be a positive duration no longer than 168h",
+		)
 	}
 	maxConnIdleTime, err := time.ParseDuration(value("DATABASE_MAX_CONN_IDLE_TIME", "30m"))
 	if err != nil || maxConnIdleTime <= 0 || maxConnIdleTime > 7*24*time.Hour {
-		return databaseSettings{}, fmt.Errorf("DATABASE_MAX_CONN_IDLE_TIME must be a positive duration no longer than 168h")
+		return databaseSettings{}, fmt.Errorf(
+			"DATABASE_MAX_CONN_IDLE_TIME must be a positive duration no longer than 168h",
+		)
 	}
 	return databaseSettings{
 		URL:             databaseURL,

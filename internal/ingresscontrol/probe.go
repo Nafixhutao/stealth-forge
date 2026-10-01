@@ -23,14 +23,24 @@ const maxProbeBody = 64 << 10
 const maxPublicRedirects = 5
 
 var requiredBrowserSecurityHeaders = []struct{ name, value string }{
-	{"X-Content-Type-Options", "nosniff"},
-	{"Referrer-Policy", "strict-origin-when-cross-origin"},
-	{"Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()"},
-	{"X-Frame-Options", "DENY"},
-	{"Content-Security-Policy", "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self';"},
+	{name: "X-Content-Type-Options", value: "nosniff"},
+	{name: "Referrer-Policy", value: "strict-origin-when-cross-origin"},
+	{name: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()"},
+	{name: "X-Frame-Options", value: "DENY"},
+	{
+		name:  "Content-Security-Policy",
+		value: "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self';",
+	},
 }
 
-var publicConsolePaths = []string{"/", "/v1/account", "/healthz", "/readyz", "/version", "/__stealth_ingress_acceptance_unknown__"}
+var publicConsolePaths = []string{
+	"/",
+	"/v1/account",
+	"/healthz",
+	"/readyz",
+	"/version",
+	"/__stealth_ingress_acceptance_unknown__",
+}
 
 var nonPublicAddressRanges = []netip.Prefix{
 	netip.MustParsePrefix("0.0.0.0/8"),
@@ -123,14 +133,23 @@ func (p *HTTPProbe) LocalTraefik(ctx context.Context, hostname string) error {
 		}
 	}
 	if rootStatus < http.StatusOK || rootStatus >= http.StatusMultipleChoices {
-		return fmt.Errorf("local route %s/ returned HTTP %d, expected a Console document or safe redirect", target, rootStatus)
+		return fmt.Errorf(
+			"local route %s/ returned HTTP %d, expected a Console document or safe redirect",
+			target,
+			rootStatus,
+		)
 	}
 	apiStatus, _, err := p.localTraefikRequest(ctx, target, hostname, "/v1/account")
 	if err != nil {
 		return err
 	}
 	if apiStatus != http.StatusUnauthorized {
-		return fmt.Errorf("local route %s/v1/account returned HTTP %d, expected %d", target, apiStatus, http.StatusUnauthorized)
+		return fmt.Errorf(
+			"local route %s/v1/account returned HTTP %d, expected %d",
+			target,
+			apiStatus,
+			http.StatusUnauthorized,
+		)
 	}
 	return nil
 }
@@ -154,7 +173,11 @@ func (p *HTTPProbe) CapturePublicConsole(ctx context.Context, publicURL string) 
 	return p.VerifyPublicConsole(ctx, publicURL, nil)
 }
 
-func (p *HTTPProbe) VerifyPublicConsole(ctx context.Context, publicURL string, baseline *PublicEvidence) (PublicEvidence, error) {
+func (p *HTTPProbe) VerifyPublicConsole(
+	ctx context.Context,
+	publicURL string,
+	baseline *PublicEvidence,
+) (PublicEvidence, error) {
 	base, err := parsePublicURL(publicURL)
 	if err != nil {
 		return PublicEvidence{}, err
@@ -165,18 +188,31 @@ func (p *HTTPProbe) VerifyPublicConsole(ctx context.Context, publicURL string, b
 	}
 	evidence := PublicEvidence{Routes: make(map[string]ResponseEvidence, len(publicConsolePaths))}
 	for _, path := range publicConsolePaths {
-		routeEvidence, finalResponse, err := p.requestPublicRoute(ctx, base, path, addresses, path == "/" || path == "/v1/account")
+		routeEvidence, finalResponse, err := p.requestPublicRoute(
+			ctx,
+			base,
+			path,
+			addresses,
+			path == "/" || path == "/v1/account",
+		)
 		if err != nil {
 			return PublicEvidence{}, err
 		}
 		if finalResponse.StatusCode >= http.StatusInternalServerError {
-			return PublicEvidence{}, fmt.Errorf("public HTTPS route %s returned HTTP %d", path, finalResponse.StatusCode)
+			return PublicEvidence{}, fmt.Errorf(
+				"public HTTPS route %s returned HTTP %d",
+				path,
+				finalResponse.StatusCode,
+			)
 		}
 		if path == "/" && (finalResponse.StatusCode < 200 || finalResponse.StatusCode >= 300) {
 			return PublicEvidence{}, fmt.Errorf("public Console root ended at HTTP %d", finalResponse.StatusCode)
 		}
 		if path == "/v1/account" && finalResponse.StatusCode != http.StatusUnauthorized {
-			return PublicEvidence{}, fmt.Errorf("public API route /v1/account ended at HTTP %d, expected 401 without credentials", finalResponse.StatusCode)
+			return PublicEvidence{}, fmt.Errorf(
+				"public API route /v1/account ended at HTTP %d, expected 401 without credentials",
+				finalResponse.StatusCode,
+			)
 		}
 		evidence.Routes[path] = routeEvidence
 		if baseline != nil {
@@ -192,7 +228,13 @@ func (p *HTTPProbe) VerifyPublicConsole(ctx context.Context, publicURL string, b
 // public DNS answers stay pinned for every hop, and redirect destinations are
 // resolved and validated against the configured origin before another request
 // is issued. The default http.Client redirect policy remains disabled.
-func (p *HTTPProbe) requestPublicRoute(ctx context.Context, base *url.URL, path string, addresses []net.IP, requirePolicy bool) (ResponseEvidence, *http.Response, error) {
+func (p *HTTPProbe) requestPublicRoute(
+	ctx context.Context,
+	base *url.URL,
+	path string,
+	addresses []net.IP,
+	requirePolicy bool,
+) (ResponseEvidence, *http.Response, error) {
 	target := *base
 	target.Path = strings.TrimRight(base.Path, "/") + path
 	seen := map[string]struct{}{redirectLoopKey(&target): {}}
@@ -203,11 +245,19 @@ func (p *HTTPProbe) requestPublicRoute(ctx context.Context, base *url.URL, path 
 			return ResponseEvidence{}, nil, err
 		}
 		if response.StatusCode >= http.StatusInternalServerError {
-			return ResponseEvidence{}, nil, fmt.Errorf("public HTTPS route %s returned HTTP %d", path, response.StatusCode)
+			return ResponseEvidence{}, nil, fmt.Errorf(
+				"public HTTPS route %s returned HTTP %d",
+				path,
+				response.StatusCode,
+			)
 		}
 		if requirePolicy {
 			if err := requireBrowserSecurityHeaders(response.Header); err != nil {
-				return ResponseEvidence{}, nil, fmt.Errorf("public HTTPS security header check failed on %s: %w", path, err)
+				return ResponseEvidence{}, nil, fmt.Errorf(
+					"public HTTPS security header check failed on %s: %w",
+					path,
+					err,
+				)
 			}
 			if err := requireHSTS(response.Header.Get("Strict-Transport-Security")); err != nil {
 				return ResponseEvidence{}, nil, fmt.Errorf("public HTTPS HSTS check failed on %s: %w", path, err)
@@ -218,7 +268,11 @@ func (p *HTTPProbe) requestPublicRoute(ctx context.Context, base *url.URL, path 
 		}
 		if !isRedirect(response.StatusCode) {
 			if response.StatusCode >= 300 && response.StatusCode < 400 {
-				return ResponseEvidence{}, nil, fmt.Errorf("public HTTPS route %s returned unsupported redirect status %d", path, response.StatusCode)
+				return ResponseEvidence{}, nil, fmt.Errorf(
+					"public HTTPS route %s returned unsupported redirect status %d",
+					path,
+					response.StatusCode,
+				)
 			}
 			route := evidenceFromResponse(response)
 			route.StatusCode = evidence.StatusCode
@@ -228,7 +282,11 @@ func (p *HTTPProbe) requestPublicRoute(ctx context.Context, base *url.URL, path 
 			return route, response, nil
 		}
 		if redirects >= maxPublicRedirects {
-			return ResponseEvidence{}, nil, fmt.Errorf("public HTTPS route %s exceeded the %d redirect limit", path, maxPublicRedirects)
+			return ResponseEvidence{}, nil, fmt.Errorf(
+				"public HTTPS route %s exceeded the %d redirect limit",
+				path,
+				maxPublicRedirects,
+			)
 		}
 		next, err := safeConsoleRedirect(&target, base, response.Header.Values("Location"))
 		if err != nil {
@@ -271,14 +329,20 @@ func (p *HTTPProbe) VerifyPublicSite(ctx context.Context, hostname, workloadBase
 	}
 	if expectedSHA256 != "" {
 		actual := evidenceFromResponse(response).BodySHA256
-		if len(actual) != len(expectedSHA256) || subtle.ConstantTimeCompare([]byte(actual), []byte(strings.ToLower(expectedSHA256))) != 1 {
+		if len(actual) != len(expectedSHA256) ||
+			subtle.ConstantTimeCompare([]byte(actual), []byte(strings.ToLower(expectedSHA256))) != 1 {
 			return errors.New("public platform Site body SHA-256 did not match the requested digest")
 		}
 	}
 	return nil
 }
 
-func (p *HTTPProbe) request(ctx context.Context, base *url.URL, path string, pinnedAddresses ...[]net.IP) (*http.Response, error) {
+func (p *HTTPProbe) request(
+	ctx context.Context,
+	base *url.URL,
+	path string,
+	pinnedAddresses ...[]net.IP,
+) (*http.Response, error) {
 	target := *base
 	target.Path = strings.TrimRight(base.Path, "/") + path
 	var addresses []net.IP
@@ -288,9 +352,19 @@ func (p *HTTPProbe) request(ctx context.Context, base *url.URL, path string, pin
 	return p.requestURL(ctx, &target, base.Hostname(), addresses, path)
 }
 
-func (p *HTTPProbe) requestURL(ctx context.Context, target *url.URL, pinnedHost string, pinnedAddresses []net.IP, path string) (*http.Response, error) {
+func (p *HTTPProbe) requestURL(
+	ctx context.Context,
+	target *url.URL,
+	pinnedHost string,
+	pinnedAddresses []net.IP,
+	path string,
+) (*http.Response, error) {
 	if len(pinnedAddresses) > 0 {
-		ctx = context.WithValue(ctx, publicDestinationContextKey{}, pinnedPublicDestination{host: pinnedHost, ips: pinnedAddresses})
+		ctx = context.WithValue(
+			ctx,
+			publicDestinationContextKey{},
+			pinnedPublicDestination{host: pinnedHost, ips: pinnedAddresses},
+		)
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
 	if err != nil {
@@ -299,7 +373,7 @@ func (p *HTTPProbe) requestURL(ctx context.Context, target *url.URL, pinnedHost 
 	request.Header.Set("Accept", "*/*")
 	response, err := p.client.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("public DNS/TLS/HTTPS request failed for %s", path)
+		return nil, fmt.Errorf("public DNS/TLS/HTTPS request failed for %q", path)
 	}
 	body, readErr := io.ReadAll(io.LimitReader(response.Body, maxProbeBody))
 	_ = response.Body.Close()
@@ -313,7 +387,11 @@ func (p *HTTPProbe) requestURL(ctx context.Context, target *url.URL, pinnedHost 
 
 func isRedirect(status int) bool {
 	switch status {
-	case http.StatusMovedPermanently, http.StatusFound, http.StatusSeeOther, http.StatusTemporaryRedirect, http.StatusPermanentRedirect:
+	case http.StatusMovedPermanently,
+		http.StatusFound,
+		http.StatusSeeOther,
+		http.StatusTemporaryRedirect,
+		http.StatusPermanentRedirect:
 		return true
 	default:
 		return false
@@ -423,7 +501,13 @@ func publicDestinationIP(ip net.IP) bool {
 		return false
 	}
 	address = address.Unmap()
-	if !address.IsGlobalUnicast() || address.IsPrivate() || address.IsLoopback() || address.IsLinkLocalUnicast() || address.IsMulticast() || address.IsUnspecified() {
+	isGlobalUnicast := address.IsGlobalUnicast()
+	isPrivate := address.IsPrivate()
+	isLoopback := address.IsLoopback()
+	isLinkLocalUnicast := address.IsLinkLocalUnicast()
+	isMulticast := address.IsMulticast()
+	isUnspecified := address.IsUnspecified()
+	if !isGlobalUnicast || isPrivate || isLoopback || isLinkLocalUnicast || isMulticast || isUnspecified {
 		return false
 	}
 	for _, prefix := range nonPublicAddressRanges {
@@ -472,13 +556,21 @@ func compareResponse(path string, baseline, after ResponseEvidence) error {
 			return fmt.Errorf("public route %s changed its normalized redirect target after cutover", path)
 		}
 		for _, header := range []string{"X-Content-Type-Options", "Referrer-Policy", "Permissions-Policy", "X-Frame-Options", "Content-Security-Policy", "Strict-Transport-Security"} {
-			if !strings.EqualFold(strings.TrimSpace(before.Headers[header]), strings.TrimSpace(current.Headers[header])) {
+			if !strings.EqualFold(
+				strings.TrimSpace(before.Headers[header]),
+				strings.TrimSpace(current.Headers[header]),
+			) {
 				return fmt.Errorf("public route %s changed the %s header on a redirect after cutover", path, header)
 			}
 		}
 	}
 	if baseline.FinalStatusCode != after.FinalStatusCode {
-		return fmt.Errorf("public route %s changed final HTTP status from %d to %d after cutover", path, baseline.FinalStatusCode, after.FinalStatusCode)
+		return fmt.Errorf(
+			"public route %s changed final HTTP status from %d to %d after cutover",
+			path,
+			baseline.FinalStatusCode,
+			after.FinalStatusCode,
+		)
 	}
 	if baseline.FinalPath != after.FinalPath {
 		return fmt.Errorf("public route %s changed its final path after cutover", path)
@@ -490,7 +582,8 @@ func compareResponse(path string, baseline, after ResponseEvidence) error {
 	}
 	// API responses can contain request-specific metadata. Compare bounded body
 	// fingerprints only for the Console document and unknown-route fallback.
-	if (path == "/" || strings.HasPrefix(path, "/__stealth_ingress_acceptance_")) && baseline.BodySHA256 != after.BodySHA256 {
+	if (path == "/" || strings.HasPrefix(path, "/__stealth_ingress_acceptance_")) &&
+		baseline.BodySHA256 != after.BodySHA256 {
 		return fmt.Errorf("public route %s body fingerprint changed after cutover", path)
 	}
 	return nil
@@ -522,7 +615,7 @@ func requireBrowserSecurityHeaders(headers http.Header) error {
 
 func requireHSTS(raw string) error {
 	maxAge := int64(-1)
-	includeSubdomains := false
+	var includeSubdomains bool
 	for _, directive := range strings.Split(raw, ";") {
 		parts := strings.SplitN(strings.TrimSpace(directive), "=", 2)
 		name := strings.ToLower(strings.TrimSpace(parts[0]))

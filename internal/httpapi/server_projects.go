@@ -20,7 +20,13 @@ func (s *Server) listProjects(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	items, next, canManage, err := s.repo.ListProjects(r.Context(), orgID, uuid.Must(uuid.Parse(accountFrom(r).ID)), limit, cursor)
+	items, next, canManage, err := s.repo.ListProjects(
+		r.Context(),
+		orgID,
+		uuid.Must(uuid.Parse(accountFrom(r).ID)),
+		limit,
+		cursor,
+	)
 	if authzError(w, err) {
 		return
 	}
@@ -28,7 +34,11 @@ func (s *Server) listProjects(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"projects": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"projects": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 type projectRequest struct {
@@ -49,7 +59,13 @@ func (s *Server) createProject(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 422, "validation_error", err.Error())
 		return
 	}
-	item, err := s.repo.CreateProject(r.Context(), uuid.Must(uuid.NewV7()), orgID, uuid.Must(uuid.Parse(accountFrom(r).ID)), name)
+	item, err := s.repo.CreateProject(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		orgID,
+		uuid.Must(uuid.Parse(accountFrom(r).ID)),
+		name,
+	)
 	if planLimitError(w, err) {
 		return
 	}
@@ -140,9 +156,19 @@ func (s *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, repository.ErrForbidden):
 			writeError(w, http.StatusForbidden, "forbidden", "only the project owner can delete this project")
 		case errors.Is(err, repository.ErrConfirmationRequired):
-			writeError(w, http.StatusUnprocessableEntity, "validation_error", "confirm_name must be the exact project name")
+			writeError(
+				w,
+				http.StatusUnprocessableEntity,
+				"validation_error",
+				"confirm_name must be the exact project name",
+			)
 		case errors.Is(err, repository.ErrAppArtifactPublishInProgress):
-			writeError(w, http.StatusConflict, "conflict", "wait for in-flight App artifact uploads or builds to finish before deleting this project")
+			writeError(
+				w,
+				http.StatusConflict,
+				"conflict",
+				"wait for in-flight App artifact uploads or builds to finish before deleting this project",
+			)
 		default:
 			internalError(s, w, err)
 		}

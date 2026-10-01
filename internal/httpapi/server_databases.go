@@ -65,7 +65,17 @@ func (s *Server) requireProjectDataActor(next http.Handler) http.Handler {
 				internalError(s, w, err)
 				return
 			}
-			ctx := context.WithValue(r.Context(), projectDataActorContextKey, projectDataActor{actor: repository.DatabaseActor{Kind: repository.DatabaseAPIKeyActor, APIKeyID: keyID, APIKeyScopes: key.Scopes}})
+			ctx := context.WithValue(
+				r.Context(),
+				projectDataActorContextKey,
+				projectDataActor{
+					actor: repository.DatabaseActor{
+						Kind:         repository.DatabaseAPIKeyActor,
+						APIKeyID:     keyID,
+						APIKeyScopes: key.Scopes,
+					},
+				},
+			)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
@@ -79,7 +89,16 @@ func (s *Server) requireProjectDataActor(next http.Handler) http.Handler {
 				internalError(s, w, err)
 				return
 			}
-			ctx := context.WithValue(r.Context(), projectDataActorContextKey, projectDataActor{actor: repository.DatabaseActor{Kind: repository.DatabaseApplicationActor, ProjectUserID: mustUUID(user.ID)}})
+			ctx := context.WithValue(
+				r.Context(),
+				projectDataActorContextKey,
+				projectDataActor{
+					actor: repository.DatabaseActor{
+						Kind:          repository.DatabaseApplicationActor,
+						ProjectUserID: mustUUID(user.ID),
+					},
+				},
+			)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
@@ -91,11 +110,24 @@ func (s *Server) requireProjectDataActor(next http.Handler) http.Handler {
 			}
 			ctx := context.WithValue(r.Context(), accountContextKey, account)
 			ctx = context.WithValue(ctx, sessionContextKey, sessionID)
-			ctx = context.WithValue(ctx, projectDataActorContextKey, projectDataActor{actor: repository.DatabaseActor{Kind: repository.DatabaseConsoleActor, AccountID: mustUUID(account.ID)}})
+			ctx = context.WithValue(
+				ctx,
+				projectDataActorContextKey,
+				projectDataActor{
+					actor: repository.DatabaseActor{
+						Kind:      repository.DatabaseConsoleActor,
+						AccountID: mustUUID(account.ID),
+					},
+				},
+			)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
-		ctx := context.WithValue(r.Context(), projectDataActorContextKey, projectDataActor{actor: repository.DatabaseActor{Kind: repository.DatabaseAnonymousActor}})
+		ctx := context.WithValue(
+			r.Context(),
+			projectDataActorContextKey,
+			projectDataActor{actor: repository.DatabaseActor{Kind: repository.DatabaseAnonymousActor}},
+		)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -111,7 +143,11 @@ func databaseActorFrom(r *http.Request) repository.DatabaseActor {
 	}
 	actor := projectActorFrom(r)
 	if actor.kind == apiKeyProjectActor {
-		return repository.DatabaseActor{Kind: repository.DatabaseAPIKeyActor, APIKeyID: actor.apiKeyID, APIKeyScopes: actor.scopes}
+		return repository.DatabaseActor{
+			Kind:         repository.DatabaseAPIKeyActor,
+			APIKeyID:     actor.apiKeyID,
+			APIKeyScopes: actor.scopes,
+		}
 	}
 	return repository.DatabaseActor{Kind: repository.DatabaseConsoleActor, AccountID: mustUUID(accountFrom(r).ID)}
 }
@@ -165,7 +201,13 @@ func (s *Server) listProjectDatabases(w http.ResponseWriter, r *http.Request) {
 		parsed, _ := uuid.Parse(cursor)
 		cursorID = &parsed
 	}
-	items, next, canManage, err := s.repo.ListProjectDatabases(r.Context(), projectID, databaseActorFrom(r), limit, cursorID)
+	items, next, canManage, err := s.repo.ListProjectDatabases(
+		r.Context(),
+		projectID,
+		databaseActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if databaseResourceError(w, err) {
 		return
 	}
@@ -173,7 +215,11 @@ func (s *Server) listProjectDatabases(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"databases": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"databases": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) createProjectDatabase(w http.ResponseWriter, r *http.Request) {
@@ -190,7 +236,13 @@ func (s *Server) createProjectDatabase(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", err.Error())
 		return
 	}
-	item, err := s.repo.CreateProjectDatabase(r.Context(), uuid.Must(uuid.NewV7()), projectID, databaseActorFrom(r), name)
+	item, err := s.repo.CreateProjectDatabase(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		projectID,
+		databaseActorFrom(r),
+		name,
+	)
 	if planLimitError(w, err) {
 		return
 	}
@@ -233,9 +285,11 @@ func (s *Server) deleteProjectDatabase(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.repo.DeleteProjectDatabase(r.Context(), projectID, databaseID, databaseActorFrom(r)); databaseResourceError(w, err) {
+	err := s.repo.DeleteProjectDatabase(r.Context(), projectID, databaseID, databaseActorFrom(r))
+	if databaseResourceError(w, err) {
 		return
-	} else if err != nil {
+	}
+	if err != nil {
 		internalError(s, w, err)
 		return
 	}
@@ -260,7 +314,14 @@ func (s *Server) listDatabaseTables(w http.ResponseWriter, r *http.Request) {
 		parsed, _ := uuid.Parse(cursor)
 		cursorID = &parsed
 	}
-	items, next, canManage, err := s.repo.ListDatabaseTables(r.Context(), projectID, databaseID, databaseActorFrom(r), limit, cursorID)
+	items, next, canManage, err := s.repo.ListDatabaseTables(
+		r.Context(),
+		projectID,
+		databaseID,
+		databaseActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if databaseResourceError(w, err) {
 		return
 	}
@@ -268,7 +329,11 @@ func (s *Server) listDatabaseTables(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"tables": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"tables": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) createDatabaseTable(w http.ResponseWriter, r *http.Request) {
@@ -293,7 +358,21 @@ func (s *Server) createDatabaseTable(w http.ResponseWriter, r *http.Request) {
 	if req.RowSecurity != nil {
 		rowSecurity = *req.RowSecurity
 	}
-	item, err := s.repo.CreateDatabaseTable(r.Context(), uuid.Must(uuid.NewV7()), projectID, databaseID, databaseActorFrom(r), repository.DatabaseTableInput{Name: name, RowSecurity: rowSecurity, CreatePermissions: req.CreatePermissions, ReadPermissions: req.ReadPermissions, UpdatePermissions: req.UpdatePermissions, DeletePermissions: req.DeletePermissions})
+	item, err := s.repo.CreateDatabaseTable(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		projectID,
+		databaseID,
+		databaseActorFrom(r),
+		repository.DatabaseTableInput{
+			Name:              name,
+			RowSecurity:       rowSecurity,
+			CreatePermissions: req.CreatePermissions,
+			ReadPermissions:   req.ReadPermissions,
+			UpdatePermissions: req.UpdatePermissions,
+			DeletePermissions: req.DeletePermissions,
+		},
+	)
 	if databaseResourceError(w, err) {
 		return
 	}
@@ -349,7 +428,20 @@ func (s *Server) updateDatabaseTable(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 422, "validation_error", "row_security is required")
 		return
 	}
-	item, err := s.repo.UpdateDatabaseTable(r.Context(), projectID, databaseID, tableID, databaseActorFrom(r), repository.DatabaseTableInput{RowSecurity: *req.RowSecurity, CreatePermissions: req.CreatePermissions, ReadPermissions: req.ReadPermissions, UpdatePermissions: req.UpdatePermissions, DeletePermissions: req.DeletePermissions})
+	item, err := s.repo.UpdateDatabaseTable(
+		r.Context(),
+		projectID,
+		databaseID,
+		tableID,
+		databaseActorFrom(r),
+		repository.DatabaseTableInput{
+			RowSecurity:       *req.RowSecurity,
+			CreatePermissions: req.CreatePermissions,
+			ReadPermissions:   req.ReadPermissions,
+			UpdatePermissions: req.UpdatePermissions,
+			DeletePermissions: req.DeletePermissions,
+		},
+	)
 	if databaseResourceError(w, err) {
 		return
 	}
@@ -373,9 +465,11 @@ func (s *Server) deleteDatabaseTable(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.repo.DeleteDatabaseTable(r.Context(), projectID, databaseID, tableID, databaseActorFrom(r)); databaseResourceError(w, err) {
+	err := s.repo.DeleteDatabaseTable(r.Context(), projectID, databaseID, tableID, databaseActorFrom(r))
+	if databaseResourceError(w, err) {
 		return
-	} else if err != nil {
+	}
+	if err != nil {
 		internalError(s, w, err)
 		return
 	}
@@ -404,7 +498,15 @@ func (s *Server) listDatabaseColumns(w http.ResponseWriter, r *http.Request) {
 		parsed, _ := uuid.Parse(cursor)
 		cursorID = &parsed
 	}
-	items, next, err := s.repo.ListDatabaseColumns(r.Context(), projectID, databaseID, tableID, databaseActorFrom(r), limit, cursorID)
+	items, next, err := s.repo.ListDatabaseColumns(
+		r.Context(),
+		projectID,
+		databaseID,
+		tableID,
+		databaseActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if databaseResourceError(w, err) {
 		return
 	}
@@ -449,7 +551,22 @@ func (s *Server) createDatabaseColumn(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	item, err := s.repo.CreateDatabaseColumn(r.Context(), uuid.Must(uuid.NewV7()), projectID, databaseID, tableID, databaseActorFrom(r), repository.DatabaseColumnInput{Key: req.Key, Type: dbcore.ColumnType(req.Type), Required: req.Required, VarcharSize: req.VarcharSize, Default: defaultValue, HasDefault: hasDefault})
+	item, err := s.repo.CreateDatabaseColumn(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		projectID,
+		databaseID,
+		tableID,
+		databaseActorFrom(r),
+		repository.DatabaseColumnInput{
+			Key:         req.Key,
+			Type:        dbcore.ColumnType(req.Type),
+			Required:    req.Required,
+			VarcharSize: req.VarcharSize,
+			Default:     defaultValue,
+			HasDefault:  hasDefault,
+		},
+	)
 	if databaseResourceError(w, err) {
 		return
 	}
@@ -477,9 +594,11 @@ func (s *Server) deleteDatabaseColumn(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.repo.DeleteDatabaseColumn(r.Context(), projectID, databaseID, tableID, columnID, databaseActorFrom(r)); databaseResourceError(w, err) {
+	err := s.repo.DeleteDatabaseColumn(r.Context(), projectID, databaseID, tableID, columnID, databaseActorFrom(r))
+	if databaseResourceError(w, err) {
 		return
-	} else if err != nil {
+	}
+	if err != nil {
 		internalError(s, w, err)
 		return
 	}
@@ -508,7 +627,15 @@ func (s *Server) listDatabaseIndexes(w http.ResponseWriter, r *http.Request) {
 		parsed, _ := uuid.Parse(cursor)
 		cursorID = &parsed
 	}
-	items, next, err := s.repo.ListDatabaseIndexes(r.Context(), projectID, databaseID, tableID, databaseActorFrom(r), limit, cursorID)
+	items, next, err := s.repo.ListDatabaseIndexes(
+		r.Context(),
+		projectID,
+		databaseID,
+		tableID,
+		databaseActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if databaseResourceError(w, err) {
 		return
 	}
@@ -536,7 +663,20 @@ func (s *Server) createDatabaseIndex(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	item, err := s.repo.CreateDatabaseIndex(r.Context(), uuid.Must(uuid.NewV7()), projectID, databaseID, tableID, databaseActorFrom(r), repository.DatabaseIndexInput{Name: req.Name, Type: req.Type, ColumnKeys: req.ColumnKeys, Directions: req.Directions})
+	item, err := s.repo.CreateDatabaseIndex(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		projectID,
+		databaseID,
+		tableID,
+		databaseActorFrom(r),
+		repository.DatabaseIndexInput{
+			Name:       req.Name,
+			Type:       req.Type,
+			ColumnKeys: req.ColumnKeys,
+			Directions: req.Directions,
+		},
+	)
 	if databaseResourceError(w, err) {
 		return
 	}
@@ -564,9 +704,11 @@ func (s *Server) deleteDatabaseIndex(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.repo.DeleteDatabaseIndex(r.Context(), projectID, databaseID, tableID, indexID, databaseActorFrom(r)); databaseResourceError(w, err) {
+	err := s.repo.DeleteDatabaseIndex(r.Context(), projectID, databaseID, tableID, indexID, databaseActorFrom(r))
+	if databaseResourceError(w, err) {
 		return
-	} else if err != nil {
+	}
+	if err != nil {
 		internalError(s, w, err)
 		return
 	}
@@ -633,7 +775,20 @@ func (s *Server) createDatabaseRow(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 422, "validation_error", err.Error())
 		return
 	}
-	item, err := s.repo.CreateDatabaseRow(r.Context(), uuid.Must(uuid.NewV7()), projectID, databaseID, tableID, databaseActorFrom(r), repository.DatabaseRowInput{Data: data, ReadPermissions: req.ReadPermissions, UpdatePermissions: req.UpdatePermissions, DeletePermissions: req.DeletePermissions})
+	item, err := s.repo.CreateDatabaseRow(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		projectID,
+		databaseID,
+		tableID,
+		databaseActorFrom(r),
+		repository.DatabaseRowInput{
+			Data:              data,
+			ReadPermissions:   req.ReadPermissions,
+			UpdatePermissions: req.UpdatePermissions,
+			DeletePermissions: req.DeletePermissions,
+		},
+	)
 	if databaseResourceError(w, err) {
 		return
 	}
@@ -702,7 +857,20 @@ func (s *Server) updateDatabaseRow(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	item, err := s.repo.UpdateDatabaseRow(r.Context(), projectID, databaseID, tableID, rowID, databaseActorFrom(r), repository.DatabaseRowPatch{Data: data, ReadPermissions: req.ReadPermissions, UpdatePermissions: req.UpdatePermissions, DeletePermissions: req.DeletePermissions})
+	item, err := s.repo.UpdateDatabaseRow(
+		r.Context(),
+		projectID,
+		databaseID,
+		tableID,
+		rowID,
+		databaseActorFrom(r),
+		repository.DatabaseRowPatch{
+			Data:              data,
+			ReadPermissions:   req.ReadPermissions,
+			UpdatePermissions: req.UpdatePermissions,
+			DeletePermissions: req.DeletePermissions,
+		},
+	)
 	if databaseResourceError(w, err) {
 		return
 	}
@@ -730,9 +898,11 @@ func (s *Server) deleteDatabaseRow(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.repo.DeleteDatabaseRow(r.Context(), projectID, databaseID, tableID, rowID, databaseActorFrom(r)); databaseResourceError(w, err) {
+	err := s.repo.DeleteDatabaseRow(r.Context(), projectID, databaseID, tableID, rowID, databaseActorFrom(r))
+	if databaseResourceError(w, err) {
 		return
-	} else if err != nil {
+	}
+	if err != nil {
 		internalError(s, w, err)
 		return
 	}
@@ -793,7 +963,10 @@ func parseRowQuery(r *http.Request, schema repository.DatabaseTableSchema) (repo
 		if !ok {
 			return repository.RowQuery{}, fmt.Errorf("%w: filter column is not declared", repository.ErrInvalidQuery)
 		}
-		value, err := dbcore.ParseQueryValue(dbcore.ColumnDefinition{Key: column.Key, Type: column.Type, VarcharSize: column.VarcharSize}, values[0])
+		value, err := dbcore.ParseQueryValue(
+			dbcore.ColumnDefinition{Key: column.Key, Type: column.Type, VarcharSize: column.VarcharSize},
+			values[0],
+		)
 		if err != nil {
 			return repository.RowQuery{}, err
 		}
@@ -808,9 +981,15 @@ func parseRowQuery(r *http.Request, schema repository.DatabaseTableSchema) (repo
 		for key, value := range object {
 			column, ok := byKey[key]
 			if !ok {
-				return repository.RowQuery{}, fmt.Errorf("%w: filter column is not declared", repository.ErrInvalidQuery)
+				return repository.RowQuery{}, fmt.Errorf(
+					"%w: filter column is not declared",
+					repository.ErrInvalidQuery,
+				)
 			}
-			parsed, err := dbcore.ParseQueryValue(dbcore.ColumnDefinition{Key: column.Key, Type: column.Type, VarcharSize: column.VarcharSize}, value)
+			parsed, err := dbcore.ParseQueryValue(
+				dbcore.ColumnDefinition{Key: column.Key, Type: column.Type, VarcharSize: column.VarcharSize},
+				value,
+			)
 			if err != nil {
 				return repository.RowQuery{}, err
 			}
@@ -824,18 +1003,24 @@ func parseRowQuery(r *http.Request, schema repository.DatabaseTableSchema) (repo
 			return repository.RowQuery{}, fmt.Errorf("%w: order column is not declared", repository.ErrInvalidQuery)
 		}
 		if !column.Required {
-			return repository.RowQuery{}, fmt.Errorf("%w: order_by must target a required column so cursor ordering is stable", repository.ErrInvalidQuery)
+			return repository.RowQuery{}, fmt.Errorf(
+				"%w: order_by must target a required column so cursor ordering is stable",
+				repository.ErrInvalidQuery,
+			)
 		}
 		orderBy = &column
 	}
-	descending := false
+	var descending bool
 	if raw := query.Get("order_direction"); raw != "" {
 		switch strings.ToLower(raw) {
 		case "asc":
 		case "desc":
 			descending = true
 		default:
-			return repository.RowQuery{}, fmt.Errorf("%w: order_direction must be asc or desc", repository.ErrInvalidQuery)
+			return repository.RowQuery{}, fmt.Errorf(
+				"%w: order_direction must be asc or desc",
+				repository.ErrInvalidQuery,
+			)
 		}
 	}
 	searchRaw := query.Get("search")
@@ -846,7 +1031,10 @@ func parseRowQuery(r *http.Request, schema repository.DatabaseTableSchema) (repo
 		return repository.RowQuery{}, fmt.Errorf("%w: search must not be empty", repository.ErrInvalidQuery)
 	}
 	if search != "" && searchColumnKey == "" {
-		return repository.RowQuery{}, fmt.Errorf("%w: search_column is required with search", repository.ErrInvalidQuery)
+		return repository.RowQuery{}, fmt.Errorf(
+			"%w: search_column is required with search",
+			repository.ErrInvalidQuery,
+		)
 	}
 	if searchColumnKey != "" {
 		column, ok := byKey[searchColumnKey]
@@ -854,10 +1042,16 @@ func parseRowQuery(r *http.Request, schema repository.DatabaseTableSchema) (repo
 			return repository.RowQuery{}, fmt.Errorf("%w: search column is not declared", repository.ErrInvalidQuery)
 		}
 		if column.Type != dbcore.TypeVarchar && column.Type != dbcore.TypeText {
-			return repository.RowQuery{}, fmt.Errorf("%w: full-text search requires a varchar or text column", repository.ErrInvalidQuery)
+			return repository.RowQuery{}, fmt.Errorf(
+				"%w: full-text search requires a varchar or text column",
+				repository.ErrInvalidQuery,
+			)
 		}
 		if search == "" {
-			return repository.RowQuery{}, fmt.Errorf("%w: search is required with search_column", repository.ErrInvalidQuery)
+			return repository.RowQuery{}, fmt.Errorf(
+				"%w: search is required with search_column",
+				repository.ErrInvalidQuery,
+			)
 		}
 		if len(search) > 256 {
 			return repository.RowQuery{}, fmt.Errorf("%w: search must be at most 256 bytes", repository.ErrInvalidQuery)
@@ -871,7 +1065,15 @@ func parseRowQuery(r *http.Request, schema repository.DatabaseTableSchema) (repo
 		}
 		cursor.Value = value
 	}
-	return repository.RowQuery{Limit: limit, Cursor: cursor, Filters: filters, OrderBy: orderBy, Descending: descending, Search: search, SearchColumn: searchColumn}, nil
+	return repository.RowQuery{
+		Limit:        limit,
+		Cursor:       cursor,
+		Filters:      filters,
+		OrderBy:      orderBy,
+		Descending:   descending,
+		Search:       search,
+		SearchColumn: searchColumn,
+	}, nil
 }
 
 func canonicalCursorValue(column repository.DatabaseColumnSchema, value any) (any, error) {
@@ -907,7 +1109,10 @@ func canonicalCursorValue(column repository.DatabaseColumnSchema, value any) (an
 	default:
 		return nil, fmt.Errorf("%w: cursor value is invalid", repository.ErrInvalidQuery)
 	}
-	value, err = dbcore.ParseQueryValue(dbcore.ColumnDefinition{Key: column.Key, Type: column.Type, VarcharSize: column.VarcharSize}, text)
+	value, err = dbcore.ParseQueryValue(
+		dbcore.ColumnDefinition{Key: column.Key, Type: column.Type, VarcharSize: column.VarcharSize},
+		text,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("%w: cursor value is invalid", repository.ErrInvalidQuery)
 	}
@@ -997,12 +1202,25 @@ func databaseResourceError(w http.ResponseWriter, err error) bool {
 		writeError(w, http.StatusConflict, "schema_conflict", "schema change conflicts with existing rows or indexes")
 		return true
 	case errors.Is(err, repository.ErrUnindexedQuery):
-		writeError(w, http.StatusUnprocessableEntity, "unindexed_query", "filters and ordering require a real key index on the declared column")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"unindexed_query",
+			"filters and ordering require a real key index on the declared column",
+		)
 		return true
 	case errors.Is(err, repository.ErrInvalidQuery):
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", err.Error())
 		return true
-	case errors.Is(err, dbcore.ErrInvalidIdentifier), errors.Is(err, dbcore.ErrInvalidColumn), errors.Is(err, dbcore.ErrInvalidPermissions), errors.Is(err, dbcore.ErrDuplicatePermission), errors.Is(err, dbcore.ErrInvalidName), errors.Is(err, dbcore.ErrInvalidRow), errors.Is(err, dbcore.ErrMissingRequired), errors.Is(err, dbcore.ErrUnknownField), errors.Is(err, dbcore.ErrInvalidValue):
+	case errors.Is(err, dbcore.ErrInvalidIdentifier),
+		errors.Is(err, dbcore.ErrInvalidColumn),
+		errors.Is(err, dbcore.ErrInvalidPermissions),
+		errors.Is(err, dbcore.ErrDuplicatePermission),
+		errors.Is(err, dbcore.ErrInvalidName),
+		errors.Is(err, dbcore.ErrInvalidRow),
+		errors.Is(err, dbcore.ErrMissingRequired),
+		errors.Is(err, dbcore.ErrUnknownField),
+		errors.Is(err, dbcore.ErrInvalidValue):
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", err.Error())
 		return true
 	}

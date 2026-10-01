@@ -55,7 +55,11 @@ func (e *CloudflareBindingConflict) Error() string {
 	case "record_id":
 		field = "Cloudflare DNS resource"
 	}
-	return fmt.Sprintf("Cloudflare Tunnel is already configured for %s. Reconfigure Cloudflare networking before changing the %s.", hostname, field)
+	return fmt.Sprintf(
+		"Cloudflare Tunnel is already configured for %s. Reconfigure Cloudflare networking before changing the %s.",
+		hostname,
+		field,
+	)
 }
 
 // CloudflareBindingFromDraft converts the current configuration hostname to a
@@ -104,7 +108,9 @@ func (b CloudflareBinding) IsZero() bool {
 
 func (b CloudflareBinding) Validate() error {
 	b = b.Normalized()
-	if len(b.AccountID) > 128 || len(b.ZoneID) > 128 || len(b.TunnelID) > 128 || len(b.RecordID) > 128 || len(b.TunnelName) > 120 || len(b.Hostname) > 253 {
+	if len(b.AccountID) > 128 || len(b.ZoneID) > 128 || len(b.TunnelID) > 128 || len(b.RecordID) > 128 ||
+		len(b.TunnelName) > 120 ||
+		len(b.Hostname) > 253 {
 		return errors.New("setup state Cloudflare binding is invalid")
 	}
 	for _, value := range []string{b.AccountID, b.ZoneID, b.TunnelName, b.TunnelID, b.RecordID} {

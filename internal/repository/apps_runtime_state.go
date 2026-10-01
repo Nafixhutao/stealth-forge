@@ -13,18 +13,34 @@ import (
 // worker starts an exited managed container. The runtime lease and current
 // desired state fence the reset so a stale worker cannot invalidate or
 // authorize another generation.
-func (r *Repository) ResetAppHealthBeforeRuntimeRestart(ctx context.Context, job AppRuntimeJob, identity uuid.UUID) error {
+func (r *Repository) ResetAppHealthBeforeRuntimeRestart(
+	ctx context.Context,
+	job AppRuntimeJob,
+	identity uuid.UUID,
+) error {
 	return r.rotateAppRuntimeIdentity(ctx, job, identity, false, true)
 }
 
 // RotateAppRuntimeIdentityBeforeCreate gives each newly created runtime a
 // distinct DNS target after the previous managed container has been removed.
-func (r *Repository) RotateAppRuntimeIdentityBeforeCreate(ctx context.Context, job AppRuntimeJob, identity uuid.UUID) error {
+func (r *Repository) RotateAppRuntimeIdentityBeforeCreate(
+	ctx context.Context,
+	job AppRuntimeJob,
+	identity uuid.UUID,
+) error {
 	return r.rotateAppRuntimeIdentity(ctx, job, identity, true, false)
 }
 
-func (r *Repository) rotateAppRuntimeIdentity(ctx context.Context, job AppRuntimeJob, identity uuid.UUID, clearContainer, restart bool) error {
-	if r == nil || r.pool == nil || validateRuntimeJob(job) != nil || !job.App.Enabled || job.App.DesiredDeploymentID == nil || identity == uuid.Nil || identity == job.RouteIdentity {
+func (r *Repository) rotateAppRuntimeIdentity(
+	ctx context.Context,
+	job AppRuntimeJob,
+	identity uuid.UUID,
+	clearContainer, restart bool,
+) error {
+	if r == nil || r.pool == nil || validateRuntimeJob(job) != nil || !job.App.Enabled ||
+		job.App.DesiredDeploymentID == nil ||
+		identity == uuid.Nil ||
+		identity == job.RouteIdentity {
 		return ErrInvalidAppRuntimeJob
 	}
 	appID := uuid.MustParse(job.App.ID)
@@ -32,7 +48,7 @@ func (r *Repository) rotateAppRuntimeIdentity(ctx context.Context, job AppRuntim
 	if containerName == "" {
 		return ErrInvalidAppRuntimeJob
 	}
-	delay := 0
+	var delay int
 	if restart && job.App.Workload.HealthCheck.InitialDelaySeconds != nil {
 		delay = *job.App.Workload.HealthCheck.InitialDelaySeconds
 	}
@@ -56,16 +72,19 @@ func (r *Repository) rotateAppRuntimeIdentity(ctx context.Context, job AppRuntim
 	var containerAddress *string
 	var routeIdentity uuid.UUID
 	var currentContainerName string
-	if err := tx.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 		SELECT worker_id,lease_token,health_status,health_checked_at,host(container_address),route_identity,container_name
 		FROM app_runtime_state WHERE app_id=$1 AND lease_expires_at>now() FOR UPDATE`, appID).Scan(
 		&owner, &token, &healthStatus, &healthCheckedAt, &containerAddress, &routeIdentity, &currentContainerName,
-	); errors.Is(err, pgx.ErrNoRows) {
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrAppRuntimeLeaseLost
-	} else if err != nil {
+	}
+	if err != nil {
 		return err
 	}
-	if owner != job.WorkerID || token != job.LeaseToken || routeIdentity != job.RouteIdentity || currentContainerName != job.ContainerName {
+	if owner != job.WorkerID || token != job.LeaseToken || routeIdentity != job.RouteIdentity ||
+		currentContainerName != job.ContainerName {
 		return ErrAppRuntimeLeaseLost
 	}
 	if !runtimeDesiredStateMatches(current, job.App) {
@@ -82,7 +101,9 @@ func (r *Repository) rotateAppRuntimeIdentity(ctx context.Context, job AppRuntim
 		containerReset = `container_id=NULL,image_id=NULL,image_digest=NULL,runtime_tag=NULL,
 			applied_deployment_id=NULL,applied_workload_spec_sha256=NULL,applied_generation=NULL,`
 	}
-	result, err := tx.Exec(ctx, `
+	result, err := tx.Exec(
+		ctx,
+		`
 		UPDATE app_runtime_state
 		SET route_identity=$4,container_name=$5,
 		    health_status='pending',health_generation=NULL,health_deployment_id=NULL,health_container_id=NULL,health_route_identity=NULL,
@@ -91,7 +112,16 @@ func (r *Repository) rotateAppRuntimeIdentity(ctx context.Context, job AppRuntim
 		    `+containerReset+`container_address=NULL,last_inspected_at=NULL,next_inspection_at=now(),updated_at=now()
 		WHERE app_id=$1 AND worker_id=$2 AND lease_token=$3 AND lease_expires_at>now()
 		  AND route_identity=$8 AND container_name=$9`,
-		appID, job.WorkerID, job.LeaseToken, identity, containerName, restart, delay, job.RouteIdentity, job.ContainerName)
+		appID,
+		job.WorkerID,
+		job.LeaseToken,
+		identity,
+		containerName,
+		restart,
+		delay,
+		job.RouteIdentity,
+		job.ContainerName,
+	)
 	if err != nil {
 		return err
 	}
@@ -113,7 +143,12 @@ func (r *Repository) rotateAppRuntimeIdentity(ctx context.Context, job AppRuntim
 // CompleteAppRuntime records convergence only after the caller has verified
 // actual Docker state. Expected desired fields and the lease token fence stale
 // work from newer App edits or reclaimed leases.
-func (r *Repository) CompleteAppRuntime(ctx context.Context, job AppRuntimeJob, status string, container *AppRuntimeContainer) error {
+func (r *Repository) CompleteAppRuntime(
+	ctx context.Context,
+	job AppRuntimeJob,
+	status string,
+	container *AppRuntimeContainer,
+) error {
 	if r == nil || r.pool == nil || validateRuntimeJob(job) != nil {
 		return ErrInvalidAppRuntimeJob
 	}
@@ -126,7 +161,8 @@ func (r *Repository) CompleteAppRuntime(ctx context.Context, job AppRuntimeJob, 
 		(status == "not_deployed" && (!job.App.Enabled || job.App.DesiredDeploymentID != nil)) {
 		return ErrInvalidAppRuntimeJob
 	}
-	if container != nil && (!validRuntimeContainerID(container.ID) || container.Name != job.ContainerName || !validRuntimeImageID(container.ImageID) || !validRuntimeDigest(container.ImageDigest) || len(container.RuntimeTag) > 255 || !validPrivateRuntimeAddress(container.Address)) {
+	if container != nil &&
+		(!validRuntimeContainerID(container.ID) || container.Name != job.ContainerName || !validRuntimeImageID(container.ImageID) || !validRuntimeDigest(container.ImageDigest) || len(container.RuntimeTag) > 255 || !validPrivateRuntimeAddress(container.Address)) {
 		return ErrInvalidAppRuntimeJob
 	}
 	tx, err := r.pool.Begin(ctx)
@@ -151,17 +187,21 @@ func (r *Repository) CompleteAppRuntime(ctx context.Context, job AppRuntimeJob, 
 	var oldHealthStatus string
 	var currentRouteIdentity uuid.UUID
 	var currentContainerName string
-	if err := tx.QueryRow(ctx, `SELECT worker_id,lease_token,container_id,host(container_address),applied_generation,applied_deployment_id,applied_workload_spec_sha256,health_status,route_identity,container_name FROM app_runtime_state WHERE app_id=$1 AND lease_expires_at>now() FOR UPDATE`, appID).Scan(
-		&owner, &currentToken, &oldContainerID, &oldAddress, &oldAppliedGeneration, &oldAppliedDeploymentID, &oldAppliedSpec, &oldHealthStatus, &currentRouteIdentity, &currentContainerName,
-	); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT worker_id,lease_token,container_id,host(container_address),applied_generation,applied_deployment_id,applied_workload_spec_sha256,health_status,route_identity,container_name FROM app_runtime_state WHERE app_id=$1 AND lease_expires_at>now() FOR UPDATE`, appID).
+		Scan(
+			&owner, &currentToken, &oldContainerID, &oldAddress, &oldAppliedGeneration, &oldAppliedDeploymentID, &oldAppliedSpec, &oldHealthStatus, &currentRouteIdentity, &currentContainerName,
+		)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrAppRuntimeLeaseLost
-	} else if err != nil {
+	}
+	if err != nil {
 		return err
 	}
 	if owner != job.WorkerID || currentToken != job.LeaseToken {
 		return ErrAppRuntimeLeaseLost
 	}
-	if !runtimeDesiredStateMatches(current, job.App) || currentRouteIdentity != job.RouteIdentity || currentContainerName != job.ContainerName {
+	if !runtimeDesiredStateMatches(current, job.App) || currentRouteIdentity != job.RouteIdentity ||
+		currentContainerName != job.ContainerName {
 		if _, err := tx.Exec(ctx, `UPDATE app_runtime_state SET worker_id=NULL,lease_token=NULL,lease_expires_at=NULL,next_inspection_at=now(),updated_at=now() WHERE app_id=$1 AND lease_token=$2`, appID, job.LeaseToken); err != nil {
 			return err
 		}
@@ -174,15 +214,27 @@ func (r *Repository) CompleteAppRuntime(ctx context.Context, job AppRuntimeJob, 
 		currentRouteIdentity != job.RouteIdentity ||
 		oldAppliedGeneration == nil || *oldAppliedGeneration != job.App.DesiredGeneration ||
 		oldAppliedDeploymentID == nil || job.App.DesiredDeploymentID == nil || *oldAppliedDeploymentID != uuid.MustParse(*job.App.DesiredDeploymentID) ||
-		oldAppliedSpec == nil || *oldAppliedSpec != job.App.WorkloadSpecSHA256 ||
-		oldAddress == nil || container == nil || *oldAddress != container.Address
-	result, err := tx.Exec(ctx, `
+		oldAppliedSpec == nil ||
+		*oldAppliedSpec != job.App.WorkloadSpecSHA256 ||
+		oldAddress == nil ||
+		container == nil ||
+		*oldAddress != container.Address
+	result, err := tx.Exec(
+		ctx,
+		`
 		UPDATE project_apps
 		SET observed_generation=desired_generation,runtime_status=$7,runtime_error=NULL,updated_at=now()
 		WHERE project_id=$1 AND id=$2 AND desired_generation=$3
 		  AND desired_deployment_id IS NOT DISTINCT FROM $4::uuid
 		  AND workload_spec_sha256=$5 AND enabled=$6`,
-		projectID, appID, job.App.DesiredGeneration, optionalUUID(job.App.DesiredDeploymentID), job.App.WorkloadSpecSHA256, job.App.Enabled, status)
+		projectID,
+		appID,
+		job.App.DesiredGeneration,
+		optionalUUID(job.App.DesiredDeploymentID),
+		job.App.WorkloadSpecSHA256,
+		job.App.Enabled,
+		status,
+	)
 	if err != nil {
 		return err
 	}
@@ -252,7 +304,8 @@ func (r *Repository) CompleteAppRuntime(ctx context.Context, job AppRuntimeJob, 
 			return err
 		}
 	}
-	if current.RuntimeStatus != status || current.RuntimeError != nil || current.ObservedGeneration != job.App.DesiredGeneration {
+	if current.RuntimeStatus != status || current.RuntimeError != nil ||
+		current.ObservedGeneration != job.App.DesiredGeneration {
 		if err := r.enqueueRealtimeOnlyEventTx(ctx, tx, projectID, "app.runtime.updated", "app", appID, map[string]any{
 			"runtime_status": status, "desired_generation": job.App.DesiredGeneration,
 			"observed_generation": job.App.DesiredGeneration,
@@ -260,7 +313,8 @@ func (r *Repository) CompleteAppRuntime(ctx context.Context, job AppRuntimeJob, 
 			return err
 		}
 	}
-	if identityChanged && (oldHealthStatus != "pending" || oldAddress == nil || container == nil || (oldAddress != nil && container != nil && *oldAddress != container.Address)) {
+	if identityChanged &&
+		(oldHealthStatus != "pending" || oldAddress == nil || container == nil || (oldAddress != nil && container != nil && *oldAddress != container.Address)) {
 		if err := r.enqueueRealtimeOnlyEventTx(ctx, tx, projectID, "app.runtime.updated", "app", appID, map[string]any{
 			"runtime_status": status, "health_status": "pending", "desired_generation": job.App.DesiredGeneration,
 			"observed_generation": job.App.DesiredGeneration,
@@ -273,8 +327,14 @@ func (r *Repository) CompleteAppRuntime(ctx context.Context, job AppRuntimeJob, 
 
 // FailAppRuntime records a retryable safe summary and deliberately leaves
 // observed_generation untouched.
-func (r *Repository) FailAppRuntime(ctx context.Context, job AppRuntimeJob, status, message string, retryAt time.Time) error {
-	if r == nil || r.pool == nil || validateRuntimeJob(job) != nil || (status != "failed" && status != "degraded") || retryAt.IsZero() {
+func (r *Repository) FailAppRuntime(
+	ctx context.Context,
+	job AppRuntimeJob,
+	status, message string,
+	retryAt time.Time,
+) error {
+	if r == nil || r.pool == nil || validateRuntimeJob(job) != nil || (status != "failed" && status != "degraded") ||
+		retryAt.IsZero() {
 		return ErrInvalidAppRuntimeJob
 	}
 	message = safeAppRuntimeError(message)
@@ -297,9 +357,12 @@ func (r *Repository) FailAppRuntime(ctx context.Context, job AppRuntimeJob, stat
 	}
 	var owner string
 	var token uuid.UUID
-	if err := tx.QueryRow(ctx, `SELECT worker_id,lease_token FROM app_runtime_state WHERE app_id=$1 AND lease_expires_at>now() FOR UPDATE`, appID).Scan(&owner, &token); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT worker_id,lease_token FROM app_runtime_state WHERE app_id=$1 AND lease_expires_at>now() FOR UPDATE`, appID).
+		Scan(&owner, &token)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrAppRuntimeLeaseLost
-	} else if err != nil {
+	}
+	if err != nil {
 		return err
 	}
 	if owner != job.WorkerID || token != job.LeaseToken {
@@ -346,8 +409,13 @@ func (r *Repository) FailAppRuntime(ctx context.Context, job AppRuntimeJob, stat
 // AppRuntimeContainerExists protects the exact persisted container ID, even
 // while its name is being rotated, and containers under an active runtime
 // lease. Different App containers remain eligible for orphan cleanup.
-func (r *Repository) AppRuntimeContainerExists(ctx context.Context, projectID, appID uuid.UUID, containerID string) (bool, error) {
-	if r == nil || r.pool == nil || projectID == uuid.Nil || appID == uuid.Nil || !validRuntimeContainerID(containerID) {
+func (r *Repository) AppRuntimeContainerExists(
+	ctx context.Context,
+	projectID, appID uuid.UUID,
+	containerID string,
+) (bool, error) {
+	if r == nil || r.pool == nil || projectID == uuid.Nil || appID == uuid.Nil ||
+		!validRuntimeContainerID(containerID) {
 		return false, ErrInvalidAppRuntimeJob
 	}
 	var exists bool

@@ -72,7 +72,9 @@ func loadExecutionSettings() (executionSettings, error) {
 		workerID = "stealth-worker"
 	}
 	if len(workerID) > 128 || !isWorkerID(workerID) {
-		return executionSettings{}, fmt.Errorf("FUNCTIONS_WORKER_ID must contain only letters, numbers, dots, underscores, or hyphens")
+		return executionSettings{}, fmt.Errorf(
+			"FUNCTIONS_WORKER_ID must contain only letters, numbers, dots, underscores, or hyphens",
+		)
 	}
 	stagingVolume := value("FUNCTIONS_RUNNER_STAGING_VOLUME", "stealth-function-runner-staging")
 	if len(stagingVolume) > 255 || !isDockerName(stagingVolume) {
@@ -80,7 +82,9 @@ func loadExecutionSettings() (executionSettings, error) {
 	}
 	metricsAddress := value("FUNCTIONS_RUNNER_METRICS_ADDR", "127.0.0.1:9091")
 	if !isListenAddress(metricsAddress) {
-		return executionSettings{}, fmt.Errorf("FUNCTIONS_RUNNER_METRICS_ADDR must be a TCP host:port with a port between 1 and 65535")
+		return executionSettings{}, fmt.Errorf(
+			"FUNCTIONS_RUNNER_METRICS_ADDR must be a TCP host:port with a port between 1 and 65535",
+		)
 	}
 	runnerImages := struct {
 		helper string
@@ -170,7 +174,8 @@ func (c Config) ValidateFunctions() error {
 	if len(c.FunctionsSecretKey) != 32 {
 		return fmt.Errorf("FUNCTIONS_SECRET_KEY must be configured as base64-encoded 32 bytes")
 	}
-	if c.FunctionsMaxArtifactSize <= 0 || c.FunctionsDefaultQuotaBytes <= 0 || c.FunctionsMaxArtifactSize > c.FunctionsDefaultQuotaBytes {
+	if c.FunctionsMaxArtifactSize <= 0 || c.FunctionsDefaultQuotaBytes <= 0 ||
+		c.FunctionsMaxArtifactSize > c.FunctionsDefaultQuotaBytes {
 		return fmt.Errorf("function artifact size and quota settings are invalid")
 	}
 	return nil

@@ -34,7 +34,11 @@ type TelemetryAlertEvaluator struct {
 	Logger   *slog.Logger
 }
 
-func NewTelemetryAlertEvaluator(store TelemetryAlertPersistence, explorer telemetry.AlertExplorer, logger *slog.Logger) (*TelemetryAlertEvaluator, error) {
+func NewTelemetryAlertEvaluator(
+	store TelemetryAlertPersistence,
+	explorer telemetry.AlertExplorer,
+	logger *slog.Logger,
+) (*TelemetryAlertEvaluator, error) {
 	if store == nil || explorer == nil {
 		return nil, fmt.Errorf("telemetry alert evaluator requires a store and explorer")
 	}
@@ -56,7 +60,7 @@ func (e *TelemetryAlertEvaluator) RunOnce(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	evaluated := 0
+	var evaluated int
 	for _, rule := range rules {
 		if !rule.Enabled || !isTelemetryAlertKind(rule.Kind) {
 			continue
@@ -85,7 +89,13 @@ func (e *TelemetryAlertEvaluator) RunOnce(ctx context.Context) (int, error) {
 			e.logError("telemetry alert has invalid identifier", fmt.Errorf("rule id is invalid"))
 			continue
 		}
-		message := fmt.Sprintf("%s measured %s %s %s", rule.Kind, formatAlertValue(measurement.Value), compiled.operator, formatAlertValue(compiled.threshold))
+		message := fmt.Sprintf(
+			"%s measured %s %s %s",
+			rule.Kind,
+			formatAlertValue(measurement.Value),
+			compiled.operator,
+			formatAlertValue(compiled.threshold),
+		)
 		if err := e.Store.EvaluateAdminAlert(ctx, ruleID, trigger, &measurement.Value, message); err != nil {
 			return evaluated, err
 		}
@@ -110,7 +120,10 @@ func compileTelemetryAlert(rule domain.AdminAlertRule) (compiledTelemetryAlert, 
 	if err != nil {
 		return compiledTelemetryAlert{}, err
 	}
-	query := telemetry.AlertQuery{Kind: rule.Kind, Range: telemetry.TimeRange{From: time.Now().UTC().Add(-window), To: time.Now().UTC()}}
+	query := telemetry.AlertQuery{
+		Kind:  rule.Kind,
+		Range: telemetry.TimeRange{From: time.Now().UTC().Add(-window), To: time.Now().UTC()},
+	}
 	query.Service = boundedConditionString(condition, "service")
 	switch rule.Kind {
 	case "metric_threshold":

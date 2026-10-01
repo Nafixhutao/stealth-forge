@@ -40,10 +40,10 @@ const (
 // excluding characters commonly confused when typed manually: I, O, 0, and 1.
 func GenerateCode() (string, error) {
 	parts := make([]string, 0, codeParts)
-	for part := 0; part < codeParts; part++ {
+	for range codeParts {
 		var builder strings.Builder
 		builder.Grow(codePartLength)
-		for index := 0; index < codePartLength; index++ {
+		for range codePartLength {
 			value, err := rand.Int(rand.Reader, big.NewInt(int64(len(codeAlphabet))))
 			if err != nil {
 				return "", fmt.Errorf("generate bootstrap code: %w", err)
@@ -55,10 +55,10 @@ func GenerateCode() (string, error) {
 	return codePrefix + strings.Join(parts, "-"), nil
 }
 
-// NormalizeCode accepts surrounding whitespace and lower-case manual input,
+// normalizeCode accepts surrounding whitespace and lower-case manual input,
 // but leaves the separators significant so malformed strings are rejected
 // instead of being silently repaired.
-func NormalizeCode(raw string) string {
+func normalizeCode(raw string) string {
 	return strings.ToUpper(strings.TrimSpace(raw))
 }
 
@@ -66,7 +66,7 @@ func NormalizeCode(raw string) string {
 // to the repository. Validation errors intentionally do not distinguish an
 // expired, used, or incorrect code at the API boundary.
 func ValidCode(raw string) bool {
-	value := NormalizeCode(raw)
+	value := normalizeCode(raw)
 	if !strings.HasPrefix(value, codePrefix) {
 		return false
 	}
@@ -91,7 +91,7 @@ func ValidCode(raw string) bool {
 // persisted. SHA-256 is used over the canonical code; the code has 60 bits of
 // CSPRNG entropy and the endpoint is additionally rate-limited.
 func HashCode(raw string) []byte {
-	digest := sha256.Sum256([]byte(NormalizeCode(raw)))
+	digest := sha256.Sum256([]byte(normalizeCode(raw)))
 	return digest[:]
 }
 

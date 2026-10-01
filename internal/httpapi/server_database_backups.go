@@ -51,7 +51,14 @@ func (s *Server) listDatabaseBackups(w http.ResponseWriter, r *http.Request) {
 		}
 		cursorID = &parsed
 	}
-	items, next, canManage, err := s.repo.ListDatabaseBackups(r.Context(), projectID, databaseID, databaseActorFrom(r), limit, cursorID)
+	items, next, canManage, err := s.repo.ListDatabaseBackups(
+		r.Context(),
+		projectID,
+		databaseID,
+		databaseActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if databaseBackupResourceError(w, err) {
 		return
 	}
@@ -59,7 +66,11 @@ func (s *Server) listDatabaseBackups(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"backups": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"backups": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) createDatabaseBackup(w http.ResponseWriter, r *http.Request) {
@@ -79,7 +90,12 @@ func (s *Server) createDatabaseBackup(w http.ResponseWriter, r *http.Request) {
 	if raw := strings.TrimSpace(r.URL.Query().Get("max_rows")); raw != "" {
 		parsed, err := strconv.Atoi(raw)
 		if err != nil || parsed < 1 || parsed > repository.DatabaseBackupMaxRows {
-			writeError(w, http.StatusUnprocessableEntity, "validation_error", fmt.Sprintf("max_rows must be between 1 and %d", repository.DatabaseBackupMaxRows))
+			writeError(
+				w,
+				http.StatusUnprocessableEntity,
+				"validation_error",
+				fmt.Sprintf("max_rows must be between 1 and %d", repository.DatabaseBackupMaxRows),
+			)
 			return
 		}
 		maxRows = parsed
@@ -97,9 +113,22 @@ func (s *Server) createDatabaseBackup(w http.ResponseWriter, r *http.Request) {
 	if maxSize <= 0 || maxSize > repository.DatabaseBackupMaxBytes {
 		maxSize = repository.DatabaseBackupMaxBytes
 	}
-	prepared, err := s.storage.BeginUploadWithLimit(r.Context(), projectID, databaseID, backupID, bytes.NewReader(payload), "application/json", maxSize)
+	prepared, err := s.storage.BeginUploadWithLimit(
+		r.Context(),
+		projectID,
+		databaseID,
+		backupID,
+		bytes.NewReader(payload),
+		"application/json",
+		maxSize,
+	)
 	if errors.Is(err, storage.ErrTooLarge) {
-		writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "database backup exceeds the configured storage limit")
+		writeError(
+			w,
+			http.StatusRequestEntityTooLarge,
+			"payload_too_large",
+			"database backup exceeds the configured storage limit",
+		)
 		return
 	}
 	if err != nil {
@@ -122,7 +151,17 @@ func (s *Server) createDatabaseBackup(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	item, err := s.repo.CreateDatabaseBackupWithCleanup(r.Context(), backupID, projectID, databaseID, databaseActorFrom(r), prepared.RelativePath, prepared.Size, prepared.Checksum, publishCleanup)
+	item, err := s.repo.CreateDatabaseBackupWithCleanup(
+		r.Context(),
+		backupID,
+		projectID,
+		databaseID,
+		databaseActorFrom(r),
+		prepared.RelativePath,
+		prepared.Size,
+		prepared.Checksum,
+		publishCleanup,
+	)
 	if databaseBackupResourceError(w, err) {
 		return
 	}
@@ -197,8 +236,17 @@ func (s *Server) downloadDatabaseBackup(w http.ResponseWriter, r *http.Request) 
 		internalError(s, w, err)
 		return
 	}
-	if len(payload) < 1 || len(payload) > repository.DatabaseBackupMaxBytes || int64(len(payload)) != item.SizeBytes || subtle.ConstantTimeCompare([]byte(repository.BackupChecksum(payload)), []byte(item.ChecksumSHA256)) != 1 {
-		writeError(w, http.StatusUnprocessableEntity, "invalid_backup", "database backup blob does not match its metadata")
+	payloadEmpty := len(payload) < 1
+	payloadTooLarge := len(payload) > repository.DatabaseBackupMaxBytes
+	sizeMismatch := int64(len(payload)) != item.SizeBytes
+	if payloadEmpty || payloadTooLarge || sizeMismatch ||
+		subtle.ConstantTimeCompare([]byte(repository.BackupChecksum(payload)), []byte(item.ChecksumSHA256)) != 1 {
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"invalid_backup",
+			"database backup blob does not match its metadata",
+		)
 		return
 	}
 	if _, err := blob.Seek(0, io.SeekStart); err != nil {
@@ -254,12 +302,22 @@ func (s *Server) restoreDatabaseBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(payload) < 1 || len(payload) > repository.DatabaseBackupMaxBytes || int64(len(payload)) != item.SizeBytes {
-		writeError(w, http.StatusUnprocessableEntity, "invalid_backup", "database backup size does not match its metadata")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"invalid_backup",
+			"database backup size does not match its metadata",
+		)
 		return
 	}
 	checksum := repository.BackupChecksum(payload)
 	if subtle.ConstantTimeCompare([]byte(checksum), []byte(item.ChecksumSHA256)) != 1 {
-		writeError(w, http.StatusUnprocessableEntity, "invalid_backup", "database backup checksum does not match its metadata")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"invalid_backup",
+			"database backup checksum does not match its metadata",
+		)
 		return
 	}
 	var snapshot repository.DatabaseBackupSnapshot
@@ -269,7 +327,12 @@ func (s *Server) restoreDatabaseBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		writeError(w, http.StatusUnprocessableEntity, "invalid_backup", "database backup payload contains trailing data")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"invalid_backup",
+			"database backup payload contains trailing data",
+		)
 		return
 	}
 	result, err := s.repo.RestoreDatabaseBackup(r.Context(), projectID, databaseID, databaseActorFrom(r), snapshot)
@@ -313,7 +376,12 @@ func databaseBackupResourceError(w http.ResponseWriter, err error) bool {
 	}
 	switch {
 	case errors.Is(err, repository.ErrBackupTooLarge):
-		writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "database backup exceeds the configured safety limit")
+		writeError(
+			w,
+			http.StatusRequestEntityTooLarge,
+			"payload_too_large",
+			"database backup exceeds the configured safety limit",
+		)
 		return true
 	case errors.Is(err, repository.ErrInvalidBackup):
 		writeError(w, http.StatusUnprocessableEntity, "invalid_backup", "database backup is invalid")

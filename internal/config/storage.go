@@ -64,10 +64,14 @@ func loadStorageSettings() (storageSettings, error) {
 	}
 	if driver == "s3" {
 		if s3Endpoint == "" || s3Bucket == "" || s3AccessKey == "" || s3SecretKey == "" {
-			return storageSettings{}, fmt.Errorf("STORAGE_S3_ENDPOINT, STORAGE_S3_BUCKET, STORAGE_S3_ACCESS_KEY, and STORAGE_S3_SECRET_KEY are required when STORAGE_DRIVER is s3")
+			return storageSettings{}, fmt.Errorf(
+				"STORAGE_S3_ENDPOINT, STORAGE_S3_BUCKET, STORAGE_S3_ACCESS_KEY, and STORAGE_S3_SECRET_KEY are required when STORAGE_DRIVER is s3",
+			)
 		}
 		if !isStorageS3Endpoint(s3Endpoint) {
-			return storageSettings{}, fmt.Errorf("STORAGE_S3_ENDPOINT must be an HTTP(S) endpoint without path or credentials")
+			return storageSettings{}, fmt.Errorf(
+				"STORAGE_S3_ENDPOINT must be an HTTP(S) endpoint without path or credentials",
+			)
 		}
 	}
 	s3StagingRoot, err := filepath.Abs(value("STORAGE_S3_STAGING_ROOT", filepath.Join(root, "s3-staging")))
@@ -128,13 +132,16 @@ func (c Config) ValidateStorage() error {
 		return fmt.Errorf("storage size and quota settings are invalid")
 	}
 	if c.StorageDriver == "s3" {
-		if strings.TrimSpace(c.StorageS3Endpoint) == "" || strings.TrimSpace(c.StorageS3Bucket) == "" || strings.TrimSpace(c.StorageS3AccessKey) == "" || c.StorageS3SecretKey == "" {
+		if strings.TrimSpace(c.StorageS3Endpoint) == "" || strings.TrimSpace(c.StorageS3Bucket) == "" ||
+			strings.TrimSpace(c.StorageS3AccessKey) == "" ||
+			c.StorageS3SecretKey == "" {
 			return fmt.Errorf("S3 storage credentials and bucket are required")
 		}
 		if !isStorageS3Endpoint(c.StorageS3Endpoint) {
 			return fmt.Errorf("S3 storage endpoint is invalid")
 		}
-		if strings.TrimSpace(c.StorageS3StagingRoot) == "" || !filepath.IsAbs(c.StorageS3StagingRoot) || filepath.Clean(c.StorageS3StagingRoot) == string(filepath.Separator) {
+		if strings.TrimSpace(c.StorageS3StagingRoot) == "" || !filepath.IsAbs(c.StorageS3StagingRoot) ||
+			filepath.Clean(c.StorageS3StagingRoot) == string(filepath.Separator) {
 			return fmt.Errorf("S3 storage staging root is invalid")
 		}
 	}

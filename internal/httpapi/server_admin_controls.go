@@ -3,6 +3,7 @@ package httpapi
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -161,7 +162,17 @@ func (s *Server) createAdminNotificationChannel(w http.ResponseWriter, r *http.R
 		internalError(s, w, err)
 		return
 	}
-	item, err := s.repo.CreateAdminNotificationChannel(r.Context(), mustUUID(accountFrom(r).ID), id, repository.AdminNotificationChannelInput{Name: request.Name, Kind: request.Kind, Enabled: enabled, Config: config})
+	item, err := s.repo.CreateAdminNotificationChannel(
+		r.Context(),
+		mustUUID(accountFrom(r).ID),
+		id,
+		repository.AdminNotificationChannelInput{
+			Name:    request.Name,
+			Kind:    request.Kind,
+			Enabled: enabled,
+			Config:  config,
+		},
+	)
 	if err != nil {
 		adminControlError(s, w, err)
 		return
@@ -200,7 +211,17 @@ func (s *Server) updateAdminNotificationChannel(w http.ResponseWriter, r *http.R
 	if request.Enabled != nil {
 		enabled = *request.Enabled
 	}
-	item, err := s.repo.UpdateAdminNotificationChannel(r.Context(), mustUUID(accountFrom(r).ID), id, repository.AdminNotificationChannelInput{Name: request.Name, Kind: request.Kind, Enabled: enabled, Config: config})
+	item, err := s.repo.UpdateAdminNotificationChannel(
+		r.Context(),
+		mustUUID(accountFrom(r).ID),
+		id,
+		repository.AdminNotificationChannelInput{
+			Name:    request.Name,
+			Kind:    request.Kind,
+			Enabled: enabled,
+			Config:  config,
+		},
+	)
 	if err != nil {
 		adminControlError(s, w, err)
 		return
@@ -252,10 +273,15 @@ func (s *Server) createAdminAlertRule(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	item, err := s.repo.CreateAdminAlertRule(r.Context(), mustUUID(accountFrom(r).ID), id, repository.AdminAlertRuleInput{
-		Name: request.Name, Kind: request.Kind, Condition: condition, Severity: request.Severity,
-		ForSeconds: request.ForSeconds, Enabled: enabled,
-	})
+	item, err := s.repo.CreateAdminAlertRule(
+		r.Context(),
+		mustUUID(accountFrom(r).ID),
+		id,
+		repository.AdminAlertRuleInput{
+			Name: request.Name, Kind: request.Kind, Condition: condition, Severity: request.Severity,
+			ForSeconds: request.ForSeconds, Enabled: enabled,
+		},
+	)
 	if err != nil {
 		adminControlError(s, w, err)
 		return
@@ -298,7 +324,11 @@ func (s *Server) listAdminAlertRuleEvents(w http.ResponseWriter, r *http.Request
 	writeAdminAlertEventPage(w, page)
 }
 
-func adminAlertEventQuery(w http.ResponseWriter, r *http.Request, ruleID *uuid.UUID) (repository.AdminAlertEventQuery, bool) {
+func adminAlertEventQuery(
+	w http.ResponseWriter,
+	r *http.Request,
+	ruleID *uuid.UUID,
+) (repository.AdminAlertEventQuery, bool) {
 	limit, ok := adminConfigLimit(w, r)
 	if !ok {
 		return repository.AdminAlertEventQuery{}, false
@@ -334,7 +364,7 @@ func adminAlertEventTime(w http.ResponseWriter, r *http.Request, key string) (*t
 	}
 	parsed, err := time.Parse(time.RFC3339Nano, raw)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "validation_error", key+" must be an RFC3339 timestamp")
+		writeError(w, http.StatusBadRequest, "validation_error", fmt.Sprintf("%q must be an RFC3339 timestamp", key))
 		return nil, false
 	}
 	parsed = parsed.UTC()
@@ -367,10 +397,15 @@ func (s *Server) updateAdminAlertRule(w http.ResponseWriter, r *http.Request) {
 	if request.Enabled != nil {
 		enabled = *request.Enabled
 	}
-	item, err := s.repo.UpdateAdminAlertRule(r.Context(), mustUUID(accountFrom(r).ID), id, repository.AdminAlertRulePatch{
-		Name: &request.Name, Kind: &request.Kind, Condition: condition, Severity: &request.Severity,
-		ForSeconds: &request.ForSeconds, Enabled: &enabled,
-	})
+	item, err := s.repo.UpdateAdminAlertRule(
+		r.Context(),
+		mustUUID(accountFrom(r).ID),
+		id,
+		repository.AdminAlertRulePatch{
+			Name: &request.Name, Kind: &request.Kind, Condition: condition, Severity: &request.Severity,
+			ForSeconds: &request.ForSeconds, Enabled: &enabled,
+		},
+	)
 	if err != nil {
 		adminControlError(s, w, err)
 		return
@@ -469,7 +504,13 @@ func (s *Server) addAdminIncidentEvent(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	event, err := s.repo.AddAdminIncidentEvent(r.Context(), mustUUID(accountFrom(r).ID), id, eventID, repository.AdminIncidentEventInput{Kind: request.Kind, Message: request.Message})
+	event, err := s.repo.AddAdminIncidentEvent(
+		r.Context(),
+		mustUUID(accountFrom(r).ID),
+		id,
+		eventID,
+		repository.AdminIncidentEventInput{Kind: request.Kind, Message: request.Message},
+	)
 	if err != nil {
 		adminControlError(s, w, err)
 		return
@@ -505,7 +546,12 @@ func (s *Server) createAdminDashboard(w http.ResponseWriter, r *http.Request) {
 		adminControlError(s, w, repository.ErrInvalidAdminDashboard)
 		return
 	}
-	item, err := s.repo.CreateAdminDashboard(r.Context(), mustUUID(accountFrom(r).ID), id, repository.AdminDashboardInput{Name: request.Name, Description: request.Description, Definition: definition})
+	item, err := s.repo.CreateAdminDashboard(
+		r.Context(),
+		mustUUID(accountFrom(r).ID),
+		id,
+		repository.AdminDashboardInput{Name: request.Name, Description: request.Description, Definition: definition},
+	)
 	if err != nil {
 		adminControlError(s, w, err)
 		return
@@ -540,7 +586,12 @@ func (s *Server) updateAdminDashboard(w http.ResponseWriter, r *http.Request) {
 		adminControlError(s, w, repository.ErrInvalidAdminDashboard)
 		return
 	}
-	item, err := s.repo.UpdateAdminDashboard(r.Context(), mustUUID(accountFrom(r).ID), id, repository.AdminDashboardInput{Name: request.Name, Description: request.Description, Definition: definition})
+	item, err := s.repo.UpdateAdminDashboard(
+		r.Context(),
+		mustUUID(accountFrom(r).ID),
+		id,
+		repository.AdminDashboardInput{Name: request.Name, Description: request.Description, Definition: definition},
+	)
 	if err != nil {
 		adminControlError(s, w, err)
 		return
@@ -620,7 +671,12 @@ func adminControlError(s *Server, w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, repository.ErrAdminAlertRuleConflict):
 		writeError(w, http.StatusConflict, "admin_alert_rule_conflict", "the alert rule changed concurrently")
-	case errors.Is(err, repository.ErrInvalidAdminAlert), errors.Is(err, repository.ErrInvalidAdminAlertHistory), errors.Is(err, repository.ErrInvalidAdminNotification), errors.Is(err, repository.ErrInvalidAdminIncident), errors.Is(err, repository.ErrInvalidAdminDashboard), errors.Is(err, repository.ErrInvalidAdminStatus):
+	case errors.Is(err, repository.ErrInvalidAdminAlert),
+		errors.Is(err, repository.ErrInvalidAdminAlertHistory),
+		errors.Is(err, repository.ErrInvalidAdminNotification),
+		errors.Is(err, repository.ErrInvalidAdminIncident),
+		errors.Is(err, repository.ErrInvalidAdminDashboard),
+		errors.Is(err, repository.ErrInvalidAdminStatus):
 		writeError(w, http.StatusBadRequest, "validation_error", "admin configuration is invalid")
 	case errors.Is(err, repository.ErrNotFound):
 		writeError(w, http.StatusNotFound, "not_found", "admin resource was not found")

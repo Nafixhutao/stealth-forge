@@ -115,7 +115,12 @@ func (s *FileStore) Save(ctx context.Context, token, sessionToken string, sessio
 		return err
 	}
 	defer unlock()
-	value := handoff{TokenHash: hash(token), SessionToken: sessionToken, ExpiresAt: expiresAt, SessionExpiresAt: sessionExpiresAt}
+	value := handoff{
+		TokenHash:        hash(token),
+		SessionToken:     sessionToken,
+		ExpiresAt:        expiresAt,
+		SessionExpiresAt: sessionExpiresAt,
+	}
 	return s.save(value)
 }
 
@@ -318,7 +323,8 @@ func (s *FileStore) loadRaw() (handoff, error) {
 		return handoff{}, ErrInvalid
 	}
 	var value handoff
-	if err := json.Unmarshal(plaintext, &value); err != nil || !validToken(value.SessionToken) || len(value.TokenHash) != sha256.Size {
+	if err := json.Unmarshal(plaintext, &value); err != nil || !validToken(value.SessionToken) ||
+		len(value.TokenHash) != sha256.Size {
 		return handoff{}, ErrInvalid
 	}
 	return value, nil

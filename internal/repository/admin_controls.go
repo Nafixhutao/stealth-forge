@@ -95,7 +95,11 @@ func (r *Repository) ListAdminAlertRules(ctx context.Context, limit int) ([]doma
 	if limit < 1 || limit > adminAlertMaxLimit {
 		return nil, fmt.Errorf("%w: limit must be between 1 and %d", ErrInvalidAdminAlert, adminAlertMaxLimit)
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+adminAlertRuleProjection+` FROM admin_alert_rules r ORDER BY r.updated_at DESC,r.id DESC LIMIT $1`, limit)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT `+adminAlertRuleProjection+` FROM admin_alert_rules r ORDER BY r.updated_at DESC,r.id DESC LIMIT $1`,
+		limit,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -115,14 +119,20 @@ func (r *Repository) AdminAlertRuleByID(ctx context.Context, id uuid.UUID) (doma
 	if id == uuid.Nil {
 		return domain.AdminAlertRule{}, ErrNotFound
 	}
-	item, err := scanAdminAlertRule(r.pool.QueryRow(ctx, `SELECT `+adminAlertRuleProjection+` FROM admin_alert_rules r WHERE r.id=$1`, id))
+	item, err := scanAdminAlertRule(
+		r.pool.QueryRow(ctx, `SELECT `+adminAlertRuleProjection+` FROM admin_alert_rules r WHERE r.id=$1`, id),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.AdminAlertRule{}, ErrNotFound
 	}
 	return item, err
 }
 
-func (r *Repository) CreateAdminAlertRule(ctx context.Context, accountID, id uuid.UUID, input AdminAlertRuleInput) (domain.AdminAlertRule, error) {
+func (r *Repository) CreateAdminAlertRule(
+	ctx context.Context,
+	accountID, id uuid.UUID,
+	input AdminAlertRuleInput,
+) (domain.AdminAlertRule, error) {
 	normalized, err := normalizeAdminAlertRuleInput(input)
 	if err != nil {
 		return domain.AdminAlertRule{}, err
@@ -143,7 +153,9 @@ func (r *Repository) CreateAdminAlertRule(ctx context.Context, accountID, id uui
 		VALUES ($1,$2,$3,$4,$5,$6,$7)`, id, normalized.Name, normalized.Kind, normalized.Condition, normalized.Severity, normalized.ForSeconds, normalized.Enabled); err != nil {
 		return domain.AdminAlertRule{}, mapError(err)
 	}
-	item, err := scanAdminAlertRule(tx.QueryRow(ctx, `SELECT `+adminAlertRuleProjection+` FROM admin_alert_rules r WHERE r.id=$1`, id))
+	item, err := scanAdminAlertRule(
+		tx.QueryRow(ctx, `SELECT `+adminAlertRuleProjection+` FROM admin_alert_rules r WHERE r.id=$1`, id),
+	)
 	if err != nil {
 		return domain.AdminAlertRule{}, err
 	}
@@ -156,7 +168,11 @@ func (r *Repository) CreateAdminAlertRule(ctx context.Context, accountID, id uui
 	return item, nil
 }
 
-func (r *Repository) UpdateAdminAlertRule(ctx context.Context, accountID, id uuid.UUID, patch AdminAlertRulePatch) (domain.AdminAlertRule, error) {
+func (r *Repository) UpdateAdminAlertRule(
+	ctx context.Context,
+	accountID, id uuid.UUID,
+	patch AdminAlertRulePatch,
+) (domain.AdminAlertRule, error) {
 	normalized, err := normalizeAdminAlertRulePatch(patch)
 	if err != nil {
 		return domain.AdminAlertRule{}, err
@@ -180,12 +196,19 @@ func (r *Repository) UpdateAdminAlertRule(ctx context.Context, accountID, id uui
 // relationship before locking the rule row. Monitor-backed relationship
 // changes therefore use monitor -> rule ordering, matching monitor updates and
 // monitor-worker evaluation. The caller must commit or roll back tx.
-func updateAdminAlertRuleTx(ctx context.Context, tx pgx.Tx, accountID, id uuid.UUID, normalized AdminAlertRulePatch) (domain.AdminAlertRule, error) {
+func updateAdminAlertRuleTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	accountID, id uuid.UUID,
+	normalized AdminAlertRulePatch,
+) (domain.AdminAlertRule, error) {
 	if err := requireInstanceAdminTx(ctx, tx, accountID); err != nil {
 		return domain.AdminAlertRule{}, err
 	}
 	var current domain.AdminAlertRule
-	current, err := scanAdminAlertRule(tx.QueryRow(ctx, `SELECT `+adminAlertRuleProjection+` FROM admin_alert_rules r WHERE r.id=$1`, id))
+	current, err := scanAdminAlertRule(
+		tx.QueryRow(ctx, `SELECT `+adminAlertRuleProjection+` FROM admin_alert_rules r WHERE r.id=$1`, id),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.AdminAlertRule{}, ErrNotFound
 	}
@@ -226,7 +249,9 @@ func updateAdminAlertRuleTx(ctx context.Context, tx pgx.Tx, accountID, id uuid.U
 		}
 	}
 
-	current, err = scanAdminAlertRule(tx.QueryRow(ctx, `SELECT `+adminAlertRuleProjection+` FROM admin_alert_rules r WHERE r.id=$1 FOR UPDATE`, id))
+	current, err = scanAdminAlertRule(
+		tx.QueryRow(ctx, `SELECT `+adminAlertRuleProjection+` FROM admin_alert_rules r WHERE r.id=$1 FOR UPDATE`, id),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.AdminAlertRule{}, ErrNotFound
 	}
@@ -261,7 +286,9 @@ func updateAdminAlertRuleTx(ctx context.Context, tx pgx.Tx, accountID, id uuid.U
 		WHERE id=$1`, id, name, kind, condition, severity, forSeconds, enabled); err != nil {
 		return domain.AdminAlertRule{}, mapError(err)
 	}
-	item, err := scanAdminAlertRule(tx.QueryRow(ctx, `SELECT `+adminAlertRuleProjection+` FROM admin_alert_rules r WHERE r.id=$1`, id))
+	item, err := scanAdminAlertRule(
+		tx.QueryRow(ctx, `SELECT `+adminAlertRuleProjection+` FROM admin_alert_rules r WHERE r.id=$1`, id),
+	)
 	if err != nil {
 		return domain.AdminAlertRule{}, err
 	}
@@ -271,7 +298,10 @@ func updateAdminAlertRuleTx(ctx context.Context, tx pgx.Tx, accountID, id uuid.U
 	return item, nil
 }
 
-func mergedAdminAlertRuleValues(current domain.AdminAlertRule, normalized AdminAlertRulePatch) (string, string, json.RawMessage, string, int, bool, error) {
+func mergedAdminAlertRuleValues(
+	current domain.AdminAlertRule,
+	normalized AdminAlertRulePatch,
+) (string, string, json.RawMessage, string, int, bool, error) {
 	name := current.Name
 	if normalized.Name != nil {
 		name = *normalized.Name
@@ -331,7 +361,11 @@ func lockAdminAlertMonitorsTx(ctx context.Context, tx pgx.Tx, monitorIDs ...uuid
 	return locked, nil
 }
 
-func validateLockedAdminAlertMonitor(ruleKind string, monitorID uuid.UUID, lockedMonitorKinds map[uuid.UUID]string) error {
+func validateLockedAdminAlertMonitor(
+	ruleKind string,
+	monitorID uuid.UUID,
+	lockedMonitorKinds map[uuid.UUID]string,
+) error {
 	monitorKind, ok := lockedMonitorKinds[monitorID]
 	if !ok {
 		return ErrAdminAlertRuleConflict
@@ -340,7 +374,8 @@ func validateLockedAdminAlertMonitor(ruleKind string, monitorID uuid.UUID, locke
 }
 
 func adminAlertRuleMonitorID(kind string, raw json.RawMessage) (uuid.UUID, bool, error) {
-	if kind != "monitor_failure" && kind != "heartbeat_failure" && kind != "certificate_expiry" {
+	monitorKind := kind == "monitor_failure" || kind == "heartbeat_failure" || kind == "certificate_expiry"
+	if !monitorKind {
 		return uuid.Nil, false, nil
 	}
 	var condition map[string]any
@@ -390,13 +425,15 @@ func deleteAdminAlertRuleTx(ctx context.Context, tx pgx.Tx, accountID, id uuid.U
 		return err
 	}
 	var name, kind, severity string
-	if err := tx.QueryRow(ctx, `
+	err := tx.QueryRow(ctx, `
 		SELECT name,kind,severity
 		FROM admin_alert_rules
 		WHERE id=$1
-		FOR UPDATE`, id).Scan(&name, &kind, &severity); errors.Is(err, pgx.ErrNoRows) {
+		FOR UPDATE`, id).Scan(&name, &kind, &severity)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return err
 	}
 	result, err := tx.Exec(ctx, `DELETE FROM admin_alert_rules WHERE id=$1`, id)
@@ -416,7 +453,11 @@ func deleteAdminAlertRuleTx(ctx context.Context, tx pgx.Tx, accountID, id uuid.U
 	return nil
 }
 
-func (r *Repository) ListAdminAlertEvents(ctx context.Context, ruleID uuid.UUID, limit int) ([]domain.AdminAlertEvent, error) {
+func (r *Repository) ListAdminAlertEvents(
+	ctx context.Context,
+	ruleID uuid.UUID,
+	limit int,
+) ([]domain.AdminAlertEvent, error) {
 	page, err := r.QueryAdminAlertEvents(ctx, AdminAlertEventQuery{RuleID: &ruleID, Limit: limit})
 	if err != nil {
 		return nil, err
@@ -466,11 +507,21 @@ func normalizeAdminAlertRuleInput(input AdminAlertRuleInput) (AdminAlertRuleInpu
 	if err := validateAdminAlertCondition(kind, input.Condition); err != nil {
 		return AdminAlertRuleInput{}, err
 	}
-	return AdminAlertRuleInput{Name: name, Kind: kind, Condition: append(json.RawMessage(nil), input.Condition...), Severity: severity, ForSeconds: input.ForSeconds, Enabled: input.Enabled}, nil
+	return AdminAlertRuleInput{
+		Name:       name,
+		Kind:       kind,
+		Condition:  append(json.RawMessage(nil), input.Condition...),
+		Severity:   severity,
+		ForSeconds: input.ForSeconds,
+		Enabled:    input.Enabled,
+	}, nil
 }
 
 func normalizeAdminAlertRulePatch(patch AdminAlertRulePatch) (AdminAlertRulePatch, error) {
-	if patch.Name == nil && patch.Kind == nil && patch.Condition == nil && patch.Severity == nil && patch.ForSeconds == nil && patch.Enabled == nil {
+	emptyPatch := patch.Name == nil && patch.Kind == nil && patch.Condition == nil && patch.Severity == nil &&
+		patch.ForSeconds == nil &&
+		patch.Enabled == nil
+	if emptyPatch {
 		return AdminAlertRulePatch{}, fmt.Errorf("%w: at least one field is required", ErrInvalidAdminAlert)
 	}
 	if patch.Name != nil {
@@ -516,7 +567,8 @@ func validateAdminAlertCondition(kind string, raw json.RawMessage) error {
 	}
 	switch kind {
 	case "metric_threshold", "error_rate", "latency", "log_match", "service_health", "disk_pressure":
-		if !conditionHasNumber(condition, "threshold") || !conditionHasString(condition, "operator", "gt", "gte", "lt", "lte") {
+		if !conditionHasNumber(condition, "threshold") ||
+			!conditionHasString(condition, "operator", "gt", "gte", "lt", "lte") {
 			return fmt.Errorf("%w: telemetry alerts require operator and numeric threshold", ErrInvalidAdminAlert)
 		}
 		if err := validateTelemetryAlertCondition(kind, condition); err != nil {
@@ -538,7 +590,15 @@ func validateAdminAlertCondition(kind string, raw json.RawMessage) error {
 
 func validAdminAlertKind(value string) bool {
 	switch value {
-	case "metric_threshold", "error_rate", "latency", "log_match", "service_health", "disk_pressure", "monitor_failure", "heartbeat_failure", "certificate_expiry":
+	case "metric_threshold",
+		"error_rate",
+		"latency",
+		"log_match",
+		"service_health",
+		"disk_pressure",
+		"monitor_failure",
+		"heartbeat_failure",
+		"certificate_expiry":
 		return true
 	default:
 		return false
@@ -552,7 +612,8 @@ func validateTelemetryAlertCondition(kind string, condition map[string]any) erro
 			return fmt.Errorf("%w: telemetry alert window_seconds is invalid", ErrInvalidAdminAlert)
 		}
 	}
-	if value, ok := condition["service"]; ok && (!isString(value) || !validAdminControlText(strings.TrimSpace(value.(string)), 1, 128)) {
+	if value, ok := condition["service"]; ok &&
+		(!isString(value) || !validAdminControlText(strings.TrimSpace(value.(string)), 1, 128)) {
 		return fmt.Errorf("%w: service filter is invalid", ErrInvalidAdminAlert)
 	}
 	switch kind {
@@ -560,18 +621,22 @@ func validateTelemetryAlertCondition(kind string, condition map[string]any) erro
 		if !conditionHasBoundedString(condition, "metric", 256) {
 			return fmt.Errorf("%w: metric threshold alerts require metric", ErrInvalidAdminAlert)
 		}
-		if value, ok := condition["aggregation"]; ok && (!isString(value) || !conditionHasString(condition, "aggregation", "avg", "min", "max", "sum", "latest")) {
+		if value, ok := condition["aggregation"]; ok &&
+			(!isString(value) || !conditionHasString(condition, "aggregation", "avg", "min", "max", "sum", "latest")) {
 			return fmt.Errorf("%w: metric aggregation is invalid", ErrInvalidAdminAlert)
 		}
 	case "latency":
-		if value, ok := condition["percentile"]; ok && (!isString(value) || !conditionHasString(condition, "percentile", "p50", "p95", "p99")) {
+		if value, ok := condition["percentile"]; ok &&
+			(!isString(value) || !conditionHasString(condition, "percentile", "p50", "p95", "p99")) {
 			return fmt.Errorf("%w: latency percentile is invalid", ErrInvalidAdminAlert)
 		}
 	case "log_match":
-		if !conditionHasBoundedString(condition, "search", 256) && !conditionHasBoundedString(condition, "message", 256) {
+		if !conditionHasBoundedString(condition, "search", 256) &&
+			!conditionHasBoundedString(condition, "message", 256) {
 			return fmt.Errorf("%w: log match alerts require search text", ErrInvalidAdminAlert)
 		}
-		if value, ok := condition["level"]; ok && (!isString(value) || !validAdminControlText(strings.TrimSpace(value.(string)), 1, 64)) {
+		if value, ok := condition["level"]; ok &&
+			(!isString(value) || !validAdminControlText(strings.TrimSpace(value.(string)), 1, 64)) {
 			return fmt.Errorf("%w: log level is invalid", ErrInvalidAdminAlert)
 		}
 	case "service_health":
@@ -579,7 +644,8 @@ func validateTelemetryAlertCondition(kind string, condition map[string]any) erro
 			return fmt.Errorf("%w: service health alerts require service", ErrInvalidAdminAlert)
 		}
 	case "disk_pressure":
-		if value, ok := condition["metric"]; ok && (!isString(value) || !validAdminControlText(strings.TrimSpace(value.(string)), 1, 256)) {
+		if value, ok := condition["metric"]; ok &&
+			(!isString(value) || !validAdminControlText(strings.TrimSpace(value.(string)), 1, 256)) {
 			return fmt.Errorf("%w: disk metric is invalid", ErrInvalidAdminAlert)
 		}
 	}
@@ -625,7 +691,8 @@ func positiveCertificateThresholds(condition map[string]any) bool {
 func monitorAlertRuleCompatible(ruleKind, monitorKind string) bool {
 	switch ruleKind {
 	case "monitor_failure":
-		return monitorKind == "http" || monitorKind == "tcp" || monitorKind == "dns" || monitorKind == "tls" || monitorKind == "heartbeat"
+		return monitorKind == "http" || monitorKind == "tcp" || monitorKind == "dns" || monitorKind == "tls" ||
+			monitorKind == "heartbeat"
 	case "heartbeat_failure":
 		return monitorKind == "heartbeat"
 	case "certificate_expiry":
@@ -732,7 +799,11 @@ func (r *Repository) AdminIncidentByID(ctx context.Context, id uuid.UUID) (domai
 	return item, nil
 }
 
-func (r *Repository) CreateAdminIncident(ctx context.Context, accountID, id uuid.UUID, input AdminIncidentInput) (domain.AdminIncident, error) {
+func (r *Repository) CreateAdminIncident(
+	ctx context.Context,
+	accountID, id uuid.UUID,
+	input AdminIncidentInput,
+) (domain.AdminIncident, error) {
 	normalized, err := normalizeAdminIncidentInput(input)
 	if err != nil {
 		return domain.AdminIncident{}, err
@@ -759,7 +830,14 @@ func (r *Repository) CreateAdminIncident(ctx context.Context, accountID, id uuid
 	if err != nil {
 		return domain.AdminIncident{}, err
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO admin_incident_events (id,incident_id,kind,message,actor_account_id) VALUES ($1,$2,'note',$3,$4)`, eventID, id, normalized.Message, accountID)
+	_, err = tx.Exec(
+		ctx,
+		`INSERT INTO admin_incident_events (id,incident_id,kind,message,actor_account_id) VALUES ($1,$2,'note',$3,$4)`,
+		eventID,
+		id,
+		normalized.Message,
+		accountID,
+	)
 	if err != nil {
 		return domain.AdminIncident{}, err
 	}
@@ -781,7 +859,11 @@ func (r *Repository) CreateAdminIncident(ctx context.Context, accountID, id uuid
 	return item, nil
 }
 
-func (r *Repository) UpdateAdminIncident(ctx context.Context, accountID, id uuid.UUID, patch AdminIncidentPatch) (domain.AdminIncident, error) {
+func (r *Repository) UpdateAdminIncident(
+	ctx context.Context,
+	accountID, id uuid.UUID,
+	patch AdminIncidentPatch,
+) (domain.AdminIncident, error) {
 	normalized, err := normalizeAdminIncidentPatch(patch)
 	if err != nil {
 		return domain.AdminIncident{}, err
@@ -827,7 +909,16 @@ func (r *Repository) UpdateAdminIncident(ctx context.Context, accountID, id uuid
 	if status == "resolved" {
 		resolvedAt = time.Now().UTC()
 	}
-	_, err = tx.Exec(ctx, `UPDATE admin_incidents SET title=$2,severity=$3,status=$4,services=$5,resolved_at=$6,updated_at=now() WHERE id=$1`, id, title, severity, status, services, resolvedAt)
+	_, err = tx.Exec(
+		ctx,
+		`UPDATE admin_incidents SET title=$2,severity=$3,status=$4,services=$5,resolved_at=$6,updated_at=now() WHERE id=$1`,
+		id,
+		title,
+		severity,
+		status,
+		services,
+		resolvedAt,
+	)
 	if err != nil {
 		return domain.AdminIncident{}, mapError(err)
 	}
@@ -835,14 +926,27 @@ func (r *Repository) UpdateAdminIncident(ctx context.Context, accountID, id uuid
 	if err != nil {
 		return domain.AdminIncident{}, err
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO admin_incident_events (id,incident_id,kind,message,actor_account_id) VALUES ($1,$2,'configuration',$3,$4)`, eventID, id, message, accountID)
+	_, err = tx.Exec(
+		ctx,
+		`INSERT INTO admin_incident_events (id,incident_id,kind,message,actor_account_id) VALUES ($1,$2,'configuration',$3,$4)`,
+		eventID,
+		id,
+		message,
+		accountID,
+	)
 	if err != nil {
 		return domain.AdminIncident{}, err
 	}
 	if err := writeInstanceAuditTx(ctx, tx, accountID, "admin.incident.update", "admin_incident", id, map[string]any{"status": status}); err != nil {
 		return domain.AdminIncident{}, err
 	}
-	item, err = scanAdminIncident(tx.QueryRow(ctx, `SELECT i.id::text,i.title,i.severity,i.status,i.services,i.started_at,i.resolved_at,i.created_by_account_id::text,i.created_at,i.updated_at FROM admin_incidents i WHERE i.id=$1`, id))
+	item, err = scanAdminIncident(
+		tx.QueryRow(
+			ctx,
+			`SELECT i.id::text,i.title,i.severity,i.status,i.services,i.started_at,i.resolved_at,i.created_by_account_id::text,i.created_at,i.updated_at FROM admin_incidents i WHERE i.id=$1`,
+			id,
+		),
+	)
 	if err != nil {
 		return domain.AdminIncident{}, err
 	}
@@ -855,7 +959,11 @@ func (r *Repository) UpdateAdminIncident(ctx context.Context, accountID, id uuid
 	return item, nil
 }
 
-func (r *Repository) AddAdminIncidentEvent(ctx context.Context, accountID, incidentID, eventID uuid.UUID, input AdminIncidentEventInput) (domain.AdminIncidentEvent, error) {
+func (r *Repository) AddAdminIncidentEvent(
+	ctx context.Context,
+	accountID, incidentID, eventID uuid.UUID,
+	input AdminIncidentEventInput,
+) (domain.AdminIncidentEvent, error) {
 	kind, message, err := normalizeAdminIncidentEvent(input)
 	if err != nil {
 		return domain.AdminIncidentEvent{}, err
@@ -875,7 +983,15 @@ func (r *Repository) AddAdminIncidentEvent(ctx context.Context, accountID, incid
 	if !exists {
 		return domain.AdminIncidentEvent{}, ErrNotFound
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO admin_incident_events (id,incident_id,kind,message,actor_account_id) VALUES ($1,$2,$3,$4,$5)`, eventID, incidentID, kind, message, accountID)
+	_, err = tx.Exec(
+		ctx,
+		`INSERT INTO admin_incident_events (id,incident_id,kind,message,actor_account_id) VALUES ($1,$2,$3,$4,$5)`,
+		eventID,
+		incidentID,
+		kind,
+		message,
+		accountID,
+	)
 	if err != nil {
 		return domain.AdminIncidentEvent{}, mapError(err)
 	}
@@ -887,7 +1003,8 @@ func (r *Repository) AddAdminIncidentEvent(ctx context.Context, accountID, incid
 		return domain.AdminIncidentEvent{}, err
 	}
 	var item domain.AdminIncidentEvent
-	err = tx.QueryRow(ctx, `SELECT id::text,incident_id::text,kind,message,actor_account_id::text,created_at FROM admin_incident_events WHERE id=$1`, eventID).Scan(&item.ID, &item.IncidentID, &item.Kind, &item.Message, &item.ActorAccountID, &item.CreatedAt)
+	err = tx.QueryRow(ctx, `SELECT id::text,incident_id::text,kind,message,actor_account_id::text,created_at FROM admin_incident_events WHERE id=$1`, eventID).
+		Scan(&item.ID, &item.IncidentID, &item.Kind, &item.Message, &item.ActorAccountID, &item.CreatedAt)
 	if err != nil {
 		return domain.AdminIncidentEvent{}, err
 	}
@@ -912,7 +1029,11 @@ func scanAdminIncident(row interface{ Scan(...any) error }) (domain.AdminInciden
 func loadAdminIncidentEvents(ctx context.Context, queryer interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 }, item *domain.AdminIncident) error {
-	rows, err := queryer.Query(ctx, `SELECT id::text,incident_id::text,kind,message,actor_account_id::text,created_at FROM admin_incident_events WHERE incident_id=$1 ORDER BY created_at ASC,id ASC`, uuid.MustParse(item.ID))
+	rows, err := queryer.Query(
+		ctx,
+		`SELECT id::text,incident_id::text,kind,message,actor_account_id::text,created_at FROM admin_incident_events WHERE incident_id=$1 ORDER BY created_at ASC,id ASC`,
+		uuid.MustParse(item.ID),
+	)
 	if err != nil {
 		return err
 	}
@@ -954,11 +1075,19 @@ func normalizeAdminIncidentInput(input AdminIncidentInput) (AdminIncidentInput, 
 	if !validAdminControlText(message, 1, 2000) {
 		return AdminIncidentInput{}, ErrInvalidAdminIncident
 	}
-	return AdminIncidentInput{Title: title, Severity: severity, Status: status, Services: services, Message: message}, nil
+	return AdminIncidentInput{
+		Title:    title,
+		Severity: severity,
+		Status:   status,
+		Services: services,
+		Message:  message,
+	}, nil
 }
 
 func normalizeAdminIncidentPatch(patch AdminIncidentPatch) (AdminIncidentPatch, error) {
-	if patch.Title == nil && patch.Severity == nil && patch.Status == nil && patch.Services == nil && patch.Message == nil {
+	emptyPatch := patch.Title == nil && patch.Severity == nil && patch.Status == nil && patch.Services == nil &&
+		patch.Message == nil
+	if emptyPatch {
 		return AdminIncidentPatch{}, ErrInvalidAdminIncident
 	}
 	if patch.Title != nil {
@@ -997,7 +1126,15 @@ func normalizeAdminIncidentPatch(patch AdminIncidentPatch) (AdminIncidentPatch, 
 
 func normalizeAdminIncidentEvent(input AdminIncidentEventInput) (string, string, error) {
 	kind := strings.ToLower(strings.TrimSpace(input.Kind))
-	valid := map[string]bool{"alert": true, "deployment": true, "restart": true, "backup": true, "configuration": true, "monitor": true, "note": true}
+	valid := map[string]bool{
+		"alert":         true,
+		"deployment":    true,
+		"restart":       true,
+		"backup":        true,
+		"configuration": true,
+		"monitor":       true,
+		"note":          true,
+	}
 	if !valid[kind] || !validAdminControlText(input.Message, 1, 2000) {
 		return "", "", ErrInvalidAdminIncident
 	}
@@ -1038,7 +1175,11 @@ func (r *Repository) ListAdminDashboards(ctx context.Context, limit int) ([]doma
 	if limit < 1 || limit > adminDashboardMaxLimit {
 		return nil, ErrInvalidAdminDashboard
 	}
-	rows, err := r.pool.Query(ctx, `SELECT id::text,name,description,definition,created_by_account_id::text,created_at,updated_at FROM admin_dashboards ORDER BY updated_at DESC,id DESC LIMIT $1`, limit)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT id::text,name,description,definition,created_by_account_id::text,created_at,updated_at FROM admin_dashboards ORDER BY updated_at DESC,id DESC LIMIT $1`,
+		limit,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -1058,14 +1199,24 @@ func (r *Repository) AdminDashboardByID(ctx context.Context, id uuid.UUID) (doma
 	if id == uuid.Nil {
 		return domain.AdminDashboard{}, ErrNotFound
 	}
-	item, err := scanAdminDashboard(r.pool.QueryRow(ctx, `SELECT id::text,name,description,definition,created_by_account_id::text,created_at,updated_at FROM admin_dashboards WHERE id=$1`, id))
+	item, err := scanAdminDashboard(
+		r.pool.QueryRow(
+			ctx,
+			`SELECT id::text,name,description,definition,created_by_account_id::text,created_at,updated_at FROM admin_dashboards WHERE id=$1`,
+			id,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.AdminDashboard{}, ErrNotFound
 	}
 	return item, err
 }
 
-func (r *Repository) CreateAdminDashboard(ctx context.Context, accountID, id uuid.UUID, input AdminDashboardInput) (domain.AdminDashboard, error) {
+func (r *Repository) CreateAdminDashboard(
+	ctx context.Context,
+	accountID, id uuid.UUID,
+	input AdminDashboardInput,
+) (domain.AdminDashboard, error) {
 	normalized, err := normalizeAdminDashboardInput(input)
 	if err != nil {
 		return domain.AdminDashboard{}, err
@@ -1081,7 +1232,13 @@ func (r *Repository) CreateAdminDashboard(ctx context.Context, accountID, id uui
 	if _, err := tx.Exec(ctx, `INSERT INTO admin_dashboards (id,name,description,definition,created_by_account_id) VALUES ($1,$2,$3,$4,$5)`, id, normalized.Name, normalized.Description, normalized.Definition, accountID); err != nil {
 		return domain.AdminDashboard{}, mapError(err)
 	}
-	item, err := scanAdminDashboard(tx.QueryRow(ctx, `SELECT id::text,name,description,definition,created_by_account_id::text,created_at,updated_at FROM admin_dashboards WHERE id=$1`, id))
+	item, err := scanAdminDashboard(
+		tx.QueryRow(
+			ctx,
+			`SELECT id::text,name,description,definition,created_by_account_id::text,created_at,updated_at FROM admin_dashboards WHERE id=$1`,
+			id,
+		),
+	)
 	if err != nil {
 		return domain.AdminDashboard{}, err
 	}
@@ -1094,7 +1251,11 @@ func (r *Repository) CreateAdminDashboard(ctx context.Context, accountID, id uui
 	return item, nil
 }
 
-func (r *Repository) UpdateAdminDashboard(ctx context.Context, accountID, id uuid.UUID, input AdminDashboardInput) (domain.AdminDashboard, error) {
+func (r *Repository) UpdateAdminDashboard(
+	ctx context.Context,
+	accountID, id uuid.UUID,
+	input AdminDashboardInput,
+) (domain.AdminDashboard, error) {
 	normalized, err := normalizeAdminDashboardInput(input)
 	if err != nil {
 		return domain.AdminDashboard{}, err
@@ -1108,7 +1269,8 @@ func (r *Repository) UpdateAdminDashboard(ctx context.Context, accountID, id uui
 		return domain.AdminDashboard{}, err
 	}
 	var lockedID uuid.UUID
-	if err := tx.QueryRow(ctx, `SELECT id FROM admin_dashboards WHERE id=$1 FOR UPDATE`, id).Scan(&lockedID); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+	if err := tx.QueryRow(ctx, `SELECT id FROM admin_dashboards WHERE id=$1 FOR UPDATE`, id).Scan(&lockedID); err != nil &&
+		!errors.Is(err, pgx.ErrNoRows) {
 		return domain.AdminDashboard{}, err
 	}
 	if lockedID == uuid.Nil {
@@ -1117,7 +1279,13 @@ func (r *Repository) UpdateAdminDashboard(ctx context.Context, accountID, id uui
 	if _, err := tx.Exec(ctx, `UPDATE admin_dashboards SET name=$2,description=$3,definition=$4,updated_at=now() WHERE id=$1`, id, normalized.Name, normalized.Description, normalized.Definition); err != nil {
 		return domain.AdminDashboard{}, mapError(err)
 	}
-	item, err := scanAdminDashboard(tx.QueryRow(ctx, `SELECT id::text,name,description,definition,created_by_account_id::text,created_at,updated_at FROM admin_dashboards WHERE id=$1`, id))
+	item, err := scanAdminDashboard(
+		tx.QueryRow(
+			ctx,
+			`SELECT id::text,name,description,definition,created_by_account_id::text,created_at,updated_at FROM admin_dashboards WHERE id=$1`,
+			id,
+		),
+	)
 	if err != nil {
 		return domain.AdminDashboard{}, err
 	}
@@ -1189,7 +1357,11 @@ func normalizeAdminDashboardInput(input AdminDashboardInput) (AdminDashboardInpu
 	if err := validateAdminDashboardDefinition(definition); err != nil {
 		return AdminDashboardInput{}, err
 	}
-	return AdminDashboardInput{Name: name, Description: description, Definition: append(json.RawMessage(nil), input.Definition...)}, nil
+	return AdminDashboardInput{
+		Name:        name,
+		Description: description,
+		Definition:  append(json.RawMessage(nil), input.Definition...),
+	}, nil
 }
 
 func validateAdminDashboardDefinition(definition map[string]any) error {
@@ -1250,7 +1422,8 @@ func containsForbiddenDashboardKey(value any) bool {
 func (r *Repository) AdminStatusPage(ctx context.Context) (domain.AdminStatusPage, error) {
 	var item domain.AdminStatusPage
 	var components, published []byte
-	err := r.pool.QueryRow(ctx, `SELECT name,description,is_public,components,published_incidents,updated_at FROM admin_status_page_config WHERE id=TRUE`).Scan(&item.Name, &item.Description, &item.IsPublic, &components, &published, &item.UpdatedAt)
+	err := r.pool.QueryRow(ctx, `SELECT name,description,is_public,components,published_incidents,updated_at FROM admin_status_page_config WHERE id=TRUE`).
+		Scan(&item.Name, &item.Description, &item.IsPublic, &components, &published, &item.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.AdminStatusPage{}, ErrNotFound
 	}
@@ -1276,7 +1449,8 @@ func (r *Repository) PublicAdminStatusPage(ctx context.Context) (domain.AdminPub
 	var page domain.AdminPublicStatusPage
 	var components, published []byte
 	var publishedIDs []uuid.UUID
-	err := r.pool.QueryRow(ctx, `SELECT name,description,components,published_incidents,updated_at FROM admin_status_page_config WHERE id=TRUE AND is_public`).Scan(&page.Name, &page.Description, &components, &published, &page.UpdatedAt)
+	err := r.pool.QueryRow(ctx, `SELECT name,description,components,published_incidents,updated_at FROM admin_status_page_config WHERE id=TRUE AND is_public`).
+		Scan(&page.Name, &page.Description, &components, &published, &page.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.AdminPublicStatusPage{}, ErrNotFound
 	}
@@ -1327,7 +1501,11 @@ func (r *Repository) PublicAdminStatusPage(ctx context.Context) (domain.AdminPub
 	return page, nil
 }
 
-func (r *Repository) UpdateAdminStatusPage(ctx context.Context, accountID uuid.UUID, input AdminStatusPageInput) (domain.AdminStatusPage, error) {
+func (r *Repository) UpdateAdminStatusPage(
+	ctx context.Context,
+	accountID uuid.UUID,
+	input AdminStatusPageInput,
+) (domain.AdminStatusPage, error) {
 	normalized, err := normalizeAdminStatusPageInput(input)
 	if err != nil {
 		return domain.AdminStatusPage{}, err
@@ -1340,7 +1518,16 @@ func (r *Repository) UpdateAdminStatusPage(ctx context.Context, accountID uuid.U
 	if err := requireInstanceAdminTx(ctx, tx, accountID); err != nil {
 		return domain.AdminStatusPage{}, err
 	}
-	_, err = tx.Exec(ctx, `UPDATE admin_status_page_config SET name=$2,description=$3,is_public=$4,components=$5,published_incidents=$6,updated_by_account_id=$7,updated_at=now() WHERE id=TRUE`, normalized.Name, normalized.Description, normalized.IsPublic, normalized.Components, normalized.PublishedIncidents, accountID)
+	_, err = tx.Exec(
+		ctx,
+		`UPDATE admin_status_page_config SET name=$2,description=$3,is_public=$4,components=$5,published_incidents=$6,updated_by_account_id=$7,updated_at=now() WHERE id=TRUE`,
+		normalized.Name,
+		normalized.Description,
+		normalized.IsPublic,
+		normalized.Components,
+		normalized.PublishedIncidents,
+		accountID,
+	)
 	if err != nil {
 		return domain.AdminStatusPage{}, mapError(err)
 	}
@@ -1402,16 +1589,25 @@ func normalizeAdminStatusPageInput(input AdminStatusPageInput) (AdminStatusPageI
 		seen[normalizedID] = struct{}{}
 		published = append(published, normalizedID)
 	}
-	return AdminStatusPageInput{Name: name, Description: strings.TrimSpace(input.Description), IsPublic: input.IsPublic, Components: append(json.RawMessage(nil), input.Components...), PublishedIncidents: published}, nil
+	return AdminStatusPageInput{
+		Name:               name,
+		Description:        strings.TrimSpace(input.Description),
+		IsPublic:           input.IsPublic,
+		Components:         append(json.RawMessage(nil), input.Components...),
+		PublishedIncidents: published,
+	}, nil
 }
 
 func validatePublicStatusComponent(component map[string]any) error {
-	if component == nil || !conditionHasBoundedString(component, "name", 120) || !conditionHasBoundedString(component, "status", 32) {
+	if component == nil || !conditionHasBoundedString(component, "name", 120) ||
+		!conditionHasBoundedString(component, "status", 32) {
 		return ErrInvalidAdminStatus
 	}
 	allowed := map[string]bool{"name": true, "status": true, "description": true, "url": true}
 	for key, value := range component {
-		if !allowed[key] || strings.Contains(strings.ToLower(key), "secret") || strings.Contains(strings.ToLower(key), "token") || strings.Contains(strings.ToLower(key), "password") {
+		if !allowed[key] || strings.Contains(strings.ToLower(key), "secret") ||
+			strings.Contains(strings.ToLower(key), "token") ||
+			strings.Contains(strings.ToLower(key), "password") {
 			return ErrInvalidAdminStatus
 		}
 		text, ok := value.(string)
@@ -1427,7 +1623,15 @@ func validatePublicStatusComponent(component map[string]any) error {
 		}
 		if key == "url" {
 			parsed, err := url.ParseRequestURI(text)
-			if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+			if err != nil {
+				return ErrInvalidAdminStatus
+			}
+			invalidScheme := parsed.Scheme != "http" && parsed.Scheme != "https"
+			missingHost := parsed.Host == ""
+			hasUserInfo := parsed.User != nil
+			hasQuery := parsed.RawQuery != ""
+			hasFragment := parsed.Fragment != ""
+			if invalidScheme || missingHost || hasUserInfo || hasQuery || hasFragment {
 				return ErrInvalidAdminStatus
 			}
 		}

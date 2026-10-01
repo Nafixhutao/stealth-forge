@@ -18,12 +18,24 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (r *Repository) ListFunctions(ctx context.Context, projectID uuid.UUID, actor FunctionActor, limit int, cursor *uuid.UUID) ([]domain.Function, string, bool, error) {
+func (r *Repository) ListFunctions(
+	ctx context.Context,
+	projectID uuid.UUID,
+	actor FunctionActor,
+	limit int,
+	cursor *uuid.UUID,
+) ([]domain.Function, string, bool, error) {
 	canManage, err := r.requireFunctionRead(ctx, projectID, actor)
 	if err != nil {
 		return nil, "", false, err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+functionProjection+` FROM project_functions WHERE project_id=$1 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $2`, projectID, limit+1, cursor)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT `+functionProjection+` FROM project_functions WHERE project_id=$1 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $2`,
+		projectID,
+		limit+1,
+		cursor,
+	)
 	if err != nil {
 		return nil, "", false, err
 	}
@@ -47,14 +59,23 @@ func (r *Repository) ListFunctions(ctx context.Context, projectID uuid.UUID, act
 	return items, next, canManage, nil
 }
 
-func (r *Repository) GetFunction(ctx context.Context, projectID, functionID uuid.UUID, actor FunctionActor) (domain.Function, error) {
+func (r *Repository) GetFunction(
+	ctx context.Context,
+	projectID, functionID uuid.UUID,
+	actor FunctionActor,
+) (domain.Function, error) {
 	if _, err := r.requireFunctionRead(ctx, projectID, actor); err != nil {
 		return domain.Function{}, err
 	}
 	return r.functionByID(ctx, r.pool, projectID, functionID, false)
 }
 
-func (r *Repository) CreateFunction(ctx context.Context, id, projectID uuid.UUID, actor FunctionActor, input FunctionInput) (domain.Function, error) {
+func (r *Repository) CreateFunction(
+	ctx context.Context,
+	id, projectID uuid.UUID,
+	actor FunctionActor,
+	input FunctionInput,
+) (domain.Function, error) {
 	permissions, err := database.NormalizePermissions(input.ExecutePermissions)
 	if err != nil {
 		return domain.Function{}, err
@@ -74,7 +95,25 @@ func (r *Repository) CreateFunction(ctx context.Context, id, projectID uuid.UUID
 	if err := r.enforceOrganizationLimitTx(ctx, tx, organizationID, "functions"); err != nil {
 		return domain.Function{}, err
 	}
-	item, err := scanFunction(tx.QueryRow(ctx, `INSERT INTO project_functions (id,project_id,name,runtime,entrypoint,commands,timeout_seconds,enabled,logging,execute_permissions,description,status,artifact_quota_bytes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING `+functionProjection, id, projectID, input.Name, input.Runtime, input.Entrypoint, input.Commands, input.TimeoutSeconds, input.Enabled, input.Logging, permissions, input.Description, input.Status, input.ArtifactQuotaBytes))
+	item, err := scanFunction(
+		tx.QueryRow(
+			ctx,
+			`INSERT INTO project_functions (id,project_id,name,runtime,entrypoint,commands,timeout_seconds,enabled,logging,execute_permissions,description,status,artifact_quota_bytes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING `+functionProjection,
+			id,
+			projectID,
+			input.Name,
+			input.Runtime,
+			input.Entrypoint,
+			input.Commands,
+			input.TimeoutSeconds,
+			input.Enabled,
+			input.Logging,
+			permissions,
+			input.Description,
+			input.Status,
+			input.ArtifactQuotaBytes,
+		),
+	)
 	if err != nil {
 		return domain.Function{}, mapError(err)
 	}
@@ -87,7 +126,12 @@ func (r *Repository) CreateFunction(ctx context.Context, id, projectID uuid.UUID
 	return item, nil
 }
 
-func (r *Repository) UpdateFunction(ctx context.Context, projectID, functionID uuid.UUID, actor FunctionActor, patch FunctionPatch) (domain.Function, error) {
+func (r *Repository) UpdateFunction(
+	ctx context.Context,
+	projectID, functionID uuid.UUID,
+	actor FunctionActor,
+	patch FunctionPatch,
+) (domain.Function, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.Function{}, err
@@ -156,7 +200,25 @@ func (r *Repository) UpdateFunction(ctx context.Context, projectID, functionID u
 	if quota <= 0 || quota < existing.ArtifactUsedBytes {
 		return domain.Function{}, ErrFunctionQuotaExceeded
 	}
-	item, err := scanFunction(tx.QueryRow(ctx, `UPDATE project_functions SET name=$3,runtime=$4,entrypoint=$5,commands=$6,timeout_seconds=$7,enabled=$8,logging=$9,execute_permissions=$10,description=$11,status=$12,artifact_quota_bytes=$13,updated_at=now() WHERE project_id=$1 AND id=$2 RETURNING `+functionProjection, projectID, functionID, name, runtime, entrypoint, commands, timeoutSeconds, enabled, logging, executePermissions, description, status, quota))
+	item, err := scanFunction(
+		tx.QueryRow(
+			ctx,
+			`UPDATE project_functions SET name=$3,runtime=$4,entrypoint=$5,commands=$6,timeout_seconds=$7,enabled=$8,logging=$9,execute_permissions=$10,description=$11,status=$12,artifact_quota_bytes=$13,updated_at=now() WHERE project_id=$1 AND id=$2 RETURNING `+functionProjection,
+			projectID,
+			functionID,
+			name,
+			runtime,
+			entrypoint,
+			commands,
+			timeoutSeconds,
+			enabled,
+			logging,
+			executePermissions,
+			description,
+			status,
+			quota,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Function{}, ErrNotFound
 	}
@@ -213,7 +275,11 @@ func functionChangedFields(patch FunctionPatch) []string {
 
 // DeleteFunction removes metadata/accounting and records durable cleanup jobs
 // for its opaque source/build artifacts in the same transaction.
-func (r *Repository) DeleteFunction(ctx context.Context, projectID, functionID uuid.UUID, actor FunctionActor) ([]string, error) {
+func (r *Repository) DeleteFunction(
+	ctx context.Context,
+	projectID, functionID uuid.UUID,
+	actor FunctionActor,
+) ([]string, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -225,7 +291,12 @@ func (r *Repository) DeleteFunction(ctx context.Context, projectID, functionID u
 	if _, err := r.functionByID(ctx, tx, projectID, functionID, true); err != nil {
 		return nil, err
 	}
-	rows, err := tx.Query(ctx, `SELECT source_path,build_path FROM function_deployments WHERE project_id=$1 AND function_id=$2 FOR UPDATE`, projectID, functionID)
+	rows, err := tx.Query(
+		ctx,
+		`SELECT source_path,build_path FROM function_deployments WHERE project_id=$1 AND function_id=$2 FOR UPDATE`,
+		projectID,
+		functionID,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +357,13 @@ func normalizeFunctionVariableInput(kind string, isSecret *bool) (string, bool, 
 	return kind, secret, nil
 }
 
-func (r *Repository) ListFunctionVariables(ctx context.Context, projectID, functionID uuid.UUID, actor FunctionActor, limit int, cursor *uuid.UUID) ([]domain.FunctionVariable, string, bool, error) {
+func (r *Repository) ListFunctionVariables(
+	ctx context.Context,
+	projectID, functionID uuid.UUID,
+	actor FunctionActor,
+	limit int,
+	cursor *uuid.UUID,
+) ([]domain.FunctionVariable, string, bool, error) {
 	canManage, err := r.requireFunctionRead(ctx, projectID, actor)
 	if err != nil {
 		return nil, "", false, err
@@ -294,7 +371,14 @@ func (r *Repository) ListFunctionVariables(ctx context.Context, projectID, funct
 	if _, err := r.functionByID(ctx, r.pool, projectID, functionID, false); err != nil {
 		return nil, "", false, err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+functionVariableProjection+` FROM function_variables WHERE project_id=$1 AND function_id=$2 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $4`, projectID, functionID, cursor, limit+1)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT `+functionVariableProjection+` FROM function_variables WHERE project_id=$1 AND function_id=$2 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $4`,
+		projectID,
+		functionID,
+		cursor,
+		limit+1,
+	)
 	if err != nil {
 		return nil, "", false, err
 	}
@@ -318,14 +402,26 @@ func (r *Repository) ListFunctionVariables(ctx context.Context, projectID, funct
 	return items, next, canManage, nil
 }
 
-func (r *Repository) GetFunctionVariable(ctx context.Context, projectID, functionID, variableID uuid.UUID, actor FunctionActor) (domain.FunctionVariable, error) {
+func (r *Repository) GetFunctionVariable(
+	ctx context.Context,
+	projectID, functionID, variableID uuid.UUID,
+	actor FunctionActor,
+) (domain.FunctionVariable, error) {
 	if _, err := r.requireFunctionRead(ctx, projectID, actor); err != nil {
 		return domain.FunctionVariable{}, err
 	}
 	if _, err := r.functionByID(ctx, r.pool, projectID, functionID, false); err != nil {
 		return domain.FunctionVariable{}, err
 	}
-	item, err := scanFunctionVariable(r.pool.QueryRow(ctx, `SELECT `+functionVariableProjection+` FROM function_variables WHERE project_id=$1 AND function_id=$2 AND id=$3`, projectID, functionID, variableID))
+	item, err := scanFunctionVariable(
+		r.pool.QueryRow(
+			ctx,
+			`SELECT `+functionVariableProjection+` FROM function_variables WHERE project_id=$1 AND function_id=$2 AND id=$3`,
+			projectID,
+			functionID,
+			variableID,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.FunctionVariable{}, ErrNotFound
 	}
@@ -349,11 +445,17 @@ func encryptFunctionVariableValue(value *string, cipher *functionsecret.Cipher) 
 	return ciphertext, nil
 }
 
-func (r *Repository) CreateFunctionVariable(ctx context.Context, id, projectID, functionID uuid.UUID, actor FunctionActor, input FunctionVariableInput) (domain.FunctionVariable, error) {
+func (r *Repository) CreateFunctionVariable(
+	ctx context.Context,
+	id, projectID, functionID uuid.UUID,
+	actor FunctionActor,
+	input FunctionVariableInput,
+) (domain.FunctionVariable, error) {
 	if len(input.Key) == 0 || len(input.Key) > 128 || strings.ContainsRune(input.Key, '\x00') {
 		return domain.FunctionVariable{}, ErrInvalidFunctionVariable
 	}
-	if input.Description != nil && (len(*input.Description) > functionVariableMaxDescriptionBytes || strings.ContainsRune(*input.Description, '\x00')) {
+	if input.Description != nil &&
+		(len(*input.Description) > functionVariableMaxDescriptionBytes || strings.ContainsRune(*input.Description, '\x00')) {
 		return domain.FunctionVariable{}, ErrInvalidFunctionVariable
 	}
 	kind, secret, err := normalizeFunctionVariableInput(input.Kind, input.IsSecret)
@@ -375,7 +477,20 @@ func (r *Repository) CreateFunctionVariable(ctx context.Context, id, projectID, 
 	if _, err := r.functionByID(ctx, tx, projectID, functionID, true); err != nil {
 		return domain.FunctionVariable{}, err
 	}
-	item, err := scanFunctionVariable(tx.QueryRow(ctx, `INSERT INTO function_variables (id,function_id,project_id,key,kind,is_secret,value_ciphertext,description) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING `+functionVariableProjection, id, functionID, projectID, input.Key, kind, secret, ciphertext, input.Description))
+	item, err := scanFunctionVariable(
+		tx.QueryRow(
+			ctx,
+			`INSERT INTO function_variables (id,function_id,project_id,key,kind,is_secret,value_ciphertext,description) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING `+functionVariableProjection,
+			id,
+			functionID,
+			projectID,
+			input.Key,
+			kind,
+			secret,
+			ciphertext,
+			input.Description,
+		),
+	)
 	if err != nil {
 		return domain.FunctionVariable{}, mapError(err)
 	}
@@ -393,7 +508,12 @@ func (r *Repository) CreateFunctionVariable(ctx context.Context, id, projectID, 
 	return item, nil
 }
 
-func (r *Repository) UpdateFunctionVariable(ctx context.Context, projectID, functionID, variableID uuid.UUID, actor FunctionActor, patch FunctionVariablePatch) (domain.FunctionVariable, error) {
+func (r *Repository) UpdateFunctionVariable(
+	ctx context.Context,
+	projectID, functionID, variableID uuid.UUID,
+	actor FunctionActor,
+	patch FunctionVariablePatch,
+) (domain.FunctionVariable, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.FunctionVariable{}, err
@@ -407,7 +527,8 @@ func (r *Repository) UpdateFunctionVariable(ctx context.Context, projectID, func
 	}
 	var existing domain.FunctionVariable
 	var oldCiphertext []byte
-	err = tx.QueryRow(ctx, `SELECT `+functionVariableProjection+`,value_ciphertext FROM function_variables WHERE project_id=$1 AND function_id=$2 AND id=$3 FOR UPDATE`, projectID, functionID, variableID).Scan(&existing.ID, &existing.FunctionID, &existing.ProjectID, &existing.Key, &existing.Kind, &existing.IsSecret, &existing.HasValue, &existing.Description, &existing.CreatedAt, &existing.UpdatedAt, &oldCiphertext)
+	err = tx.QueryRow(ctx, `SELECT `+functionVariableProjection+`,value_ciphertext FROM function_variables WHERE project_id=$1 AND function_id=$2 AND id=$3 FOR UPDATE`, projectID, functionID, variableID).
+		Scan(&existing.ID, &existing.FunctionID, &existing.ProjectID, &existing.Key, &existing.Kind, &existing.IsSecret, &existing.HasValue, &existing.Description, &existing.CreatedAt, &existing.UpdatedAt, &oldCiphertext)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.FunctionVariable{}, ErrNotFound
 	}
@@ -438,7 +559,8 @@ func (r *Repository) UpdateFunctionVariable(ctx context.Context, projectID, func
 	}
 	description := existing.Description
 	if patch.SetDescription {
-		if patch.Description != nil && (len(*patch.Description) > functionVariableMaxDescriptionBytes || strings.ContainsRune(*patch.Description, '\x00')) {
+		if patch.Description != nil &&
+			(len(*patch.Description) > functionVariableMaxDescriptionBytes || strings.ContainsRune(*patch.Description, '\x00')) {
 			return domain.FunctionVariable{}, ErrInvalidFunctionVariable
 		}
 		description = patch.Description
@@ -453,7 +575,20 @@ func (r *Repository) UpdateFunctionVariable(ctx context.Context, projectID, func
 			return domain.FunctionVariable{}, err
 		}
 	}
-	item, err := scanFunctionVariable(tx.QueryRow(ctx, `UPDATE function_variables SET key=$4,kind=$5,is_secret=$6,value_ciphertext=$7,description=$8,updated_at=now() WHERE project_id=$1 AND function_id=$2 AND id=$3 RETURNING `+functionVariableProjection, projectID, functionID, variableID, key, kind, secret, value, description))
+	item, err := scanFunctionVariable(
+		tx.QueryRow(
+			ctx,
+			`UPDATE function_variables SET key=$4,kind=$5,is_secret=$6,value_ciphertext=$7,description=$8,updated_at=now() WHERE project_id=$1 AND function_id=$2 AND id=$3 RETURNING `+functionVariableProjection,
+			projectID,
+			functionID,
+			variableID,
+			key,
+			kind,
+			secret,
+			value,
+			description,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.FunctionVariable{}, ErrNotFound
 	}
@@ -492,7 +627,11 @@ func functionVariableChangedFields(patch FunctionVariablePatch) []string {
 	return fields
 }
 
-func (r *Repository) DeleteFunctionVariable(ctx context.Context, projectID, functionID, variableID uuid.UUID, actor FunctionActor) error {
+func (r *Repository) DeleteFunctionVariable(
+	ctx context.Context,
+	projectID, functionID, variableID uuid.UUID,
+	actor FunctionActor,
+) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -504,7 +643,13 @@ func (r *Repository) DeleteFunctionVariable(ctx context.Context, projectID, func
 	if _, err := r.functionByID(ctx, tx, projectID, functionID, true); err != nil {
 		return err
 	}
-	command, err := tx.Exec(ctx, `DELETE FROM function_variables WHERE project_id=$1 AND function_id=$2 AND id=$3`, projectID, functionID, variableID)
+	command, err := tx.Exec(
+		ctx,
+		`DELETE FROM function_variables WHERE project_id=$1 AND function_id=$2 AND id=$3`,
+		projectID,
+		functionID,
+		variableID,
+	)
 	if err != nil {
 		return err
 	}

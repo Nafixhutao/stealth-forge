@@ -8,19 +8,34 @@ func (s *Server) registerFunctionRoutes(r chi.Router) {
 	r.With(s.requireProjectManagement).Get("/projects/{projectID}/functions/{functionID}", s.getFunction)
 	r.With(s.requireProjectManagement).Patch("/projects/{projectID}/functions/{functionID}", s.updateFunction)
 	r.With(s.requireProjectManagement).Delete("/projects/{projectID}/functions/{functionID}", s.deleteFunction)
-	r.With(s.requireProjectManagement).Get("/projects/{projectID}/functions/{functionID}/variables", s.listFunctionVariables)
-	r.With(s.requireProjectManagement).Post("/projects/{projectID}/functions/{functionID}/variables", s.createFunctionVariable)
-	r.With(s.requireProjectManagement).Get("/projects/{projectID}/functions/{functionID}/variables/{variableID}", s.getFunctionVariable)
-	r.With(s.requireProjectManagement).Patch("/projects/{projectID}/functions/{functionID}/variables/{variableID}", s.updateFunctionVariable)
-	r.With(s.requireProjectManagement).Delete("/projects/{projectID}/functions/{functionID}/variables/{variableID}", s.deleteFunctionVariable)
-	r.With(s.requireProjectManagement).Get("/projects/{projectID}/functions/{functionID}/deployments", s.listFunctionDeployments)
-	r.With(s.requireProjectManagement, s.rateLimitProjectOperation("function_deployment")).Post("/projects/{projectID}/functions/{functionID}/deployments", s.uploadFunctionDeployment)
-	r.With(s.requireProjectManagement).Get("/projects/{projectID}/functions/{functionID}/deployments/{deploymentID}", s.getFunctionDeployment)
-	r.With(s.requireProjectManagement).Delete("/projects/{projectID}/functions/{functionID}/deployments/{deploymentID}", s.deleteFunctionDeployment)
-	r.With(s.requireProjectManagement).Post("/projects/{projectID}/functions/{functionID}/deployments/{deploymentID}/activate", s.activateFunctionDeployment)
-	r.With(s.requireProjectManagement).Get("/projects/{projectID}/functions/{functionID}/deployments/{deploymentID}/logs", s.listFunctionBuildLogs)
-	r.With(s.requireFunctionExecutionActor, s.rateLimitProjectOperation("function_execution")).Post("/projects/{projectID}/functions/{functionID}/executions", s.createFunctionExecution)
-	r.With(s.requireProjectManagement).Get("/projects/{projectID}/functions/{functionID}/executions", s.listFunctionExecutions)
-	r.With(s.requireProjectManagement).Get("/projects/{projectID}/functions/{functionID}/executions/{executionID}", s.getFunctionExecution)
-	r.With(s.requireProjectManagement).Get("/projects/{projectID}/functions/{functionID}/executions/{executionID}/logs", s.listFunctionExecutionLogs)
+	r.With(s.requireProjectManagement).
+		Get("/projects/{projectID}/functions/{functionID}/variables", s.listFunctionVariables)
+	r.With(s.requireProjectManagement).
+		Post("/projects/{projectID}/functions/{functionID}/variables", s.createFunctionVariable)
+	r.With(s.requireProjectManagement).
+		Get("/projects/{projectID}/functions/{functionID}/variables/{variableID}", s.getFunctionVariable)
+	r.With(s.requireProjectManagement).
+		Patch("/projects/{projectID}/functions/{functionID}/variables/{variableID}", s.updateFunctionVariable)
+	r.With(s.requireProjectManagement).
+		Delete("/projects/{projectID}/functions/{functionID}/variables/{variableID}", s.deleteFunctionVariable)
+	r.With(s.requireProjectManagement).
+		Get("/projects/{projectID}/functions/{functionID}/deployments", s.listFunctionDeployments)
+	r.With(s.requireProjectManagement, s.rateLimitProjectOperation("function_deployment")).
+		Post("/projects/{projectID}/functions/{functionID}/deployments", s.uploadFunctionDeployment)
+	r.With(s.requireProjectManagement).
+		Get("/projects/{projectID}/functions/{functionID}/deployments/{deploymentID}", s.getFunctionDeployment)
+	r.With(s.requireProjectManagement).
+		Delete("/projects/{projectID}/functions/{functionID}/deployments/{deploymentID}", s.deleteFunctionDeployment)
+	r.With(s.requireProjectManagement).
+		Post("/projects/{projectID}/functions/{functionID}/deployments/{deploymentID}/activate", s.activateFunctionDeployment)
+	r.With(s.requireProjectManagement).
+		Get("/projects/{projectID}/functions/{functionID}/deployments/{deploymentID}/logs", s.listFunctionBuildLogs)
+	r.With(s.requireFunctionExecutionActor, s.rateLimitProjectOperation("function_execution")).
+		Post("/projects/{projectID}/functions/{functionID}/executions", s.createFunctionExecution)
+	r.With(s.requireProjectManagement).
+		Get("/projects/{projectID}/functions/{functionID}/executions", s.listFunctionExecutions)
+	r.With(s.requireProjectManagement).
+		Get("/projects/{projectID}/functions/{functionID}/executions/{executionID}", s.getFunctionExecution)
+	r.With(s.requireProjectManagement).
+		Get("/projects/{projectID}/functions/{functionID}/executions/{executionID}/logs", s.listFunctionExecutionLogs)
 }

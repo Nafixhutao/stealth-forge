@@ -27,7 +27,13 @@ func (r *Repository) siteDeploymentByID(ctx context.Context, query interface {
 		suffix = " FOR UPDATE"
 	}
 	projection := siteDeploymentProjection
-	row := query.QueryRow(ctx, `SELECT `+projection+` FROM site_deployments WHERE project_id=$1 AND site_id=$2 AND id=$3`+suffix, projectID, siteID, deploymentID)
+	row := query.QueryRow(
+		ctx,
+		`SELECT `+projection+` FROM site_deployments WHERE project_id=$1 AND site_id=$2 AND id=$3`+suffix,
+		projectID,
+		siteID,
+		deploymentID,
+	)
 	item, err := scanSiteDeploymentPublic(row)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.SiteDeployment{}, "", ErrNotFound
@@ -45,7 +51,15 @@ func (r *Repository) siteDeploymentByIDWithPaths(ctx context.Context, query inte
 	if lock {
 		suffix = " FOR UPDATE"
 	}
-	item, sourcePath, artifactPath, err := scanSiteDeploymentWithPath(query.QueryRow(ctx, `SELECT `+siteDeploymentProjection+`,source_path,artifact_path FROM site_deployments WHERE project_id=$1 AND site_id=$2 AND id=$3`+suffix, projectID, siteID, deploymentID))
+	item, sourcePath, artifactPath, err := scanSiteDeploymentWithPath(
+		query.QueryRow(
+			ctx,
+			`SELECT `+siteDeploymentProjection+`,source_path,artifact_path FROM site_deployments WHERE project_id=$1 AND site_id=$2 AND id=$3`+suffix,
+			projectID,
+			siteID,
+			deploymentID,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.SiteDeployment{}, "", "", ErrNotFound
 	}
@@ -55,7 +69,13 @@ func (r *Repository) siteDeploymentByIDWithPaths(ctx context.Context, query inte
 	return item, sourcePath, artifactPath, nil
 }
 
-func (r *Repository) ListSiteDeployments(ctx context.Context, projectID, siteID uuid.UUID, actor SiteActor, limit int, cursor *uuid.UUID) ([]domain.SiteDeployment, string, bool, error) {
+func (r *Repository) ListSiteDeployments(
+	ctx context.Context,
+	projectID, siteID uuid.UUID,
+	actor SiteActor,
+	limit int,
+	cursor *uuid.UUID,
+) ([]domain.SiteDeployment, string, bool, error) {
 	canManage, err := r.requireSiteRead(ctx, projectID, actor)
 	if err != nil {
 		return nil, "", false, err
@@ -63,7 +83,14 @@ func (r *Repository) ListSiteDeployments(ctx context.Context, projectID, siteID 
 	if _, err := r.siteByID(ctx, r.pool, projectID, siteID, false); err != nil {
 		return nil, "", false, err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+siteDeploymentProjection+` FROM site_deployments WHERE project_id=$1 AND site_id=$2 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $4`, projectID, siteID, cursor, limit+1)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT `+siteDeploymentProjection+` FROM site_deployments WHERE project_id=$1 AND site_id=$2 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $4`,
+		projectID,
+		siteID,
+		cursor,
+		limit+1,
+	)
 	if err != nil {
 		return nil, "", false, err
 	}
@@ -90,7 +117,12 @@ func (r *Repository) ListSiteDeployments(ctx context.Context, projectID, siteID 
 // AppendSiteBuildLog appends one lifecycle message. A non-positive sequence
 // asks the repository to allocate the next sequence while locking the
 // deployment, which keeps concurrent workers and retries ordered.
-func (r *Repository) AppendSiteBuildLog(ctx context.Context, projectID, siteID, deploymentID, id uuid.UUID, sequence int64, level, message string) (domain.SiteBuildLog, error) {
+func (r *Repository) AppendSiteBuildLog(
+	ctx context.Context,
+	projectID, siteID, deploymentID, id uuid.UUID,
+	sequence int64,
+	level, message string,
+) (domain.SiteBuildLog, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.SiteBuildLog{}, err
@@ -108,7 +140,19 @@ func (r *Repository) AppendSiteBuildLog(ctx context.Context, projectID, siteID, 
 	}
 	level = strings.ToLower(strings.TrimSpace(level))
 	message = normalizeSiteBuildLogMessage(message)
-	item, err := scanSiteBuildLog(tx.QueryRow(ctx, `INSERT INTO site_build_logs (id,deployment_id,site_id,project_id,sequence,level,message) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING `+siteBuildLogProjection, id, deploymentID, siteID, projectID, sequence, level, message))
+	item, err := scanSiteBuildLog(
+		tx.QueryRow(
+			ctx,
+			`INSERT INTO site_build_logs (id,deployment_id,site_id,project_id,sequence,level,message) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING `+siteBuildLogProjection,
+			id,
+			deploymentID,
+			siteID,
+			projectID,
+			sequence,
+			level,
+			message,
+		),
+	)
 	if err != nil {
 		return domain.SiteBuildLog{}, mapError(err)
 	}
@@ -120,7 +164,13 @@ func (r *Repository) AppendSiteBuildLog(ctx context.Context, projectID, siteID, 
 
 // ListSiteBuildLogs returns only logs for the requested tenant/site/deployment
 // tuple. The sequence cursor is stable while a worker appends new messages.
-func (r *Repository) ListSiteBuildLogs(ctx context.Context, projectID, siteID, deploymentID uuid.UUID, actor SiteActor, limit int, after int64) ([]domain.SiteBuildLog, error) {
+func (r *Repository) ListSiteBuildLogs(
+	ctx context.Context,
+	projectID, siteID, deploymentID uuid.UUID,
+	actor SiteActor,
+	limit int,
+	after int64,
+) ([]domain.SiteBuildLog, error) {
 	if _, err := r.requireSiteRead(ctx, projectID, actor); err != nil {
 		return nil, err
 	}
@@ -130,7 +180,15 @@ func (r *Repository) ListSiteBuildLogs(ctx context.Context, projectID, siteID, d
 	if _, _, err := r.siteDeploymentByID(ctx, r.pool, projectID, siteID, deploymentID, false, false); err != nil {
 		return nil, err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+siteBuildLogProjection+` FROM site_build_logs WHERE project_id=$1 AND site_id=$2 AND deployment_id=$3 AND sequence>$4 ORDER BY sequence LIMIT $5`, projectID, siteID, deploymentID, after, limit)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT `+siteBuildLogProjection+` FROM site_build_logs WHERE project_id=$1 AND site_id=$2 AND deployment_id=$3 AND sequence>$4 ORDER BY sequence LIMIT $5`,
+		projectID,
+		siteID,
+		deploymentID,
+		after,
+		limit,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +204,11 @@ func (r *Repository) ListSiteBuildLogs(ctx context.Context, projectID, siteID, d
 	return items, rows.Err()
 }
 
-func (r *Repository) GetSiteDeployment(ctx context.Context, projectID, siteID, deploymentID uuid.UUID, actor SiteActor) (domain.SiteDeployment, error) {
+func (r *Repository) GetSiteDeployment(
+	ctx context.Context,
+	projectID, siteID, deploymentID uuid.UUID,
+	actor SiteActor,
+) (domain.SiteDeployment, error) {
 	if _, err := r.requireSiteRead(ctx, projectID, actor); err != nil {
 		return domain.SiteDeployment{}, err
 	}
@@ -157,8 +219,14 @@ func (r *Repository) GetSiteDeployment(ctx context.Context, projectID, siteID, d
 	return item, err
 }
 
-func (r *Repository) CreateSiteDeployment(ctx context.Context, id, projectID, siteID uuid.UUID, actor SiteActor, input SiteDeploymentInput) (domain.SiteDeployment, error) {
-	if input.SizeBytes < 0 || input.ArchiveSizeBytes <= 0 || !validSiteArtifactPath(input.ArtifactPath) || !validSiteSHA256(input.ChecksumSHA256) {
+func (r *Repository) CreateSiteDeployment(
+	ctx context.Context,
+	id, projectID, siteID uuid.UUID,
+	actor SiteActor,
+	input SiteDeploymentInput,
+) (domain.SiteDeployment, error) {
+	if input.SizeBytes < 0 || input.ArchiveSizeBytes <= 0 || !validSiteArtifactPath(input.ArtifactPath) ||
+		!validSiteSHA256(input.ChecksumSHA256) {
 		return domain.SiteDeployment{}, ErrInvalidSiteSettings
 	}
 	input.Source = strings.ToLower(strings.TrimSpace(input.Source))
@@ -176,11 +244,14 @@ func (r *Repository) CreateSiteDeployment(ctx context.Context, id, projectID, si
 		input.OutputDirectory = "."
 	}
 	building := strings.TrimSpace(input.BuildCommand) != ""
-	if !validSiteBuildRuntime(input.BuildRuntime) || !validSiteOutputDirectory(input.OutputDirectory) || len(input.BuildCommand) > 4000 {
+	if !validSiteBuildRuntime(input.BuildRuntime) || !validSiteOutputDirectory(input.OutputDirectory) ||
+		len(input.BuildCommand) > 4000 {
 		return domain.SiteDeployment{}, ErrInvalidSiteSettings
 	}
 	if building {
-		if input.SourcePath == nil || !validSiteArtifactPath(strings.TrimSpace(*input.SourcePath)) || input.SizeBytes != 0 || input.ReservedBytes <= 0 {
+		if input.SourcePath == nil || !validSiteArtifactPath(strings.TrimSpace(*input.SourcePath)) ||
+			input.SizeBytes != 0 ||
+			input.ReservedBytes <= 0 {
 			return domain.SiteDeployment{}, ErrInvalidSiteSettings
 		}
 	} else if input.SourcePath != nil || input.ReservedBytes != 0 {
@@ -232,7 +303,33 @@ func (r *Repository) CreateSiteDeployment(ctx context.Context, id, projectID, si
 	if input.GitRef != nil {
 		gitRef = strings.TrimSpace(*input.GitRef)
 	}
-	item, err := scanSiteDeploymentPublic(tx.QueryRow(ctx, `INSERT INTO site_deployments (id,site_id,project_id,version,source,source_name,size_bytes,archive_size_bytes,checksum_sha256,artifact_path,source_path,build_runtime,build_command,output_directory,reserved_bytes,status,build_status,activate_requested,created_by_account_id,git_repository,git_ref) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING `+siteDeploymentProjection, id, siteID, projectID, version, input.Source, input.SourceName, input.SizeBytes, input.ArchiveSizeBytes, input.ChecksumSHA256, input.ArtifactPath, sourcePath, input.BuildRuntime, input.BuildCommand, input.OutputDirectory, reserved, status, buildStatus, activateRequested, input.CreatedByAccountID, gitRepository, gitRef))
+	item, err := scanSiteDeploymentPublic(
+		tx.QueryRow(
+			ctx,
+			`INSERT INTO site_deployments (id,site_id,project_id,version,source,source_name,size_bytes,archive_size_bytes,checksum_sha256,artifact_path,source_path,build_runtime,build_command,output_directory,reserved_bytes,status,build_status,activate_requested,created_by_account_id,git_repository,git_ref) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING `+siteDeploymentProjection,
+			id,
+			siteID,
+			projectID,
+			version,
+			input.Source,
+			input.SourceName,
+			input.SizeBytes,
+			input.ArchiveSizeBytes,
+			input.ChecksumSHA256,
+			input.ArtifactPath,
+			sourcePath,
+			input.BuildRuntime,
+			input.BuildCommand,
+			input.OutputDirectory,
+			reserved,
+			status,
+			buildStatus,
+			activateRequested,
+			input.CreatedByAccountID,
+			gitRepository,
+			gitRef,
+		),
+	)
 	if err != nil {
 		return domain.SiteDeployment{}, mapError(err)
 	}
@@ -268,7 +365,14 @@ func (r *Repository) CreateSiteDeployment(ctx context.Context, id, projectID, si
 			return domain.SiteDeployment{}, err
 		}
 	}
-	auditData := map[string]any{"site_id": siteID.String(), "version": item.Version, "size_bytes": input.SizeBytes, "archive_size_bytes": input.ArchiveSizeBytes, "checksum_sha256": input.ChecksumSHA256, "activated": input.Activate}
+	auditData := map[string]any{
+		"site_id":            siteID.String(),
+		"version":            item.Version,
+		"size_bytes":         input.SizeBytes,
+		"archive_size_bytes": input.ArchiveSizeBytes,
+		"checksum_sha256":    input.ChecksumSHA256,
+		"activated":          input.Activate,
+	}
 	if input.Source == "github" || input.Source == "gitlab" {
 		auditData["git_repository"] = strings.TrimSpace(*input.GitRepository)
 		auditData["git_ref"] = strings.TrimSpace(*input.GitRef)
@@ -287,7 +391,12 @@ func (r *Repository) CreateSiteDeployment(ctx context.Context, id, projectID, si
 	return item, nil
 }
 
-func activateSiteDeploymentTx(ctx context.Context, tx pgx.Tx, projectID, siteID, deploymentID uuid.UUID, item domain.SiteDeployment) (domain.SiteDeployment, error) {
+func activateSiteDeploymentTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID, siteID, deploymentID uuid.UUID,
+	item domain.SiteDeployment,
+) (domain.SiteDeployment, error) {
 	var current *uuid.UUID
 	var status string
 	if err := tx.QueryRow(ctx, `SELECT active_deployment_id,status FROM project_sites WHERE project_id=$1 AND id=$2 FOR UPDATE`, projectID, siteID).Scan(&current, &status); err != nil {
@@ -314,7 +423,15 @@ func activateSiteDeploymentTx(ctx context.Context, tx pgx.Tx, projectID, siteID,
 			return domain.SiteDeployment{}, err
 		}
 	}
-	updated, err := scanSiteDeploymentPublic(tx.QueryRow(ctx, `UPDATE site_deployments SET status='active',activated_at=COALESCE(activated_at,now()),updated_at=now() WHERE project_id=$1 AND site_id=$2 AND id=$3 RETURNING `+siteDeploymentProjection, projectID, siteID, deploymentID))
+	updated, err := scanSiteDeploymentPublic(
+		tx.QueryRow(
+			ctx,
+			`UPDATE site_deployments SET status='active',activated_at=COALESCE(activated_at,now()),updated_at=now() WHERE project_id=$1 AND site_id=$2 AND id=$3 RETURNING `+siteDeploymentProjection,
+			projectID,
+			siteID,
+			deploymentID,
+		),
+	)
 	if err != nil {
 		return domain.SiteDeployment{}, err
 	}
@@ -325,7 +442,11 @@ func activateSiteDeploymentTx(ctx context.Context, tx pgx.Tx, projectID, siteID,
 	return updated, nil
 }
 
-func (r *Repository) ActivateSiteDeployment(ctx context.Context, projectID, siteID, deploymentID uuid.UUID, actor SiteActor) (domain.SiteDeployment, domain.Site, error) {
+func (r *Repository) ActivateSiteDeployment(
+	ctx context.Context,
+	projectID, siteID, deploymentID uuid.UUID,
+	actor SiteActor,
+) (domain.SiteDeployment, domain.Site, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.SiteDeployment{}, domain.Site{}, err
@@ -360,7 +481,8 @@ func siteDeploymentStoragePaths(ctx context.Context, query interface {
 }, projectID, siteID, deploymentID uuid.UUID) (string, string, error) {
 	var sourcePath *string
 	var artifactPath string
-	err := query.QueryRow(ctx, `SELECT source_path,artifact_path FROM site_deployments WHERE project_id=$1 AND site_id=$2 AND id=$3`, projectID, siteID, deploymentID).Scan(&sourcePath, &artifactPath)
+	err := query.QueryRow(ctx, `SELECT source_path,artifact_path FROM site_deployments WHERE project_id=$1 AND site_id=$2 AND id=$3`, projectID, siteID, deploymentID).
+		Scan(&sourcePath, &artifactPath)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", "", ErrNotFound
 	}
@@ -408,14 +530,32 @@ func (r *Repository) ClaimNextSiteDeployment(ctx context.Context, workerID strin
 	if err != nil {
 		return SiteBuildJob{}, err
 	}
-	deployment, sourcePath, artifactPath, err := r.siteDeploymentByIDWithPaths(ctx, tx, projectID, siteID, deploymentID, true)
+	deployment, sourcePath, artifactPath, err := r.siteDeploymentByIDWithPaths(
+		ctx,
+		tx,
+		projectID,
+		siteID,
+		deploymentID,
+		true,
+	)
 	if err != nil {
 		return SiteBuildJob{}, err
 	}
-	if deployment.BuildStatus != "queued" && deployment.BuildStatus != "deferred" || strings.TrimSpace(sourcePath) == "" || strings.TrimSpace(deployment.BuildCommand) == "" {
+	if deployment.BuildStatus != "queued" && deployment.BuildStatus != "deferred" ||
+		strings.TrimSpace(sourcePath) == "" ||
+		strings.TrimSpace(deployment.BuildCommand) == "" {
 		return SiteBuildJob{}, ErrNoSiteDeploymentJob
 	}
-	updated, err := scanSiteDeploymentPublic(tx.QueryRow(ctx, `UPDATE site_deployments SET build_status='running',build_started_at=now(),build_worker_id=$4,updated_at=now() WHERE project_id=$1 AND site_id=$2 AND id=$3 AND build_status IN ('queued','deferred') AND status='queued' RETURNING `+siteDeploymentProjection, projectID, siteID, deploymentID, workerID))
+	updated, err := scanSiteDeploymentPublic(
+		tx.QueryRow(
+			ctx,
+			`UPDATE site_deployments SET build_status='running',build_started_at=now(),build_worker_id=$4,updated_at=now() WHERE project_id=$1 AND site_id=$2 AND id=$3 AND build_status IN ('queued','deferred') AND status='queued' RETURNING `+siteDeploymentProjection,
+			projectID,
+			siteID,
+			deploymentID,
+			workerID,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return SiteBuildJob{}, ErrNoSiteDeploymentJob
 	}
@@ -436,7 +576,11 @@ func (r *Repository) RequeueStaleSiteDeployments(ctx context.Context, maxAge tim
 	if maxAge <= 0 {
 		return 0, ErrInvalidSiteSettings
 	}
-	result, err := r.pool.Exec(ctx, `UPDATE site_deployments SET build_status='deferred',build_started_at=NULL,build_worker_id=NULL,updated_at=now() WHERE build_status='running' AND build_started_at IS NOT NULL AND build_started_at < now() - ($1::double precision * interval '1 second')`, maxAge.Seconds())
+	result, err := r.pool.Exec(
+		ctx,
+		`UPDATE site_deployments SET build_status='deferred',build_started_at=NULL,build_worker_id=NULL,updated_at=now() WHERE build_status='running' AND build_started_at IS NOT NULL AND build_started_at < now() - ($1::double precision * interval '1 second')`,
+		maxAge.Seconds(),
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -447,15 +591,50 @@ func (r *Repository) RequeueStaleSiteDeployments(ctx context.Context, maxAge tim
 // atomically moves its reservation into expanded-byte quota. If activation
 // was requested at upload time, the new deployment becomes active in the
 // same transaction as the build result.
-func (r *Repository) CompleteSiteDeploymentBuild(ctx context.Context, projectID, siteID, deploymentID uuid.UUID, workerID, buildChecksumSHA256 string, buildSizeBytes int64) (domain.SiteDeployment, error) {
-	return r.completeSiteDeploymentBuild(ctx, projectID, siteID, deploymentID, workerID, buildChecksumSHA256, buildSizeBytes, nil)
+func (r *Repository) CompleteSiteDeploymentBuild(
+	ctx context.Context,
+	projectID, siteID, deploymentID uuid.UUID,
+	workerID, buildChecksumSHA256 string,
+	buildSizeBytes int64,
+) (domain.SiteDeployment, error) {
+	return r.completeSiteDeploymentBuild(
+		ctx,
+		projectID,
+		siteID,
+		deploymentID,
+		workerID,
+		buildChecksumSHA256,
+		buildSizeBytes,
+		nil,
+	)
 }
 
-func (r *Repository) CompleteSiteDeploymentBuildWithCleanup(ctx context.Context, projectID, siteID, deploymentID uuid.UUID, workerID, buildChecksumSHA256 string, buildSizeBytes int64, cleanup ArtifactCleanupInput) (domain.SiteDeployment, error) {
-	return r.completeSiteDeploymentBuild(ctx, projectID, siteID, deploymentID, workerID, buildChecksumSHA256, buildSizeBytes, &cleanup)
+func (r *Repository) CompleteSiteDeploymentBuildWithCleanup(
+	ctx context.Context,
+	projectID, siteID, deploymentID uuid.UUID,
+	workerID, buildChecksumSHA256 string,
+	buildSizeBytes int64,
+	cleanup ArtifactCleanupInput,
+) (domain.SiteDeployment, error) {
+	return r.completeSiteDeploymentBuild(
+		ctx,
+		projectID,
+		siteID,
+		deploymentID,
+		workerID,
+		buildChecksumSHA256,
+		buildSizeBytes,
+		&cleanup,
+	)
 }
 
-func (r *Repository) completeSiteDeploymentBuild(ctx context.Context, projectID, siteID, deploymentID uuid.UUID, workerID, buildChecksumSHA256 string, buildSizeBytes int64, cleanup *ArtifactCleanupInput) (domain.SiteDeployment, error) {
+func (r *Repository) completeSiteDeploymentBuild(
+	ctx context.Context,
+	projectID, siteID, deploymentID uuid.UUID,
+	workerID, buildChecksumSHA256 string,
+	buildSizeBytes int64,
+	cleanup *ArtifactCleanupInput,
+) (domain.SiteDeployment, error) {
 	if !validFunctionWorkerID(workerID) || buildSizeBytes < 0 || !validSiteSHA256(buildChecksumSHA256) {
 		return domain.SiteDeployment{}, ErrInvalidSiteSettings
 	}
@@ -496,7 +675,18 @@ func (r *Repository) completeSiteDeploymentBuild(ctx context.Context, projectID,
 	if _, err := tx.Exec(ctx, `UPDATE project_sites SET artifact_used_bytes=artifact_used_bytes+$3,artifact_reserved_bytes=GREATEST(0,artifact_reserved_bytes-$4),active_deployment_id=CASE WHEN $5 THEN $6 ELSE active_deployment_id END,updated_at=now() WHERE project_id=$1 AND id=$2`, projectID, siteID, buildSizeBytes, item.ReservedBytes, active, deploymentID); err != nil {
 		return domain.SiteDeployment{}, err
 	}
-	updated, err := scanSiteDeploymentPublic(tx.QueryRow(ctx, `UPDATE site_deployments SET size_bytes=$4,checksum_sha256=$5,status=$6,build_status='succeeded',build_worker_id=NULL,error_message=NULL,reserved_bytes=0,built_at=COALESCE(built_at,now()),activated_at=CASE WHEN $6='active' THEN COALESCE(activated_at,now()) ELSE activated_at END,activate_requested=false,updated_at=now() WHERE project_id=$1 AND site_id=$2 AND id=$3 RETURNING `+siteDeploymentProjection, projectID, siteID, deploymentID, buildSizeBytes, strings.ToLower(buildChecksumSHA256), status))
+	updated, err := scanSiteDeploymentPublic(
+		tx.QueryRow(
+			ctx,
+			`UPDATE site_deployments SET size_bytes=$4,checksum_sha256=$5,status=$6,build_status='succeeded',build_worker_id=NULL,error_message=NULL,reserved_bytes=0,built_at=COALESCE(built_at,now()),activated_at=CASE WHEN $6='active' THEN COALESCE(activated_at,now()) ELSE activated_at END,activate_requested=false,updated_at=now() WHERE project_id=$1 AND site_id=$2 AND id=$3 RETURNING `+siteDeploymentProjection,
+			projectID,
+			siteID,
+			deploymentID,
+			buildSizeBytes,
+			strings.ToLower(buildChecksumSHA256),
+			status,
+		),
+	)
 	if err != nil {
 		return domain.SiteDeployment{}, err
 	}
@@ -519,7 +709,11 @@ func (r *Repository) completeSiteDeploymentBuild(ctx context.Context, projectID,
 
 // FailSiteDeploymentBuild records a bounded failure and releases the quota
 // reservation so a replacement deployment can be uploaded.
-func (r *Repository) FailSiteDeploymentBuild(ctx context.Context, projectID, siteID, deploymentID uuid.UUID, workerID, errorMessage string) (domain.SiteDeployment, error) {
+func (r *Repository) FailSiteDeploymentBuild(
+	ctx context.Context,
+	projectID, siteID, deploymentID uuid.UUID,
+	workerID, errorMessage string,
+) (domain.SiteDeployment, error) {
 	if !validFunctionWorkerID(workerID) {
 		return domain.SiteDeployment{}, ErrInvalidSiteSettings
 	}
@@ -547,7 +741,16 @@ func (r *Repository) FailSiteDeploymentBuild(ctx context.Context, projectID, sit
 	if _, err := tx.Exec(ctx, `UPDATE project_sites SET artifact_reserved_bytes=GREATEST(0,artifact_reserved_bytes-$3),updated_at=now() WHERE project_id=$1 AND id=$2`, projectID, siteID, item.ReservedBytes); err != nil {
 		return domain.SiteDeployment{}, err
 	}
-	updated, err := scanSiteDeploymentPublic(tx.QueryRow(ctx, `UPDATE site_deployments SET status='failed',build_status='failed',build_worker_id=NULL,error_message=$4,reserved_bytes=0,finished_at=now(),updated_at=now() WHERE project_id=$1 AND site_id=$2 AND id=$3 RETURNING `+siteDeploymentProjection, projectID, siteID, deploymentID, failure))
+	updated, err := scanSiteDeploymentPublic(
+		tx.QueryRow(
+			ctx,
+			`UPDATE site_deployments SET status='failed',build_status='failed',build_worker_id=NULL,error_message=$4,reserved_bytes=0,finished_at=now(),updated_at=now() WHERE project_id=$1 AND site_id=$2 AND id=$3 RETURNING `+siteDeploymentProjection,
+			projectID,
+			siteID,
+			deploymentID,
+			failure,
+		),
+	)
 	if err != nil {
 		return domain.SiteDeployment{}, err
 	}

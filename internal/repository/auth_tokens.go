@@ -31,7 +31,13 @@ func validateAuthTokenInput(kind string, tokenHash []byte, expiresAt time.Time) 
 	return nil
 }
 
-func (r *Repository) IssueAccountAuthToken(ctx context.Context, id uuid.UUID, kind string, tokenHash []byte, expiresAt time.Time) (domain.Account, error) {
+func (r *Repository) IssueAccountAuthToken(
+	ctx context.Context,
+	id uuid.UUID,
+	kind string,
+	tokenHash []byte,
+	expiresAt time.Time,
+) (domain.Account, error) {
 	if err := validateAuthTokenInput(kind, tokenHash, expiresAt); err != nil {
 		return domain.Account{}, err
 	}
@@ -70,7 +76,13 @@ func (r *Repository) IssueAccountAuthToken(ctx context.Context, id uuid.UUID, ki
 	return account, nil
 }
 
-func (r *Repository) IssueProjectUserAuthToken(ctx context.Context, projectID, userID uuid.UUID, kind string, tokenHash []byte, expiresAt time.Time) (domain.ApplicationUser, error) {
+func (r *Repository) IssueProjectUserAuthToken(
+	ctx context.Context,
+	projectID, userID uuid.UUID,
+	kind string,
+	tokenHash []byte,
+	expiresAt time.Time,
+) (domain.ApplicationUser, error) {
 	if err := validateAuthTokenInput(kind, tokenHash, expiresAt); err != nil {
 		return domain.ApplicationUser{}, err
 	}
@@ -113,7 +125,12 @@ func (r *Repository) IssueProjectUserAuthToken(ctx context.Context, projectID, u
 // CreateAccountPasswordResetToken intentionally returns no existence signal to
 // the HTTP layer. The caller can always return the same 202 response and avoid
 // leaking which Console addresses have accounts.
-func (r *Repository) CreateAccountPasswordResetToken(ctx context.Context, email string, tokenHash []byte, expiresAt time.Time) (domain.Account, bool, error) {
+func (r *Repository) CreateAccountPasswordResetToken(
+	ctx context.Context,
+	email string,
+	tokenHash []byte,
+	expiresAt time.Time,
+) (domain.Account, bool, error) {
 	if err := validateAuthTokenInput(AuthTokenPasswordReset, tokenHash, expiresAt); err != nil {
 		return domain.Account{}, false, err
 	}
@@ -149,7 +166,13 @@ func (r *Repository) CreateAccountPasswordResetToken(ctx context.Context, email 
 	return account, true, nil
 }
 
-func (r *Repository) CreateProjectUserPasswordResetToken(ctx context.Context, projectID uuid.UUID, email string, tokenHash []byte, expiresAt time.Time) (domain.ApplicationUser, bool, error) {
+func (r *Repository) CreateProjectUserPasswordResetToken(
+	ctx context.Context,
+	projectID uuid.UUID,
+	email string,
+	tokenHash []byte,
+	expiresAt time.Time,
+) (domain.ApplicationUser, bool, error) {
 	if err := validateAuthTokenInput(AuthTokenPasswordReset, tokenHash, expiresAt); err != nil {
 		return domain.ApplicationUser{}, false, err
 	}
@@ -192,12 +215,21 @@ func (r *Repository) CreateProjectUserPasswordResetToken(ctx context.Context, pr
 // and long-expired secrets. Active-but-expired rows are removed too; the
 // partial unique index then remains available for a fresh link immediately.
 func pruneAccountAuthTokensTx(ctx context.Context, tx pgx.Tx, accountID uuid.UUID) error {
-	_, err := tx.Exec(ctx, `DELETE FROM account_auth_tokens WHERE account_id=$1 AND ((consumed_at IS NOT NULL AND consumed_at < now() - interval '7 days') OR expires_at < now() - interval '7 days')`, accountID)
+	_, err := tx.Exec(
+		ctx,
+		`DELETE FROM account_auth_tokens WHERE account_id=$1 AND ((consumed_at IS NOT NULL AND consumed_at < now() - interval '7 days') OR expires_at < now() - interval '7 days')`,
+		accountID,
+	)
 	return err
 }
 
 func pruneProjectUserAuthTokensTx(ctx context.Context, tx pgx.Tx, projectID, userID uuid.UUID) error {
-	_, err := tx.Exec(ctx, `DELETE FROM project_user_auth_tokens WHERE project_id=$1 AND project_user_id=$2 AND ((consumed_at IS NOT NULL AND consumed_at < now() - interval '7 days') OR expires_at < now() - interval '7 days')`, projectID, userID)
+	_, err := tx.Exec(
+		ctx,
+		`DELETE FROM project_user_auth_tokens WHERE project_id=$1 AND project_user_id=$2 AND ((consumed_at IS NOT NULL AND consumed_at < now() - interval '7 days') OR expires_at < now() - interval '7 days')`,
+		projectID,
+		userID,
+	)
 	return err
 }
 
@@ -246,7 +278,11 @@ func (r *Repository) VerifyAccountEmail(ctx context.Context, tokenHash []byte) (
 	return account, nil
 }
 
-func (r *Repository) VerifyProjectUserEmail(ctx context.Context, projectID uuid.UUID, tokenHash []byte) (domain.ApplicationUser, error) {
+func (r *Repository) VerifyProjectUserEmail(
+	ctx context.Context,
+	projectID uuid.UUID,
+	tokenHash []byte,
+) (domain.ApplicationUser, error) {
 	if len(tokenHash) != 32 {
 		return domain.ApplicationUser{}, ErrInvalidAuthToken
 	}
@@ -296,7 +332,11 @@ func (r *Repository) VerifyProjectUserEmail(ctx context.Context, projectID uuid.
 	return user, nil
 }
 
-func (r *Repository) ResetAccountPassword(ctx context.Context, tokenHash []byte, passwordHash string) (domain.Account, error) {
+func (r *Repository) ResetAccountPassword(
+	ctx context.Context,
+	tokenHash []byte,
+	passwordHash string,
+) (domain.Account, error) {
 	if len(tokenHash) != 32 {
 		return domain.Account{}, ErrInvalidAuthToken
 	}
@@ -343,7 +383,12 @@ func (r *Repository) ResetAccountPassword(ctx context.Context, tokenHash []byte,
 	return account, nil
 }
 
-func (r *Repository) ResetProjectUserPassword(ctx context.Context, projectID uuid.UUID, tokenHash []byte, passwordHash string) (domain.ApplicationUser, error) {
+func (r *Repository) ResetProjectUserPassword(
+	ctx context.Context,
+	projectID uuid.UUID,
+	tokenHash []byte,
+	passwordHash string,
+) (domain.ApplicationUser, error) {
 	if len(tokenHash) != 32 {
 		return domain.ApplicationUser{}, ErrInvalidAuthToken
 	}

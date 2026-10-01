@@ -77,16 +77,28 @@ func NewS3(options S3Options, maxSize int64) (*S3Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create S3 client: %w", err)
 	}
-	return &S3Store{client: client, bucket: options.Bucket, prefix: strings.Trim(options.Prefix, "/"), maxSize: maxSize, staging: staging}, nil
+	return &S3Store{
+		client:  client,
+		bucket:  options.Bucket,
+		prefix:  strings.Trim(options.Prefix, "/"),
+		maxSize: maxSize,
+		staging: staging,
+	}, nil
 }
 
 func validBucketName(value string) bool {
 	value = strings.TrimSpace(value)
-	if len(value) < 3 || len(value) > 63 || value[0] == '-' || value[0] == '.' || value[len(value)-1] == '-' || value[len(value)-1] == '.' {
+	if len(value) < 3 || len(value) > 63 {
+		return false
+	}
+	leadingInvalid := value[0] == '-' || value[0] == '.'
+	trailingInvalid := value[len(value)-1] == '-' || value[len(value)-1] == '.'
+	if leadingInvalid || trailingInvalid {
 		return false
 	}
 	for _, character := range value {
-		if (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '-' || character == '.' {
+		if (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '-' ||
+			character == '.' {
 			continue
 		}
 		if character >= 'A' && character <= 'Z' {
@@ -108,7 +120,16 @@ func normalizeEndpoint(raw string, useSSL bool) (string, bool, error) {
 		endpointURL = "http://" + raw
 	}
 	parsed, err := url.Parse(endpointURL)
-	if err != nil || parsed.Scheme != "http" && parsed.Scheme != "https" || parsed.Host == "" || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.User != nil {
+	if err != nil {
+		return "", false, fmt.Errorf("storage S3 endpoint must be an absolute HTTP(S) host without path or credentials")
+	}
+	schemeInvalid := parsed.Scheme != "http" && parsed.Scheme != "https"
+	missingHost := parsed.Host == ""
+	hasPath := parsed.Path != ""
+	hasQuery := parsed.RawQuery != ""
+	hasFragment := parsed.Fragment != ""
+	hasUserInfo := parsed.User != nil
+	if schemeInvalid || missingHost || hasPath || hasQuery || hasFragment || hasUserInfo {
 		return "", false, fmt.Errorf("storage S3 endpoint must be an absolute HTTP(S) host without path or credentials")
 	}
 	if strings.Contains(raw, "://") {
@@ -135,7 +156,13 @@ func (s *S3Store) Ping(ctx context.Context) error {
 	return nil
 }
 
-func (s *S3Store) BeginUploadWithLimit(ctx context.Context, projectID, bucketID, fileID uuid.UUID, src io.Reader, declaredType string, maxSize int64) (PreparedFile, error) {
+func (s *S3Store) BeginUploadWithLimit(
+	ctx context.Context,
+	projectID, bucketID, fileID uuid.UUID,
+	src io.Reader,
+	declaredType string,
+	maxSize int64,
+) (PreparedFile, error) {
 	if s == nil || s.staging == nil {
 		return PreparedFile{}, ErrInvalidPath
 	}
@@ -146,16 +173,20 @@ func (s *S3Store) Commit(ctx context.Context, file *PreparedFile) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if s == nil || s.client == nil || s.staging == nil || file == nil || file.TempPath == "" || file.RelativePath == "" || file.committed {
+	if s == nil || s.client == nil || s.staging == nil || file == nil || file.TempPath == "" ||
+		file.RelativePath == "" ||
+		file.committed {
 		return ErrInvalidPath
 	}
 	key, err := s.objectKey(file.RelativePath)
 	if err != nil {
 		return err
 	}
-	if _, statErr := s.client.StatObject(ctx, s.bucket, key, minio.StatObjectOptions{}); statErr == nil {
+	_, statErr := s.client.StatObject(ctx, s.bucket, key, minio.StatObjectOptions{})
+	if statErr == nil {
 		return fmt.Errorf("storage destination already exists: %w", os.ErrExist)
-	} else if !isMissingObject(statErr) {
+	}
+	if !isMissingObject(statErr) {
 		return fmt.Errorf("check S3 destination: %w", statErr)
 	}
 	input, err := os.Open(file.TempPath)

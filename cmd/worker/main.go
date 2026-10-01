@@ -75,7 +75,15 @@ func main() {
 		logger.Error("App environment encryption configuration error", "error", err)
 		os.Exit(1)
 	}
-	logger.Info("starting worker", "version", buildinfo.Version, "commit", buildinfo.Commit, "build_time", buildinfo.BuildTime)
+	logger.Info(
+		"starting worker",
+		"version",
+		buildinfo.Version,
+		"commit",
+		buildinfo.Commit,
+		"build_time",
+		buildinfo.BuildTime,
+	)
 	telemetryShutdown, err := observability.Setup(context.Background(), observability.TracerConfig{
 		Endpoint:    cfg.TelemetryOTLPEndpoint,
 		ServiceName: firstNonEmpty(cfg.TelemetryServiceName, "stealth-worker"),
@@ -130,7 +138,10 @@ func main() {
 		logger.Error("function secret configuration error", "error", err)
 		os.Exit(1)
 	}
-	repo := repository.NewWithDependencies(pool, repository.Dependencies{WebhookCipher: cipher, AdminCipher: cipher, CloudflareCipher: cipher})
+	repo := repository.NewWithDependencies(
+		pool,
+		repository.Dependencies{WebhookCipher: cipher, AdminCipher: cipher, CloudflareCipher: cipher},
+	)
 	importLegacyCloudflareConnection(ctx, cfg.CloudflareImportFile, cipher, repo, logger)
 	cloudflareReconciler, err := cloudflare.NewReconciler(repo, func(token string) (cloudflare.Client, error) {
 		return cloudflare.NewClient(token, cfg.CloudflareAPIBaseURL, http.DefaultClient)
@@ -139,7 +150,13 @@ func main() {
 		logger.Error("Cloudflare routing reconciler configuration error", "error", err)
 		os.Exit(1)
 	}
-	platformRouteReconciler, err := ingress.New(repo, cfg.TraefikGeneratedDir, cfg.TraefikReloadFile, cfg.PlatformRouteReconcileInterval, logger)
+	platformRouteReconciler, err := ingress.New(
+		repo,
+		cfg.TraefikGeneratedDir,
+		cfg.TraefikReloadFile,
+		cfg.PlatformRouteReconcileInterval,
+		logger,
+	)
 	if err != nil {
 		logger.Error("platform route reconciler configuration error", "error", err)
 		os.Exit(1)
@@ -194,7 +211,12 @@ func main() {
 	}
 	artifactCleanupWorker.PollInterval = cfg.FunctionsRunnerPoll
 	artifactCleanupWorker.LeaseAge = cfg.FunctionsRunnerLeaseAge
-	realtimePublisher, err := realtimepublisher.New(repo, realtime.NewBroker(redisClient), cfg.FunctionsWorkerID, logger)
+	realtimePublisher, err := realtimepublisher.New(
+		repo,
+		realtime.NewBroker(redisClient),
+		cfg.FunctionsWorkerID,
+		logger,
+	)
 	if err != nil {
 		logger.Error("realtime publisher configuration error", "error", err)
 		os.Exit(1)
@@ -216,7 +238,13 @@ func main() {
 	}
 	monitorWorker.PollInterval = cfg.FunctionsRunnerPoll
 	monitorWorker.LeaseAge = cfg.FunctionsRunnerLeaseAge
-	notificationWorker, err := adminnotification.New(repo, cipher, mailer.NewFromConfig(cfg, logger), cfg.FunctionsWorkerID, logger)
+	notificationWorker, err := adminnotification.New(
+		repo,
+		cipher,
+		mailer.NewFromConfig(cfg, logger),
+		cfg.FunctionsWorkerID,
+		logger,
+	)
 	if err != nil {
 		logger.Error("admin notification worker configuration error", "error", err)
 		os.Exit(1)
@@ -252,12 +280,26 @@ func main() {
 	appBuildWorker.ArchiveLimit.MaxEntry = cfg.AppsMaxExpandedSourceBytes
 	appBuildWorker.ArchiveLimit.MaxFiles = cfg.AppsMaxSourceFiles
 	appBuildWorker.ArchiveLimit.MaxCompressed = cfg.AppsMaxSourceArchiveBytes
-	appRuntimeMoby, err := appruntime.NewMoby(nil, cfg.AppsRuntimeNetworkName, cfg.AppsRuntimeActionTimeout, cfg.AppsRuntimeImageImportTimeout)
+	appRuntimeMoby, err := appruntime.NewMoby(
+		nil,
+		cfg.AppsRuntimeNetworkName,
+		cfg.AppsRuntimeActionTimeout,
+		cfg.AppsRuntimeImageImportTimeout,
+	)
 	if err != nil {
 		logger.Error("App runtime Docker configuration error", "error", err)
 		os.Exit(1)
 	}
-	appRuntimeWorker, err := appruntime.New(repo, appArtifactStore, appRuntimeMoby, cfg.FunctionsWorkerID, cfg.AppsRuntimePollInterval, cfg.AppsRuntimeLeaseAge, cfg.AppsMaxImageArchiveBytes, logger)
+	appRuntimeWorker, err := appruntime.New(
+		repo,
+		appArtifactStore,
+		appRuntimeMoby,
+		cfg.FunctionsWorkerID,
+		cfg.AppsRuntimePollInterval,
+		cfg.AppsRuntimeLeaseAge,
+		cfg.AppsMaxImageArchiveBytes,
+		logger,
+	)
 	if err != nil {
 		logger.Error("App runtime worker configuration error", "error", err)
 		os.Exit(1)
@@ -310,7 +352,10 @@ func main() {
 			})},
 		}
 		if agentWorker != nil {
-			registrations = append(registrations, workersupervisor.Registration{Name: "Agent worker", Runner: agentWorker})
+			registrations = append(
+				registrations,
+				workersupervisor.Registration{Name: "Agent worker", Runner: agentWorker},
+			)
 		}
 		if err := workersupervisor.Run(workerContext, registrations...); err != nil {
 			logger.Error("worker stopped with error", "error", err)
@@ -323,7 +368,15 @@ func main() {
 	executor.NodeImage = cfg.FunctionsRunnerNodeImage
 	executor.PythonImage = cfg.FunctionsRunnerPythonImage
 	executor.GoImage = cfg.FunctionsRunnerGoImage
-	worker, err := functionrunner.NewWorker(repo, store, cipher, executor, cfg.FunctionsWorkerID, cfg.FunctionsRunnerStagingRoot, logger)
+	worker, err := functionrunner.NewWorker(
+		repo,
+		store,
+		cipher,
+		executor,
+		cfg.FunctionsWorkerID,
+		cfg.FunctionsRunnerStagingRoot,
+		logger,
+	)
 	if err != nil {
 		logger.Error("worker configuration error", "error", err)
 		os.Exit(1)
@@ -334,7 +387,15 @@ func main() {
 	worker.ArchiveLimit.MaxCompressed = cfg.FunctionsMaxArtifactSize
 	appBuildWorker.Metrics = worker.Metrics
 	appRuntimeWorker.Metrics = worker.Metrics
-	siteWorker, err := functionrunner.NewSiteWorker(repo, siteSourceStore, sitePublicStore, executor, cfg.FunctionsWorkerID, cfg.FunctionsRunnerStagingRoot, logger)
+	siteWorker, err := functionrunner.NewSiteWorker(
+		repo,
+		siteSourceStore,
+		sitePublicStore,
+		executor,
+		cfg.FunctionsWorkerID,
+		cfg.FunctionsRunnerStagingRoot,
+		logger,
+	)
 	if err != nil {
 		logger.Error("site worker configuration error", "error", err)
 		os.Exit(1)
@@ -391,7 +452,13 @@ type legacyCloudflareImportRepository interface {
 	ImportCloudflareConnectionOnce(context.Context, repository.CloudflareConnectionInput, string) (bool, error)
 }
 
-func importLegacyCloudflareConnection(ctx context.Context, artifactFile string, cipher *functionsecret.Cipher, repo legacyCloudflareImportRepository, logger *slog.Logger) {
+func importLegacyCloudflareConnection(
+	ctx context.Context,
+	artifactFile string,
+	cipher *functionsecret.Cipher,
+	repo legacyCloudflareImportRepository,
+	logger *slog.Logger,
+) {
 	if repo == nil || cipher == nil || strings.TrimSpace(artifactFile) == "" {
 		return
 	}
@@ -431,7 +498,11 @@ func importLegacyCloudflareConnection(ctx context.Context, artifactFile string, 
 		return
 	}
 	if imported && input.APIToken != "" {
-		logger.Info("Cloudflare connection imported from narrow encrypted setup artifact", "tunnel_id", envelope.TunnelID)
+		logger.Info(
+			"Cloudflare connection imported from narrow encrypted setup artifact",
+			"tunnel_id",
+			envelope.TunnelID,
+		)
 	} else if imported {
 		logger.Warn("Cloudflare import has no recoverable API token; owner reconnection is required")
 	}

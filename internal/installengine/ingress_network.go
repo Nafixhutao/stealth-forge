@@ -108,7 +108,9 @@ func (config IngressNetworkConfig) Validate() error {
 		return fmt.Errorf("ingress network name is required")
 	}
 	if !validDockerNetworkName(config.Name) {
-		return fmt.Errorf("ingress network name must contain only Docker-safe letters, digits, dots, dashes, and underscores")
+		return fmt.Errorf(
+			"ingress network name must contain only Docker-safe letters, digits, dots, dashes, and underscores",
+		)
 	}
 	subnet, subnetIP, subnetPrefix, err := parsePrivateIPv4CIDR(config.Subnet, "STEALTH_INGRESS_NETWORK_SUBNET")
 	if err != nil {
@@ -141,13 +143,13 @@ func (config IngressNetworkConfig) Validate() error {
 		"STEALTH_CLOUDFLARED_INGRESS_IP": cloudflaredIP,
 	} {
 		if !subnet.Contains(ip) {
-			return fmt.Errorf("%s must be inside STEALTH_INGRESS_NETWORK_SUBNET", field)
+			return fmt.Errorf("%q must be inside STEALTH_INGRESS_NETWORK_SUBNET", field)
 		}
 		if ip.Equal(subnetIP) || ip.Equal(lastIP(subnet)) {
-			return fmt.Errorf("%s cannot be the ingress network or broadcast address", field)
+			return fmt.Errorf("%q cannot be the ingress network or broadcast address", field)
 		}
 		if ipRange.Contains(ip) {
-			return fmt.Errorf("%s must not be inside STEALTH_INGRESS_IP_RANGE", field)
+			return fmt.Errorf("%q must not be inside STEALTH_INGRESS_IP_RANGE", field)
 		}
 	}
 	if traefikIP.Equal(cloudflaredIP) {
@@ -162,7 +164,11 @@ func validDockerNetworkName(name string) bool {
 		return false
 	}
 	for index, character := range name {
-		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') || character == '_' || character == '-' || character == '.' {
+		isLower := character >= 'a' && character <= 'z'
+		isUpper := character >= 'A' && character <= 'Z'
+		isDigit := character >= '0' && character <= '9'
+		isSeparator := character == '_' || character == '-' || character == '.'
+		if isLower || isUpper || isDigit || isSeparator {
 			if index == 0 && (character == '_' || character == '-' || character == '.') {
 				return false
 			}
@@ -176,13 +182,13 @@ func validDockerNetworkName(name string) bool {
 func parsePrivateIPv4CIDR(raw, field string) (*net.IPNet, net.IP, int, error) {
 	ip, network, err := net.ParseCIDR(strings.TrimSpace(raw))
 	if err != nil || ip == nil || ip.To4() == nil || network == nil {
-		return nil, nil, 0, fmt.Errorf("%s must be a valid IPv4 CIDR", field)
+		return nil, nil, 0, fmt.Errorf("%q must be a valid IPv4 CIDR", field)
 	}
 	ip = ip.To4()
 	network.IP = network.IP.To4()
 	one, bits := network.Mask.Size()
 	if bits != 32 || !isRFC1918(ip) {
-		return nil, nil, 0, fmt.Errorf("%s must be an RFC1918 IPv4 CIDR", field)
+		return nil, nil, 0, fmt.Errorf("%q must be an RFC1918 IPv4 CIDR", field)
 	}
 	return network, network.IP, one, nil
 }
@@ -190,7 +196,7 @@ func parsePrivateIPv4CIDR(raw, field string) (*net.IPNet, net.IP, int, error) {
 func parsePrivateIPv4Address(raw, field string) (net.IP, error) {
 	ip := net.ParseIP(strings.TrimSpace(raw))
 	if ip == nil || ip.To4() == nil || !isRFC1918(ip.To4()) {
-		return nil, fmt.Errorf("%s must be a valid RFC1918 IPv4 address", field)
+		return nil, fmt.Errorf("%q must be a valid RFC1918 IPv4 address", field)
 	}
 	return ip.To4(), nil
 }
@@ -377,7 +383,12 @@ func ingressNetworkOverlaps(config IngressNetworkConfig, networks []inspectedDoc
 			}
 			ip, existing, parseErr := net.ParseCIDR(entry.Subnet)
 			if parseErr != nil {
-				return "", false, fmt.Errorf("decode Docker network %q subnet %q: %w", network.Name, entry.Subnet, parseErr)
+				return "", false, fmt.Errorf(
+					"decode Docker network %q subnet %q: %w",
+					network.Name,
+					entry.Subnet,
+					parseErr,
+				)
 			}
 			if ip.To4() == nil {
 				continue
@@ -428,7 +439,11 @@ func candidateIngressNetworkConfigs(name string) []IngressNetworkConfig {
 	return candidates
 }
 
-func (e *Engine) resolveIngressNetworkConfig(ctx context.Context, plan Plan, values, original map[string]string) (IngressNetworkConfig, error) {
+func (e *Engine) resolveIngressNetworkConfig(
+	ctx context.Context,
+	plan Plan,
+	values, original map[string]string,
+) (IngressNetworkConfig, error) {
 	current, err := ingressNetworkConfigFromValues(values)
 	if err != nil {
 		return IngressNetworkConfig{}, err
@@ -473,9 +488,15 @@ func (e *Engine) resolveIngressNetworkConfig(ctx context.Context, plan Plan, val
 	}
 	if !plan.Existing && dockerNetworkNameExists(networks, current.Name) {
 		if hasExplicitIngressNetworkName(values) {
-			return IngressNetworkConfig{}, fmt.Errorf("Docker network %q already exists; choose a different STEALTH_INGRESS_NETWORK_NAME for this installation", current.Name)
+			return IngressNetworkConfig{}, fmt.Errorf(
+				"Docker network %q already exists; choose a different STEALTH_INGRESS_NETWORK_NAME for this installation",
+				current.Name,
+			)
 		}
-		return IngressNetworkConfig{}, fmt.Errorf("Docker network %q already exists; choose a unique STEALTH_INGRESS_NETWORK_NAME for this installation", current.Name)
+		return IngressNetworkConfig{}, fmt.Errorf(
+			"Docker network %q already exists; choose a unique STEALTH_INGRESS_NETWORK_NAME for this installation",
+			current.Name,
+		)
 	}
 	if autoSelect {
 		candidates := candidateIngressNetworkConfigs(current.Name)
@@ -486,7 +507,9 @@ func (e *Engine) resolveIngressNetworkConfig(ctx context.Context, plan Plan, val
 				return candidate, nil
 			}
 		}
-		return IngressNetworkConfig{}, fmt.Errorf("no free Stealth ingress subnet remains in the bounded candidate set; set STEALTH_INGRESS_NETWORK_SUBNET to an unused RFC1918 subnet")
+		return IngressNetworkConfig{}, fmt.Errorf(
+			"no free Stealth ingress subnet remains in the bounded candidate set; set STEALTH_INGRESS_NETWORK_SUBNET to an unused RFC1918 subnet",
+		)
 	}
 	if conflict, overlaps, err := ingressNetworkOverlaps(current, networks); err != nil {
 		return IngressNetworkConfig{}, err

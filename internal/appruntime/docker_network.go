@@ -95,7 +95,8 @@ func (m *Moby) inspectNetwork(ctx context.Context) (NetworkInspect, bool, error)
 
 func (m *Moby) validateNetwork(ctx context.Context, network NetworkInspect) error {
 	labels := networkLabels()
-	if network.Name != m.NetworkName || network.Driver != "bridge" || network.Scope != "local" || network.Internal || !hasLabels(network.Labels, labels) {
+	if network.Name != m.NetworkName || network.Driver != "bridge" || network.Scope != "local" || network.Internal ||
+		!hasLabels(network.Labels, labels) {
 		return ErrRuntimeNetworkConflict
 	}
 	for containerID := range network.Containers {
@@ -172,10 +173,13 @@ func managedRuntimeNetworkPeer(container Container) bool {
 
 func runtimeNetworkPeerMatches(container Container, resourceType, service string) bool {
 	labels := container.Config.Labels
-	if labels["stealth.managed"] != "true" || labels["stealth.runtime_schema"] != runtimeSchema ||
-		labels["stealth.resource_type"] != resourceType || labels["com.docker.compose.service"] != service ||
-		container.HostConfig.Privileged || container.HostConfig.NetworkMode == "host" || container.HostConfig.NetworkMode == "none" || container.HostConfig.PidMode == "host" || container.HostConfig.IpcMode == "host" || container.HostConfig.UTSMode == "host" || container.HostConfig.UsernsMode == "host" ||
-		len(container.HostConfig.PortBindings) != 0 || len(container.HostConfig.CapAdd) != 0 {
+	hasManagedLabels := labels["stealth.managed"] == "true" && labels["stealth.runtime_schema"] == runtimeSchema &&
+		labels["stealth.resource_type"] == resourceType && labels["com.docker.compose.service"] == service
+	hasNoHostAccess := !container.HostConfig.Privileged && container.HostConfig.NetworkMode != "host" &&
+		container.HostConfig.NetworkMode != "none" && container.HostConfig.PidMode != "host" &&
+		container.HostConfig.IpcMode != "host" && container.HostConfig.UTSMode != "host" && container.HostConfig.UsernsMode != "host"
+	hasNoExtraCapabilities := len(container.HostConfig.PortBindings) == 0 && len(container.HostConfig.CapAdd) == 0
+	if !hasManagedLabels || !hasNoHostAccess || !hasNoExtraCapabilities {
 		return false
 	}
 	switch resourceType {
@@ -183,7 +187,8 @@ func runtimeNetworkPeerMatches(container Container, resourceType, service string
 		return service == "worker" && hasDockerSocketMount(container.Mounts)
 	case "app_runtime_ingress":
 		return service == "traefik" && container.HostConfig.ReadonlyRootfs && slices.Contains(container.HostConfig.CapDrop, "ALL") &&
-			slices.Contains(container.HostConfig.SecurityOpt, "no-new-privileges:true") && !hasMountDestination(container.Mounts, "/var/run/docker.sock")
+			slices.Contains(container.HostConfig.SecurityOpt, "no-new-privileges:true") &&
+			!hasMountDestination(container.Mounts, "/var/run/docker.sock")
 	default:
 		return false
 	}
@@ -200,7 +205,8 @@ func hasMountDestination(mounts []containerMount, destination string) bool {
 
 func hasDockerSocketMount(mounts []containerMount) bool {
 	for _, mount := range mounts {
-		if mount.Type == "bind" && filepath.Clean(mount.Source) == "/var/run/docker.sock" && filepath.Clean(mount.Destination) == "/var/run/docker.sock" {
+		if mount.Type == "bind" && filepath.Clean(mount.Source) == "/var/run/docker.sock" &&
+			filepath.Clean(mount.Destination) == "/var/run/docker.sock" {
 			return true
 		}
 	}

@@ -298,7 +298,8 @@ func (c Config) ValidateSetup() error {
 	if !c.SetupMode {
 		return nil
 	}
-	if strings.TrimSpace(c.SetupStateFile) == "" || !filepath.IsAbs(c.SetupStateFile) || filepath.Clean(c.SetupStateFile) == string(filepath.Separator) {
+	if strings.TrimSpace(c.SetupStateFile) == "" || !filepath.IsAbs(c.SetupStateFile) ||
+		filepath.Clean(c.SetupStateFile) == string(filepath.Separator) {
 		return fmt.Errorf("STEALTH_SETUP_STATE_FILE must be a valid non-root absolute path in setup mode")
 	}
 	return nil
@@ -310,7 +311,10 @@ func validGitHubAppClientID(value string) bool {
 		return false
 	}
 	for _, character := range value {
-		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') || character == '.' || character == '-' || character == '_' {
+		alphaNumeric := (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+			(character >= '0' && character <= '9')
+		separator := character == '.' || character == '-' || character == '_'
+		if alphaNumeric || separator {
 			continue
 		}
 		return false
@@ -322,7 +326,13 @@ func validGitHubAppClientID(value string) bool {
 // malformed static publication configuration. NewWithLimiter still supplies
 // safe defaults for hand-built test Config values.
 func (c Config) ValidateSites() error {
-	if c.SitesMaxArtifactSize <= 0 || c.SitesMaxExpandedBytes <= 0 || c.SitesDefaultQuotaBytes <= 0 || c.SitesMaxFiles < 1 || c.SitesMaxFiles > 100000 || c.SitesGitFetchConcurrency < 0 || c.SitesGitFetchConcurrency > 32 {
+	maxArtifactSizeValid := c.SitesMaxArtifactSize > 0
+	maxExpandedBytesValid := c.SitesMaxExpandedBytes > 0
+	defaultQuotaBytesValid := c.SitesDefaultQuotaBytes > 0
+	maxFilesValid := c.SitesMaxFiles >= 1 && c.SitesMaxFiles <= 100000
+	gitFetchConcurrencyValid := c.SitesGitFetchConcurrency >= 0 && c.SitesGitFetchConcurrency <= 32
+	if !maxArtifactSizeValid || !maxExpandedBytesValid || !defaultQuotaBytesValid || !maxFilesValid ||
+		!gitFetchConcurrencyValid {
 		return fmt.Errorf("site artifact, expanded-size, file-count, and quota settings are invalid")
 	}
 	if c.SitesMaxExpandedBytes > c.SitesDefaultQuotaBytes {
@@ -333,7 +343,9 @@ func (c Config) ValidateSites() error {
 			return fmt.Errorf("ACME_EMAIL must be a valid email address when ACME_ENABLED is true")
 		}
 		if !isACMEDirectoryURL(c.ACMEDirectoryURL) {
-			return fmt.Errorf("ACME_DIRECTORY_URL must be an absolute HTTPS URL without credentials, query, or fragment")
+			return fmt.Errorf(
+				"ACME_DIRECTORY_URL must be an absolute HTTPS URL without credentials, query, or fragment",
+			)
 		}
 		if !isListenAddress(c.ACMETLSAddress) || !isListenAddress(c.ACMEHTTPChallengeAddress) {
 			return fmt.Errorf("ACME listener addresses are invalid")
@@ -341,10 +353,12 @@ func (c Config) ValidateSites() error {
 		if strings.TrimSpace(c.ACMETLSAddress) == strings.TrimSpace(c.ACMEHTTPChallengeAddress) {
 			return fmt.Errorf("ACME_TLS_ADDR and ACME_HTTP_CHALLENGE_ADDR must be different listeners")
 		}
-		if sameListenPort(c.ACMETLSAddress, c.HTTPAddress) || sameListenPort(c.ACMEHTTPChallengeAddress, c.HTTPAddress) {
+		if sameListenPort(c.ACMETLSAddress, c.HTTPAddress) ||
+			sameListenPort(c.ACMEHTTPChallengeAddress, c.HTTPAddress) {
 			return fmt.Errorf("ACME listeners must not reuse the HTTP_ADDR port")
 		}
-		if strings.TrimSpace(c.ACMECertCacheDir) == "" || !filepath.IsAbs(c.ACMECertCacheDir) || filepath.Clean(c.ACMECertCacheDir) == string(filepath.Separator) {
+		if strings.TrimSpace(c.ACMECertCacheDir) == "" || !filepath.IsAbs(c.ACMECertCacheDir) ||
+			filepath.Clean(c.ACMECertCacheDir) == string(filepath.Separator) {
 			return fmt.Errorf("ACME_CERT_CACHE_DIR must be a valid non-root filesystem path")
 		}
 	}
@@ -362,26 +376,38 @@ func (c Config) ValidateApps() error {
 	if !validBuildkitAddress(c.AppsBuildkitAddress) {
 		return fmt.Errorf("APPS_BUILDKIT_ADDRESS must be a private TCP host:port address")
 	}
-	if !validBuildKitPath(c.AppsBuildkitCACert) || !validBuildKitPath(c.AppsBuildkitClientCert) || !validBuildKitPath(c.AppsBuildkitClientKey) {
+	if !validBuildKitPath(c.AppsBuildkitCACert) || !validBuildKitPath(c.AppsBuildkitClientCert) ||
+		!validBuildKitPath(c.AppsBuildkitClientKey) {
 		return fmt.Errorf("App BuildKit TLS certificate paths must be absolute, clean, non-root paths")
 	}
-	if c.AppsBuildTimeout < time.Minute || c.AppsBuildTimeout > 24*time.Hour || c.AppsBuildLeaseAge < c.AppsBuildTimeout || c.AppsBuildLeaseAge > 48*time.Hour || c.AppsBuildPollInterval < 100*time.Millisecond || c.AppsBuildPollInterval > time.Minute {
+	buildTimeoutValid := c.AppsBuildTimeout >= time.Minute && c.AppsBuildTimeout <= 24*time.Hour
+	buildLeaseAgeValid := c.AppsBuildLeaseAge >= c.AppsBuildTimeout && c.AppsBuildLeaseAge <= 48*time.Hour
+	buildPollIntervalValid := c.AppsBuildPollInterval >= 100*time.Millisecond && c.AppsBuildPollInterval <= time.Minute
+	if !buildTimeoutValid || !buildLeaseAgeValid || !buildPollIntervalValid {
 		return fmt.Errorf("App build timeout, lease, or polling settings are invalid")
 	}
-	if strings.TrimSpace(c.AppsBuildStagingRoot) == "" || !filepath.IsAbs(c.AppsBuildStagingRoot) || filepath.Clean(c.AppsBuildStagingRoot) == string(filepath.Separator) {
+	if strings.TrimSpace(c.AppsBuildStagingRoot) == "" || !filepath.IsAbs(c.AppsBuildStagingRoot) ||
+		filepath.Clean(c.AppsBuildStagingRoot) == string(filepath.Separator) {
 		return fmt.Errorf("APPS_BUILD_STAGING_ROOT must be an absolute non-root path")
 	}
 	if !isDockerName(c.AppsBuildStagingVolume) || !isDockerName(c.AppsBuildkitStateVolume) {
 		return fmt.Errorf("App build volume names are invalid")
 	}
-	if len(c.AppsRuntimeNetworkName) > 63 || !isDockerName(c.AppsRuntimeNetworkName) ||
-		c.AppsRuntimePollInterval < 100*time.Millisecond || c.AppsRuntimePollInterval > time.Minute ||
-		c.AppsRuntimeLeaseAge < 30*time.Second || c.AppsRuntimeLeaseAge > 10*time.Minute ||
-		c.AppsRuntimeActionTimeout < 5*time.Second || c.AppsRuntimeActionTimeout > 2*time.Minute ||
-		c.AppsRuntimeImageImportTimeout < time.Minute || c.AppsRuntimeImageImportTimeout > 30*time.Minute ||
-		c.AppsRuntimeImageCacheMaxBytes < 1<<20 || c.AppsRuntimeImageCacheMaxBytes > 1<<40 ||
-		c.AppsRuntimeImageCacheTargetBytes < 1<<20 || c.AppsRuntimeImageCacheTargetBytes >= c.AppsRuntimeImageCacheMaxBytes ||
-		c.AppsRuntimeImageGCSweepInterval < time.Minute || c.AppsRuntimeImageGCSweepInterval > 24*time.Hour {
+	networkNameValid := len(c.AppsRuntimeNetworkName) <= 63 && isDockerName(c.AppsRuntimeNetworkName)
+	pollIntervalValid := c.AppsRuntimePollInterval >= 100*time.Millisecond && c.AppsRuntimePollInterval <= time.Minute
+	leaseAgeValid := c.AppsRuntimeLeaseAge >= 30*time.Second && c.AppsRuntimeLeaseAge <= 10*time.Minute
+	actionTimeoutValid := c.AppsRuntimeActionTimeout >= 5*time.Second && c.AppsRuntimeActionTimeout <= 2*time.Minute
+	imageImportTimeoutValid := c.AppsRuntimeImageImportTimeout >= time.Minute &&
+		c.AppsRuntimeImageImportTimeout <= 30*time.Minute
+	imageCacheMaxBytesValid := c.AppsRuntimeImageCacheMaxBytes >= 1<<20 && c.AppsRuntimeImageCacheMaxBytes <= 1<<40
+	imageCacheTargetBytesValid := c.AppsRuntimeImageCacheTargetBytes >= 1<<20 &&
+		c.AppsRuntimeImageCacheTargetBytes < c.AppsRuntimeImageCacheMaxBytes
+	gcSweepIntervalValid := c.AppsRuntimeImageGCSweepInterval >= time.Minute &&
+		c.AppsRuntimeImageGCSweepInterval <= 24*time.Hour
+	if !networkNameValid || !pollIntervalValid || !leaseAgeValid || !actionTimeoutValid || !imageImportTimeoutValid ||
+		!imageCacheMaxBytesValid ||
+		!imageCacheTargetBytesValid ||
+		!gcSweepIntervalValid {
 		return fmt.Errorf("App runtime network, poll, lease, or Docker timeout settings are invalid")
 	}
 	return nil
@@ -405,7 +431,10 @@ func value(key, fallback string) string {
 
 func isWorkerID(value string) bool {
 	for _, character := range value {
-		if (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '.' || character == '_' || character == '-' {
+		alphaNumeric := (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') ||
+			(character >= '0' && character <= '9')
+		separator := character == '.' || character == '_' || character == '-'
+		if alphaNumeric || separator {
 			continue
 		}
 		return false
@@ -423,7 +452,14 @@ func isStorageS3Endpoint(raw string) bool {
 		endpointURL = "http://" + raw
 	}
 	parsed, err := url.Parse(endpointURL)
-	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.User != nil {
+	if err != nil {
+		return false
+	}
+	hasHost := parsed.Host != ""
+	validScheme := parsed.Scheme == "http" || parsed.Scheme == "https"
+	hasNoPathOrQuery := parsed.Path == "" && parsed.RawQuery == "" && parsed.Fragment == ""
+	hasNoUserInfo := parsed.User == nil
+	if !hasHost || !validScheme || !hasNoPathOrQuery || !hasNoUserInfo {
 		return false
 	}
 	return true
@@ -434,8 +470,11 @@ func isDockerName(value string) bool {
 		return false
 	}
 	for index, character := range value {
-		if (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '.' || character == '_' || character == '-' {
-			if index == 0 && (character == '.' || character == '_' || character == '-') {
+		alphaNumeric := (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') ||
+			(character >= '0' && character <= '9')
+		separator := character == '.' || character == '_' || character == '-'
+		if alphaNumeric || separator {
+			if index == 0 && separator {
 				return false
 			}
 			continue
@@ -450,7 +489,10 @@ func isImageReference(value string) bool {
 		return false
 	}
 	for _, character := range value {
-		if (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || strings.ContainsRune("/._:@-", character) {
+		alphaNumeric := (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') ||
+			(character >= '0' && character <= '9')
+		separator := strings.ContainsRune("/._:@-", character)
+		if alphaNumeric || separator {
 			continue
 		}
 		return false
@@ -479,7 +521,14 @@ func isACMEDirectoryURL(value string) bool {
 		return false
 	}
 	parsed, err := url.Parse(value)
-	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.Hostname() == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if err != nil {
+		return false
+	}
+	validScheme := parsed.Scheme == "https"
+	hasHost := parsed.Host != "" && parsed.Hostname() != ""
+	hasNoUserInfo := parsed.User == nil
+	hasNoQueryOrFragment := parsed.RawQuery == "" && parsed.Fragment == ""
+	if !validScheme || !hasHost || !hasNoUserInfo || !hasNoQueryOrFragment {
 		return false
 	}
 	if port := parsed.Port(); port != "" {
@@ -505,7 +554,14 @@ func isPublicAppURL(value string) bool {
 		return false
 	}
 	parsed, err := url.Parse(value)
-	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.Hostname() == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if err != nil {
+		return false
+	}
+	validScheme := parsed.Scheme == "http" || parsed.Scheme == "https"
+	hasHost := parsed.Host != "" && parsed.Hostname() != ""
+	hasNoUserInfo := parsed.User == nil
+	hasNoQueryOrFragment := parsed.RawQuery == "" && parsed.Fragment == ""
+	if !validScheme || !hasHost || !hasNoUserInfo || !hasNoQueryOrFragment {
 		return false
 	}
 	if port := parsed.Port(); port != "" {
@@ -551,7 +607,16 @@ func normalizeConsoleOrigin(raw string) (string, error) {
 		return "", fmt.Errorf("invalid origin")
 	}
 	parsed, err := url.Parse(value)
-	if err != nil || parsed.Opaque != "" || parsed.User != nil || parsed.Host == "" || parsed.Path != "" || parsed.RawPath != "" || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != "" {
+	if err != nil {
+		return "", fmt.Errorf("invalid origin")
+	}
+	hasOpaque := parsed.Opaque != ""
+	hasUserInfo := parsed.User != nil
+	hasHost := parsed.Host != ""
+	hasPath := parsed.Path != "" || parsed.RawPath != ""
+	hasQuery := parsed.RawQuery != "" || parsed.ForceQuery
+	hasFragment := parsed.Fragment != ""
+	if hasOpaque || hasUserInfo || !hasHost || hasPath || hasQuery || hasFragment {
 		return "", fmt.Errorf("invalid origin")
 	}
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
@@ -586,7 +651,13 @@ func parseBytes(raw string) (int64, error) {
 	units := []struct {
 		suffix string
 		value  int64
-	}{{"tib", 1 << 40}, {"gib", 1 << 30}, {"mib", 1 << 20}, {"kib", 1 << 10}, {"b", 1}}
+	}{
+		{suffix: "tib", value: 1 << 40},
+		{suffix: "gib", value: 1 << 30},
+		{suffix: "mib", value: 1 << 20},
+		{suffix: "kib", value: 1 << 10},
+		{suffix: "b", value: 1},
+	}
 	lower := strings.ToLower(raw)
 	multiplier := int64(1)
 	number := lower

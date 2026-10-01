@@ -184,14 +184,36 @@ func scanDatabase(row interface{ Scan(...any) error }) (domain.ProjectDatabase, 
 
 func scanTable(row interface{ Scan(...any) error }) (domain.DatabaseTable, error) {
 	var item domain.DatabaseTable
-	err := row.Scan(&item.ID, &item.DatabaseID, &item.ProjectID, &item.Name, &item.RowSecurity, &item.CreatePermissions, &item.ReadPermissions, &item.UpdatePermissions, &item.DeletePermissions, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&item.ID,
+		&item.DatabaseID,
+		&item.ProjectID,
+		&item.Name,
+		&item.RowSecurity,
+		&item.CreatePermissions,
+		&item.ReadPermissions,
+		&item.UpdatePermissions,
+		&item.DeletePermissions,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	return item, err
 }
 
 func scanColumn(row interface{ Scan(...any) error }) (domain.DatabaseColumn, error) {
 	var item domain.DatabaseColumn
 	var raw []byte
-	err := row.Scan(&item.ID, &item.TableID, &item.Key, &item.Type, &item.Required, &item.VarcharSize, &raw, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&item.ID,
+		&item.TableID,
+		&item.Key,
+		&item.Type,
+		&item.Required,
+		&item.VarcharSize,
+		&raw,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	if err != nil {
 		return item, err
 	}
@@ -203,7 +225,16 @@ func scanColumn(row interface{ Scan(...any) error }) (domain.DatabaseColumn, err
 
 func scanIndex(row interface{ Scan(...any) error }) (domain.DatabaseIndex, error) {
 	var item domain.DatabaseIndex
-	err := row.Scan(&item.ID, &item.TableID, &item.Name, &item.Type, &item.ColumnKeys, &item.Directions, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&item.ID,
+		&item.TableID,
+		&item.Name,
+		&item.Type,
+		&item.ColumnKeys,
+		&item.Directions,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	return item, err
 }
 
@@ -211,7 +242,18 @@ func scanRow(row interface{ Scan(...any) error }) (domain.DatabaseRow, error) {
 	var item domain.DatabaseRow
 	var raw []byte
 	var creator *uuid.UUID
-	err := row.Scan(&item.ID, &item.TableID, &item.ProjectID, &raw, &item.ReadPermissions, &item.UpdatePermissions, &item.DeletePermissions, &creator, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&item.ID,
+		&item.TableID,
+		&item.ProjectID,
+		&raw,
+		&item.ReadPermissions,
+		&item.UpdatePermissions,
+		&item.DeletePermissions,
+		&creator,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	if err != nil {
 		return item, err
 	}
@@ -240,7 +282,15 @@ func schemaFromDomain(column domain.DatabaseColumn) DatabaseColumnSchema {
 			hasDefault = false
 		}
 	}
-	return DatabaseColumnSchema{ID: mustParseUUID(column.ID), Key: column.Key, Type: dbcore.ColumnType(column.Type), Required: column.Required, VarcharSize: column.VarcharSize, Default: defaultValue, HasDefault: hasDefault}
+	return DatabaseColumnSchema{
+		ID:          mustParseUUID(column.ID),
+		Key:         column.Key,
+		Type:        dbcore.ColumnType(column.Type),
+		Required:    column.Required,
+		VarcharSize: column.VarcharSize,
+		Default:     defaultValue,
+		HasDefault:  hasDefault,
+	}
 }
 
 func mustParseUUID(value string) uuid.UUID {
@@ -248,12 +298,24 @@ func mustParseUUID(value string) uuid.UUID {
 	return parsed
 }
 
-func (r *Repository) ListProjectDatabases(ctx context.Context, projectID uuid.UUID, actor DatabaseActor, limit int, cursor *uuid.UUID) ([]domain.ProjectDatabase, string, bool, error) {
+func (r *Repository) ListProjectDatabases(
+	ctx context.Context,
+	projectID uuid.UUID,
+	actor DatabaseActor,
+	limit int,
+	cursor *uuid.UUID,
+) ([]domain.ProjectDatabase, string, bool, error) {
 	canManage, err := r.requireDatabaseRead(ctx, projectID, actor)
 	if err != nil {
 		return nil, "", false, err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+databaseProjection()+` FROM project_databases WHERE project_id=$1 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $2`, projectID, limit+1, cursor)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT `+databaseProjection()+` FROM project_databases WHERE project_id=$1 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $2`,
+		projectID,
+		limit+1,
+		cursor,
+	)
 	if err != nil {
 		return nil, "", false, err
 	}
@@ -277,18 +339,34 @@ func (r *Repository) ListProjectDatabases(ctx context.Context, projectID uuid.UU
 	return items, next, canManage, nil
 }
 
-func (r *Repository) GetProjectDatabase(ctx context.Context, projectID, databaseID uuid.UUID, actor DatabaseActor) (domain.ProjectDatabase, error) {
+func (r *Repository) GetProjectDatabase(
+	ctx context.Context,
+	projectID, databaseID uuid.UUID,
+	actor DatabaseActor,
+) (domain.ProjectDatabase, error) {
 	if _, err := r.requireDatabaseRead(ctx, projectID, actor); err != nil {
 		return domain.ProjectDatabase{}, err
 	}
-	item, err := scanDatabase(r.pool.QueryRow(ctx, `SELECT `+databaseProjection()+` FROM project_databases WHERE project_id=$1 AND id=$2`, projectID, databaseID))
+	item, err := scanDatabase(
+		r.pool.QueryRow(
+			ctx,
+			`SELECT `+databaseProjection()+` FROM project_databases WHERE project_id=$1 AND id=$2`,
+			projectID,
+			databaseID,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ProjectDatabase{}, ErrNotFound
 	}
 	return item, err
 }
 
-func (r *Repository) CreateProjectDatabase(ctx context.Context, id, projectID uuid.UUID, actor DatabaseActor, name string) (domain.ProjectDatabase, error) {
+func (r *Repository) CreateProjectDatabase(
+	ctx context.Context,
+	id, projectID uuid.UUID,
+	actor DatabaseActor,
+	name string,
+) (domain.ProjectDatabase, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.ProjectDatabase{}, err
@@ -307,7 +385,15 @@ func (r *Repository) CreateProjectDatabase(ctx context.Context, id, projectID uu
 	if err := lockDatabaseNamespace(ctx, tx, projectID); err != nil {
 		return domain.ProjectDatabase{}, err
 	}
-	item, err := scanDatabase(tx.QueryRow(ctx, `INSERT INTO project_databases (id,project_id,name) VALUES ($1,$2,$3) RETURNING `+databaseProjection(), id, projectID, name))
+	item, err := scanDatabase(
+		tx.QueryRow(
+			ctx,
+			`INSERT INTO project_databases (id,project_id,name) VALUES ($1,$2,$3) RETURNING `+databaseProjection(),
+			id,
+			projectID,
+			name,
+		),
+	)
 	if err != nil {
 		return domain.ProjectDatabase{}, mapError(err)
 	}
@@ -320,7 +406,11 @@ func (r *Repository) CreateProjectDatabase(ctx context.Context, id, projectID uu
 	return item, nil
 }
 
-func (r *Repository) DeleteProjectDatabase(ctx context.Context, projectID, databaseID uuid.UUID, actor DatabaseActor) error {
+func (r *Repository) DeleteProjectDatabase(
+	ctx context.Context,
+	projectID, databaseID uuid.UUID,
+	actor DatabaseActor,
+) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -339,7 +429,12 @@ func (r *Repository) DeleteProjectDatabase(ctx context.Context, projectID, datab
 	if !exists {
 		return ErrNotFound
 	}
-	backups, err := tx.Query(ctx, `SELECT storage_path FROM database_backups WHERE project_id=$1 AND database_id=$2 FOR UPDATE`, projectID, databaseID)
+	backups, err := tx.Query(
+		ctx,
+		`SELECT storage_path FROM database_backups WHERE project_id=$1 AND database_id=$2 FOR UPDATE`,
+		projectID,
+		databaseID,
+	)
 	if err != nil {
 		return err
 	}
@@ -377,7 +472,13 @@ func (r *Repository) DeleteProjectDatabase(ctx context.Context, projectID, datab
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) ListDatabaseTables(ctx context.Context, projectID, databaseID uuid.UUID, actor DatabaseActor, limit int, cursor *uuid.UUID) ([]domain.DatabaseTable, string, bool, error) {
+func (r *Repository) ListDatabaseTables(
+	ctx context.Context,
+	projectID, databaseID uuid.UUID,
+	actor DatabaseActor,
+	limit int,
+	cursor *uuid.UUID,
+) ([]domain.DatabaseTable, string, bool, error) {
 	canManage, err := r.requireDatabaseRead(ctx, projectID, actor)
 	if err != nil {
 		return nil, "", false, err
@@ -385,7 +486,14 @@ func (r *Repository) ListDatabaseTables(ctx context.Context, projectID, database
 	if err := r.ensureDatabaseProject(ctx, projectID, databaseID); err != nil {
 		return nil, "", false, err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+tableProjection()+` FROM database_tables WHERE project_id=$1 AND database_id=$2 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $4`, projectID, databaseID, cursor, limit+1)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT `+tableProjection()+` FROM database_tables WHERE project_id=$1 AND database_id=$2 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $4`,
+		projectID,
+		databaseID,
+		cursor,
+		limit+1,
+	)
 	if err != nil {
 		return nil, "", false, err
 	}
@@ -409,18 +517,35 @@ func (r *Repository) ListDatabaseTables(ctx context.Context, projectID, database
 	return items, next, canManage, nil
 }
 
-func (r *Repository) GetDatabaseTable(ctx context.Context, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor) (domain.DatabaseTable, error) {
+func (r *Repository) GetDatabaseTable(
+	ctx context.Context,
+	projectID, databaseID, tableID uuid.UUID,
+	actor DatabaseActor,
+) (domain.DatabaseTable, error) {
 	if _, err := r.requireDatabaseRead(ctx, projectID, actor); err != nil {
 		return domain.DatabaseTable{}, err
 	}
-	item, err := scanTable(r.pool.QueryRow(ctx, `SELECT `+tableProjection()+` FROM database_tables WHERE project_id=$1 AND database_id=$2 AND id=$3`, projectID, databaseID, tableID))
+	item, err := scanTable(
+		r.pool.QueryRow(
+			ctx,
+			`SELECT `+tableProjection()+` FROM database_tables WHERE project_id=$1 AND database_id=$2 AND id=$3`,
+			projectID,
+			databaseID,
+			tableID,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.DatabaseTable{}, ErrNotFound
 	}
 	return item, err
 }
 
-func (r *Repository) CreateDatabaseTable(ctx context.Context, id, projectID, databaseID uuid.UUID, actor DatabaseActor, input DatabaseTableInput) (domain.DatabaseTable, error) {
+func (r *Repository) CreateDatabaseTable(
+	ctx context.Context,
+	id, projectID, databaseID uuid.UUID,
+	actor DatabaseActor,
+	input DatabaseTableInput,
+) (domain.DatabaseTable, error) {
 	permissions, err := normalizeTablePermissions(input)
 	if err != nil {
 		return domain.DatabaseTable{}, err
@@ -439,7 +564,21 @@ func (r *Repository) CreateDatabaseTable(ctx context.Context, id, projectID, dat
 	if err := ensureDatabaseProjectTx(ctx, tx, projectID, databaseID); err != nil {
 		return domain.DatabaseTable{}, err
 	}
-	item, err := scanTable(tx.QueryRow(ctx, `INSERT INTO database_tables (id,database_id,project_id,name,row_security,create_permissions,read_permissions,update_permissions,delete_permissions) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING `+tableProjection(), id, databaseID, projectID, input.Name, input.RowSecurity, permissions[0], permissions[1], permissions[2], permissions[3]))
+	item, err := scanTable(
+		tx.QueryRow(
+			ctx,
+			`INSERT INTO database_tables (id,database_id,project_id,name,row_security,create_permissions,read_permissions,update_permissions,delete_permissions) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING `+tableProjection(),
+			id,
+			databaseID,
+			projectID,
+			input.Name,
+			input.RowSecurity,
+			permissions[0],
+			permissions[1],
+			permissions[2],
+			permissions[3],
+		),
+	)
 	if err != nil {
 		return domain.DatabaseTable{}, mapError(err)
 	}
@@ -454,7 +593,12 @@ func (r *Repository) CreateDatabaseTable(ctx context.Context, id, projectID, dat
 	return item, nil
 }
 
-func (r *Repository) UpdateDatabaseTable(ctx context.Context, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor, input DatabaseTableInput) (domain.DatabaseTable, error) {
+func (r *Repository) UpdateDatabaseTable(
+	ctx context.Context,
+	projectID, databaseID, tableID uuid.UUID,
+	actor DatabaseActor,
+	input DatabaseTableInput,
+) (domain.DatabaseTable, error) {
 	permissions, err := normalizeTablePermissions(input)
 	if err != nil {
 		return domain.DatabaseTable{}, err
@@ -470,7 +614,20 @@ func (r *Repository) UpdateDatabaseTable(ctx context.Context, projectID, databas
 	if err := lockDatabaseNamespace(ctx, tx, databaseID); err != nil {
 		return domain.DatabaseTable{}, err
 	}
-	item, err := scanTable(tx.QueryRow(ctx, `UPDATE database_tables SET row_security=$4,create_permissions=$5,read_permissions=$6,update_permissions=$7,delete_permissions=$8,updated_at=now() WHERE project_id=$1 AND database_id=$2 AND id=$3 RETURNING `+tableProjection(), projectID, databaseID, tableID, input.RowSecurity, permissions[0], permissions[1], permissions[2], permissions[3]))
+	item, err := scanTable(
+		tx.QueryRow(
+			ctx,
+			`UPDATE database_tables SET row_security=$4,create_permissions=$5,read_permissions=$6,update_permissions=$7,delete_permissions=$8,updated_at=now() WHERE project_id=$1 AND database_id=$2 AND id=$3 RETURNING `+tableProjection(),
+			projectID,
+			databaseID,
+			tableID,
+			input.RowSecurity,
+			permissions[0],
+			permissions[1],
+			permissions[2],
+			permissions[3],
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.DatabaseTable{}, ErrNotFound
 	}
@@ -489,7 +646,11 @@ func (r *Repository) UpdateDatabaseTable(ctx context.Context, projectID, databas
 	return item, nil
 }
 
-func (r *Repository) DeleteDatabaseTable(ctx context.Context, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor) error {
+func (r *Repository) DeleteDatabaseTable(
+	ctx context.Context,
+	projectID, databaseID, tableID uuid.UUID,
+	actor DatabaseActor,
+) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -522,14 +683,26 @@ func (r *Repository) DeleteDatabaseTable(ctx context.Context, projectID, databas
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) ListDatabaseColumns(ctx context.Context, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor, limit int, cursor *uuid.UUID) ([]domain.DatabaseColumn, string, error) {
+func (r *Repository) ListDatabaseColumns(
+	ctx context.Context,
+	projectID, databaseID, tableID uuid.UUID,
+	actor DatabaseActor,
+	limit int,
+	cursor *uuid.UUID,
+) ([]domain.DatabaseColumn, string, error) {
 	if _, err := r.requireDatabaseRead(ctx, projectID, actor); err != nil {
 		return nil, "", err
 	}
 	if err := r.ensureTableProject(ctx, projectID, databaseID, tableID); err != nil {
 		return nil, "", err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+columnProjection()+` FROM database_columns WHERE table_id=$1 AND ($2::uuid IS NULL OR id>$2) ORDER BY id LIMIT $3`, tableID, cursor, limit+1)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT `+columnProjection()+` FROM database_columns WHERE table_id=$1 AND ($2::uuid IS NULL OR id>$2) ORDER BY id LIMIT $3`,
+		tableID,
+		cursor,
+		limit+1,
+	)
 	if err != nil {
 		return nil, "", err
 	}
@@ -553,7 +726,12 @@ func (r *Repository) ListDatabaseColumns(ctx context.Context, projectID, databas
 	return items, next, nil
 }
 
-func (r *Repository) CreateDatabaseColumn(ctx context.Context, id, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor, input DatabaseColumnInput) (domain.DatabaseColumn, error) {
+func (r *Repository) CreateDatabaseColumn(
+	ctx context.Context,
+	id, projectID, databaseID, tableID uuid.UUID,
+	actor DatabaseActor,
+	input DatabaseColumnInput,
+) (domain.DatabaseColumn, error) {
 	if err := dbcore.ValidateColumn(dbcore.ColumnDefinition{Key: input.Key, Type: input.Type, Required: input.Required, VarcharSize: input.VarcharSize, Default: input.Default, HasDefault: input.HasDefault}); err != nil {
 		return domain.DatabaseColumn{}, err
 	}
@@ -585,7 +763,19 @@ func (r *Repository) CreateDatabaseColumn(ctx context.Context, id, projectID, da
 	if rowCount > 0 && input.Required && !input.HasDefault {
 		return domain.DatabaseColumn{}, ErrSchemaConflict
 	}
-	item, err := scanColumn(tx.QueryRow(ctx, `INSERT INTO database_columns (id,table_id,key,column_type,required,varchar_size,default_value) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING `+columnProjection(), id, tableID, input.Key, input.Type, input.Required, input.VarcharSize, defaultJSON))
+	item, err := scanColumn(
+		tx.QueryRow(
+			ctx,
+			`INSERT INTO database_columns (id,table_id,key,column_type,required,varchar_size,default_value) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING `+columnProjection(),
+			id,
+			tableID,
+			input.Key,
+			input.Type,
+			input.Required,
+			input.VarcharSize,
+			defaultJSON,
+		),
+	)
 	if err != nil {
 		return domain.DatabaseColumn{}, mapError(err)
 	}
@@ -606,7 +796,11 @@ func (r *Repository) CreateDatabaseColumn(ctx context.Context, id, projectID, da
 	return item, nil
 }
 
-func (r *Repository) DeleteDatabaseColumn(ctx context.Context, projectID, databaseID, tableID, columnID uuid.UUID, actor DatabaseActor) error {
+func (r *Repository) DeleteDatabaseColumn(
+	ctx context.Context,
+	projectID, databaseID, tableID, columnID uuid.UUID,
+	actor DatabaseActor,
+) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -623,9 +817,12 @@ func (r *Repository) DeleteDatabaseColumn(ctx context.Context, projectID, databa
 	}
 	var dependentIndex bool
 	var key string
-	if err := tx.QueryRow(ctx, `SELECT key FROM database_columns WHERE id=$1 AND table_id=$2 FOR UPDATE`, columnID, tableID).Scan(&key); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT key FROM database_columns WHERE id=$1 AND table_id=$2 FOR UPDATE`, columnID, tableID).
+		Scan(&key)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return err
 	}
 	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM database_indexes WHERE table_id=$1 AND $2=ANY(column_keys))`, tableID, key).Scan(&dependentIndex); err != nil {
@@ -657,14 +854,26 @@ func (r *Repository) DeleteDatabaseColumn(ctx context.Context, projectID, databa
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) ListDatabaseIndexes(ctx context.Context, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor, limit int, cursor *uuid.UUID) ([]domain.DatabaseIndex, string, error) {
+func (r *Repository) ListDatabaseIndexes(
+	ctx context.Context,
+	projectID, databaseID, tableID uuid.UUID,
+	actor DatabaseActor,
+	limit int,
+	cursor *uuid.UUID,
+) ([]domain.DatabaseIndex, string, error) {
 	if _, err := r.requireDatabaseRead(ctx, projectID, actor); err != nil {
 		return nil, "", err
 	}
 	if err := r.ensureTableProject(ctx, projectID, databaseID, tableID); err != nil {
 		return nil, "", err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+indexProjection()+` FROM database_indexes WHERE table_id=$1 AND ($2::uuid IS NULL OR id>$2) ORDER BY id LIMIT $3`, tableID, cursor, limit+1)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT `+indexProjection()+` FROM database_indexes WHERE table_id=$1 AND ($2::uuid IS NULL OR id>$2) ORDER BY id LIMIT $3`,
+		tableID,
+		cursor,
+		limit+1,
+	)
 	if err != nil {
 		return nil, "", err
 	}
@@ -688,12 +897,20 @@ func (r *Repository) ListDatabaseIndexes(ctx context.Context, projectID, databas
 	return items, next, nil
 }
 
-func (r *Repository) CreateDatabaseIndex(ctx context.Context, id, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor, input DatabaseIndexInput) (domain.DatabaseIndex, error) {
+func (r *Repository) CreateDatabaseIndex(
+	ctx context.Context,
+	id, projectID, databaseID, tableID uuid.UUID,
+	actor DatabaseActor,
+	input DatabaseIndexInput,
+) (domain.DatabaseIndex, error) {
 	if _, err := dbcore.ValidateName(input.Name); err != nil {
 		return domain.DatabaseIndex{}, err
 	}
 	if input.Type != "key" && input.Type != "unique" && input.Type != "fulltext" {
-		return domain.DatabaseIndex{}, fmt.Errorf("%w: index type must be key, unique, or fulltext", dbcore.ErrInvalidIdentifier)
+		return domain.DatabaseIndex{}, fmt.Errorf(
+			"%w: index type must be key, unique, or fulltext",
+			dbcore.ErrInvalidIdentifier,
+		)
 	}
 	if len(input.Directions) == 0 && len(input.ColumnKeys) > 0 {
 		input.Directions = make([]string, len(input.ColumnKeys))
@@ -702,10 +919,16 @@ func (r *Repository) CreateDatabaseIndex(ctx context.Context, id, projectID, dat
 		}
 	}
 	if len(input.ColumnKeys) == 0 || len(input.ColumnKeys) > 16 || len(input.ColumnKeys) != len(input.Directions) {
-		return domain.DatabaseIndex{}, fmt.Errorf("%w: index columns and directions must contain 1 to 16 matching entries", dbcore.ErrInvalidIdentifier)
+		return domain.DatabaseIndex{}, fmt.Errorf(
+			"%w: index columns and directions must contain 1 to 16 matching entries",
+			dbcore.ErrInvalidIdentifier,
+		)
 	}
 	if input.Type == "fulltext" && len(input.ColumnKeys) != 1 {
-		return domain.DatabaseIndex{}, fmt.Errorf("%w: fulltext indexes must contain exactly one text column", dbcore.ErrInvalidIdentifier)
+		return domain.DatabaseIndex{}, fmt.Errorf(
+			"%w: fulltext indexes must contain exactly one text column",
+			dbcore.ErrInvalidIdentifier,
+		)
 	}
 	seen := make(map[string]struct{}, len(input.ColumnKeys))
 	for i, key := range input.ColumnKeys {
@@ -718,10 +941,16 @@ func (r *Repository) CreateDatabaseIndex(ctx context.Context, id, projectID, dat
 		seen[key] = struct{}{}
 		input.Directions[i] = strings.ToLower(input.Directions[i])
 		if input.Directions[i] != "asc" && input.Directions[i] != "desc" {
-			return domain.DatabaseIndex{}, fmt.Errorf("%w: index direction must be asc or desc", dbcore.ErrInvalidIdentifier)
+			return domain.DatabaseIndex{}, fmt.Errorf(
+				"%w: index direction must be asc or desc",
+				dbcore.ErrInvalidIdentifier,
+			)
 		}
 		if input.Type == "fulltext" && input.Directions[i] != "asc" {
-			return domain.DatabaseIndex{}, fmt.Errorf("%w: fulltext index direction must be asc", dbcore.ErrInvalidIdentifier)
+			return domain.DatabaseIndex{}, fmt.Errorf(
+				"%w: fulltext index direction must be asc",
+				dbcore.ErrInvalidIdentifier,
+			)
 		}
 	}
 	tx, err := r.pool.Begin(ctx)
@@ -759,7 +988,18 @@ func (r *Repository) CreateDatabaseIndex(ctx context.Context, id, projectID, dat
 	if _, err := tx.Exec(ctx, ddl); err != nil {
 		return domain.DatabaseIndex{}, mapError(err)
 	}
-	item, err := scanIndex(tx.QueryRow(ctx, `INSERT INTO database_indexes (id,table_id,name,index_type,column_keys,directions) VALUES ($1,$2,$3,$4,$5,$6) RETURNING `+indexProjection(), id, tableID, input.Name, input.Type, input.ColumnKeys, input.Directions))
+	item, err := scanIndex(
+		tx.QueryRow(
+			ctx,
+			`INSERT INTO database_indexes (id,table_id,name,index_type,column_keys,directions) VALUES ($1,$2,$3,$4,$5,$6) RETURNING `+indexProjection(),
+			id,
+			tableID,
+			input.Name,
+			input.Type,
+			input.ColumnKeys,
+			input.Directions,
+		),
+	)
 	if err != nil {
 		// The DDL is transactional in PostgreSQL, so rollback removes the
 		// physical index together with failed metadata insertion.
@@ -778,7 +1018,11 @@ func (r *Repository) CreateDatabaseIndex(ctx context.Context, id, projectID, dat
 	return item, nil
 }
 
-func (r *Repository) DeleteDatabaseIndex(ctx context.Context, projectID, databaseID, tableID, indexID uuid.UUID, actor DatabaseActor) error {
+func (r *Repository) DeleteDatabaseIndex(
+	ctx context.Context,
+	projectID, databaseID, tableID, indexID uuid.UUID,
+	actor DatabaseActor,
+) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -817,7 +1061,12 @@ func (r *Repository) DeleteDatabaseIndex(ctx context.Context, projectID, databas
 
 func normalizeTablePermissions(input DatabaseTableInput) ([4][]string, error) {
 	var result [4][]string
-	values := [][]string{input.CreatePermissions, input.ReadPermissions, input.UpdatePermissions, input.DeletePermissions}
+	values := [][]string{
+		input.CreatePermissions,
+		input.ReadPermissions,
+		input.UpdatePermissions,
+		input.DeletePermissions,
+	}
 	for i, raw := range values {
 		permissions, err := dbcore.NormalizePermissions(raw)
 		if err != nil {
@@ -853,7 +1102,13 @@ func (r *Repository) requireDatabaseRead(ctx context.Context, projectID uuid.UUI
 	}
 }
 
-func (r *Repository) requireDatabaseWriteTx(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, actor DatabaseActor, scope string) error {
+func (r *Repository) requireDatabaseWriteTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	actor DatabaseActor,
+	scope string,
+) error {
 	switch actor.Kind {
 	case DatabaseConsoleActor:
 		return requireProjectRoleTx(ctx, tx, projectID, actor.AccountID, "owner", "admin")
@@ -917,7 +1172,11 @@ func lockDatabaseNamespace(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
 }
 
 func columnsForTableTx(ctx context.Context, tx pgx.Tx, tableID uuid.UUID) ([]DatabaseColumnSchema, error) {
-	rows, err := tx.Query(ctx, `SELECT `+columnProjection()+` FROM database_columns WHERE table_id=$1 ORDER BY id`, tableID)
+	rows, err := tx.Query(
+		ctx,
+		`SELECT `+columnProjection()+` FROM database_columns WHERE table_id=$1 ORDER BY id`,
+		tableID,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -961,7 +1220,11 @@ func dropIndexesForTable(ctx context.Context, tx pgx.Tx, tableID uuid.UUID) erro
 }
 
 func dropIndexesForDatabase(ctx context.Context, tx pgx.Tx, databaseID uuid.UUID) error {
-	rows, err := tx.Query(ctx, `SELECT i.id FROM database_indexes i JOIN database_tables t ON t.id=i.table_id WHERE t.database_id=$1 FOR UPDATE`, databaseID)
+	rows, err := tx.Query(
+		ctx,
+		`SELECT i.id FROM database_indexes i JOIN database_tables t ON t.id=i.table_id WHERE t.database_id=$1 FOR UPDATE`,
+		databaseID,
+	)
 	if err != nil {
 		return err
 	}
@@ -993,14 +1256,21 @@ func internalIndexName(id uuid.UUID) string {
 
 func quoteSQLLiteral(value string) string { return "'" + strings.ReplaceAll(value, "'", "''") + "'" }
 
-func buildIndexDDL(internalName string, tableID uuid.UUID, input DatabaseIndexInput, columns map[string]DatabaseColumnSchema) (string, error) {
+func buildIndexDDL(
+	internalName string,
+	tableID uuid.UUID,
+	input DatabaseIndexInput,
+	columns map[string]DatabaseColumnSchema,
+) (string, error) {
 	if input.Type == "fulltext" {
 		column := columns[input.ColumnKeys[0]]
 		if column.Type != dbcore.TypeVarchar && column.Type != dbcore.TypeText {
 			return "", fmt.Errorf("%w: fulltext indexes require a varchar or text column", dbcore.ErrInvalidIdentifier)
 		}
 		keyLiteral := quoteSQLLiteral(column.Key)
-		return `CREATE INDEX "` + internalName + `" ON database_rows USING GIN (to_tsvector('simple', COALESCE(data->>` + keyLiteral + `,''))) WHERE table_id = ` + quoteSQLLiteral(tableID.String()), nil
+		return `CREATE INDEX "` + internalName + `" ON database_rows USING GIN (to_tsvector('simple', COALESCE(data->>` + keyLiteral + `,''))) WHERE table_id = ` + quoteSQLLiteral(
+			tableID.String(),
+		), nil
 	}
 	parts := make([]string, 0, len(input.ColumnKeys))
 	for i, key := range input.ColumnKeys {
@@ -1025,10 +1295,23 @@ func buildIndexDDL(internalName string, tableID uuid.UUID, input DatabaseIndexIn
 		}
 		parts = append(parts, "("+expression+") "+strings.ToUpper(input.Directions[i]))
 	}
-	return `CREATE ` + map[bool]string{true: "UNIQUE ", false: ""}[input.Type == "unique"] + `INDEX "` + internalName + `" ON database_rows (` + strings.Join(parts, ",") + `) WHERE table_id = ` + quoteSQLLiteral(tableID.String()), nil
+	return `CREATE ` + map[bool]string{true: "UNIQUE ", false: ""}[input.Type == "unique"] + `INDEX "` + internalName + `" ON database_rows (` + strings.Join(
+		parts,
+		",",
+	) + `) WHERE table_id = ` + quoteSQLLiteral(
+		tableID.String(),
+	), nil
 }
 
-func (r *Repository) auditDatabase(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, actor DatabaseActor, action, targetType string, target uuid.UUID, metadata map[string]any) error {
+func (r *Repository) auditDatabase(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	actor DatabaseActor,
+	action, targetType string,
+	target uuid.UUID,
+	metadata map[string]any,
+) error {
 	orgID, err := projectOrganizationIDValue(ctx, tx, projectID)
 	if err != nil {
 		return err
@@ -1068,14 +1351,19 @@ func rowPermissionSQL(column string, actor DatabaseActor, args *[]any) string {
 	}
 	userPermission := "user:" + actor.ProjectUserID.String()
 	*args = append(*args, userPermission)
-	return "(" + column + " @> ARRAY['any']::text[] OR " + column + " @> ARRAY['users']::text[] OR $" + strconv.Itoa(len(*args)) + " = ANY(" + column + "))"
+	return "(" + column + " @> ARRAY['any']::text[] OR " + column + " @> ARRAY['users']::text[] OR $" + strconv.Itoa(
+		len(*args),
+	) + " = ANY(" + column + "))"
 }
 
 func tablePermission(perms []string, actor DatabaseActor) bool {
 	if actor.Kind == DatabaseConsoleActor || actor.Kind == DatabaseAPIKeyActor {
 		return true
 	}
-	return dbcore.Grants(perms, dbcore.Actor{Authenticated: actor.Kind == DatabaseApplicationActor, UserID: actor.ProjectUserID})
+	return dbcore.Grants(
+		perms,
+		dbcore.Actor{Authenticated: actor.Kind == DatabaseApplicationActor, UserID: actor.ProjectUserID},
+	)
 }
 
 func normalizeRowPermissions(raw *[]string, actor DatabaseActor, defaultForUser bool) ([]string, error) {
@@ -1110,7 +1398,11 @@ func buildRowSourceMetadata(actor DatabaseActor, changed []string) map[string]an
 // visible. The actual row data is intentionally never copied into the audit or
 // integration payload; consumers can fetch it through the normal permissioned
 // row API after receiving an event.
-func buildDatabaseRowEventMetadata(actor DatabaseActor, table domain.DatabaseTable, rowReadPermissions, changed []string) map[string]any {
+func buildDatabaseRowEventMetadata(
+	actor DatabaseActor,
+	table domain.DatabaseTable,
+	rowReadPermissions, changed []string,
+) map[string]any {
 	metadata := buildRowSourceMetadata(actor, changed)
 	// Keep the query scope in the public notification metadata as well as in
 	// the permission marker below. The Console must be able to invalidate the

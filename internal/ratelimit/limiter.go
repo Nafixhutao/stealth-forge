@@ -98,7 +98,11 @@ func boundedWindow(window time.Duration) time.Duration {
 // used only to keep raw PII out of Redis keys and to make equivalent requests
 // share the same rate-limit bucket.
 func Key(operation, projectID, normalizedEmail, clientIP string) string {
-	return "stealth:ratelimit:v1:" + operation + ":project:" + projectID + ":email:" + redisNamespaceDigest(normalizedEmail) + ":ip:" + redisNamespaceDigest(clientIP)
+	return "stealth:ratelimit:v1:" + operation + ":project:" + projectID + ":email:" + redisNamespaceDigest(
+		normalizedEmail,
+	) + ":ip:" + redisNamespaceDigest(
+		clientIP,
+	)
 }
 
 // ProjectIPKey provides a project-scoped aggregate bucket for a client IP.

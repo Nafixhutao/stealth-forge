@@ -15,7 +15,10 @@ const protectionQueryBatchSize = 256
 // lease may be importing a stale job snapshot. Candidate deployment IDs are
 // queried in bounded batches; a live lease makes collection skip its whole
 // pass.
-func (r *Repository) ListProtectedAppRuntimeDeploymentIDs(ctx context.Context, candidates []uuid.UUID) ([]uuid.UUID, bool, error) {
+func (r *Repository) ListProtectedAppRuntimeDeploymentIDs(
+	ctx context.Context,
+	candidates []uuid.UUID,
+) ([]uuid.UUID, bool, error) {
 	if r == nil || r.pool == nil || len(candidates) < 1 {
 		return nil, false, ErrInvalidAppRuntimeJob
 	}

@@ -65,10 +65,14 @@ func Parse(reader io.Reader) (Metadata, error) {
 			return Metadata{}, ErrInvalidMetadata
 		}
 		var item descriptor
-		if err := json.Unmarshal(rawDescriptor, &item); err != nil || item.Digest != result.ImageDigest || item.Size <= 0 {
+		if err := json.Unmarshal(rawDescriptor, &item); err != nil || item.Digest != result.ImageDigest ||
+			item.Size <= 0 {
 			return Metadata{}, ErrInvalidMetadata
 		}
-		if item.MediaType != "application/vnd.oci.image.manifest.v1+json" && item.MediaType != "application/vnd.oci.image.index.v1+json" && item.MediaType != "application/vnd.docker.distribution.manifest.v2+json" && item.MediaType != "application/vnd.docker.distribution.manifest.list.v2+json" {
+		if item.MediaType != "application/vnd.oci.image.manifest.v1+json" &&
+			item.MediaType != "application/vnd.oci.image.index.v1+json" &&
+			item.MediaType != "application/vnd.docker.distribution.manifest.v2+json" &&
+			item.MediaType != "application/vnd.docker.distribution.manifest.list.v2+json" {
 			return Metadata{}, fmt.Errorf("%w: unsupported descriptor media type", ErrInvalidMetadata)
 		}
 		result.MediaType = item.MediaType

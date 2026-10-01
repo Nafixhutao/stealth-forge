@@ -87,11 +87,20 @@ func scanOrganizationIncident(row organizationIncidentScanner) (domain.Organizat
 
 func normalizeOrganizationIncidentTitle(value string) (string, error) {
 	value = strings.TrimSpace(value)
-	if value == "" || utf8.RuneCountInString(value) > organizationIncidentMaxTitle || strings.ContainsAny(value, "\x00\r\n") {
-		return "", fmt.Errorf("%w: title must be between 3 and %d characters and cannot contain controls", ErrInvalidOrganizationIncident, organizationIncidentMaxTitle)
+	if value == "" || utf8.RuneCountInString(value) > organizationIncidentMaxTitle ||
+		strings.ContainsAny(value, "\x00\r\n") {
+		return "", fmt.Errorf(
+			"%w: title must be between 3 and %d characters and cannot contain controls",
+			ErrInvalidOrganizationIncident,
+			organizationIncidentMaxTitle,
+		)
 	}
 	if utf8.RuneCountInString(value) < 3 {
-		return "", fmt.Errorf("%w: title must be between 3 and %d characters", ErrInvalidOrganizationIncident, organizationIncidentMaxTitle)
+		return "", fmt.Errorf(
+			"%w: title must be between 3 and %d characters",
+			ErrInvalidOrganizationIncident,
+			organizationIncidentMaxTitle,
+		)
 	}
 	return value, nil
 }
@@ -107,21 +116,33 @@ func normalizeOrganizationIncidentSeverity(value string) (string, error) {
 func normalizeOrganizationIncidentStatus(value string) (string, error) {
 	value = strings.ToLower(strings.TrimSpace(value))
 	if value != "investigating" && value != "identified" && value != "monitoring" && value != "resolved" {
-		return "", fmt.Errorf("%w: status must be investigating, identified, monitoring, or resolved", ErrInvalidOrganizationIncident)
+		return "", fmt.Errorf(
+			"%w: status must be investigating, identified, monitoring, or resolved",
+			ErrInvalidOrganizationIncident,
+		)
 	}
 	return value, nil
 }
 
 func normalizeOrganizationIncidentServices(values []string) ([]string, error) {
 	if len(values) == 0 || len(values) > organizationIncidentMaxServices {
-		return nil, fmt.Errorf("%w: services must contain between 1 and %d items", ErrInvalidOrganizationIncident, organizationIncidentMaxServices)
+		return nil, fmt.Errorf(
+			"%w: services must contain between 1 and %d items",
+			ErrInvalidOrganizationIncident,
+			organizationIncidentMaxServices,
+		)
 	}
 	out := make([]string, 0, len(values))
 	seen := make(map[string]struct{}, len(values))
 	for _, value := range values {
 		value = strings.TrimSpace(value)
-		if value == "" || utf8.RuneCountInString(value) > organizationIncidentMaxService || strings.ContainsAny(value, "\x00\r\n") {
-			return nil, fmt.Errorf("%w: each service must be 1 to %d characters and cannot contain controls", ErrInvalidOrganizationIncident, organizationIncidentMaxService)
+		if value == "" || utf8.RuneCountInString(value) > organizationIncidentMaxService ||
+			strings.ContainsAny(value, "\x00\r\n") {
+			return nil, fmt.Errorf(
+				"%w: each service must be 1 to %d characters and cannot contain controls",
+				ErrInvalidOrganizationIncident,
+				organizationIncidentMaxService,
+			)
 		}
 		key := strings.ToLower(value)
 		if _, exists := seen[key]; exists {
@@ -138,8 +159,13 @@ func normalizeOrganizationIncidentMessage(value string, required bool) (string, 
 	if value == "" && !required {
 		return "", nil
 	}
-	if value == "" || utf8.RuneCountInString(value) > organizationIncidentMaxMessage || strings.ContainsRune(value, '\x00') {
-		return "", fmt.Errorf("%w: message must be between 1 and %d characters", ErrInvalidOrganizationIncident, organizationIncidentMaxMessage)
+	if value == "" || utf8.RuneCountInString(value) > organizationIncidentMaxMessage ||
+		strings.ContainsRune(value, '\x00') {
+		return "", fmt.Errorf(
+			"%w: message must be between 1 and %d characters",
+			ErrInvalidOrganizationIncident,
+			organizationIncidentMaxMessage,
+		)
 	}
 	return value, nil
 }
@@ -172,7 +198,13 @@ func normalizeOrganizationIncidentInput(input OrganizationIncidentInput) (Organi
 	if message == "" {
 		message = "Incident opened manually from the admin console."
 	}
-	return OrganizationIncidentInput{Title: title, Severity: severity, Status: status, Services: services, Message: message}, nil
+	return OrganizationIncidentInput{
+		Title:    title,
+		Severity: severity,
+		Status:   status,
+		Services: services,
+		Message:  message,
+	}, nil
 }
 
 func normalizeOrganizationIncidentPatch(patch OrganizationIncidentPatch) (OrganizationIncidentPatch, error) {
@@ -211,8 +243,12 @@ func normalizeOrganizationIncidentPatch(patch OrganizationIncidentPatch) (Organi
 		}
 		patch.Message = &value
 	}
-	if patch.Title == nil && patch.Severity == nil && patch.Status == nil && patch.Services == nil && patch.Message == nil {
-		return OrganizationIncidentPatch{}, fmt.Errorf("%w: at least one field is required", ErrInvalidOrganizationIncident)
+	if patch.Title == nil && patch.Severity == nil && patch.Status == nil && patch.Services == nil &&
+		patch.Message == nil {
+		return OrganizationIncidentPatch{}, fmt.Errorf(
+			"%w: at least one field is required",
+			ErrInvalidOrganizationIncident,
+		)
 	}
 	return patch, nil
 }
@@ -256,7 +292,12 @@ func loadOrganizationIncidentUpdates(ctx context.Context, tx pgx.Tx, item *domai
 	return rows.Err()
 }
 
-func (r *Repository) ListOrganizationIncidents(ctx context.Context, organizationID, accountID uuid.UUID, limit int, cursor string) ([]domain.OrganizationIncident, string, bool, error) {
+func (r *Repository) ListOrganizationIncidents(
+	ctx context.Context,
+	organizationID, accountID uuid.UUID,
+	limit int,
+	cursor string,
+) ([]domain.OrganizationIncident, string, bool, error) {
 	if limit < 1 || limit > 100 {
 		return nil, "", false, fmt.Errorf("%w: limit must be between 1 and 100", ErrInvalidOrganizationIncident)
 	}
@@ -312,7 +353,10 @@ func (r *Repository) ListOrganizationIncidents(ctx context.Context, organization
 	return items, next, role == "owner" || role == "admin", nil
 }
 
-func (r *Repository) GetOrganizationIncident(ctx context.Context, organizationID, accountID, incidentID uuid.UUID) (domain.OrganizationIncident, bool, error) {
+func (r *Repository) GetOrganizationIncident(
+	ctx context.Context,
+	organizationID, accountID, incidentID uuid.UUID,
+) (domain.OrganizationIncident, bool, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.OrganizationIncident{}, false, err
@@ -345,7 +389,11 @@ func (r *Repository) GetOrganizationIncident(ctx context.Context, organizationID
 	return item, role == "owner" || role == "admin", nil
 }
 
-func (r *Repository) CreateOrganizationIncident(ctx context.Context, id, organizationID, accountID uuid.UUID, input OrganizationIncidentInput) (domain.OrganizationIncident, error) {
+func (r *Repository) CreateOrganizationIncident(
+	ctx context.Context,
+	id, organizationID, accountID uuid.UUID,
+	input OrganizationIncidentInput,
+) (domain.OrganizationIncident, error) {
 	normalized, err := normalizeOrganizationIncidentInput(input)
 	if err != nil {
 		return domain.OrganizationIncident{}, err
@@ -395,7 +443,11 @@ func (r *Repository) CreateOrganizationIncident(ctx context.Context, id, organiz
 	return item, nil
 }
 
-func (r *Repository) UpdateOrganizationIncident(ctx context.Context, organizationID, incidentID, accountID uuid.UUID, patch OrganizationIncidentPatch) (domain.OrganizationIncident, error) {
+func (r *Repository) UpdateOrganizationIncident(
+	ctx context.Context,
+	organizationID, incidentID, accountID uuid.UUID,
+	patch OrganizationIncidentPatch,
+) (domain.OrganizationIncident, error) {
 	normalized, err := normalizeOrganizationIncidentPatch(patch)
 	if err != nil {
 		return domain.OrganizationIncident{}, err

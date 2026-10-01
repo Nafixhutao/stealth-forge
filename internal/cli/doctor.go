@@ -59,7 +59,7 @@ func (a *App) runStatusCommand(args []string) int {
 	}
 	fmt.Fprintf(a.out, "Stealth %s\n\n", version)
 	fmt.Fprintln(a.out, "SERVICE          STATUS")
-	failed := false
+	var failed bool
 	for _, target := range statusServiceTargets(config, setupMode) {
 		status := statuses[target.name]
 		if target.external {
@@ -93,7 +93,7 @@ func (a *App) runDoctorCommand(args []string) int {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	failed := false
+	var failed bool
 	check := func(name string, ok bool, detail string) {
 		if !ok {
 			failed = true
@@ -137,7 +137,7 @@ func (a *App) runDoctorCommand(args []string) int {
 	if validateReleaseVersion(platformVersion) != nil {
 		check("Platform release", false, "installed release version could not be verified")
 	} else {
-		cliVersion := ""
+		var cliVersion string
 		if a.currentVersion != nil {
 			cliVersion = strings.TrimSpace(a.currentVersion())
 		}
@@ -165,7 +165,11 @@ func (a *App) runDoctorCommand(args []string) int {
 
 	composeArgs := a.composeArgs(layout, "config", "--quiet")
 	if _, configErr := a.runner.Output(ctx, layout.Root, "docker", composeArgs...); configErr != nil {
-		check("Compose validation", false, "configuration is invalid; run stealth install --repair after correcting config.env")
+		check(
+			"Compose validation",
+			false,
+			"configuration is invalid; run stealth install --repair after correcting config.env",
+		)
 	} else {
 		check("Compose validation", true, "configuration is valid")
 	}
@@ -247,11 +251,11 @@ func (a *App) runDoctorCommand(args []string) int {
 		name string
 		url  string
 	}{
-		{"API health", "http://127.0.0.1:" + ports.API + "/healthz"},
-		{"API readiness", "http://127.0.0.1:" + ports.API + "/readyz"},
-		{"API version", "http://127.0.0.1:" + ports.API + "/version"},
-		{"Console", "http://127.0.0.1:" + ports.Console + "/"},
-		{"Proxy", "http://127.0.0.1:" + ports.Proxy + "/"},
+		{name: "API health", url: "http://127.0.0.1:" + ports.API + "/healthz"},
+		{name: "API readiness", url: "http://127.0.0.1:" + ports.API + "/readyz"},
+		{name: "API version", url: "http://127.0.0.1:" + ports.API + "/version"},
+		{name: "Console", url: "http://127.0.0.1:" + ports.Console + "/"},
+		{name: "Proxy", url: "http://127.0.0.1:" + ports.Proxy + "/"},
 	} {
 		status, requestErr := a.httpStatus(ctx, endpoint.url)
 		check(endpoint.name, requestErr == nil && status >= 200 && status < 300, httpStatusDetail(status, requestErr))
@@ -315,7 +319,7 @@ func (a *App) waitForRequiredServices(ctx context.Context, layout InstallLayout)
 
 	var latest map[string]ServiceStatus
 	var queryFailed bool
-	for attempt := 0; attempt < attempts; attempt++ {
+	for attempt := range attempts {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -411,7 +415,8 @@ func externalServiceURL(raw, internalService string) bool {
 }
 
 func externalDependency(config map[string]string, modeKey, urlKey, internalService string) bool {
-	return strings.EqualFold(strings.TrimSpace(config[modeKey]), "external") || externalServiceURL(config[urlKey], internalService)
+	return strings.EqualFold(strings.TrimSpace(config[modeKey]), "external") ||
+		externalServiceURL(config[urlKey], internalService)
 }
 
 func configuredCloudflareTunnel(config map[string]string) bool {
@@ -444,8 +449,15 @@ func storageDriverCheck(config map[string]string) (bool, string) {
 		return true, "local object storage is configured"
 	case "s3":
 		endpoint, err := url.Parse(strings.TrimSpace(config["STORAGE_S3_ENDPOINT"]))
-		validEndpoint := err == nil && (endpoint.Scheme == "http" || endpoint.Scheme == "https") && endpoint.Hostname() != "" && endpoint.User == nil && endpoint.Path == "" && endpoint.RawQuery == "" && endpoint.Fragment == ""
-		complete := validEndpoint && strings.TrimSpace(config["STORAGE_S3_BUCKET"]) != "" && strings.TrimSpace(config["STORAGE_S3_ACCESS_KEY"]) != "" && strings.TrimSpace(config["STORAGE_S3_SECRET_KEY"]) != ""
+		validEndpoint := err == nil && (endpoint.Scheme == "http" || endpoint.Scheme == "https") &&
+			endpoint.Hostname() != "" &&
+			endpoint.User == nil &&
+			endpoint.Path == "" &&
+			endpoint.RawQuery == "" &&
+			endpoint.Fragment == ""
+		complete := validEndpoint && strings.TrimSpace(config["STORAGE_S3_BUCKET"]) != "" &&
+			strings.TrimSpace(config["STORAGE_S3_ACCESS_KEY"]) != "" &&
+			strings.TrimSpace(config["STORAGE_S3_SECRET_KEY"]) != ""
 		if complete {
 			return true, "S3 endpoint, bucket, and credentials are configured"
 		}

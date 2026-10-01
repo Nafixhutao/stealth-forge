@@ -24,10 +24,18 @@ func loadIngressSettings() (ingressSettings, error) {
 	}
 	generatedDir := filepath.Clean(value("TRAEFIK_GENERATED_DIR", "/var/lib/stealth/traefik/generated"))
 	reloadFile := filepath.Clean(value("TRAEFIK_RELOAD_FILE", "/var/lib/stealth/traefik/.reload.yaml"))
-	if !filepath.IsAbs(generatedDir) || generatedDir == string(filepath.Separator) || !filepath.IsAbs(reloadFile) || reloadFile == string(filepath.Separator) {
-		return ingressSettings{}, fmt.Errorf("TRAEFIK_GENERATED_DIR and TRAEFIK_RELOAD_FILE must be absolute non-root paths")
+	if !filepath.IsAbs(generatedDir) || generatedDir == string(filepath.Separator) || !filepath.IsAbs(reloadFile) ||
+		reloadFile == string(filepath.Separator) {
+		return ingressSettings{}, fmt.Errorf(
+			"TRAEFIK_GENERATED_DIR and TRAEFIK_RELOAD_FILE must be absolute non-root paths",
+		)
 	}
-	return ingressSettings{generatedDir: generatedDir, reloadFile: reloadFile, interval: interval, cloudflareInterval: cloudflareInterval}, nil
+	return ingressSettings{
+		generatedDir:       generatedDir,
+		reloadFile:         reloadFile,
+		interval:           interval,
+		cloudflareInterval: cloudflareInterval,
+	}, nil
 }
 
 func (s ingressSettings) apply(c *Config) {

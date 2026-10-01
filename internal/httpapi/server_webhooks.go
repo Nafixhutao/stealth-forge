@@ -15,7 +15,11 @@ func webhookActorFrom(r *http.Request) repository.WebhookActor {
 		return repository.WebhookActor{}
 	}
 	if actor.kind == apiKeyProjectActor {
-		return repository.WebhookActor{Kind: repository.WebhookAPIKeyActor, APIKeyID: actor.apiKeyID, APIKeyScopes: actor.scopes}
+		return repository.WebhookActor{
+			Kind:         repository.WebhookAPIKeyActor,
+			APIKeyID:     actor.apiKeyID,
+			APIKeyScopes: actor.scopes,
+		}
 	}
 	account, ok := r.Context().Value(accountContextKey).(domain.Account)
 	if !ok {
@@ -60,7 +64,11 @@ func (s *Server) listWebhooks(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"webhooks": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"webhooks": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) createWebhook(w http.ResponseWriter, r *http.Request) {
@@ -76,7 +84,13 @@ func (s *Server) createWebhook(w http.ResponseWriter, r *http.Request) {
 	if req.Enabled != nil {
 		enabled = *req.Enabled
 	}
-	item, secret, err := s.repo.CreateWebhook(r.Context(), uuid.Must(uuid.NewV7()), projectID, webhookActorFrom(r), repository.WebhookInput{Name: req.Name, URL: req.URL, Events: req.Events, Enabled: enabled})
+	item, secret, err := s.repo.CreateWebhook(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		projectID,
+		webhookActorFrom(r),
+		repository.WebhookInput{Name: req.Name, URL: req.URL, Events: req.Events, Enabled: enabled},
+	)
 	if webhookResourceError(w, err) {
 		return
 	}
@@ -112,11 +126,18 @@ func (s *Server) updateWebhook(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	if req.Name == nil && req.URL == nil && req.Events == nil && req.Enabled == nil {
+	noFieldsProvided := req.Name == nil && req.URL == nil && req.Events == nil && req.Enabled == nil
+	if noFieldsProvided {
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", "at least one webhook field must be provided")
 		return
 	}
-	item, err := s.repo.UpdateWebhook(r.Context(), projectID, webhookID, webhookActorFrom(r), repository.WebhookPatch{Name: req.Name, URL: req.URL, Events: req.Events, Enabled: req.Enabled})
+	item, err := s.repo.UpdateWebhook(
+		r.Context(),
+		projectID,
+		webhookID,
+		webhookActorFrom(r),
+		repository.WebhookPatch{Name: req.Name, URL: req.URL, Events: req.Events, Enabled: req.Enabled},
+	)
 	if webhookResourceError(w, err) {
 		return
 	}
@@ -132,9 +153,11 @@ func (s *Server) deleteWebhook(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.repo.DeleteWebhook(r.Context(), projectID, webhookID, webhookActorFrom(r)); webhookResourceError(w, err) {
+	err := s.repo.DeleteWebhook(r.Context(), projectID, webhookID, webhookActorFrom(r))
+	if webhookResourceError(w, err) {
 		return
-	} else if err != nil {
+	}
+	if err != nil {
 		internalError(s, w, err)
 		return
 	}
@@ -171,7 +194,14 @@ func (s *Server) listWebhookDeliveries(w http.ResponseWriter, r *http.Request) {
 		parsed := mustUUID(cursor)
 		cursorID = &parsed
 	}
-	items, next, err := s.repo.ListWebhookDeliveries(r.Context(), projectID, webhookID, webhookActorFrom(r), limit, cursorID)
+	items, next, err := s.repo.ListWebhookDeliveries(
+		r.Context(),
+		projectID,
+		webhookID,
+		webhookActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if webhookResourceError(w, err) {
 		return
 	}

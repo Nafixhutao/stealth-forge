@@ -195,7 +195,18 @@ type PublicCloudflare struct {
 }
 
 func NewState() State {
-	return State{Version: stateVersion, Phase: PhaseCollecting, Draft: Draft{NetworkMode: "cloudflare_tunnel", DatabaseMode: "bundled", RedisMode: "bundled", StorageMode: "local"}, Secrets: make(map[string]string), UpdatedAt: time.Now().UTC()}
+	return State{
+		Version: stateVersion,
+		Phase:   PhaseCollecting,
+		Draft: Draft{
+			NetworkMode:  "cloudflare_tunnel",
+			DatabaseMode: "bundled",
+			RedisMode:    "bundled",
+			StorageMode:  "local",
+		},
+		Secrets:   make(map[string]string),
+		UpdatedAt: time.Now().UTC(),
+	}
 }
 
 func (s State) Public() PublicState {
@@ -218,8 +229,19 @@ func (s State) Public() PublicState {
 			StorageS3Bucket: s.Draft.StorageS3Bucket, StorageS3UseSSL: s.Draft.StorageS3UseSSL,
 			StorageS3PathStyle: s.Draft.StorageS3PathStyle, StorageS3Prefix: s.Draft.StorageS3Prefix,
 		},
-		GitHub:      PublicGitHub{Mode: s.GitHub.Mode, ClientID: s.GitHub.ClientID, Connected: s.GitHub.Connected, AuthorizationSession: s.GitHub.AuthorizationSession, ManifestExpiresAt: s.GitHub.ManifestExpiresAt},
-		Cloudflare:  PublicCloudflare{Mode: s.Cloudflare.Mode, Connected: s.Cloudflare.Connected, ExpiresAt: s.Cloudflare.ExpiresAt, TokenValid: s.Cloudflare.TokenValid},
+		GitHub: PublicGitHub{
+			Mode:                 s.GitHub.Mode,
+			ClientID:             s.GitHub.ClientID,
+			Connected:            s.GitHub.Connected,
+			AuthorizationSession: s.GitHub.AuthorizationSession,
+			ManifestExpiresAt:    s.GitHub.ManifestExpiresAt,
+		},
+		Cloudflare: PublicCloudflare{
+			Mode:       s.Cloudflare.Mode,
+			Connected:  s.Cloudflare.Connected,
+			ExpiresAt:  s.Cloudflare.ExpiresAt,
+			TokenValid: s.Cloudflare.TokenValid,
+		},
 		UpdatedAt:   s.UpdatedAt,
 		LastEventID: s.LastEventID,
 	}
@@ -517,7 +539,7 @@ func LoadEncryptedSnapshot(ctx context.Context, path string, cipher *functionsec
 	if err := migrateState(&state, legacy); err != nil {
 		return State{}, errors.New("encrypted setup state could not be migrated")
 	}
-	if err := ValidateState(state); err != nil {
+	if err := validateState(state); err != nil {
 		return State{}, errors.New("encrypted setup state is invalid")
 	}
 	if state.Secrets == nil {
@@ -572,7 +594,7 @@ func (s *FileStore) Save(ctx context.Context, state State) error {
 	defer lock.Close()
 	state.UpdatedAt = time.Now().UTC()
 	state.Version = stateVersion
-	if err := ValidateState(state); err != nil {
+	if err := validateState(state); err != nil {
 		return err
 	}
 	return s.saveLocked(state)
@@ -604,7 +626,7 @@ func (s *FileStore) Update(ctx context.Context, mutate func(*State) error) (Stat
 	}
 	state.UpdatedAt = time.Now().UTC()
 	state.Version = stateVersion
-	if err := ValidateState(state); err != nil {
+	if err := validateState(state); err != nil {
 		return State{}, err
 	}
 	if err := s.saveLocked(state); err != nil {
@@ -639,7 +661,7 @@ func (s *FileStore) loadLocked(ctx context.Context) (State, error) {
 	if err := migrateState(&state, legacy); err != nil {
 		return State{}, err
 	}
-	if err := ValidateState(state); err != nil {
+	if err := validateState(state); err != nil {
 		return State{}, err
 	}
 	if state.Secrets == nil {
@@ -745,7 +767,7 @@ func (s *FileStore) saveLocked(state State) error {
 	return os.Chmod(s.path, sharedStateFileMode)
 }
 
-func NewCallbackState(purpose string) (plain string, hash string, expiresAt time.Time, err error) {
+func newCallbackState(purpose string) (plain string, hash string, expiresAt time.Time, err error) {
 	bytes := make([]byte, 32)
 	if _, err := rand.Read(bytes); err != nil {
 		return "", "", time.Time{}, fmt.Errorf("generate %s state: %w", purpose, err)
@@ -760,26 +782,26 @@ func NewCallbackState(purpose string) (plain string, hash string, expiresAt time
 }
 
 func NewManifestState() (plain string, hash string, expiresAt time.Time, err error) {
-	return NewCallbackState("GitHub manifest")
+	return newCallbackState("GitHub manifest")
 }
 
 func NewOAuthState() (plain string, hash string, expiresAt time.Time, err error) {
-	return NewCallbackState("GitHub OAuth")
+	return newCallbackState("GitHub OAuth")
 }
 
 func HashCallbackState(value string) string {
 	return base64.RawURLEncoding.EncodeToString(sha256Bytes([]byte(strings.TrimSpace(value))))
 }
 
-func HashManifestState(value string) string {
+func hashManifestState(value string) string {
 	return HashCallbackState(value)
 }
 
-func HashOAuthState(value string) string {
+func hashOAuthState(value string) string {
 	return HashCallbackState(value)
 }
 
-func ValidateState(state State) error {
+func validateState(state State) error {
 	if state.Version != 0 && state.Version != stateVersion {
 		return fmt.Errorf("unsupported setup state version")
 	}
@@ -800,7 +822,9 @@ func ValidateState(state State) error {
 	if err := state.Cloudflare.Binding.Validate(); err != nil {
 		return err
 	}
-	if len(state.SetupSessionID) > 64 || strings.ContainsAny(state.SetupSessionID, "\x00\r\n") || len(state.SetupCodeHash) > 128 || strings.ContainsAny(state.SetupCodeHash, "\x00\r\n") {
+	if len(state.SetupSessionID) > 64 || strings.ContainsAny(state.SetupSessionID, "\x00\r\n") ||
+		len(state.SetupCodeHash) > 128 ||
+		strings.ContainsAny(state.SetupCodeHash, "\x00\r\n") {
 		return errors.New("setup bootstrap claim is invalid")
 	}
 	if len(state.InstallRunID) > 128 || strings.ContainsAny(state.InstallRunID, "\x00\r\n") {
@@ -810,7 +834,9 @@ func ValidateState(state State) error {
 		return errors.New("setup state contains too many host preflight checks")
 	}
 	for _, check := range state.HostPreflight {
-		if strings.TrimSpace(check.Name) == "" || len(check.Name) > 80 || strings.ContainsAny(check.Name, "\x00\r\n") || len(check.Detail) > 240 || strings.ContainsAny(check.Detail, "\x00\r\n") {
+		if strings.TrimSpace(check.Name) == "" || len(check.Name) > 80 || strings.ContainsAny(check.Name, "\x00\r\n") ||
+			len(check.Detail) > 240 ||
+			strings.ContainsAny(check.Detail, "\x00\r\n") {
 			return errors.New("host preflight check is invalid")
 		}
 	}
@@ -827,7 +853,8 @@ func ValidateState(state State) error {
 		// Secret values are encrypted before persistence and are never copied
 		// into env files or public responses. GitHub PEM private keys are
 		// intentionally multi-line, so only NUL is forbidden here.
-		if name == "" || len(name) > 120 || strings.ContainsAny(name, "\x00\r\n") || len(value) > 128<<10 || strings.ContainsRune(value, '\x00') {
+		if name == "" || len(name) > 120 || strings.ContainsAny(name, "\x00\r\n") || len(value) > 128<<10 ||
+			strings.ContainsRune(value, '\x00') {
 			return errors.New("setup state secret is invalid")
 		}
 	}
@@ -840,7 +867,9 @@ func ValidatePublicURL(raw string) (string, error) {
 		return "", errors.New("public URL is required")
 	}
 	parsed, err := url.Parse(raw)
-	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil ||
+		parsed.RawQuery != "" ||
+		parsed.Fragment != "" {
 		return "", errors.New("public URL must be an absolute HTTP(S) URL without credentials, query, or fragment")
 	}
 	return strings.TrimRight(parsed.String(), "/"), nil
@@ -854,7 +883,7 @@ func ValidateHostname(raw string) (string, error) {
 	return host, nil
 }
 
-func ZoneNameForHostname(host string) string {
+func zoneNameForHostname(host string) string {
 	zone, err := domainname.RegistrableDomain(host)
 	if err != nil {
 		return ""

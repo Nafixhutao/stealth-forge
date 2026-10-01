@@ -78,7 +78,8 @@ func Ensure(pkiDir string) (bool, error) {
 	}
 	info, err := os.Lstat(paths.Root)
 	if errors.Is(err, os.ErrNotExist) {
-		if _, pendingErr := os.Lstat(pending); pendingErr == nil {
+		_, pendingErr := os.Lstat(pending)
+		if pendingErr == nil {
 			if err := validateBundleOnly(pathsAtRoot(pending), false); err != nil {
 				return false, fmt.Errorf("incomplete interrupted BuildKit mTLS issuance; repair the full PKI: %w", err)
 			}
@@ -89,7 +90,8 @@ func Ensure(pkiDir string) (bool, error) {
 				return false, fmt.Errorf("sync recovered BuildKit PKI: %w", err)
 			}
 			return true, nil
-		} else if !errors.Is(pendingErr, os.ErrNotExist) {
+		}
+		if !errors.Is(pendingErr, os.ErrNotExist) {
 			return false, fmt.Errorf("inspect interrupted BuildKit PKI issuance: %w", pendingErr)
 		}
 		if err := writeBundleAtomic(paths, pending); err != nil {
@@ -169,7 +171,8 @@ func recoverBundle(paths Paths, pending, previous string) error {
 		}
 		if _, err := os.Lstat(pending); err == nil {
 			pendingPaths := pathsAtRoot(pending)
-			if pendingInfo, statErr := os.Lstat(pending); statErr != nil || pendingInfo.Mode()&os.ModeSymlink != 0 || !pendingInfo.IsDir() {
+			if pendingInfo, statErr := os.Lstat(pending); statErr != nil || pendingInfo.Mode()&os.ModeSymlink != 0 ||
+				!pendingInfo.IsDir() {
 				return fmt.Errorf("%w: interrupted BuildKit mTLS staging path is unsafe", ErrInvalidState)
 			} else if validateErr := validateBundleOnly(pendingPaths, false); validateErr == nil {
 				if err := os.RemoveAll(pending); err != nil {
@@ -227,9 +230,11 @@ func writeBundleAtomic(paths Paths, destination string) error {
 	if info, err := os.Lstat(parent); err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 		return fmt.Errorf("%w: BuildKit mTLS parent must be a real directory", ErrInvalidState)
 	}
-	if _, err := os.Lstat(destination); err == nil {
+	_, err := os.Lstat(destination)
+	if err == nil {
 		return fmt.Errorf("%w: refusing to overwrite an existing BuildKit mTLS staging path", ErrInvalidState)
-	} else if !errors.Is(err, os.ErrNotExist) {
+	}
+	if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("inspect BuildKit mTLS staging path: %w", err)
 	}
 	if err := prepareBundleDirectories(destination); err != nil {
@@ -251,9 +256,9 @@ func writeBundleAtomic(paths Paths, destination string) error {
 		key  string
 		role role
 	}{
-		{paths.ServerCert, paths.ServerKey, serverRole},
-		{paths.WorkerCert, paths.WorkerKey, clientRole},
-		{paths.HealthCert, paths.HealthKey, healthRole},
+		{cert: paths.ServerCert, key: paths.ServerKey, role: serverRole},
+		{cert: paths.WorkerCert, key: paths.WorkerKey, role: clientRole},
+		{cert: paths.HealthCert, key: paths.HealthKey, role: healthRole},
 	} {
 		key, cert, err := createLeaf(caKey, caCert, leaf.role, time.Now().UTC())
 		if err != nil {
@@ -311,9 +316,9 @@ func writeLeafRenewalBundle(current Paths, destination string) error {
 		key  string
 		role role
 	}{
-		{paths.ServerCert, paths.ServerKey, serverRole},
-		{paths.WorkerCert, paths.WorkerKey, clientRole},
-		{paths.HealthCert, paths.HealthKey, healthRole},
+		{cert: paths.ServerCert, key: paths.ServerKey, role: serverRole},
+		{cert: paths.WorkerCert, key: paths.WorkerKey, role: clientRole},
+		{cert: paths.HealthCert, key: paths.HealthKey, role: healthRole},
 	} {
 		key, cert, err := createLeaf(caKey, caCert, leaf.role, time.Now().UTC())
 		if err != nil {
@@ -376,7 +381,17 @@ func replaceBundle(current, pending, previous, parent string) error {
 }
 
 func pathsAtRoot(root string) Paths {
-	return Paths{Root: root, CACert: filepath.Join(root, "ca-cert.pem"), CAKey: filepath.Join(root, "ca-key.pem"), ServerCert: filepath.Join(root, "server", "cert.pem"), ServerKey: filepath.Join(root, "server", "key.pem"), WorkerCert: filepath.Join(root, "worker", "cert.pem"), WorkerKey: filepath.Join(root, "worker", "key.pem"), HealthCert: filepath.Join(root, "health", "cert.pem"), HealthKey: filepath.Join(root, "health", "key.pem")}
+	return Paths{
+		Root:       root,
+		CACert:     filepath.Join(root, "ca-cert.pem"),
+		CAKey:      filepath.Join(root, "ca-key.pem"),
+		ServerCert: filepath.Join(root, "server", "cert.pem"),
+		ServerKey:  filepath.Join(root, "server", "key.pem"),
+		WorkerCert: filepath.Join(root, "worker", "cert.pem"),
+		WorkerKey:  filepath.Join(root, "worker", "key.pem"),
+		HealthCert: filepath.Join(root, "health", "cert.pem"),
+		HealthKey:  filepath.Join(root, "health", "key.pem"),
+	}
 }
 
 func validateBundle(paths Paths, allowRenewal bool) (bool, bool, error) {
@@ -389,10 +404,16 @@ func validateBundle(paths Paths, allowRenewal bool) (bool, bool, error) {
 	}
 	for _, dir := range []string{filepath.Dir(paths.ServerCert), filepath.Dir(paths.WorkerCert), filepath.Dir(paths.HealthCert)} {
 		if err := ensureRealDirectory(dir, directoryMode, true); err != nil {
-			return false, false, fmt.Errorf("%w: BuildKit mTLS identity directory is missing or unsafe", ErrInvalidState)
+			return false, false, fmt.Errorf(
+				"%w: BuildKit mTLS identity directory is missing or unsafe",
+				ErrInvalidState,
+			)
 		}
 		if err := requireOwnerUID(dir, bundleUID); err != nil {
-			return false, false, fmt.Errorf("%w: BuildKit mTLS identity directory owner is inconsistent", ErrInvalidState)
+			return false, false, fmt.Errorf(
+				"%w: BuildKit mTLS identity directory owner is inconsistent",
+				ErrInvalidState,
+			)
 		}
 	}
 	caPEM, err := readRegular(paths.CACert, fileMode)
@@ -415,11 +436,17 @@ func validateBundle(paths Paths, allowRenewal bool) (bool, bool, error) {
 	}
 	caCert, err := x509.ParseCertificate(caBlock.Bytes)
 	if err != nil || !caCert.IsCA || !caCert.BasicConstraintsValid || caCert.KeyUsage&x509.KeyUsageCertSign == 0 {
-		return false, false, invalidFile("BuildKit CA certificate", errors.New("CA constraints or key usage are invalid"))
+		return false, false, invalidFile(
+			"BuildKit CA certificate",
+			errors.New("CA constraints or key usage are invalid"),
+		)
 	}
 	caKey, err := parsePrivateKey(caKeyPEM)
 	if err != nil || !publicKeysMatch(caCert.PublicKey, caKey) {
-		return false, false, invalidFile("BuildKit CA private key", errors.New("certificate and private key do not match"))
+		return false, false, invalidFile(
+			"BuildKit CA private key",
+			errors.New("certificate and private key do not match"),
+		)
 	}
 	now := time.Now().UTC()
 	if now.Before(caCert.NotBefore) {
@@ -433,9 +460,9 @@ func validateBundle(paths Paths, allowRenewal bool) (bool, bool, error) {
 		keyPath  string
 		role     role
 	}{
-		{"server", paths.ServerCert, paths.ServerKey, serverRole},
-		{"worker client", paths.WorkerCert, paths.WorkerKey, clientRole},
-		{"health client", paths.HealthCert, paths.HealthKey, healthRole},
+		{name: "server", certPath: paths.ServerCert, keyPath: paths.ServerKey, role: serverRole},
+		{name: "worker client", certPath: paths.WorkerCert, keyPath: paths.WorkerKey, role: clientRole},
+		{name: "health client", certPath: paths.HealthCert, keyPath: paths.HealthKey, role: healthRole},
 	} {
 		certPEM, err := readRegular(leaf.certPath, fileMode)
 		if err != nil {
@@ -461,7 +488,10 @@ func validateBundle(paths Paths, allowRenewal bool) (bool, bool, error) {
 		}
 		key, err := parsePrivateKey(keyPEM)
 		if err != nil || !publicKeysMatch(cert.PublicKey, key) {
-			return false, false, invalidFile("BuildKit "+leaf.name+" private key", errors.New("certificate and private key do not match"))
+			return false, false, invalidFile(
+				"BuildKit "+leaf.name+" private key",
+				errors.New("certificate and private key do not match"),
+			)
 		}
 		if err := validateLeaf(cert, caCert, leaf.role, now, allowRenewal); err != nil {
 			return false, false, invalidFile("BuildKit "+leaf.name+" certificate", err)
@@ -558,7 +588,12 @@ func createCA(now time.Time) (*ecdsa.PrivateKey, *x509.Certificate, error) {
 	return key, cert, nil
 }
 
-func createLeaf(caKey *ecdsa.PrivateKey, ca *x509.Certificate, identity role, now time.Time) (*ecdsa.PrivateKey, *x509.Certificate, error) {
+func createLeaf(
+	caKey *ecdsa.PrivateKey,
+	ca *x509.Certificate,
+	identity role,
+	now time.Time,
+) (*ecdsa.PrivateKey, *x509.Certificate, error) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, nil, fmt.Errorf("generate BuildKit %s key: %w", identity.name, err)
@@ -725,7 +760,7 @@ func publicKeysMatch(certPublic any, key *ecdsa.PrivateKey) bool {
 }
 
 func invalidFile(name string, err error) error {
-	return fmt.Errorf("%w: %s is missing, malformed, or inconsistent (%v)", ErrInvalidState, name, err)
+	return fmt.Errorf("%w: %q is missing, malformed, or inconsistent (%v)", ErrInvalidState, name, err)
 }
 
 func syncTreeDirectories(paths Paths) error {

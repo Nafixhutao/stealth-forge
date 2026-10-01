@@ -114,12 +114,14 @@ func scanApp(row appScanner) (domain.App, error) {
 		item.PlatformHostname = &hostname
 	}
 	appID, parseErr := uuid.Parse(item.ID)
-	routeIdentityCurrent := parseErr == nil && appID != uuid.Nil && appRuntimeRouteIdentityMatches(appID, routeIdentity, healthRouteIdentity, containerName)
+	routeIdentityCurrent := parseErr == nil && appID != uuid.Nil &&
+		appRuntimeRouteIdentityMatches(appID, routeIdentity, healthRouteIdentity, containerName)
 	healthIdentityCurrent := routeIdentityCurrent && healthGeneration != nil && *healthGeneration == item.DesiredGeneration &&
 		healthDeploymentID != nil && desiredDeploymentID != nil && *healthDeploymentID == desiredDeploymentID.String() &&
 		healthContainerID != nil && runtimeContainerID != nil && *healthContainerID == *runtimeContainerID &&
 		appliedGeneration != nil && *appliedGeneration == item.DesiredGeneration && appliedDeploymentID != nil &&
-		desiredDeploymentID != nil && *appliedDeploymentID == desiredDeploymentID.String() && appliedWorkloadSHA != nil &&
+		desiredDeploymentID != nil && *appliedDeploymentID == desiredDeploymentID.String() &&
+		appliedWorkloadSHA != nil &&
 		*appliedWorkloadSHA == item.WorkloadSpecSHA256
 	item.HealthStatus = healthStatus
 	item.RouteDeploymentReady = routeDeploymentReady
@@ -130,7 +132,12 @@ func scanApp(row appScanner) (domain.App, error) {
 	return item, nil
 }
 
-func projectedAppRouteStatus(app domain.App, healthStatus string, runtimeAddress *string, routeIdentityCurrent bool) string {
+func projectedAppRouteStatus(
+	app domain.App,
+	healthStatus string,
+	runtimeAddress *string,
+	routeIdentityCurrent bool,
+) string {
 	switch {
 	case !app.Enabled || app.DesiredDeploymentID == nil || app.PlatformHostname == nil:
 		return "not_available"
@@ -207,7 +214,13 @@ func appByID(ctx context.Context, query interface {
 	return item, err
 }
 
-func (r *Repository) ListApps(ctx context.Context, projectID uuid.UUID, actor AppActor, limit int, cursor *uuid.UUID) ([]domain.App, string, bool, error) {
+func (r *Repository) ListApps(
+	ctx context.Context,
+	projectID uuid.UUID,
+	actor AppActor,
+	limit int,
+	cursor *uuid.UUID,
+) ([]domain.App, string, bool, error) {
 	canManage, err := r.requireAppRead(ctx, projectID, actor)
 	if err != nil {
 		return nil, "", false, err
@@ -234,7 +247,7 @@ func (r *Repository) ListApps(ctx context.Context, projectID uuid.UUID, actor Ap
 	if err := rows.Err(); err != nil {
 		return nil, "", false, err
 	}
-	next := ""
+	var next string
 	if len(items) > limit {
 		next = items[limit-1].ID
 		items = items[:limit]
@@ -267,7 +280,12 @@ func (r *Repository) AuthorizeAppWrite(ctx context.Context, projectID, appID uui
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) CreateApp(ctx context.Context, id, projectID uuid.UUID, actor AppActor, input AppInput) (domain.App, error) {
+func (r *Repository) CreateApp(
+	ctx context.Context,
+	id, projectID uuid.UUID,
+	actor AppActor,
+	input AppInput,
+) (domain.App, error) {
 	name, err := validate.Slug(input.Name, "name")
 	if err != nil {
 		return domain.App{}, ErrInvalidAppSettings
@@ -340,7 +358,12 @@ func (r *Repository) CreateApp(ctx context.Context, id, projectID uuid.UUID, act
 	return item, nil
 }
 
-func (r *Repository) UpdateApp(ctx context.Context, projectID, appID uuid.UUID, actor AppActor, patch AppPatch) (domain.App, error) {
+func (r *Repository) UpdateApp(
+	ctx context.Context,
+	projectID, appID uuid.UUID,
+	actor AppActor,
+	patch AppPatch,
+) (domain.App, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.App{}, err
@@ -488,7 +511,15 @@ func appAuditMetadata(item domain.App) map[string]any {
 	}
 }
 
-func (r *Repository) auditApp(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, actor AppActor, action string, appID uuid.UUID, metadata map[string]any) error {
+func (r *Repository) auditApp(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	actor AppActor,
+	action string,
+	appID uuid.UUID,
+	metadata map[string]any,
+) error {
 	organizationID, err := projectOrganizationIDValue(ctx, tx, projectID)
 	if err != nil {
 		return err

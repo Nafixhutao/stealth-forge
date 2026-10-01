@@ -33,7 +33,13 @@ func (s *Server) listProjectAPIKeys(w http.ResponseWriter, r *http.Request) {
 		parsed := uuid.Must(uuid.Parse(cursor))
 		cursorID = &parsed
 	}
-	items, next, canManage, err := s.repo.ListProjectAPIKeys(r.Context(), projectID, uuid.Must(uuid.Parse(accountFrom(r).ID)), limit, cursorID)
+	items, next, canManage, err := s.repo.ListProjectAPIKeys(
+		r.Context(),
+		projectID,
+		uuid.Must(uuid.Parse(accountFrom(r).ID)),
+		limit,
+		cursorID,
+	)
 	if projectAPIKeyResourceError(w, err) {
 		return
 	}
@@ -41,7 +47,11 @@ func (s *Server) listProjectAPIKeys(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"keys": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"keys": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) createProjectAPIKey(w http.ResponseWriter, r *http.Request) {
@@ -60,7 +70,12 @@ func (s *Server) createProjectAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 	scopes, err := apikey.NormalizeProjectScopes(req.Scopes)
 	if err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "scopes must contain supported users.read, users.write, databases.read, databases.write, storage.read, storage.write, functions.read, functions.write, sites.read, sites.write, apps.read, apps.write, webhooks.read, webhooks.write, realtime.read, messaging.read, or messaging.write values")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"scopes must contain supported users.read, users.write, databases.read, databases.write, storage.read, storage.write, functions.read, functions.write, sites.read, sites.write, apps.read, apps.write, webhooks.read, webhooks.write, realtime.read, messaging.read, or messaging.write values",
+		)
 		return
 	}
 	expiresAt, err := parseAPIKeyExpiry(req.ExpiresAt, time.Now().UTC())
@@ -73,7 +88,17 @@ func (s *Server) createProjectAPIKey(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	item, err := s.repo.CreateProjectAPIKey(r.Context(), uuid.Must(uuid.NewV7()), projectID, uuid.Must(uuid.Parse(accountFrom(r).ID)), name, prefix, secretHash, scopes, expiresAt)
+	item, err := s.repo.CreateProjectAPIKey(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		projectID,
+		uuid.Must(uuid.Parse(accountFrom(r).ID)),
+		name,
+		prefix,
+		secretHash,
+		scopes,
+		expiresAt,
+	)
 	if projectAPIKeyResourceError(w, err) {
 		return
 	}

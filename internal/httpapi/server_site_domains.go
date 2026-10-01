@@ -29,7 +29,14 @@ func (s *Server) listSiteDomains(w http.ResponseWriter, r *http.Request) {
 		parsed := mustUUID(cursor)
 		cursorID = &parsed
 	}
-	items, next, canManage, err := s.repo.ListSiteDomains(r.Context(), projectID, siteID, siteActorFrom(r), limit, cursorID)
+	items, next, canManage, err := s.repo.ListSiteDomains(
+		r.Context(),
+		projectID,
+		siteID,
+		siteActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if siteDomainResourceError(w, err) {
 		return
 	}
@@ -37,7 +44,11 @@ func (s *Server) listSiteDomains(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"domains": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"domains": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) createSiteDomain(w http.ResponseWriter, r *http.Request) {
@@ -54,7 +65,14 @@ func (s *Server) createSiteDomain(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", "hostname is not a valid DNS hostname")
 		return
 	}
-	item, err := s.repo.CreateSiteDomain(r.Context(), uuid.Must(uuid.NewV7()), projectID, siteID, siteActorFrom(r), repository.SiteDomainInput{Hostname: hostname})
+	item, err := s.repo.CreateSiteDomain(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		projectID,
+		siteID,
+		siteActorFrom(r),
+		repository.SiteDomainInput{Hostname: hostname},
+	)
 	if siteDomainResourceError(w, err) {
 		return
 	}
@@ -184,13 +202,23 @@ func siteDomainResourceError(w http.ResponseWriter, err error) bool {
 		writeError(w, http.StatusConflict, "conflict", "the hostname is already bound to a Site")
 		return true
 	case errors.Is(err, repository.ErrSiteDomainPlatformConflict):
-		writeError(w, http.StatusConflict, "platform_namespace_conflict", "the hostname belongs to the configured platform workload namespace")
+		writeError(
+			w,
+			http.StatusConflict,
+			"platform_namespace_conflict",
+			"the hostname belongs to the configured platform workload namespace",
+		)
 		return true
 	case errors.Is(err, repository.ErrInvalidSiteDomain):
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", "hostname is not a valid DNS hostname")
 		return true
 	case errors.Is(err, repository.ErrSiteDomainVerificationFailed):
-		writeError(w, http.StatusConflict, "verification_failed", "the required DNS TXT verification record was not found")
+		writeError(
+			w,
+			http.StatusConflict,
+			"verification_failed",
+			"the required DNS TXT verification record was not found",
+		)
 		return true
 	default:
 		return false

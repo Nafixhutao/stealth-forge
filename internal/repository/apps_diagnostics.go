@@ -12,7 +12,11 @@ import (
 
 // GetAppDiagnostics returns a consistent PostgreSQL snapshot. It never reads
 // Docker, artifact files, or worker lease identity.
-func (r *Repository) GetAppDiagnostics(ctx context.Context, projectID, appID uuid.UUID, actor AppActor) (domain.AppDiagnostics, error) {
+func (r *Repository) GetAppDiagnostics(
+	ctx context.Context,
+	projectID, appID uuid.UUID,
+	actor AppActor,
+) (domain.AppDiagnostics, error) {
 	if _, err := r.requireAppRead(ctx, projectID, actor); err != nil {
 		return domain.AppDiagnostics{}, err
 	}
@@ -77,7 +81,9 @@ func (r *Repository) GetAppDiagnostics(ctx context.Context, projectID, appID uui
 	}
 	desiredArtifactReady := app.DesiredDeploymentID != nil && desiredID != nil && desiredStatus != nil && *desiredStatus == "ready" &&
 		desiredBuildStatus != nil && *desiredBuildStatus == "succeeded" && desiredImageDigest != nil && validAppImageDigest(*desiredImageDigest) &&
-		desiredArchiveChecksum != nil && validAppSHA256(*desiredArchiveChecksum) && desiredImageSize != nil && *desiredImageSize > 0 &&
+		desiredArchiveChecksum != nil && validAppSHA256(*desiredArchiveChecksum) &&
+		desiredImageSize != nil &&
+		*desiredImageSize > 0 &&
 		desiredArtifactPathValid
 
 	diagnostics := domain.AppDiagnostics{
@@ -97,7 +103,11 @@ func (r *Repository) GetAppDiagnostics(ctx context.Context, projectID, appID uui
 	return diagnostics, nil
 }
 
-func appDiagnosticsConvergence(app domain.App, appliedGeneration *int64, applied *domain.AppDiagnosticDeploymentRef) string {
+func appDiagnosticsConvergence(
+	app domain.App,
+	appliedGeneration *int64,
+	applied *domain.AppDiagnosticDeploymentRef,
+) string {
 	if !app.Enabled && (app.RuntimeStatus == "stopped" || app.RuntimeStatus == "not_deployed") {
 		return "stopped"
 	}
@@ -114,8 +124,10 @@ func appDiagnosticsConvergence(app domain.App, appliedGeneration *int64, applied
 		return "degraded"
 	}
 	if app.ObservedGeneration != app.DesiredGeneration || appliedGeneration == nil || *appliedGeneration != app.DesiredGeneration ||
-		app.DesiredDeploymentID == nil || applied == nil || applied.ID != *app.DesiredDeploymentID ||
-		app.RuntimeStatus != "running" || app.HealthStatus != "healthy" {
+		app.DesiredDeploymentID == nil || applied == nil ||
+		applied.ID != *app.DesiredDeploymentID ||
+		app.RuntimeStatus != "running" ||
+		app.HealthStatus != "healthy" {
 		return "reconciling"
 	}
 	if app.PlatformHostname != nil && app.RouteStatus != "active" {
@@ -136,16 +148,26 @@ func appDiagnosticIssues(app domain.App, diagnostics domain.AppDiagnostics) []do
 		add("not_deployed", "info", "No deployment is selected. Select a ready deployment to start the App.")
 	}
 	if app.DesiredDeploymentID != nil && !diagnostics.DesiredArtifactReady {
-		add("desired_artifact_unavailable", "error", "The desired deployment is missing verified artifact metadata; the runtime worker will refuse to import it.")
+		add(
+			"desired_artifact_unavailable",
+			"error",
+			"The desired deployment is missing verified artifact metadata; the runtime worker will refuse to import it.",
+		)
 	}
-	if app.DesiredDeploymentID != nil && (app.DesiredGeneration != app.ObservedGeneration || diagnostics.AppliedGeneration == nil || *diagnostics.AppliedGeneration != app.DesiredGeneration) {
+	if app.DesiredDeploymentID != nil &&
+		(app.DesiredGeneration != app.ObservedGeneration || diagnostics.AppliedGeneration == nil || *diagnostics.AppliedGeneration != app.DesiredGeneration) {
 		applied := "no applied generation"
 		if diagnostics.AppliedGeneration != nil {
 			applied = fmt.Sprintf("applied generation %d", *diagnostics.AppliedGeneration)
 		}
-		add("generation_pending", "info", fmt.Sprintf("Generation %d is waiting to replace %s.", app.DesiredGeneration, applied))
+		add(
+			"generation_pending",
+			"info",
+			fmt.Sprintf("Generation %d is waiting to replace %s.", app.DesiredGeneration, applied),
+		)
 	}
-	if app.DesiredDeploymentID != nil && (diagnostics.DesiredDeployment == nil || diagnostics.AppliedDeployment == nil || diagnostics.AppliedDeployment.ID != *app.DesiredDeploymentID) {
+	if app.DesiredDeploymentID != nil &&
+		(diagnostics.DesiredDeployment == nil || diagnostics.AppliedDeployment == nil || diagnostics.AppliedDeployment.ID != *app.DesiredDeploymentID) {
 		add("deployment_pending", "info", "The desired deployment has not yet converged as the applied release.")
 	}
 	switch app.RuntimeStatus {
@@ -164,7 +186,11 @@ func appDiagnosticIssues(app domain.App, diagnostics domain.AppDiagnostics) []do
 		add("route_waiting_runtime", "info", "The public route is waiting for the desired runtime generation.")
 	}
 	if app.RouteStatus == "waiting_for_health" {
-		add("route_waiting_health", "info", "The public route is waiting for fresh health on the desired runtime generation.")
+		add(
+			"route_waiting_health",
+			"info",
+			"The public route is waiting for fresh health on the desired runtime generation.",
+		)
 	}
 	if diagnostics.NextRetryAt != nil {
 		add("retry_scheduled", "info", "Runtime retry is scheduled using the persisted bounded backoff.")

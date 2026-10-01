@@ -35,6 +35,7 @@ const (
 )
 
 const agentRunProjection = `r.id,r.agent_id,r.project_id,r.created_by_account_id,r.prompt,r.status,r.output_text,r.error_message,r.steps,r.changes,r.queued_at,r.started_at,r.finished_at,r.created_at,r.updated_at`
+
 const agentRunReturningProjection = `id,agent_id,project_id,created_by_account_id,prompt,status,output_text,error_message,steps,changes,queued_at,started_at,finished_at,created_at,updated_at`
 const agentRunLogProjection = `l.id,l.run_id,l.project_id,l.sequence,l.level,l.message,l.created_at`
 
@@ -94,7 +95,15 @@ func scanAgentRun(row agentRunScanner) (domain.AgentRun, error) {
 
 func scanAgentRunLog(row agentRunScanner) (domain.AgentRunLog, error) {
 	var item domain.AgentRunLog
-	return item, row.Scan(&item.ID, &item.RunID, &item.ProjectID, &item.Sequence, &item.Level, &item.Message, &item.CreatedAt)
+	return item, row.Scan(
+		&item.ID,
+		&item.RunID,
+		&item.ProjectID,
+		&item.Sequence,
+		&item.Level,
+		&item.Message,
+		&item.CreatedAt,
+	)
 }
 
 func normalizeAgentRunPrompt(prompt string) (string, error) {
@@ -120,20 +129,27 @@ func normalizeAgentRunWorkerID(workerID string) (string, error) {
 }
 
 func normalizeAgentRunResult(result AgentRunResult) (AgentRunResult, []byte, []byte, error) {
-	if result.Status != "completed" && result.Status != "failed" && result.Status != "cancelled" {
+	terminalStatus := result.Status == "completed" || result.Status == "failed" || result.Status == "cancelled"
+	if !terminalStatus {
 		return AgentRunResult{}, nil, nil, fmt.Errorf("%w: terminal status is invalid", ErrInvalidAgentRunTransition)
 	}
 	if result.OutputText != nil {
 		value := *result.OutputText
 		if len(value) > agentRunMaxOutput || strings.ContainsRune(value, '\x00') {
-			return AgentRunResult{}, nil, nil, fmt.Errorf("%w: output_text is too large or contains NUL", ErrInvalidAgentRun)
+			return AgentRunResult{}, nil, nil, fmt.Errorf(
+				"%w: output_text is too large or contains NUL",
+				ErrInvalidAgentRun,
+			)
 		}
 		result.OutputText = &value
 	}
 	if result.ErrorMessage != nil {
 		value := strings.TrimSpace(*result.ErrorMessage)
 		if len(value) > agentRunMaxError || strings.ContainsRune(value, '\x00') {
-			return AgentRunResult{}, nil, nil, fmt.Errorf("%w: error_message is too large or contains NUL", ErrInvalidAgentRun)
+			return AgentRunResult{}, nil, nil, fmt.Errorf(
+				"%w: error_message is too large or contains NUL",
+				ErrInvalidAgentRun,
+			)
 		}
 		if value == "" {
 			result.ErrorMessage = nil
@@ -142,7 +158,10 @@ func normalizeAgentRunResult(result AgentRunResult) (AgentRunResult, []byte, []b
 		}
 	}
 	if len(result.Steps) > agentRunMaxSteps || len(result.Changes) > agentRunMaxChanges {
-		return AgentRunResult{}, nil, nil, fmt.Errorf("%w: result contains too many steps or changes", ErrInvalidAgentRun)
+		return AgentRunResult{}, nil, nil, fmt.Errorf(
+			"%w: result contains too many steps or changes",
+			ErrInvalidAgentRun,
+		)
 	}
 	if result.Steps == nil {
 		result.Steps = []domain.AgentRunStep{}
@@ -165,7 +184,10 @@ func normalizeAgentRunResult(result AgentRunResult) (AgentRunResult, []byte, []b
 		change := &result.Changes[index]
 		change.Path = strings.TrimSpace(change.Path)
 		change.Status = strings.TrimSpace(change.Status)
-		if change.Path == "" || len(change.Path) > agentRunMaxChangePath || strings.ContainsAny(change.Path, "\x00\r\n") || (change.Status != "added" && change.Status != "modified") || change.Additions < 0 || change.Deletions < 0 {
+		invalidPath := change.Path == "" || len(change.Path) > agentRunMaxChangePath ||
+			strings.ContainsAny(change.Path, "\x00\r\n")
+		invalidStatus := change.Status != "added" && change.Status != "modified"
+		if invalidPath || invalidStatus || change.Additions < 0 || change.Deletions < 0 {
 			return AgentRunResult{}, nil, nil, fmt.Errorf("%w: change %d is invalid", ErrInvalidAgentRun, index)
 		}
 	}
@@ -184,19 +206,28 @@ func validAgentRunStep(step domain.AgentRunStep) bool {
 	if step.ID == "" || len(step.ID) > 128 || strings.ContainsAny(step.ID, "\x00\r\n\t") {
 		return false
 	}
-	if step.Type != "read" && step.Type != "edit" && step.Type != "search" && step.Type != "command" && step.Type != "check" {
+	validStepType := step.Type == "read" || step.Type == "edit" || step.Type == "search" || step.Type == "command" ||
+		step.Type == "check"
+	if !validStepType {
 		return false
 	}
-	if step.Label == "" || utf8.RuneCountInString(step.Label) > agentRunMaxStepLabel || strings.ContainsAny(step.Label, "\x00\r\n") {
+	if step.Label == "" || utf8.RuneCountInString(step.Label) > agentRunMaxStepLabel ||
+		strings.ContainsAny(step.Label, "\x00\r\n") {
 		return false
 	}
-	if step.Target == "" || utf8.RuneCountInString(step.Target) > agentRunMaxStepTarget || strings.ContainsAny(step.Target, "\x00\r\n") {
+	if step.Target == "" || utf8.RuneCountInString(step.Target) > agentRunMaxStepTarget ||
+		strings.ContainsAny(step.Target, "\x00\r\n") {
 		return false
 	}
 	return step.Status == "pending" || step.Status == "done"
 }
 
-func (r *Repository) ListAgentRuns(ctx context.Context, accountID, agentID uuid.UUID, limit int, cursor *uuid.UUID) ([]domain.AgentRun, string, bool, error) {
+func (r *Repository) ListAgentRuns(
+	ctx context.Context,
+	accountID, agentID uuid.UUID,
+	limit int,
+	cursor *uuid.UUID,
+) ([]domain.AgentRun, string, bool, error) {
 	if limit < 1 || limit > 100 {
 		return nil, "", false, fmt.Errorf("%w: limit must be between 1 and 100", ErrInvalidAgentRun)
 	}
@@ -258,7 +289,11 @@ func (r *Repository) AgentRunByID(ctx context.Context, accountID, agentID, runID
 	return item, err
 }
 
-func (r *Repository) CreateAgentRun(ctx context.Context, id, accountID, agentID uuid.UUID, input AgentRunInput) (domain.AgentRun, error) {
+func (r *Repository) CreateAgentRun(
+	ctx context.Context,
+	id, accountID, agentID uuid.UUID,
+	input AgentRunInput,
+) (domain.AgentRun, error) {
 	prompt, err := normalizeAgentRunPrompt(input.Prompt)
 	if err != nil {
 		return domain.AgentRun{}, err
@@ -269,9 +304,11 @@ func (r *Repository) CreateAgentRun(ctx context.Context, id, accountID, agentID 
 	}
 	defer tx.Rollback(ctx)
 	var projectID uuid.UUID
-	if err := tx.QueryRow(ctx, `SELECT project_id FROM project_agents WHERE id=$1 FOR UPDATE`, agentID).Scan(&projectID); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT project_id FROM project_agents WHERE id=$1 FOR UPDATE`, agentID).Scan(&projectID)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.AgentRun{}, ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return domain.AgentRun{}, err
 	}
 	if err := requireProjectRoleTx(ctx, tx, projectID, accountID, "owner", "admin"); err != nil {
@@ -311,9 +348,12 @@ func (r *Repository) CancelAgentRun(ctx context.Context, accountID, agentID, run
 	}
 	defer tx.Rollback(ctx)
 	var projectID uuid.UUID
-	if err := tx.QueryRow(ctx, `SELECT project_id FROM agent_runs WHERE agent_id=$1 AND id=$2 FOR UPDATE`, agentID, runID).Scan(&projectID); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT project_id FROM agent_runs WHERE agent_id=$1 AND id=$2 FOR UPDATE`, agentID, runID).
+		Scan(&projectID)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.AgentRun{}, ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return domain.AgentRun{}, err
 	}
 	if err := requireProjectRoleTx(ctx, tx, projectID, accountID, "owner", "admin"); err != nil {
@@ -366,7 +406,11 @@ func (r *Repository) ClaimNextAgentRun(ctx context.Context, workerID string) (Ag
 // providers (the legacy control-plane primitive); an empty list claims
 // nothing. Comparing normalized lowercase values keeps existing agent rows
 // written with display-case provider names compatible with workers.
-func (r *Repository) ClaimNextAgentRunForProviders(ctx context.Context, workerID string, allowedProviders []string) (AgentRunJob, error) {
+func (r *Repository) ClaimNextAgentRunForProviders(
+	ctx context.Context,
+	workerID string,
+	allowedProviders []string,
+) (AgentRunJob, error) {
 	workerID, err := normalizeAgentRunWorkerID(workerID)
 	if err != nil {
 		return AgentRunJob{}, err
@@ -426,7 +470,14 @@ func (r *Repository) ClaimNextAgentRunForProviders(ctx context.Context, workerID
 	if _, err := tx.Exec(ctx, `UPDATE project_agents SET status='running',last_active_at=now(),updated_at=now() WHERE id=$1 AND project_id=$2`, agentID, projectID); err != nil {
 		return AgentRunJob{}, err
 	}
-	agent, err := scanAgent(tx.QueryRow(ctx, `SELECT `+agentProjection+` FROM project_agents a JOIN projects p ON p.id=a.project_id WHERE a.id=$1 AND a.project_id=$2`, agentID, projectID))
+	agent, err := scanAgent(
+		tx.QueryRow(
+			ctx,
+			`SELECT `+agentProjection+` FROM project_agents a JOIN projects p ON p.id=a.project_id WHERE a.id=$1 AND a.project_id=$2`,
+			agentID,
+			projectID,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return AgentRunJob{}, ErrAgentRunNotAvailable
 	}
@@ -441,7 +492,12 @@ func (r *Repository) ClaimNextAgentRunForProviders(ctx context.Context, workerID
 
 // TransitionAgentRun persists a worker result while fencing stale workers by
 // worker_id. Only a claimed running run may become terminal.
-func (r *Repository) TransitionAgentRun(ctx context.Context, projectID, agentID, runID uuid.UUID, workerID string, result AgentRunResult) (domain.AgentRun, error) {
+func (r *Repository) TransitionAgentRun(
+	ctx context.Context,
+	projectID, agentID, runID uuid.UUID,
+	workerID string,
+	result AgentRunResult,
+) (domain.AgentRun, error) {
 	workerID, err := normalizeAgentRunWorkerID(workerID)
 	if err != nil {
 		return domain.AgentRun{}, err
@@ -456,7 +512,8 @@ func (r *Repository) TransitionAgentRun(ctx context.Context, projectID, agentID,
 	}
 	defer tx.Rollback(ctx)
 	var currentStatus, currentWorker string
-	err = tx.QueryRow(ctx, `SELECT status,COALESCE(worker_id,'') FROM agent_runs WHERE project_id=$1 AND agent_id=$2 AND id=$3 FOR UPDATE`, projectID, agentID, runID).Scan(&currentStatus, &currentWorker)
+	err = tx.QueryRow(ctx, `SELECT status,COALESCE(worker_id,'') FROM agent_runs WHERE project_id=$1 AND agent_id=$2 AND id=$3 FOR UPDATE`, projectID, agentID, runID).
+		Scan(&currentStatus, &currentWorker)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.AgentRun{}, ErrNotFound
 	}
@@ -494,7 +551,14 @@ func (r *Repository) TransitionAgentRun(ctx context.Context, projectID, agentID,
 	return run, nil
 }
 
-func (r *Repository) AppendAgentRunLog(ctx context.Context, projectID, agentID, runID uuid.UUID, workerID string, id uuid.UUID, sequence int64, level, message string) (domain.AgentRunLog, error) {
+func (r *Repository) AppendAgentRunLog(
+	ctx context.Context,
+	projectID, agentID, runID uuid.UUID,
+	workerID string,
+	id uuid.UUID,
+	sequence int64,
+	level, message string,
+) (domain.AgentRunLog, error) {
 	workerID, err := normalizeAgentRunWorkerID(workerID)
 	if err != nil {
 		return domain.AgentRunLog{}, err
@@ -513,7 +577,8 @@ func (r *Repository) AppendAgentRunLog(ctx context.Context, projectID, agentID, 
 	}
 	defer tx.Rollback(ctx)
 	var currentWorker string
-	err = tx.QueryRow(ctx, `SELECT COALESCE(worker_id,'') FROM agent_runs WHERE project_id=$1 AND agent_id=$2 AND id=$3 AND status='running' FOR UPDATE`, projectID, agentID, runID).Scan(&currentWorker)
+	err = tx.QueryRow(ctx, `SELECT COALESCE(worker_id,'') FROM agent_runs WHERE project_id=$1 AND agent_id=$2 AND id=$3 AND status='running' FOR UPDATE`, projectID, agentID, runID).
+		Scan(&currentWorker)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.AgentRunLog{}, ErrAgentRunNotAvailable
 	}
@@ -541,7 +606,12 @@ func (r *Repository) AppendAgentRunLog(ctx context.Context, projectID, agentID, 
 	return item, nil
 }
 
-func (r *Repository) ListAgentRunLogs(ctx context.Context, accountID, agentID, runID uuid.UUID, limit int, after int64) ([]domain.AgentRunLog, error) {
+func (r *Repository) ListAgentRunLogs(
+	ctx context.Context,
+	accountID, agentID, runID uuid.UUID,
+	limit int,
+	after int64,
+) ([]domain.AgentRunLog, error) {
 	if limit < 1 || limit > 100 {
 		return nil, fmt.Errorf("%w: limit must be between 1 and 100", ErrInvalidAgentRun)
 	}
@@ -551,7 +621,14 @@ func (r *Repository) ListAgentRunLogs(ctx context.Context, accountID, agentID, r
 	if _, err := r.AgentRunByID(ctx, accountID, agentID, runID); err != nil {
 		return nil, err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+agentRunLogProjection+` FROM agent_run_logs l WHERE l.project_id=(SELECT project_id FROM agent_runs WHERE id=$1 AND agent_id=$2) AND l.run_id=$1 AND l.sequence>$3 ORDER BY l.sequence LIMIT $4`, runID, agentID, after, limit)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT `+agentRunLogProjection+` FROM agent_run_logs l WHERE l.project_id=(SELECT project_id FROM agent_runs WHERE id=$1 AND agent_id=$2) AND l.run_id=$1 AND l.sequence>$3 ORDER BY l.sequence LIMIT $4`,
+		runID,
+		agentID,
+		after,
+		limit,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -579,7 +656,11 @@ func (r *Repository) RequeueStaleAgentRuns(ctx context.Context, maxAge time.Dura
 		return 0, err
 	}
 	defer tx.Rollback(ctx)
-	rows, err := tx.Query(ctx, `UPDATE agent_runs SET status='queued',started_at=NULL,claimed_at=NULL,worker_id=NULL,updated_at=now() WHERE status='running' AND claimed_at IS NOT NULL AND claimed_at < now() - ($1::double precision * interval '1 second') RETURNING id,agent_id,project_id`, maxAge.Seconds())
+	rows, err := tx.Query(
+		ctx,
+		`UPDATE agent_runs SET status='queued',started_at=NULL,claimed_at=NULL,worker_id=NULL,updated_at=now() WHERE status='running' AND claimed_at IS NOT NULL AND claimed_at < now() - ($1::double precision * interval '1 second') RETURNING id,agent_id,project_id`,
+		maxAge.Seconds(),
+	)
 	if err != nil {
 		return 0, err
 	}

@@ -33,7 +33,11 @@ func validRequestID(value string) bool {
 		return false
 	}
 	for _, character := range value {
-		if (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '.' || character == '_' || character == '-' {
+		if (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') ||
+			(character >= '0' && character <= '9') ||
+			character == '.' ||
+			character == '_' ||
+			character == '-' {
 			continue
 		}
 		return false

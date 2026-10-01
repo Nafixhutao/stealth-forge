@@ -585,7 +585,7 @@ func TestPurgeRequiresExactStrongConfirmation(t *testing.T) {
 	layout := writeUninstallFixture(t)
 	app := NewApp(strings.NewReader(""), io.Discard, io.Discard)
 	plan := buildUninstallPlan(layout, uninstallPurge)
-	model := newUninstallModel(app, context.Background(), func() {}, plan, uninstallOptions{mode: uninstallPurge, modeSet: true})
+	model := newUninstallModel(context.Background(), app, func() {}, plan, uninstallOptions{mode: uninstallPurge, modeSet: true})
 	updated, _ := model.updatePlan(tea.KeyMsg{Type: tea.KeyEnter})
 	confirmation := updated.(uninstallModel)
 	confirmation.confirmInput.SetValue("stealtx")
@@ -595,7 +595,7 @@ func TestPurgeRequiresExactStrongConfirmation(t *testing.T) {
 		t.Fatalf("wrong confirmation did not cancel: screen=%v", confirmation.screen)
 	}
 
-	model = newUninstallModel(app, context.Background(), func() {}, plan, uninstallOptions{mode: uninstallPurge, modeSet: true})
+	model = newUninstallModel(context.Background(), app, func() {}, plan, uninstallOptions{mode: uninstallPurge, modeSet: true})
 	updated, _ = model.updatePlan(tea.KeyMsg{Type: tea.KeyEnter})
 	confirmation = updated.(uninstallModel)
 	confirmation.confirmInput.SetValue("stealth")
@@ -613,12 +613,12 @@ func TestCancelAndCtrlCDoNotRunOperations(t *testing.T) {
 	app := NewApp(strings.NewReader(""), io.Discard, io.Discard)
 	app.runner = runner
 	plan := buildUninstallPlan(layout, uninstallServices)
-	model := newUninstallModel(app, context.Background(), func() {}, plan, uninstallOptions{})
+	model := newUninstallModel(context.Background(), app, func() {}, plan, uninstallOptions{})
 	updated, command := model.Update(tea.KeyMsg{Type: tea.KeyEscape})
 	if updated.(uninstallModel).screen != uninstallCancelled || command == nil {
 		t.Fatalf("escape did not cancel menu: model=%#v command=%v", model, command)
 	}
-	model = newUninstallModel(app, context.Background(), func() {}, plan, uninstallOptions{})
+	model = newUninstallModel(context.Background(), app, func() {}, plan, uninstallOptions{})
 	updated, command = model.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
 	if updated.(uninstallModel).screen != uninstallCancelled || command == nil {
 		t.Fatalf("ctrl+c did not cancel safely: model=%#v command=%v", model, command)
@@ -634,7 +634,7 @@ func TestNOColorAndProgressRendering(t *testing.T) {
 	layout := writeUninstallFixture(t)
 	app := NewApp(strings.NewReader(""), io.Discard, io.Discard)
 	plan := buildUninstallPlan(layout, uninstallServices)
-	model := newUninstallModel(app, context.Background(), func() {}, plan, uninstallOptions{mode: uninstallServices, modeSet: true})
+	model := newUninstallModel(context.Background(), app, func() {}, plan, uninstallOptions{mode: uninstallServices, modeSet: true})
 	model.screen = uninstallRemoving
 	view := model.View()
 	if strings.Contains(view, "\x1b[") {

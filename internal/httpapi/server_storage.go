@@ -64,7 +64,11 @@ func (s *Server) requireProjectStorageActor(next http.Handler) http.Handler {
 				internalError(s, w, err)
 				return
 			}
-			ctx := context.WithValue(r.Context(), projectStorageActorContextKey, repository.StorageActor{Kind: repository.StorageAPIKeyActor, APIKeyID: keyID, APIKeyScopes: key.Scopes})
+			ctx := context.WithValue(
+				r.Context(),
+				projectStorageActorContextKey,
+				repository.StorageActor{Kind: repository.StorageAPIKeyActor, APIKeyID: keyID, APIKeyScopes: key.Scopes},
+			)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
@@ -79,7 +83,11 @@ func (s *Server) requireProjectStorageActor(next http.Handler) http.Handler {
 				internalError(s, w, err)
 				return
 			}
-			ctx := context.WithValue(r.Context(), projectStorageActorContextKey, repository.StorageActor{Kind: repository.StorageApplicationActor, ProjectUserID: mustUUID(user.ID)})
+			ctx := context.WithValue(
+				r.Context(),
+				projectStorageActorContextKey,
+				repository.StorageActor{Kind: repository.StorageApplicationActor, ProjectUserID: mustUUID(user.ID)},
+			)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
@@ -91,11 +99,19 @@ func (s *Server) requireProjectStorageActor(next http.Handler) http.Handler {
 			}
 			ctx := context.WithValue(r.Context(), accountContextKey, account)
 			ctx = context.WithValue(ctx, sessionContextKey, sessionID)
-			ctx = context.WithValue(ctx, projectStorageActorContextKey, repository.StorageActor{Kind: repository.StorageConsoleActor, AccountID: mustUUID(account.ID)})
+			ctx = context.WithValue(
+				ctx,
+				projectStorageActorContextKey,
+				repository.StorageActor{Kind: repository.StorageConsoleActor, AccountID: mustUUID(account.ID)},
+			)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
-		ctx := context.WithValue(r.Context(), projectStorageActorContextKey, repository.StorageActor{Kind: repository.StorageAnonymousActor})
+		ctx := context.WithValue(
+			r.Context(),
+			projectStorageActorContextKey,
+			repository.StorageActor{Kind: repository.StorageAnonymousActor},
+		)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -106,7 +122,11 @@ func storageActorFrom(r *http.Request) repository.StorageActor {
 	}
 	if actor, ok := r.Context().Value(projectActorContextKey).(projectActor); ok {
 		if actor.kind == apiKeyProjectActor {
-			return repository.StorageActor{Kind: repository.StorageAPIKeyActor, APIKeyID: actor.apiKeyID, APIKeyScopes: actor.scopes}
+			return repository.StorageActor{
+				Kind:         repository.StorageAPIKeyActor,
+				APIKeyID:     actor.apiKeyID,
+				APIKeyScopes: actor.scopes,
+			}
 		}
 		return repository.StorageActor{Kind: repository.StorageConsoleActor, AccountID: mustUUID(accountFrom(r).ID)}
 	}
@@ -146,7 +166,13 @@ func (s *Server) listStorageBuckets(w http.ResponseWriter, r *http.Request) {
 		parsed := mustUUID(cursor)
 		cursorID = &parsed
 	}
-	items, next, canManage, err := s.repo.ListStorageBuckets(r.Context(), projectID, managementStorageActorFrom(r), limit, cursorID)
+	items, next, canManage, err := s.repo.ListStorageBuckets(
+		r.Context(),
+		projectID,
+		managementStorageActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if storageResourceError(w, err) {
 		return
 	}
@@ -154,7 +180,11 @@ func (s *Server) listStorageBuckets(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"buckets": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"buckets": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) createStorageBucket(w http.ResponseWriter, r *http.Request) {
@@ -183,18 +213,34 @@ func (s *Server) createStorageBucket(w http.ResponseWriter, r *http.Request) {
 	if req.MaxFileSizeBytes != nil {
 		maxFileSize = *req.MaxFileSizeBytes
 	}
-	if quota <= 0 || maxFileSize <= 0 || maxFileSize > s.config.StorageMaxFileSize || maxFileSize > quota {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "max_file_size_bytes must be positive, within STORAGE_MAX_FILE_SIZE, and no larger than quota_bytes")
+	quotaInvalid := quota <= 0
+	maxFileSizeInvalid := maxFileSize <= 0 || maxFileSize > s.config.StorageMaxFileSize || maxFileSize > quota
+	if quotaInvalid || maxFileSizeInvalid {
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"max_file_size_bytes must be positive, within STORAGE_MAX_FILE_SIZE, and no larger than quota_bytes",
+		)
 		return
 	}
-	createPermissions, readPermissions, updatePermissions, deletePermissions, err := bucketPermissionsFromRequest(req, false)
+	createPermissions, readPermissions, updatePermissions, deletePermissions, err := bucketPermissionsFromRequest(
+		req,
+		false,
+	)
 	if err != nil {
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", err.Error())
 		return
 	}
-	item, err := s.repo.CreateStorageBucket(r.Context(), uuid.Must(uuid.NewV7()), projectID, managementStorageActorFrom(r), repository.StorageBucketInput{
-		Name: name, FileSecurity: fileSecurity, CreatePermissions: createPermissions, ReadPermissions: readPermissions, UpdatePermissions: updatePermissions, DeletePermissions: deletePermissions, MaxFileSizeBytes: maxFileSize, QuotaBytes: quota,
-	})
+	item, err := s.repo.CreateStorageBucket(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		projectID,
+		managementStorageActorFrom(r),
+		repository.StorageBucketInput{
+			Name: name, FileSecurity: fileSecurity, CreatePermissions: createPermissions, ReadPermissions: readPermissions, UpdatePermissions: updatePermissions, DeletePermissions: deletePermissions, MaxFileSizeBytes: maxFileSize, QuotaBytes: quota,
+		},
+	)
 	if planLimitError(w, err) {
 		return
 	}
@@ -208,18 +254,39 @@ func (s *Server) createStorageBucket(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]domain.StorageBucket{"bucket": item})
 }
 
-func bucketPermissionsFromRequest(req storageBucketRequest, update bool) ([]string, []string, []string, []string, error) {
+func bucketPermissionsFromRequest(
+	req storageBucketRequest,
+	update bool,
+) ([]string, []string, []string, []string, error) {
 	if req.WritePermissions != nil {
 		if req.CreatePermissions != nil || req.UpdatePermissions != nil {
-			return nil, nil, nil, nil, errors.New("write_permissions cannot be combined with create_permissions or update_permissions")
+			return nil, nil, nil, nil, errors.New(
+				"write_permissions cannot be combined with create_permissions or update_permissions",
+			)
 		}
 		req.CreatePermissions = req.WritePermissions
 		req.UpdatePermissions = req.WritePermissions
 	}
 	if update {
-		return dereferencePermissions(req.CreatePermissions), dereferencePermissions(req.ReadPermissions), dereferencePermissions(req.UpdatePermissions), dereferencePermissions(req.DeletePermissions), nil
+		return dereferencePermissions(
+				req.CreatePermissions,
+			), dereferencePermissions(
+				req.ReadPermissions,
+			), dereferencePermissions(
+				req.UpdatePermissions,
+			), dereferencePermissions(
+				req.DeletePermissions,
+			), nil
 	}
-	return permissionsOrEmpty(req.CreatePermissions), permissionsOrEmpty(req.ReadPermissions), permissionsOrEmpty(req.UpdatePermissions), permissionsOrEmpty(req.DeletePermissions), nil
+	return permissionsOrEmpty(
+			req.CreatePermissions,
+		), permissionsOrEmpty(
+			req.ReadPermissions,
+		), permissionsOrEmpty(
+			req.UpdatePermissions,
+		), permissionsOrEmpty(
+			req.DeletePermissions,
+		), nil
 }
 
 func permissionsOrEmpty(value *[]string) []string {
@@ -269,7 +336,14 @@ func (s *Server) updateStorageBucket(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	if req.Name == "" && req.FileSecurity == nil && req.CreatePermissions == nil && req.ReadPermissions == nil && req.UpdatePermissions == nil && req.DeletePermissions == nil && req.WritePermissions == nil && req.MaxFileSizeBytes == nil && req.QuotaBytes == nil {
+	noSettingsProvided := req.Name == "" && req.FileSecurity == nil && req.CreatePermissions == nil &&
+		req.ReadPermissions == nil &&
+		req.UpdatePermissions == nil &&
+		req.DeletePermissions == nil &&
+		req.WritePermissions == nil &&
+		req.MaxFileSizeBytes == nil &&
+		req.QuotaBytes == nil
+	if noSettingsProvided {
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", "at least one bucket setting is required")
 		return
 	}
@@ -282,15 +356,24 @@ func (s *Server) updateStorageBucket(w http.ResponseWriter, r *http.Request) {
 		}
 		name = &validated
 	}
-	if req.MaxFileSizeBytes != nil && (*req.MaxFileSizeBytes <= 0 || *req.MaxFileSizeBytes > s.config.StorageMaxFileSize) {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "max_file_size_bytes must be within STORAGE_MAX_FILE_SIZE")
+	if req.MaxFileSizeBytes != nil &&
+		(*req.MaxFileSizeBytes <= 0 || *req.MaxFileSizeBytes > s.config.StorageMaxFileSize) {
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"max_file_size_bytes must be within STORAGE_MAX_FILE_SIZE",
+		)
 		return
 	}
 	if req.QuotaBytes != nil && *req.QuotaBytes <= 0 {
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", "quota_bytes must be positive")
 		return
 	}
-	createPermissions, readPermissions, updatePermissions, deletePermissions, err := bucketPermissionsFromRequest(req, true)
+	createPermissions, readPermissions, updatePermissions, deletePermissions, err := bucketPermissionsFromRequest(
+		req,
+		true,
+	)
 	if err != nil {
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", err.Error())
 		return
@@ -301,7 +384,22 @@ func (s *Server) updateStorageBucket(w http.ResponseWriter, r *http.Request) {
 		req.CreatePermissions = req.WritePermissions
 		req.UpdatePermissions = req.WritePermissions
 	}
-	item, err := s.repo.UpdateStorageBucket(r.Context(), projectID, bucketID, managementStorageActorFrom(r), repository.StorageBucketPatch{Name: name, FileSecurity: req.FileSecurity, CreatePermissions: permissionPointer(req.CreatePermissions, createPermissions), ReadPermissions: permissionPointer(req.ReadPermissions, readPermissions), UpdatePermissions: permissionPointer(req.UpdatePermissions, updatePermissions), DeletePermissions: permissionPointer(req.DeletePermissions, deletePermissions), MaxFileSizeBytes: req.MaxFileSizeBytes, QuotaBytes: req.QuotaBytes})
+	item, err := s.repo.UpdateStorageBucket(
+		r.Context(),
+		projectID,
+		bucketID,
+		managementStorageActorFrom(r),
+		repository.StorageBucketPatch{
+			Name:              name,
+			FileSecurity:      req.FileSecurity,
+			CreatePermissions: permissionPointer(req.CreatePermissions, createPermissions),
+			ReadPermissions:   permissionPointer(req.ReadPermissions, readPermissions),
+			UpdatePermissions: permissionPointer(req.UpdatePermissions, updatePermissions),
+			DeletePermissions: permissionPointer(req.DeletePermissions, deletePermissions),
+			MaxFileSizeBytes:  req.MaxFileSizeBytes,
+			QuotaBytes:        req.QuotaBytes,
+		},
+	)
 	if storageResourceError(w, err) {
 		return
 	}
@@ -357,7 +455,14 @@ func (s *Server) listStorageFiles(w http.ResponseWriter, r *http.Request) {
 		parsed := mustUUID(cursor)
 		cursorID = &parsed
 	}
-	items, next, canManage, err := s.repo.ListStorageFiles(r.Context(), projectID, bucketID, storageActorFrom(r), limit, cursorID)
+	items, next, canManage, err := s.repo.ListStorageFiles(
+		r.Context(),
+		projectID,
+		bucketID,
+		storageActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if storageResourceError(w, err) {
 		return
 	}
@@ -365,7 +470,11 @@ func (s *Server) listStorageFiles(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"files": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"files": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) uploadStorageFile(w http.ResponseWriter, r *http.Request) {
@@ -392,7 +501,12 @@ func (s *Server) uploadStorageFile(w http.ResponseWriter, r *http.Request) {
 	}
 	reader, err := r.MultipartReader()
 	if err != nil {
-		writeError(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "Content-Type must be multipart/form-data")
+		writeError(
+			w,
+			http.StatusUnsupportedMediaType,
+			"unsupported_media_type",
+			"Content-Type must be multipart/form-data",
+		)
 		return
 	}
 	fileID := uuid.Must(uuid.NewV7())
@@ -410,7 +524,12 @@ func (s *Server) uploadStorageFile(w http.ResponseWriter, r *http.Request) {
 		if nextErr != nil {
 			cleanupPrepared(s.storage, &prepared)
 			if isMaxBytesError(nextErr) {
-				writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "request body exceeds the configured upload limit")
+				writeError(
+					w,
+					http.StatusRequestEntityTooLarge,
+					"payload_too_large",
+					"request body exceeds the configured upload limit",
+				)
 			} else {
 				writeError(w, http.StatusBadRequest, "invalid_request", "multipart body is invalid")
 			}
@@ -427,7 +546,12 @@ func (s *Server) uploadStorageFile(w http.ResponseWriter, r *http.Request) {
 		case "file":
 			if hasFile {
 				cleanupPrepared(s.storage, &prepared)
-				writeError(w, http.StatusBadRequest, "invalid_request", "multipart body may contain only one file field")
+				writeError(
+					w,
+					http.StatusBadRequest,
+					"invalid_request",
+					"multipart body may contain only one file field",
+				)
 				return
 			}
 			hasFile = true
@@ -440,11 +564,24 @@ func (s *Server) uploadStorageFile(w http.ResponseWriter, r *http.Request) {
 				partFilename = filename
 			}
 			declaredType := part.Header.Get("Content-Type")
-			prepared, err = s.storage.BeginUploadWithLimit(r.Context(), projectID, bucketID, fileID, part, declaredType, bucket.MaxFileSizeBytes)
+			prepared, err = s.storage.BeginUploadWithLimit(
+				r.Context(),
+				projectID,
+				bucketID,
+				fileID,
+				part,
+				declaredType,
+				bucket.MaxFileSizeBytes,
+			)
 			if err != nil {
 				cleanupPrepared(s.storage, &prepared)
 				if isMaxBytesError(err) || errors.Is(err, storage.ErrTooLarge) {
-					writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "file exceeds the configured maximum size")
+					writeError(
+						w,
+						http.StatusRequestEntityTooLarge,
+						"payload_too_large",
+						"file exceeds the configured maximum size",
+					)
 				} else if errors.Is(err, storage.ErrInvalidMIME) {
 					writeError(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "file MIME type is invalid")
 				} else {
@@ -502,9 +639,15 @@ func (s *Server) uploadStorageFile(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", "filename is invalid")
 		return
 	}
-	if actor.Kind == repository.StorageAnonymousActor && (readPermissions == nil || updatePermissions == nil || deletePermissions == nil) {
+	if actor.Kind == repository.StorageAnonymousActor &&
+		(readPermissions == nil || updatePermissions == nil || deletePermissions == nil) {
 		cleanupPrepared(s.storage, &prepared)
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "anonymous uploads must specify read_permissions, update_permissions, and delete_permissions")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"anonymous uploads must specify read_permissions, update_permissions, and delete_permissions",
+		)
 		return
 	}
 	publishCleanup := repository.ArtifactCleanupInput{
@@ -530,7 +673,25 @@ func (s *Server) uploadStorageFile(w http.ResponseWriter, r *http.Request) {
 		creatorID := actor.ProjectUserID
 		creator = &creatorID
 	}
-	item, err := s.repo.CreateStorageFile(r.Context(), fileID, projectID, bucketID, actor, repository.StorageFileInput{Name: filenameField, MimeType: prepared.ContentType, SizeBytes: prepared.Size, ChecksumSHA256: prepared.Checksum, StoragePath: prepared.RelativePath, ReadPermissions: readPermissions, UpdatePermissions: updatePermissions, DeletePermissions: deletePermissions, CreatorProjectUserID: creator, PublishCleanup: &publishCleanup})
+	item, err := s.repo.CreateStorageFile(
+		r.Context(),
+		fileID,
+		projectID,
+		bucketID,
+		actor,
+		repository.StorageFileInput{
+			Name:                 filenameField,
+			MimeType:             prepared.ContentType,
+			SizeBytes:            prepared.Size,
+			ChecksumSHA256:       prepared.Checksum,
+			StoragePath:          prepared.RelativePath,
+			ReadPermissions:      readPermissions,
+			UpdatePermissions:    updatePermissions,
+			DeletePermissions:    deletePermissions,
+			CreatorProjectUserID: creator,
+			PublishCleanup:       &publishCleanup,
+		},
+	)
 	if storageResourceError(w, err) {
 		// The quota check runs before the metadata transaction can commit, so
 		// this typed failure has an unambiguous rollback. Other metadata errors
@@ -573,7 +734,7 @@ func parseStoragePermissionsField(raw string) (*[]string, error) {
 		values := []string{}
 		return &values, nil
 	}
-	var values []string
+	values := []string{}
 	if strings.HasPrefix(raw, "[") {
 		decoder := json.NewDecoder(strings.NewReader(raw))
 		if err := decoder.Decode(&values); err != nil {
@@ -645,7 +806,9 @@ func (s *Server) updateStorageFile(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	if req.Name == nil && req.ReadPermissions == nil && req.UpdatePermissions == nil && req.DeletePermissions == nil {
+	noSettingsProvided := req.Name == nil && req.ReadPermissions == nil && req.UpdatePermissions == nil &&
+		req.DeletePermissions == nil
+	if noSettingsProvided {
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", "at least one file setting is required")
 		return
 	}
@@ -655,7 +818,19 @@ func (s *Server) updateStorageFile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	item, err := s.repo.UpdateStorageFile(r.Context(), projectID, bucketID, fileID, storageActorFrom(r), repository.StorageFilePatch{Name: req.Name, ReadPermissions: req.ReadPermissions, UpdatePermissions: req.UpdatePermissions, DeletePermissions: req.DeletePermissions})
+	item, err := s.repo.UpdateStorageFile(
+		r.Context(),
+		projectID,
+		bucketID,
+		fileID,
+		storageActorFrom(r),
+		repository.StorageFilePatch{
+			Name:              req.Name,
+			ReadPermissions:   req.ReadPermissions,
+			UpdatePermissions: req.UpdatePermissions,
+			DeletePermissions: req.DeletePermissions,
+		},
+	)
 	if storageResourceError(w, err) {
 		return
 	}
@@ -748,12 +923,20 @@ func storageResourceError(w http.ResponseWriter, err error) bool {
 		writeError(w, http.StatusConflict, "conflict", "storage resource conflicts with an existing resource")
 		return true
 	case errors.Is(err, repository.ErrStorageQuotaExceeded):
-		writeError(w, http.StatusRequestEntityTooLarge, "storage_quota_exceeded", "storage bucket quota would be exceeded")
+		writeError(
+			w,
+			http.StatusRequestEntityTooLarge,
+			"storage_quota_exceeded",
+			"storage bucket quota would be exceeded",
+		)
 		return true
 	case errors.Is(err, repository.ErrStorageFileTooLarge), errors.Is(err, storage.ErrTooLarge):
 		writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "file exceeds the configured maximum size")
 		return true
-	case errors.Is(err, database.ErrInvalidPermissions), errors.Is(err, database.ErrDuplicatePermission), errors.Is(err, storage.ErrInvalidFilename), errors.Is(err, storage.ErrInvalidMIME):
+	case errors.Is(err, database.ErrInvalidPermissions),
+		errors.Is(err, database.ErrDuplicatePermission),
+		errors.Is(err, storage.ErrInvalidFilename),
+		errors.Is(err, storage.ErrInvalidMIME):
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", err.Error())
 		return true
 	}

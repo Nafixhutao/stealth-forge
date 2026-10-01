@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -44,7 +45,11 @@ type OwnerCreator struct {
 	Now        func() time.Time
 }
 
-func (c OwnerCreator) CreateGitHubInstanceOwner(ctx context.Context, authorization GitHubAuthorization, user githubauth.User) (OwnerResult, error) {
+func (c OwnerCreator) CreateGitHubInstanceOwner(
+	ctx context.Context,
+	authorization GitHubAuthorization,
+	user githubauth.User,
+) (OwnerResult, error) {
 	if c.Store == nil {
 		return OwnerResult{}, errors.New("bootstrap store is not configured")
 	}
@@ -62,7 +67,7 @@ func (c OwnerCreator) CreateGitHubInstanceOwner(ctx context.Context, authorizati
 	}
 	input.TokenHash = tokenHash
 	input.SessionExpiresAt = now.Add(c.SessionTTL)
-	handoffToken := ""
+	var handoffToken string
 	if c.SetupMode && c.Handoff != nil {
 		handoffToken, _, err = auth.NewSessionToken()
 		if err != nil {
@@ -103,7 +108,8 @@ func GitHubOwnerInput(user githubauth.User, authorization GitHubAuthorization) (
 		displayName = login
 	}
 	avatarURL := strings.TrimSpace(user.AvatarURL)
-	if len(displayName) > 240 || strings.ContainsAny(displayName, "\x00\r\n") || len(avatarURL) > 2048 || strings.ContainsAny(avatarURL, "\x00\r\n") {
+	if len(displayName) > 240 || strings.ContainsAny(displayName, "\x00\r\n") || len(avatarURL) > 2048 ||
+		strings.ContainsAny(avatarURL, "\x00\r\n") {
 		return repository.GitHubOwnerInput{}, errors.New("invalid GitHub identity metadata")
 	}
 	if avatarURL != "" {
@@ -111,7 +117,9 @@ func GitHubOwnerInput(user githubauth.User, authorization GitHubAuthorization) (
 		// GitHub commonly appends a cache/version query (for example, ?v=4)
 		// to avatar URLs. It is display metadata, not a redirect target, so
 		// keep safe HTTPS URLs while rejecting credentials and fragments.
-		if err != nil || parsedAvatarURL.Scheme != "https" || parsedAvatarURL.Host == "" || parsedAvatarURL.User != nil || parsedAvatarURL.Fragment != "" {
+		if err != nil || parsedAvatarURL.Scheme != "https" || parsedAvatarURL.Host == "" ||
+			parsedAvatarURL.User != nil ||
+			parsedAvatarURL.Fragment != "" {
 			return repository.GitHubOwnerInput{}, errors.New("invalid GitHub avatar URL")
 		}
 	}
@@ -128,7 +136,7 @@ func GitHubOwnerInput(user githubauth.User, authorization GitHubAuthorization) (
 		BootstrapCodeHash:  authorization.CodeHash,
 		AccountID:          accountID,
 		SessionID:          sessionID,
-		ProviderUserID:     fmt.Sprintf("%d", user.ID),
+		ProviderUserID:     strconv.FormatInt(user.ID, 10),
 		ProviderLogin:      login,
 		ProviderEmail:      providerEmail,
 		DisplayName:        displayName,

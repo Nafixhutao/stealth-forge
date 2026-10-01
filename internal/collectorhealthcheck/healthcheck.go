@@ -22,10 +22,13 @@ func Check(ctx context.Context, endpoint string) error {
 		endpoint = "http://" + endpoint
 	}
 	parsed, err := url.Parse(endpoint)
-	if err != nil || parsed.Scheme != "http" || parsed.Host == "" {
-		if err == nil {
-			err = fmt.Errorf("endpoint must be an http URL")
-		}
+	if err != nil {
+		return fmt.Errorf("invalid Collector health endpoint: %w", err)
+	}
+	isHTTP := parsed.Scheme == "http"
+	hasHost := parsed.Host != ""
+	if !isHTTP || !hasHost {
+		err = fmt.Errorf("endpoint must be an http URL")
 		return fmt.Errorf("invalid Collector health endpoint: %w", err)
 	}
 

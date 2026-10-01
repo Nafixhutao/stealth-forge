@@ -46,7 +46,8 @@ func New(key []byte) (*Cipher, error) {
 // Encrypt returns version || nonce || authenticated ciphertext. A fresh
 // nonce is generated for every value.
 func (c *Cipher) Encrypt(projectID, appID, variableID uuid.UUID, plaintext []byte) ([]byte, error) {
-	if c == nil || c.aead == nil || projectID == uuid.Nil || appID == uuid.Nil || variableID == uuid.Nil {
+	missingIdentity := projectID == uuid.Nil || appID == uuid.Nil || variableID == uuid.Nil
+	if c == nil || c.aead == nil || missingIdentity {
 		return nil, ErrInvalidKey
 	}
 	nonce := make([]byte, c.aead.NonceSize())
@@ -65,7 +66,12 @@ func (c *Cipher) Decrypt(projectID, appID, variableID uuid.UUID, encoded []byte)
 		return nil, ErrInvalidKey
 	}
 	nonceSize := c.aead.NonceSize()
-	if projectID == uuid.Nil || appID == uuid.Nil || variableID == uuid.Nil || len(encoded) < 1+nonceSize+c.aead.Overhead() || encoded[0] != ciphertextVersion {
+	missingIdentity := projectID == uuid.Nil || appID == uuid.Nil || variableID == uuid.Nil
+	tooShort := len(encoded) < 1+nonceSize+c.aead.Overhead()
+	if missingIdentity || tooShort {
+		return nil, ErrInvalidCiphertext
+	}
+	if encoded[0] != ciphertextVersion {
 		return nil, ErrInvalidCiphertext
 	}
 	nonce := encoded[1 : 1+nonceSize]
@@ -77,5 +83,7 @@ func (c *Cipher) Decrypt(projectID, appID, variableID uuid.UUID, encoded []byte)
 }
 
 func associatedData(projectID, appID, variableID uuid.UUID) []byte {
-	return []byte("stealth/app-environment/v1\x00" + projectID.String() + "\x00" + appID.String() + "\x00" + variableID.String())
+	return []byte(
+		"stealth/app-environment/v1\x00" + projectID.String() + "\x00" + appID.String() + "\x00" + variableID.String(),
+	)
 }

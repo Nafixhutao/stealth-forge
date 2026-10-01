@@ -44,7 +44,11 @@ func appActorFrom(r *http.Request) repository.AppActor {
 		return repository.AppActor{}
 	}
 	if actor.kind == apiKeyProjectActor {
-		return repository.AppActor{Kind: repository.AppAPIKeyActor, APIKeyID: actor.apiKeyID, APIKeyScopes: actor.scopes}
+		return repository.AppActor{
+			Kind:         repository.AppAPIKeyActor,
+			APIKeyID:     actor.apiKeyID,
+			APIKeyScopes: actor.scopes,
+		}
 	}
 	account, ok := r.Context().Value(accountContextKey).(domain.Account)
 	if !ok {
@@ -81,7 +85,7 @@ func parseCreateAppRequest(req appRequest) (repository.AppInput, error) {
 
 func parseUpdateAppRequest(req appRequest) (repository.AppPatch, error) {
 	patch := repository.AppPatch{}
-	changed := false
+	var changed bool
 	if req.Name != nil {
 		name, err := parseAppName(*req.Name)
 		if err != nil {
@@ -130,7 +134,11 @@ func (s *Server) listApps(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"apps": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"apps": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) createApp(w http.ResponseWriter, r *http.Request) {
@@ -156,7 +164,12 @@ func (s *Server) createApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if errors.Is(err, repository.ErrConflict) {
-		writeError(w, http.StatusConflict, "conflict", "an App with this name already exists or its platform hostname could not be reserved")
+		writeError(
+			w,
+			http.StatusConflict,
+			"conflict",
+			"an App with this name already exists or its platform hostname could not be reserved",
+		)
 		return
 	}
 	if err != nil {
@@ -216,9 +229,11 @@ func (s *Server) deleteApp(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.repo.DeleteApp(r.Context(), projectID, appID, appActorFrom(r)); appResourceError(w, err) {
+	err := s.repo.DeleteApp(r.Context(), projectID, appID, appActorFrom(r))
+	if appResourceError(w, err) {
 		return
-	} else if err != nil {
+	}
+	if err != nil {
 		internalError(s, w, err)
 		return
 	}
@@ -239,7 +254,14 @@ func (s *Server) listAppEnvironmentVariables(w http.ResponseWriter, r *http.Requ
 		parsed := mustUUID(cursor)
 		cursorID = &parsed
 	}
-	items, next, canManage, err := s.repo.ListAppEnvironmentVariables(r.Context(), projectID, appID, appActorFrom(r), limit, cursorID)
+	items, next, canManage, err := s.repo.ListAppEnvironmentVariables(
+		r.Context(),
+		projectID,
+		appID,
+		appActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if appEnvironmentResourceError(w, err) {
 		return
 	}
@@ -247,7 +269,11 @@ func (s *Server) listAppEnvironmentVariables(w http.ResponseWriter, r *http.Requ
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"variables": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"variables": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) createAppEnvironmentVariable(w http.ResponseWriter, r *http.Request) {
@@ -260,24 +286,48 @@ func (s *Server) createAppEnvironmentVariable(w http.ResponseWriter, r *http.Req
 		return
 	}
 	if !appEnvironmentVariablePattern.MatchString(req.Key) {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "key must start with a letter or underscore and contain only letters, numbers, and underscores")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"key must start with a letter or underscore and contain only letters, numbers, and underscores",
+		)
 		return
 	}
-	if req.Value != nil && (len(*req.Value) > repository.AppEnvironmentVariableMaxValueBytes || strings.ContainsAny(*req.Value, "\x00\r\n")) {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "value must be at most 65536 bytes and cannot contain NUL or line breaks")
+	if req.Value != nil &&
+		(len(*req.Value) > repository.AppEnvironmentVariableMaxValueBytes || strings.ContainsAny(*req.Value, "\x00\r\n")) {
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"value must be at most 65536 bytes and cannot contain NUL or line breaks",
+		)
 		return
 	}
-	if req.Description != nil && (len(*req.Description) > repository.AppEnvironmentVariableMaxDescriptionBytes || strings.ContainsRune(*req.Description, '\x00')) {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "description must be at most 2000 bytes and cannot contain NUL")
+	if req.Description != nil &&
+		(len(*req.Description) > repository.AppEnvironmentVariableMaxDescriptionBytes || strings.ContainsRune(*req.Description, '\x00')) {
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"description must be at most 2000 bytes and cannot contain NUL",
+		)
 		return
 	}
 	if req.Value != nil && s.appSecretCipher == nil {
 		writeError(w, http.StatusServiceUnavailable, "not_ready", "App environment encryption is not ready")
 		return
 	}
-	item, err := s.repo.CreateAppEnvironmentVariable(r.Context(), uuid.Must(uuid.NewV7()), projectID, appID, appActorFrom(r), repository.AppEnvironmentVariableInput{
-		Key: req.Key, IsSecret: req.IsSecret, Value: req.Value, Description: req.Description, Cipher: s.appSecretCipher,
-	})
+	item, err := s.repo.CreateAppEnvironmentVariable(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		projectID,
+		appID,
+		appActorFrom(r),
+		repository.AppEnvironmentVariableInput{
+			Key: req.Key, IsSecret: req.IsSecret, Value: req.Value, Description: req.Description, Cipher: s.appSecretCipher,
+		},
+	)
 	if appEnvironmentResourceError(w, err) {
 		return
 	}
@@ -306,19 +356,41 @@ func (s *Server) updateAppEnvironmentVariable(w http.ResponseWriter, r *http.Req
 		return
 	}
 	if req.Key != nil && !appEnvironmentVariablePattern.MatchString(*req.Key) {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "key must start with a letter or underscore and contain only letters, numbers, and underscores")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"key must start with a letter or underscore and contain only letters, numbers, and underscores",
+		)
 		return
 	}
-	if req.Value != nil && (len(*req.Value) > repository.AppEnvironmentVariableMaxValueBytes || strings.ContainsAny(*req.Value, "\x00\r\n")) {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "value must be at most 65536 bytes and cannot contain NUL or line breaks")
+	if req.Value != nil &&
+		(len(*req.Value) > repository.AppEnvironmentVariableMaxValueBytes || strings.ContainsAny(*req.Value, "\x00\r\n")) {
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"value must be at most 65536 bytes and cannot contain NUL or line breaks",
+		)
 		return
 	}
-	if req.Description != nil && (len(*req.Description) > repository.AppEnvironmentVariableMaxDescriptionBytes || strings.ContainsRune(*req.Description, '\x00')) {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "description must be at most 2000 bytes and cannot contain NUL")
+	if req.Description != nil &&
+		(len(*req.Description) > repository.AppEnvironmentVariableMaxDescriptionBytes || strings.ContainsRune(*req.Description, '\x00')) {
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"description must be at most 2000 bytes and cannot contain NUL",
+		)
 		return
 	}
 	if req.Value != nil && req.ClearValue {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "value and clear_value cannot be used together")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"value and clear_value cannot be used together",
+		)
 		return
 	}
 	if req.Value != nil && s.appSecretCipher == nil {
@@ -329,8 +401,15 @@ func (s *Server) updateAppEnvironmentVariable(w http.ResponseWriter, r *http.Req
 		Key: req.Key, IsSecret: req.IsSecret, Value: req.Value, ClearValue: req.ClearValue,
 		Description: req.Description, SetDescription: req.Description != nil, Cipher: s.appSecretCipher,
 	}
-	if patch.Key == nil && patch.IsSecret == nil && !patch.SetDescription && patch.Value == nil && !patch.ClearValue {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "at least one environment variable setting is required")
+	noSettingsProvided := patch.Key == nil && patch.IsSecret == nil && !patch.SetDescription && patch.Value == nil &&
+		!patch.ClearValue
+	if noSettingsProvided {
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"at least one environment variable setting is required",
+		)
 		return
 	}
 	item, err := s.repo.UpdateAppEnvironmentVariable(r.Context(), projectID, appID, variableID, appActorFrom(r), patch)
@@ -375,13 +454,28 @@ func appEnvironmentResourceError(w http.ResponseWriter, err error) bool {
 	case errors.Is(err, repository.ErrNotFound):
 		writeError(w, http.StatusNotFound, "not_found", "project or App environment variable was not found")
 	case errors.Is(err, repository.ErrForbidden):
-		writeError(w, http.StatusForbidden, "forbidden", "you do not have permission to manage App environment variables in this project")
+		writeError(
+			w,
+			http.StatusForbidden,
+			"forbidden",
+			"you do not have permission to manage App environment variables in this project",
+		)
 	case errors.Is(err, repository.ErrInvalidAppEnvironmentVariable):
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "App environment variable configuration is invalid")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"App environment variable configuration is invalid",
+		)
 	case errors.Is(err, repository.ErrAppEnvironmentVariableLimit):
 		writeError(w, http.StatusConflict, "limit_exceeded", "App environment variable limit reached")
 	case errors.Is(err, repository.ErrAppEnvironmentTotalSizeLimit):
-		writeError(w, http.StatusConflict, "limit_exceeded", "App environment exceeds the maximum total configured value size")
+		writeError(
+			w,
+			http.StatusConflict,
+			"limit_exceeded",
+			"App environment exceeds the maximum total configured value size",
+		)
 	case errors.Is(err, repository.ErrAppSecretUnavailable):
 		writeError(w, http.StatusServiceUnavailable, "not_ready", "App environment encryption is not ready")
 	default:
@@ -411,7 +505,12 @@ func appResourceError(w http.ResponseWriter, err error) bool {
 	case errors.Is(err, repository.ErrForbidden):
 		writeError(w, http.StatusForbidden, "forbidden", "you do not have permission to manage Apps in this project")
 	case errors.Is(err, repository.ErrAppArtifactPublishInProgress):
-		writeError(w, http.StatusConflict, "conflict", "wait for in-flight App artifact uploads or builds to finish before deleting this App")
+		writeError(
+			w,
+			http.StatusConflict,
+			"conflict",
+			"wait for in-flight App artifact uploads or builds to finish before deleting this App",
+		)
 	case errors.Is(err, repository.ErrInvalidAppSettings), errors.Is(err, workloadspec.ErrInvalidSpec):
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", err.Error())
 	default:

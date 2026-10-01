@@ -259,12 +259,12 @@ var releaseManagedImageNames = map[string]string{
 	"OTEL_DOCKER_LOGS_COLLECTOR_IMAGE":     "stealth-otel-docker-logs",
 }
 
-// MigrateReleaseConfig advances release-owned defaults while preserving
+// migrateReleaseConfig advances release-owned defaults while preserving
 // operator-selected values. Image values are updated only when they still
 // equal the canonical image for the installed release; custom registries,
 // digests, and custom tags are treated as operator overrides. Secret values
 // are never regenerated unless a required secret key is absent.
-func MigrateReleaseConfig(values map[string]string, targetVersion, installedVersion string) (string, error) {
+func migrateReleaseConfig(values map[string]string, targetVersion, installedVersion string) (string, error) {
 	if err := ValidateReleaseVersion(targetVersion); err != nil {
 		return "", err
 	}
@@ -353,7 +353,11 @@ func MigrateReleaseConfig(values map[string]string, targetVersion, installedVers
 			updates[key] = value
 		}
 	}
-	trustedProxy := ensureTraefikTrustedProxyCIDR(result["TRUSTED_PROXY_CIDRS"], result["STEALTH_NETWORK_SUBNET"], ingress.trustedProxyCIDR())
+	trustedProxy := ensureTraefikTrustedProxyCIDR(
+		result["TRUSTED_PROXY_CIDRS"],
+		result["STEALTH_NETWORK_SUBNET"],
+		ingress.trustedProxyCIDR(),
+	)
 	if trustedProxy != strings.TrimSpace(result["TRUSTED_PROXY_CIDRS"]) {
 		updates["TRUSTED_PROXY_CIDRS"] = trustedProxy
 	}
@@ -386,7 +390,11 @@ func rejectReleaseDowngrade(targetVersion, installedVersion string) error {
 		return fmt.Errorf("compare installed release versions: %w", err)
 	}
 	if comparison < 0 {
-		return fmt.Errorf("refusing platform downgrade from %s to %s; use the matching release or restore a compatible backup", installedVersion, targetVersion)
+		return fmt.Errorf(
+			"refusing platform downgrade from %s to %s; use the matching release or restore a compatible backup",
+			installedVersion,
+			targetVersion,
+		)
 	}
 	return nil
 }
@@ -471,12 +479,14 @@ func validateConfigValues(values map[string]string) error {
 			return fmt.Errorf("generated configuration value for %s is empty", key)
 		}
 	}
-	if profile := strings.TrimSpace(values["APPS_BUILDKIT_APPARMOR_PROFILE"]); profile != "" && !validBuildKitAppArmorProfile(profile) {
+	if profile := strings.TrimSpace(values["APPS_BUILDKIT_APPARMOR_PROFILE"]); profile != "" &&
+		!validBuildKitAppArmorProfile(profile) {
 		return errorsf("APPS_BUILDKIT_APPARMOR_PROFILE must be unconfined or " + BuildKitAppArmorProfileName)
 	}
 	for _, key := range []string{"APPS_BUILDKIT_CA_CERT", "APPS_BUILDKIT_CLIENT_CERT", "APPS_BUILDKIT_CLIENT_KEY"} {
 		path := values[key]
-		if path == "" || !filepath.IsAbs(path) || filepath.Clean(path) != path || path == string(filepath.Separator) || strings.ContainsAny(path, "\x00\r\n") {
+		if path == "" || !filepath.IsAbs(path) || filepath.Clean(path) != path || path == string(filepath.Separator) ||
+			strings.ContainsAny(path, "\x00\r\n") {
 			return fmt.Errorf("generated configuration value for %s must be an absolute clean non-root path", key)
 		}
 	}
@@ -560,7 +570,9 @@ func validatePublicURL(raw string) (string, error) {
 		return "", errorsf("URL must be an absolute HTTP(S) URL without credentials, query, or fragment")
 	}
 	parsed, err := url.Parse(raw)
-	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil ||
+		parsed.RawQuery != "" ||
+		parsed.Fragment != "" {
 		return "", errorsf("URL must be an absolute HTTP(S) URL without credentials, query, or fragment")
 	}
 	return strings.TrimRight(parsed.String(), "/"), nil
@@ -572,7 +584,9 @@ func validClientID(raw string) bool {
 		return false
 	}
 	for _, character := range raw {
-		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') || strings.ContainsRune(".-_", character) {
+		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+			(character >= '0' && character <= '9') ||
+			strings.ContainsRune(".-_", character) {
 			continue
 		}
 		return false

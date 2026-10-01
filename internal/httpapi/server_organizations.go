@@ -43,7 +43,13 @@ func (s *Server) createOrganization(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 422, "validation_error", err.Error())
 		return
 	}
-	item, err := s.repo.CreateOrganization(r.Context(), uuid.Must(uuid.NewV7()), uuid.Must(uuid.Parse(accountFrom(r).ID)), name, slug)
+	item, err := s.repo.CreateOrganization(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		uuid.Must(uuid.Parse(accountFrom(r).ID)),
+		name,
+		slug,
+	)
 	if err != nil {
 		if errors.Is(err, repository.ErrConflict) {
 			writeError(w, 409, "conflict", "organization slug is already in use")
@@ -80,7 +86,12 @@ func (s *Server) updateOrganization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if errors.Is(err, repository.ErrForbidden) {
-		writeError(w, http.StatusForbidden, "forbidden", "only organization owners and admins can change organization settings")
+		writeError(
+			w,
+			http.StatusForbidden,
+			"forbidden",
+			"only organization owners and admins can change organization settings",
+		)
 		return
 	}
 	if errors.Is(err, repository.ErrConflict) {
@@ -102,7 +113,13 @@ func (s *Server) listMemberships(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	items, next, canManage, err := s.repo.ListMemberships(r.Context(), orgID, uuid.Must(uuid.Parse(accountFrom(r).ID)), limit, cursor)
+	items, next, canManage, err := s.repo.ListMemberships(
+		r.Context(),
+		orgID,
+		uuid.Must(uuid.Parse(accountFrom(r).ID)),
+		limit,
+		cursor,
+	)
 	if authzError(w, err) {
 		return
 	}
@@ -110,5 +127,9 @@ func (s *Server) listMemberships(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"memberships": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"memberships": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }

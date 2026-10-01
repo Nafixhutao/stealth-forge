@@ -89,12 +89,22 @@ type setupPreparedMessage struct {
 // not ask for provider credentials in the terminal; the browser owns the
 // reviewed configuration, while the CLI remains responsible for local Docker
 // capability checks and the short-lived access tunnel.
-func (a *App) runWebBootstrap(ctx context.Context, checks []SystemCheck, layout InstallLayout, version string, existing bool) int {
+func (a *App) runWebBootstrap(
+	ctx context.Context,
+	checks []SystemCheck,
+	layout InstallLayout,
+	version string,
+	existing bool,
+) int {
 	if !checksPass(checks) {
 		fmt.Fprintf(a.errOut, "system requirements are not satisfied: %s\n", failedCheckSummary(checks))
 		return 1
 	}
-	coordinationLock, err := installengine.AcquireProcessLock(layout.StateDir, setupCoordinationLockName, "setup orchestration")
+	coordinationLock, err := installengine.AcquireProcessLock(
+		layout.StateDir,
+		setupCoordinationLockName,
+		"setup orchestration",
+	)
 	if err != nil {
 		fmt.Fprintln(a.errOut, err)
 		fmt.Fprintln(a.errOut, "Another `stealth install` is already coordinating browser setup.")
@@ -104,7 +114,7 @@ func (a *App) runWebBootstrap(ctx context.Context, checks []SystemCheck, layout 
 	var values map[string]string
 	var state setupstate.State
 	var stateErr error
-	stateAvailable := false
+	var stateAvailable bool
 	if existing {
 		values, err = readEnvFile(layout.EnvFile)
 		if err != nil {
@@ -121,8 +131,8 @@ func (a *App) runWebBootstrap(ctx context.Context, checks []SystemCheck, layout 
 			return 1
 		}
 	}
-	setupServiceResumed := false
-	pendingInstall := false
+	var setupServiceResumed bool
+	var pendingInstall bool
 	if existing {
 		state, stateErr = a.loadSetupState(values)
 		if stateErr != nil && !errors.Is(stateErr, os.ErrNotExist) {
@@ -141,7 +151,7 @@ func (a *App) runWebBootstrap(ctx context.Context, checks []SystemCheck, layout 
 	}
 
 	var gid uint32
-	configContents := ""
+	var configContents string
 	if !setupServiceResumed {
 		gid, err = dockerSocketGID("/var/run/docker.sock")
 		if err != nil {
@@ -254,8 +264,8 @@ func (a *App) runWebBootstrap(ctx context.Context, checks []SystemCheck, layout 
 		}
 	}
 	containerName := newSetupContainerName()
-	quickURL := ""
-	tunnelResumed := false
+	var quickURL string
+	var tunnelResumed bool
 	if resumeSession {
 		if name := strings.TrimSpace(state.QuickTunnel); isQuickTunnelContainerName(name) {
 			if candidate, found := findQuickTunnelURL([]byte(state.Secret("quick_tunnel_url"))); found {
@@ -317,7 +327,10 @@ func (a *App) runWebBootstrap(ctx context.Context, checks []SystemCheck, layout 
 	} else {
 		fmt.Fprintln(a.out, "Existing browser setup session resumed; reconnect to the setup URL to continue.")
 	}
-	fmt.Fprintln(a.out, "Complete setup in the browser. The temporary tunnel closes after the named production tunnel is verified.")
+	fmt.Fprintln(
+		a.out,
+		"Complete setup in the browser. The temporary tunnel closes after the named production tunnel is verified.",
+	)
 	return a.orchestrateBrowserSetupLocked(ctx, layout, values, containerName)
 }
 
@@ -406,8 +419,14 @@ func (a *App) runSetup(args []string) int {
 		fmt.Fprintln(a.errOut, "Usage: stealth setup [--adopt-owner]")
 		fmt.Fprintln(a.errOut)
 		fmt.Fprintln(a.errOut, "Resume first-run Instance Owner setup for an installed Stealth instance.")
-		fmt.Fprintln(a.errOut, "The setup code expires after 15 minutes and the temporary onboarding tunnel is closed after use.")
-		fmt.Fprintln(a.errOut, "Use --adopt-owner only from the local operator terminal to migrate an existing account.")
+		fmt.Fprintln(
+			a.errOut,
+			"The setup code expires after 15 minutes and the temporary onboarding tunnel is closed after use.",
+		)
+		fmt.Fprintln(
+			a.errOut,
+			"Use --adopt-owner only from the local operator terminal to migrate an existing account.",
+		)
 	}
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -421,7 +440,10 @@ func (a *App) runSetup(args []string) int {
 	}
 	if *adoptOwner && !a.hasInteractiveTerminal() {
 		fmt.Fprintln(a.errOut, "Owner adoption requires an interactive TTY.")
-		fmt.Fprintln(a.errOut, "Run `stealth setup --adopt-owner` from a terminal; the installation was left unchanged.")
+		fmt.Fprintln(
+			a.errOut,
+			"Run `stealth setup --adopt-owner` from a terminal; the installation was left unchanged.",
+		)
 		return 1
 	}
 	ctx, stop := signalContext()
@@ -453,7 +475,11 @@ func (a *App) runAdoptOwnerWithContext(ctx context.Context) int {
 		return 1
 	}
 	ports := portsFromConfig(values)
-	accounts, err := a.bootstrapAdoptionAccounts(ctx, "http://127.0.0.1:"+ports.API+"/v1/bootstrap/adoption/accounts", key)
+	accounts, err := a.bootstrapAdoptionAccounts(
+		ctx,
+		"http://127.0.0.1:"+ports.API+"/v1/bootstrap/adoption/accounts",
+		key,
+	)
 	if err != nil {
 		fmt.Fprintf(a.errOut, "could not list accounts eligible for adoption: %v\n", err)
 		fmt.Fprintln(a.errOut, "The installation and data were left unchanged.")
@@ -487,7 +513,7 @@ func (a *App) runAdoptOwnerWithContext(ctx context.Context) int {
 		return 1
 	}
 	confirmation := strings.TrimSpace(line)
-	selectedID := ""
+	var selectedID string
 	for _, account := range accounts {
 		if confirmation == "ADOPT "+account.ID {
 			selectedID = account.ID
@@ -515,8 +541,15 @@ func (a *App) runSetupWithContext(ctx context.Context) int {
 	}
 	if !installationExists(layout) {
 		if partialInstallationExists(layout) {
-			fmt.Fprintf(a.errOut, "A partial Stealth installation was found at %s, but config.env is missing.\n", layout.Root)
-			fmt.Fprintln(a.errOut, "The installation was left unchanged. Run `stealth install --repair` or `stealth doctor` to recover it.")
+			fmt.Fprintf(
+				a.errOut,
+				"A partial Stealth installation was found at %s, but config.env is missing.\n",
+				layout.Root,
+			)
+			fmt.Fprintln(
+				a.errOut,
+				"The installation was left unchanged. Run `stealth install --repair` or `stealth doctor` to recover it.",
+			)
 			return 1
 		}
 		fmt.Fprintln(a.errOut, "No Stealth installation was found. Run `stealth install` first.")
@@ -538,8 +571,10 @@ func (a *App) runSetupWithContext(ctx context.Context) int {
 		}
 		return a.runWebBootstrap(ctx, a.systemChecks(ctx, layout.Root), layout, version, true)
 	}
-	if statePath := strings.TrimSpace(values["STEALTH_SETUP_STATE_FILE"]); statePath != "" && installengine.FileExists(statePath) {
-		if state, stateErr := a.loadSetupState(values); stateErr == nil && state.InstallRunID != "" && state.Phase != setupstate.PhaseComplete {
+	if statePath := strings.TrimSpace(values["STEALTH_SETUP_STATE_FILE"]); statePath != "" &&
+		installengine.FileExists(statePath) {
+		if state, stateErr := a.loadSetupState(values); stateErr == nil && state.InstallRunID != "" &&
+			state.Phase != setupstate.PhaseComplete {
 			version := readVersion(layout)
 			if version == "" {
 				version, err = imageVersion(values["STEALTH_API_IMAGE"])
@@ -581,7 +616,14 @@ func (a *App) runSetupWithContext(ctx context.Context) int {
 func signalContext() (context.Context, context.CancelFunc) {
 	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 }
-func (a *App) prepareSetup(ctx context.Context, layout InstallLayout, values map[string]string, apiURL, localURL, containerName, existingTunnelURL string, tunnelState *setupTunnelState) setupPreparedMessage {
+
+func (a *App) prepareSetup(
+	ctx context.Context,
+	layout InstallLayout,
+	values map[string]string,
+	apiURL, localURL, containerName, existingTunnelURL string,
+	tunnelState *setupTunnelState,
+) setupPreparedMessage {
 	status, err := a.bootstrapStatus(ctx, apiURL+"/v1/bootstrap/status")
 	if err != nil {
 		if isBootstrapComplete(err) {
@@ -630,7 +672,9 @@ func (a *App) prepareSetup(ctx context.Context, layout InstallLayout, values map
 			cleanupErr := a.closeQuickTunnel(cleanupContext, layout, tunnelName)
 			cancel()
 			if cleanupErr != nil {
-				return setupPreparedMessage{err: fmt.Errorf("temporary onboarding tunnel failed and could not be cleaned up: %w", cleanupErr)}
+				return setupPreparedMessage{
+					err: fmt.Errorf("temporary onboarding tunnel failed and could not be cleaned up: %w", cleanupErr),
+				}
 			}
 		}
 		message.warning = "the temporary tunnel was unavailable; continue with the local setup URL"
@@ -661,7 +705,11 @@ func (a *App) bootstrapStatus(ctx context.Context, endpoint string) (bootstrapSt
 	return payload, nil
 }
 
-func (a *App) bootstrapAdoptionAccounts(ctx context.Context, endpoint string, key []byte) ([]bootstrapAdoptionAccountPayload, error) {
+func (a *App) bootstrapAdoptionAccounts(
+	ctx context.Context,
+	endpoint string,
+	key []byte,
+) ([]bootstrapAdoptionAccountPayload, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, err
@@ -704,7 +752,11 @@ func (a *App) adoptBootstrapOwner(ctx context.Context, endpoint string, key []by
 	return nil
 }
 
-func (a *App) createBootstrapSession(ctx context.Context, endpoint string, key []byte) (bootstrapSessionPayload, error) {
+func (a *App) createBootstrapSession(
+	ctx context.Context,
+	endpoint string,
+	key []byte,
+) (bootstrapSessionPayload, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, http.NoBody)
 	if err != nil {
 		return bootstrapSessionPayload{}, err
@@ -755,7 +807,9 @@ func (a *App) recoverSetupSession(ctx context.Context, endpoint string, key []by
 func bootstrapCLIKey(values map[string]string) ([]byte, error) {
 	raw := strings.TrimSpace(values["BOOTSTRAP_CLI_KEY"])
 	if raw == "" {
-		return nil, fmt.Errorf("installation config has no dedicated bootstrap CLI key; add BOOTSTRAP_CLI_KEY before retrying (FUNCTIONS_SECRET_KEY cannot be reused)")
+		return nil, fmt.Errorf(
+			"installation config has no dedicated bootstrap CLI key; add BOOTSTRAP_CLI_KEY before retrying (FUNCTIONS_SECRET_KEY cannot be reused)",
+		)
 	}
 	key, err := base64.StdEncoding.DecodeString(raw)
 	if err != nil {
@@ -772,11 +826,19 @@ func isBootstrapComplete(err error) bool {
 	return errors.As(err, &statusErr) && statusErr.status == http.StatusGone
 }
 
-func (a *App) startQuickTunnel(ctx context.Context, layout InstallLayout, network, containerName string) (string, error) {
+func (a *App) startQuickTunnel(
+	ctx context.Context,
+	layout InstallLayout,
+	network, containerName string,
+) (string, error) {
 	return a.startQuickTunnelTo(ctx, layout, network, containerName, "http://proxy:80")
 }
 
-func (a *App) startQuickTunnelTo(ctx context.Context, layout InstallLayout, network, containerName, target string) (string, error) {
+func (a *App) startQuickTunnelTo(
+	ctx context.Context,
+	layout InstallLayout,
+	network, containerName, target string,
+) (string, error) {
 	if !isQuickTunnelContainerName(containerName) {
 		return "", fmt.Errorf("temporary tunnel container name is invalid")
 	}
@@ -787,7 +849,7 @@ func (a *App) startQuickTunnelTo(ctx context.Context, layout InstallLayout, netw
 		return containerName, fmt.Errorf("start temporary onboarding tunnel: %w", err)
 	}
 	var lastLogs []byte
-	for attempt := 0; attempt < positiveAttempts(a.pollAttempts); attempt++ {
+	for attempt := range positiveAttempts(a.pollAttempts) {
 		if err := ctx.Err(); err != nil {
 			return containerName, err
 		}
@@ -803,7 +865,8 @@ func (a *App) startQuickTunnelTo(ctx context.Context, layout InstallLayout, netw
 		}
 		// Do not burn the whole deadline if the temporary container already
 		// exited without publishing a URL.
-		if stopped, statusErr := a.quickTunnelContainerStopped(ctx, layout, containerName); statusErr == nil && stopped {
+		if stopped, statusErr := a.quickTunnelContainerStopped(ctx, layout, containerName); statusErr == nil &&
+			stopped {
 			return containerName, quickTunnelExitedError(lastLogs)
 		}
 		if attempt+1 < positiveAttempts(a.pollAttempts) {
@@ -819,8 +882,20 @@ func (a *App) startQuickTunnelTo(ctx context.Context, layout InstallLayout, netw
 // container has already reached a terminal state. A missing or unreadable
 // status is treated as "unknown" so a transient Docker error never aborts a
 // tunnel that could still publish a URL.
-func (a *App) quickTunnelContainerStopped(ctx context.Context, layout InstallLayout, containerName string) (bool, error) {
-	output, err := a.runner.Output(ctx, layout.Root, "docker", "inspect", "--format", "{{.State.Status}}", containerName)
+func (a *App) quickTunnelContainerStopped(
+	ctx context.Context,
+	layout InstallLayout,
+	containerName string,
+) (bool, error) {
+	output, err := a.runner.Output(
+		ctx,
+		layout.Root,
+		"docker",
+		"inspect",
+		"--format",
+		"{{.State.Status}}",
+		containerName,
+	)
 	if err != nil {
 		return false, err
 	}
@@ -861,7 +936,12 @@ func (a *App) printQuickTunnelFallback(tunnelErr error) {
 	fmt.Fprintln(a.errOut, "  http://localhost:8081/setup")
 }
 
-func (a *App) registerQuickTunnel(ctx context.Context, endpoint string, key []byte, containerName, tunnelURL string) error {
+func (a *App) registerQuickTunnel(
+	ctx context.Context,
+	endpoint string,
+	key []byte,
+	containerName, tunnelURL string,
+) error {
 	body, err := json.Marshal(setupQuickTunnelPayload{ContainerName: containerName, URL: tunnelURL})
 	if err != nil {
 		return err
@@ -921,7 +1001,9 @@ func findQuickTunnelURL(logs []byte) (string, bool) {
 		}
 		match := text[indexes[0]:indexes[1]]
 		parsed, err := url.Parse(match)
-		if err != nil || parsed.Scheme != "https" || parsed.User != nil || parsed.Port() != "" || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+		if err != nil || parsed.Scheme != "https" || parsed.User != nil || parsed.Port() != "" || parsed.Path != "" ||
+			parsed.RawQuery != "" ||
+			parsed.Fragment != "" {
 			continue
 		}
 		host := strings.ToLower(parsed.Hostname())
@@ -938,7 +1020,9 @@ const (
 )
 
 var (
-	tunnelSecretPattern = regexp.MustCompile(`(?i)\b(token|secret|password|passwd|credential|credentials|api[_-]?key|access[_-]?key|client[_-]?secret)\b\s*[:=]\s*("[^"]*"|'[^']*'|\S+)`)
+	tunnelSecretPattern = regexp.MustCompile(
+		`(?i)\b(token|secret|password|passwd|credential|credentials|api[_-]?key|access[_-]?key|client[_-]?secret)\b\s*[:=]\s*("[^"]*"|'[^']*'|\S+)`,
+	)
 	tunnelBearerPattern = regexp.MustCompile(`(?i)\b(bearer)\s+[A-Za-z0-9._~+/=-]+`)
 )
 
@@ -965,7 +1049,9 @@ func sanitizeTunnelLogs(logs []byte) string {
 
 func isURLHostContinuation(text string, start int) bool {
 	character := text[start]
-	if character != '.' && character != '-' && (character < '0' || character > '9') && (character < 'a' || character > 'z') && (character < 'A' || character > 'Z') {
+	if character != '.' && character != '-' && (character < '0' || character > '9') &&
+		(character < 'a' || character > 'z') &&
+		(character < 'A' || character > 'Z') {
 		return false
 	}
 	// A period followed by whitespace or punctuation can be ordinary sentence
@@ -978,7 +1064,9 @@ func isURLHostContinuation(text string, start int) bool {
 }
 
 func isURLHostContinuationCharacter(character byte) bool {
-	return character == '.' || character == '-' || character >= '0' && character <= '9' || character >= 'a' && character <= 'z' || character >= 'A' && character <= 'Z'
+	return character == '.' || character == '-' || character >= '0' && character <= '9' ||
+		character >= 'a' && character <= 'z' ||
+		character >= 'A' && character <= 'Z'
 }
 
 func (a *App) closeQuickTunnel(ctx context.Context, layout InstallLayout, containerName string) error {
@@ -999,7 +1087,17 @@ func (a *App) quickTunnelPresent(ctx context.Context, layout InstallLayout, cont
 	if !isQuickTunnelContainerName(containerName) {
 		return false, nil
 	}
-	containers, err := a.runner.Output(ctx, layout.Root, "docker", "ps", "--all", "--filter", "name=^"+containerName+"$", "--format", "{{.Names}}")
+	containers, err := a.runner.Output(
+		ctx,
+		layout.Root,
+		"docker",
+		"ps",
+		"--all",
+		"--filter",
+		"name=^"+containerName+"$",
+		"--format",
+		"{{.Names}}",
+	)
 	if err != nil {
 		return false, err
 	}
@@ -1015,7 +1113,16 @@ func (a *App) quickTunnelRunning(ctx context.Context, layout InstallLayout, cont
 	if !isQuickTunnelContainerName(containerName) {
 		return false, nil
 	}
-	containers, err := a.runner.Output(ctx, layout.Root, "docker", "ps", "--filter", "name=^"+containerName+"$", "--format", "{{.Names}}")
+	containers, err := a.runner.Output(
+		ctx,
+		layout.Root,
+		"docker",
+		"ps",
+		"--filter",
+		"name=^"+containerName+"$",
+		"--format",
+		"{{.Names}}",
+	)
 	if err != nil {
 		return false, err
 	}
@@ -1036,7 +1143,11 @@ func safeDockerName(value string) bool {
 		return false
 	}
 	for index, character := range value {
-		if (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '.' || character == '_' || character == '-' {
+		isUpper := character >= 'A' && character <= 'Z'
+		isLower := character >= 'a' && character <= 'z'
+		isDigit := character >= '0' && character <= '9'
+		isSeparator := character == '.' || character == '_' || character == '-'
+		if isUpper || isLower || isDigit || isSeparator {
 			if index == 0 && (character == '.' || character == '_' || character == '-') {
 				return false
 			}

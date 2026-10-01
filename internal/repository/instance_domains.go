@@ -17,7 +17,10 @@ var (
 	ErrInstanceDomainConflict = errors.New("instance workload domain conflicts with an existing Site custom domain")
 )
 
-func (r *Repository) GetInstanceDomainSettings(ctx context.Context, instanceHostname string) (domain.InstanceDomainSettings, error) {
+func (r *Repository) GetInstanceDomainSettings(
+	ctx context.Context,
+	instanceHostname string,
+) (domain.InstanceDomainSettings, error) {
 	if r == nil || r.pool == nil {
 		return domain.InstanceDomainSettings{}, ErrNotFound
 	}
@@ -26,17 +29,28 @@ func (r *Repository) GetInstanceDomainSettings(ctx context.Context, instanceHost
 		return domain.InstanceDomainSettings{}, err
 	}
 	var workloadBaseDomain *string
-	if err := r.pool.QueryRow(ctx, `SELECT workload_base_domain FROM instance_domain_settings WHERE id=TRUE`).Scan(&workloadBaseDomain); errors.Is(err, pgx.ErrNoRows) {
+	err = r.pool.QueryRow(ctx, `SELECT workload_base_domain FROM instance_domain_settings WHERE id=TRUE`).
+		Scan(&workloadBaseDomain)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.InstanceDomainSettings{}, ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return domain.InstanceDomainSettings{}, err
 	}
-	return domain.InstanceDomainSettings{InstanceHostname: canonicalHostname, WorkloadBaseDomain: workloadBaseDomain}, nil
+	return domain.InstanceDomainSettings{
+		InstanceHostname:   canonicalHostname,
+		WorkloadBaseDomain: workloadBaseDomain,
+	}, nil
 }
 
 // UpdateInstanceDomainSettings performs owner authorization and persistence in
 // one transaction. A nil workloadBaseDomain explicitly clears the setting.
-func (r *Repository) UpdateInstanceDomainSettings(ctx context.Context, accountID uuid.UUID, instanceHostname string, workloadBaseDomain *string) (domain.InstanceDomainSettings, error) {
+func (r *Repository) UpdateInstanceDomainSettings(
+	ctx context.Context,
+	accountID uuid.UUID,
+	instanceHostname string,
+	workloadBaseDomain *string,
+) (domain.InstanceDomainSettings, error) {
 	if r == nil || r.pool == nil {
 		return domain.InstanceDomainSettings{}, ErrNotFound
 	}
@@ -48,7 +62,8 @@ func (r *Repository) UpdateInstanceDomainSettings(ctx context.Context, accountID
 	if err != nil {
 		return domain.InstanceDomainSettings{}, err
 	}
-	if canonicalWorkloadDomain != nil && (canonicalHostname == *canonicalWorkloadDomain || domainname.IsSubdomain(canonicalHostname, *canonicalWorkloadDomain)) {
+	if canonicalWorkloadDomain != nil &&
+		(canonicalHostname == *canonicalWorkloadDomain || domainname.IsSubdomain(canonicalHostname, *canonicalWorkloadDomain)) {
 		return domain.InstanceDomainSettings{}, ErrInvalidInstanceDomain
 	}
 
@@ -61,13 +76,15 @@ func (r *Repository) UpdateInstanceDomainSettings(ctx context.Context, accountID
 		return domain.InstanceDomainSettings{}, err
 	}
 	var previousWorkloadDomain *string
-	if err := tx.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 		SELECT workload_base_domain
 		FROM instance_domain_settings
 		WHERE id=TRUE
-		FOR UPDATE`).Scan(&previousWorkloadDomain); errors.Is(err, pgx.ErrNoRows) {
+		FOR UPDATE`).Scan(&previousWorkloadDomain)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.InstanceDomainSettings{}, ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return domain.InstanceDomainSettings{}, err
 	}
 	conflicts, err := workloadDomainConflictsWithSiteDomainsTx(ctx, tx, canonicalWorkloadDomain)
@@ -102,7 +119,10 @@ func (r *Repository) UpdateInstanceDomainSettings(ctx context.Context, accountID
 	if err := tx.Commit(ctx); err != nil {
 		return domain.InstanceDomainSettings{}, err
 	}
-	return domain.InstanceDomainSettings{InstanceHostname: canonicalHostname, WorkloadBaseDomain: canonicalWorkloadDomain}, nil
+	return domain.InstanceDomainSettings{
+		InstanceHostname:   canonicalHostname,
+		WorkloadBaseDomain: canonicalWorkloadDomain,
+	}, nil
 }
 
 func normalizeInstanceHostname(value string) (string, error) {

@@ -36,12 +36,28 @@ func (w *Worker) RunOnce(ctx context.Context) (bool, error) {
 		metrics.JobsClaimed.Inc()
 		metrics.InFlight.Inc()
 	}
-	spanContext, span := observability.StartWorkerSpan(ctx, "functions.execute", attribute.String("stealth.function.runtime", job.Function.Runtime))
+	spanContext, span := observability.StartWorkerSpan(
+		ctx,
+		"functions.execute",
+		attribute.String("stealth.function.runtime", job.Function.Runtime),
+	)
 	err = w.handle(spanContext, job)
 	if err != nil {
 		span.RecordError(errors.New("function execution failed"))
 		span.SetStatus(codes.Error, "function execution failed")
-		w.Logger.Error("function execution failed", "execution_id", job.Execution.ID, "function_id", job.Execution.FunctionID, "deployment_id", job.Execution.DeploymentID, "project_id", job.Execution.ProjectID, "error", err)
+		w.Logger.Error(
+			"function execution failed",
+			"execution_id",
+			job.Execution.ID,
+			"function_id",
+			job.Execution.FunctionID,
+			"deployment_id",
+			job.Execution.DeploymentID,
+			"project_id",
+			job.Execution.ProjectID,
+			"error",
+			err,
+		)
 	} else {
 		span.SetStatus(codes.Ok, "")
 	}
@@ -115,7 +131,13 @@ func (w *Worker) handle(parent context.Context, job repository.FunctionExecution
 	if err := validateEntrypointFile(workspace, job.Function.Entrypoint); err != nil {
 		return w.fail(parent, job, "function entrypoint is unavailable")
 	}
-	variables, err := w.ExecutionStore.FunctionRuntimeVariablesForDeployment(parent, mustUUID(job.Execution.ProjectID), mustUUID(job.Execution.FunctionID), mustUUID(job.Execution.DeploymentID), w.Cipher)
+	variables, err := w.ExecutionStore.FunctionRuntimeVariablesForDeployment(
+		parent,
+		mustUUID(job.Execution.ProjectID),
+		mustUUID(job.Execution.FunctionID),
+		mustUUID(job.Execution.DeploymentID),
+		w.Cipher,
+	)
 	if err != nil {
 		return w.fail(parent, job, "function runtime variables are unavailable")
 	}
@@ -160,7 +182,18 @@ func (w *Worker) handle(parent context.Context, job repository.FunctionExecution
 	}
 	output, contentType := normalizeOutput(redactedStdout)
 	status := 200
-	_, err = w.ExecutionStore.TransitionFunctionExecutionResultForWorker(parent, mustUUID(job.Execution.ProjectID), mustUUID(job.Execution.FunctionID), mustUUID(jobID), w.WorkerID, "succeeded", "", &status, output, &contentType)
+	_, err = w.ExecutionStore.TransitionFunctionExecutionResultForWorker(
+		parent,
+		mustUUID(job.Execution.ProjectID),
+		mustUUID(job.Execution.FunctionID),
+		mustUUID(jobID),
+		w.WorkerID,
+		"succeeded",
+		"",
+		&status,
+		output,
+		&contentType,
+	)
 	if metrics := w.Metrics; metrics != nil {
 		if err != nil {
 			metrics.Errors.WithLabelValues("transition").Inc()
@@ -171,10 +204,26 @@ func (w *Worker) handle(parent context.Context, job repository.FunctionExecution
 	return err
 }
 
-func (w *Worker) fail(ctx context.Context, job repository.FunctionExecutionJob, message string, secrets ...string) error {
+func (w *Worker) fail(
+	ctx context.Context,
+	job repository.FunctionExecutionJob,
+	message string,
+	secrets ...string,
+) error {
 	message = Redact(message, secrets)
 	message, _ = executionErrorText(message)
-	_, err := w.ExecutionStore.TransitionFunctionExecutionResultForWorker(ctx, mustUUID(job.Execution.ProjectID), mustUUID(job.Execution.FunctionID), mustUUID(job.Execution.ID), w.WorkerID, "failed", message, nil, nil, nil)
+	_, err := w.ExecutionStore.TransitionFunctionExecutionResultForWorker(
+		ctx,
+		mustUUID(job.Execution.ProjectID),
+		mustUUID(job.Execution.FunctionID),
+		mustUUID(job.Execution.ID),
+		w.WorkerID,
+		"failed",
+		message,
+		nil,
+		nil,
+		nil,
+	)
 	if metrics := w.Metrics; metrics != nil {
 		if err != nil {
 			metrics.Errors.WithLabelValues("transition").Inc()
@@ -190,7 +239,16 @@ func (w *Worker) appendLog(ctx context.Context, job repository.FunctionExecution
 	if strings.TrimSpace(message) == "" {
 		return nil
 	}
-	_, err := w.ExecutionStore.AppendFunctionExecutionLog(ctx, mustUUID(job.Execution.ProjectID), mustUUID(job.Execution.FunctionID), mustUUID(job.Execution.ID), uuid.Must(uuid.NewV7()), 0, level, message)
+	_, err := w.ExecutionStore.AppendFunctionExecutionLog(
+		ctx,
+		mustUUID(job.Execution.ProjectID),
+		mustUUID(job.Execution.FunctionID),
+		mustUUID(job.Execution.ID),
+		uuid.Must(uuid.NewV7()),
+		0,
+		level,
+		message,
+	)
 	return err
 }
 

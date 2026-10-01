@@ -83,7 +83,12 @@ type FileOwner struct {
 // one-shot preparation process, derives only Cloudflare connection fields,
 // and atomically publishes an encrypted narrow artifact. A missing source or
 // a valid non-Cloudflare setup removes any stale derived artifact.
-func Prepare(ctx context.Context, sourcePath, destinationPath string, cipher *functionsecret.Cipher, owner *FileOwner) (string, error) {
+func Prepare(
+	ctx context.Context,
+	sourcePath, destinationPath string,
+	cipher *functionsecret.Cipher,
+	owner *FileOwner,
+) (string, error) {
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
@@ -92,7 +97,8 @@ func Prepare(ctx context.Context, sourcePath, destinationPath string, cipher *fu
 	}
 	importDirectory := filepath.Dir(destinationPath)
 	relativeSource, err := filepath.Rel(importDirectory, sourcePath)
-	if err != nil || relativeSource == "." || (relativeSource != ".." && !strings.HasPrefix(relativeSource, ".."+string(filepath.Separator))) {
+	if err != nil || relativeSource == "." ||
+		(relativeSource != ".." && !strings.HasPrefix(relativeSource, ".."+string(filepath.Separator))) {
 		return "", errInvalidPath
 	}
 	if err := cleanWorkerImportDirectory(importDirectory, filepath.Base(destinationPath)); err != nil {
@@ -105,7 +111,12 @@ func Prepare(ctx context.Context, sourcePath, destinationPath string, cipher *fu
 		}
 		return OutcomeNoImport, nil
 	}
-	if err != nil || sourceInfo.Mode()&os.ModeSymlink != 0 || !sourceInfo.Mode().IsRegular() || sourceInfo.Size() <= 0 || sourceInfo.Size() > maxSetupSnapshotBytes {
+	if err != nil {
+		return "", clearArtifactAfterFailure(destinationPath, errInvalidSource)
+	}
+	symlinkOrNotRegular := sourceInfo.Mode()&os.ModeSymlink != 0 || !sourceInfo.Mode().IsRegular()
+	sizeInvalid := sourceInfo.Size() <= 0 || sourceInfo.Size() > maxSetupSnapshotBytes
+	if symlinkOrNotRegular || sizeInvalid {
 		return "", clearArtifactAfterFailure(destinationPath, errInvalidSource)
 	}
 	state, err := setupstate.LoadEncryptedSnapshot(ctx, sourcePath, cipher)
@@ -136,7 +147,11 @@ func Prepare(ctx context.Context, sourcePath, destinationPath string, cipher *fu
 // empty when the optional source is absent. When an owner is supplied, a
 // root-run initializer resets a reused volume before cleanup and then assigns
 // the handoff directory to the installation UID and fixed worker group.
-func PublishLegacySetupSnapshot(ctx context.Context, sourcePath, inputDirectory string, owners ...*FileOwner) (published bool, resultErr error) {
+func PublishLegacySetupSnapshot(
+	ctx context.Context,
+	sourcePath, inputDirectory string,
+	owners ...*FileOwner,
+) (published bool, resultErr error) {
 	if err := ctx.Err(); err != nil {
 		return false, err
 	}
@@ -147,7 +162,8 @@ func PublishLegacySetupSnapshot(ctx context.Context, sourcePath, inputDirectory 
 	if len(owners) == 1 {
 		owner = owners[0]
 	}
-	if !validFilePath(sourcePath) || filepath.Base(sourcePath) != legacySetupSnapshotName || !validFilePath(inputDirectory) ||
+	if !validFilePath(sourcePath) || filepath.Base(sourcePath) != legacySetupSnapshotName ||
+		!validFilePath(inputDirectory) ||
 		filepath.Clean(filepath.Dir(sourcePath)) == filepath.Clean(inputDirectory) {
 		return false, errInvalidPath
 	}
@@ -199,11 +215,13 @@ func PublishLegacySetupSnapshot(ctx context.Context, sourcePath, inputDirectory 
 	source := os.NewFile(uintptr(fd), sourcePath)
 	defer source.Close()
 	info, err := source.Stat()
-	if err != nil || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > maxSetupSnapshotBytes || info.Mode().Perm()&0o007 != 0 {
+	if err != nil || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > maxSetupSnapshotBytes ||
+		info.Mode().Perm()&0o007 != 0 {
 		return false, errInvalidSource
 	}
 	contents, err := io.ReadAll(io.LimitReader(source, maxSetupSnapshotBytes+1))
-	if err != nil || len(contents) == 0 || len(contents) > maxSetupSnapshotBytes || int64(len(contents)) != info.Size() {
+	if err != nil || len(contents) == 0 || len(contents) > maxSetupSnapshotBytes ||
+		int64(len(contents)) != info.Size() {
 		return false, errInvalidSource
 	}
 	if err := ctx.Err(); err != nil {
@@ -239,10 +257,11 @@ func cleanLegacySetupInputDirectory(directory string) error {
 	if err != nil {
 		return errArtifactIO
 	}
-	removed := false
+	var removed bool
 	for _, entry := range entries {
 		name := entry.Name()
-		if name != legacySetupSnapshotName && name != legacySetupTempName && !strings.HasPrefix(name, ".setup-state.enc.tmp-") {
+		if name != legacySetupSnapshotName && name != legacySetupTempName &&
+			!strings.HasPrefix(name, ".setup-state.enc.tmp-") {
 			return errInvalidSource
 		}
 		path := filepath.Join(directory, name)
@@ -365,11 +384,18 @@ func envelopeFromSetupState(state setupstate.State) (Envelope, string) {
 	if tunnelToken == "" {
 		tunnelToken = strings.TrimSpace(state.Secret("tunnel_token"))
 	}
-	hasIntent := state.Cloudflare.Mode != "" || state.Cloudflare.Connected || !state.Cloudflare.Binding.IsZero() || binding.HasIntent() || apiToken != "" || tunnelToken != ""
+	hasMode := state.Cloudflare.Mode != ""
+	hasStoredBinding := !state.Cloudflare.Binding.IsZero()
+	hasBindingIntent := binding.HasIntent()
+	hasSecrets := apiToken != "" || tunnelToken != ""
+	hasIntent := hasMode || state.Cloudflare.Connected || hasStoredBinding || hasBindingIntent || hasSecrets
 	if !hasIntent {
 		return Envelope{}, OutcomeNoImport
 	}
-	if binding.Validate() != nil || binding.AccountID == "" || binding.ZoneID == "" || binding.Hostname == "" || binding.TunnelID == "" || binding.TunnelName == "" || binding.RecordID == "" {
+	bindingInvalid := binding.Validate() != nil
+	bindingMissingFields := binding.AccountID == "" || binding.ZoneID == "" || binding.Hostname == ""
+	bindingMissingTunnel := binding.TunnelID == "" || binding.TunnelName == "" || binding.RecordID == ""
+	if bindingInvalid || bindingMissingFields || bindingMissingTunnel {
 		return Envelope{Version: Version, State: StateReconnectRequired}, OutcomeReconnectRequired
 	}
 	if len(apiToken) > 4096 || strings.ContainsAny(apiToken, "\x00\r\n") {
@@ -389,7 +415,10 @@ func validateEnvelope(envelope Envelope) error {
 	}
 	switch envelope.State {
 	case StateReconnectRequired:
-		if envelope.AccountID != "" || envelope.ConsoleZoneID != "" || envelope.ConsoleHostname != "" || envelope.TunnelID != "" || envelope.TunnelName != "" || envelope.ConsoleRecordID != "" || envelope.APIToken != "" {
+		hasConnectionFields := envelope.AccountID != "" || envelope.ConsoleZoneID != "" ||
+			envelope.ConsoleHostname != ""
+		hasTunnelFields := envelope.TunnelID != "" || envelope.TunnelName != "" || envelope.ConsoleRecordID != ""
+		if hasConnectionFields || hasTunnelFields || envelope.APIToken != "" {
 			return errInvalidArtifact
 		}
 		return nil
@@ -401,10 +430,15 @@ func validateEnvelope(envelope Envelope) error {
 		value string
 		max   int
 	}{
-		{envelope.AccountID, 128}, {envelope.ConsoleZoneID, 128}, {envelope.TunnelID, 128},
-		{envelope.TunnelName, 120}, {envelope.ConsoleRecordID, 128}, {envelope.ConsoleHostname, 253},
+		{value: envelope.AccountID, max: 128},
+		{value: envelope.ConsoleZoneID, max: 128},
+		{value: envelope.TunnelID, max: 128},
+		{value: envelope.TunnelName, max: 120},
+		{value: envelope.ConsoleRecordID, max: 128},
+		{value: envelope.ConsoleHostname, max: 253},
 	} {
-		if strings.TrimSpace(field.value) != field.value || field.value == "" || len(field.value) > field.max || strings.ContainsAny(field.value, "\x00\r\n") {
+		if strings.TrimSpace(field.value) != field.value || field.value == "" || len(field.value) > field.max ||
+			strings.ContainsAny(field.value, "\x00\r\n") {
 			return errInvalidArtifact
 		}
 	}
@@ -412,7 +446,8 @@ func validateEnvelope(envelope Envelope) error {
 	if err != nil || hostname != envelope.ConsoleHostname {
 		return errInvalidArtifact
 	}
-	if len(envelope.APIToken) > 4096 || strings.TrimSpace(envelope.APIToken) != envelope.APIToken || strings.ContainsAny(envelope.APIToken, "\x00\r\n") {
+	if len(envelope.APIToken) > 4096 || strings.TrimSpace(envelope.APIToken) != envelope.APIToken ||
+		strings.ContainsAny(envelope.APIToken, "\x00\r\n") {
 		return errInvalidArtifact
 	}
 	return nil
@@ -563,7 +598,7 @@ func cleanWorkerImportDirectory(directory, artifactName string) error {
 	if err != nil {
 		return ErrWorkerBoundaryUnsafe
 	}
-	removed := false
+	var removed bool
 	for _, entry := range entries {
 		name := entry.Name()
 		if name == artifactName {
@@ -573,7 +608,8 @@ func cleanWorkerImportDirectory(directory, artifactName string) error {
 			}
 			continue
 		}
-		if name == legacySetupSnapshotName || name == legacySetupTempName || (strings.HasPrefix(name, ".cloudflare-import-") && strings.HasSuffix(name, ".tmp")) {
+		if name == legacySetupSnapshotName || name == legacySetupTempName ||
+			(strings.HasPrefix(name, ".cloudflare-import-") && strings.HasSuffix(name, ".tmp")) {
 			entryInfo, statErr := os.Lstat(filepath.Join(directory, name))
 			if statErr != nil || entryInfo.IsDir() {
 				return ErrWorkerBoundaryUnsafe

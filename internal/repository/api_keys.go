@@ -33,7 +33,14 @@ func scanProjectAPIKey(row projectAPIKeyRow) (domain.ProjectAPIKey, error) {
 
 const projectAPIKeyProjection = `id,project_id,name,prefix,scopes,expires_at,revoked_at,last_used_at,created_at,updated_at`
 
-func (r *Repository) CreateProjectAPIKey(ctx context.Context, id, projectID, accountID uuid.UUID, name, prefix string, secretHash []byte, scopes []string, expiresAt *time.Time) (domain.ProjectAPIKey, error) {
+func (r *Repository) CreateProjectAPIKey(
+	ctx context.Context,
+	id, projectID, accountID uuid.UUID,
+	name, prefix string,
+	secretHash []byte,
+	scopes []string,
+	expiresAt *time.Time,
+) (domain.ProjectAPIKey, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.ProjectAPIKey{}, err
@@ -67,7 +74,12 @@ func (r *Repository) CreateProjectAPIKey(ctx context.Context, id, projectID, acc
 	return item, nil
 }
 
-func (r *Repository) ListProjectAPIKeys(ctx context.Context, projectID, accountID uuid.UUID, limit int, cursor *uuid.UUID) ([]domain.ProjectAPIKey, string, bool, error) {
+func (r *Repository) ListProjectAPIKeys(
+	ctx context.Context,
+	projectID, accountID uuid.UUID,
+	limit int,
+	cursor *uuid.UUID,
+) ([]domain.ProjectAPIKey, string, bool, error) {
 	role, err := r.projectRole(ctx, projectID, accountID)
 	if err != nil {
 		return nil, "", false, err
@@ -93,7 +105,7 @@ func (r *Repository) ListProjectAPIKeys(ctx context.Context, projectID, accountI
 	if err := rows.Err(); err != nil {
 		return nil, "", false, err
 	}
-	next := ""
+	var next string
 	if len(items) > limit {
 		next = items[limit-1].ID
 		items = items[:limit]
@@ -101,7 +113,10 @@ func (r *Repository) ListProjectAPIKeys(ctx context.Context, projectID, accountI
 	return items, next, role == "owner" || role == "admin", nil
 }
 
-func (r *Repository) ProjectAPIKeyByID(ctx context.Context, projectID, keyID, accountID uuid.UUID) (domain.ProjectAPIKey, error) {
+func (r *Repository) ProjectAPIKeyByID(
+	ctx context.Context,
+	projectID, keyID, accountID uuid.UUID,
+) (domain.ProjectAPIKey, error) {
 	if err := r.requireProjectAccess(ctx, projectID, accountID); err != nil {
 		return domain.ProjectAPIKey{}, err
 	}
@@ -128,7 +143,8 @@ func (r *Repository) RevokeProjectAPIKey(ctx context.Context, projectID, keyID, 
 	}
 	var prefix string
 	var revokedAt *time.Time
-	err = tx.QueryRow(ctx, `SELECT prefix,revoked_at FROM project_api_keys WHERE project_id=$1 AND id=$2 FOR UPDATE`, projectID, keyID).Scan(&prefix, &revokedAt)
+	err = tx.QueryRow(ctx, `SELECT prefix,revoked_at FROM project_api_keys WHERE project_id=$1 AND id=$2 FOR UPDATE`, projectID, keyID).
+		Scan(&prefix, &revokedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
 	}
@@ -156,7 +172,11 @@ func (r *Repository) RevokeProjectAPIKey(ctx context.Context, projectID, keyID, 
 
 // AuthenticateProjectAPIKey intentionally filters project binding, revocation,
 // and expiry in one query so all invalid key classes have the same 401 result.
-func (r *Repository) AuthenticateProjectAPIKey(ctx context.Context, projectID uuid.UUID, secretHash []byte) (domain.ProjectAPIKeyAuth, error) {
+func (r *Repository) AuthenticateProjectAPIKey(
+	ctx context.Context,
+	projectID uuid.UUID,
+	secretHash []byte,
+) (domain.ProjectAPIKeyAuth, error) {
 	var item domain.ProjectAPIKeyAuth
 	err := r.pool.QueryRow(ctx, `
 		SELECT id,project_id,scopes,last_used_at
@@ -183,7 +203,12 @@ func (r *Repository) TouchProjectAPIKey(ctx context.Context, keyID uuid.UUID) er
 	return err
 }
 
-func (r *Repository) ListProjectUsersByAPIKey(ctx context.Context, projectID uuid.UUID, limit int, cursor *uuid.UUID) ([]domain.ApplicationUser, string, error) {
+func (r *Repository) ListProjectUsersByAPIKey(
+	ctx context.Context,
+	projectID uuid.UUID,
+	limit int,
+	cursor *uuid.UUID,
+) ([]domain.ApplicationUser, string, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id,project_id,email,display_name,status,email_verified,created_at,updated_at
 		FROM project_users
@@ -213,7 +238,10 @@ func (r *Repository) ListProjectUsersByAPIKey(ctx context.Context, projectID uui
 	return items, next, nil
 }
 
-func (r *Repository) ProjectUserByIDForAPIKey(ctx context.Context, projectID, userID uuid.UUID) (domain.ApplicationUser, error) {
+func (r *Repository) ProjectUserByIDForAPIKey(
+	ctx context.Context,
+	projectID, userID uuid.UUID,
+) (domain.ApplicationUser, error) {
 	var item domain.ApplicationUser
 	err := r.pool.QueryRow(ctx, `
 		SELECT id,project_id,email,display_name,status,email_verified,created_at,updated_at
@@ -225,7 +253,12 @@ func (r *Repository) ProjectUserByIDForAPIKey(ctx context.Context, projectID, us
 	return item, err
 }
 
-func (r *Repository) CreateProjectUserByAPIKey(ctx context.Context, id, projectID, apiKeyID uuid.UUID, email, passwordHash string, name *string) (domain.ApplicationUser, error) {
+func (r *Repository) CreateProjectUserByAPIKey(
+	ctx context.Context,
+	id, projectID, apiKeyID uuid.UUID,
+	email, passwordHash string,
+	name *string,
+) (domain.ApplicationUser, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.ApplicationUser{}, err
@@ -260,7 +293,11 @@ func (r *Repository) CreateProjectUserByAPIKey(ctx context.Context, id, projectI
 	return item, nil
 }
 
-func (r *Repository) UpdateProjectUserStatusByAPIKey(ctx context.Context, projectID, userID, apiKeyID uuid.UUID, status string) (domain.ApplicationUser, error) {
+func (r *Repository) UpdateProjectUserStatusByAPIKey(
+	ctx context.Context,
+	projectID, userID, apiKeyID uuid.UUID,
+	status string,
+) (domain.ApplicationUser, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.ApplicationUser{}, err
@@ -294,7 +331,13 @@ func (r *Repository) UpdateProjectUserStatusByAPIKey(ctx context.Context, projec
 		if err != nil {
 			return domain.ApplicationUser{}, err
 		}
-		metadata := map[string]any{"project_id": projectID.String(), "from": previousStatus, "to": status, "actor": "api_key", "api_key_id": apiKeyID.String()}
+		metadata := map[string]any{
+			"project_id": projectID.String(),
+			"from":       previousStatus,
+			"to":         status,
+			"actor":      "api_key",
+			"api_key_id": apiKeyID.String(),
+		}
 		if err := writeAuditMetadata(ctx, tx, orgID, uuid.Nil, "project_user.status_change", "project_user", userID, metadata); err != nil {
 			return domain.ApplicationUser{}, err
 		}

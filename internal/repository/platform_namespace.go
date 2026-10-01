@@ -26,7 +26,11 @@ func workloadDomainTx(ctx context.Context, tx pgx.Tx) (*string, error) {
 // including pending and disabled rows. Keeping the namespace clear before a
 // domain becomes verified prevents a later verification from colliding with a
 // platform hostname.
-func workloadDomainConflictsWithSiteDomainsTx(ctx context.Context, tx pgx.Tx, workloadBaseDomain *string) (bool, error) {
+func workloadDomainConflictsWithSiteDomainsTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	workloadBaseDomain *string,
+) (bool, error) {
 	if workloadBaseDomain == nil {
 		return false, nil
 	}

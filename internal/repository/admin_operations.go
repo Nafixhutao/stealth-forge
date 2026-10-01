@@ -150,7 +150,11 @@ func scanAdminOperation(row interface{ Scan(...any) error }) (domain.AdminOperat
 // ListAdminOperations returns durable operational records inside a bounded
 // time window. It does not expose prompts, request bodies, storage paths, or
 // other sensitive payloads from the source tables.
-func (r *Repository) ListAdminOperations(ctx context.Context, from, to time.Time, limit int) ([]domain.AdminOperation, error) {
+func (r *Repository) ListAdminOperations(
+	ctx context.Context,
+	from, to time.Time,
+	limit int,
+) ([]domain.AdminOperation, error) {
 	if r == nil || r.pool == nil {
 		return nil, ErrNotFound
 	}
@@ -212,7 +216,11 @@ const adminAuditMaxLimit = 100
 // ledger. Organization-scoped events are intentionally excluded; admin
 // actions use a NULL organization_id and remain available after an
 // organization is removed.
-func (r *Repository) ListInstanceAuditEvents(ctx context.Context, limit int, before *uuid.UUID) ([]domain.AuditEvent, string, error) {
+func (r *Repository) ListInstanceAuditEvents(
+	ctx context.Context,
+	limit int,
+	before *uuid.UUID,
+) ([]domain.AuditEvent, string, error) {
 	if r == nil || r.pool == nil {
 		return nil, "", ErrNotFound
 	}

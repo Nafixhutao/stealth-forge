@@ -99,7 +99,7 @@ func (rule *IngressRule) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &known); err != nil {
 		return err
 	}
-	var fields map[string]json.RawMessage
+	fields := map[string]json.RawMessage{}
 	if err := json.Unmarshal(data, &fields); err != nil {
 		return err
 	}
@@ -207,7 +207,14 @@ func NewClient(apiToken, baseURL string, httpClient *http.Client) (*APIClient, e
 		baseURL = defaultAPIBaseURL
 	}
 	parsed, err := url.Parse(baseURL)
-	if err != nil || parsed.Scheme != "http" && parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if err != nil {
+		return nil, errors.New("Cloudflare API base URL is invalid")
+	}
+	schemeInvalid := parsed.Scheme != "http" && parsed.Scheme != "https"
+	missingHost := parsed.Host == ""
+	hasUserInfo := parsed.User != nil
+	hasQueryOrFragment := parsed.RawQuery != "" || parsed.Fragment != ""
+	if schemeInvalid || missingHost || hasUserInfo || hasQueryOrFragment {
 		return nil, errors.New("Cloudflare API base URL is invalid")
 	}
 	if httpClient == nil {
@@ -281,7 +288,11 @@ func (c *APIClient) ListCertificatePacks(ctx context.Context, zoneID string) ([]
 			return nil, err
 		}
 		for _, pack := range result.Result {
-			if strings.TrimSpace(pack.ID) == "" || strings.TrimSpace(pack.Status) == "" || strings.TrimSpace(pack.Type) == "" || len(pack.Hosts) > 50 || len(pack.Certificates) > 50 {
+			missingIdentity := strings.TrimSpace(pack.ID) == "" || strings.TrimSpace(pack.Status) == "" ||
+				strings.TrimSpace(pack.Type) == ""
+			tooManyHosts := len(pack.Hosts) > 50
+			tooManyCertificates := len(pack.Certificates) > 50
+			if missingIdentity || tooManyHosts || tooManyCertificates {
 				return nil, errors.New("Cloudflare returned an invalid certificate pack")
 			}
 			for _, certificate := range pack.Certificates {
@@ -377,7 +388,10 @@ func (c *APIClient) CreateTunnel(ctx context.Context, accountID, name string) (T
 		return Tunnel{}, err
 	}
 	name = strings.TrimSpace(name)
-	if name == "" || len(name) > 120 || strings.ContainsAny(name, "\x00\r\n") {
+	nameMissing := name == ""
+	nameTooLong := len(name) > 120
+	nameMalformed := strings.ContainsAny(name, "\x00\r\n")
+	if nameMissing || nameTooLong || nameMalformed {
 		return Tunnel{}, errors.New("tunnel name is invalid")
 	}
 	var result struct {
@@ -406,12 +420,21 @@ func (c *APIClient) ConfigureTunnel(ctx context.Context, accountID, tunnelID str
 		return errors.New("tunnel ingress configuration is invalid")
 	}
 	for _, rule := range ingress {
-		if strings.TrimSpace(rule.Service) == "" || len(rule.Service) > 2048 || strings.ContainsAny(rule.Service, "\x00\r\n") {
+		serviceMissing := strings.TrimSpace(rule.Service) == ""
+		serviceTooLong := len(rule.Service) > 2048
+		serviceMalformed := strings.ContainsAny(rule.Service, "\x00\r\n")
+		if serviceMissing || serviceTooLong || serviceMalformed {
 			return errors.New("tunnel ingress service is invalid")
 		}
 	}
 	body := map[string]any{"config": map[string]any{"ingress": ingress}}
-	return c.do(ctx, http.MethodPut, "/accounts/"+accountID+"/cfd_tunnel/"+tunnelID+"/configurations", body, &struct{}{})
+	return c.do(
+		ctx,
+		http.MethodPut,
+		"/accounts/"+accountID+"/cfd_tunnel/"+tunnelID+"/configurations",
+		body,
+		&struct{}{},
+	)
 }
 
 func (c *APIClient) TunnelConfiguration(ctx context.Context, accountID, tunnelID string) ([]IngressRule, error) {
@@ -437,7 +460,10 @@ func (c *APIClient) TunnelConfiguration(ctx context.Context, accountID, tunnelID
 		return nil, errors.New("Cloudflare returned an invalid tunnel configuration")
 	}
 	for _, rule := range result.Result.Config.Ingress {
-		if strings.TrimSpace(rule.Service) == "" || len(rule.Service) > 2048 || strings.ContainsAny(rule.Service, "\x00\r\n") {
+		serviceMissing := strings.TrimSpace(rule.Service) == ""
+		serviceTooLong := len(rule.Service) > 2048
+		serviceMalformed := strings.ContainsAny(rule.Service, "\x00\r\n")
+		if serviceMissing || serviceTooLong || serviceMalformed {
 			return nil, errors.New("Cloudflare returned an invalid tunnel configuration")
 		}
 	}
@@ -471,7 +497,10 @@ func (c *APIClient) ListDNSRecords(ctx context.Context, zoneID, name string) ([]
 		return nil, err
 	}
 	name = strings.TrimSpace(name)
-	if name == "" || len(name) > 253 || strings.ContainsAny(name, "\x00\r\n") {
+	nameMissing := name == ""
+	nameTooLong := len(name) > 253
+	nameMalformed := strings.ContainsAny(name, "\x00\r\n")
+	if nameMissing || nameTooLong || nameMalformed {
 		return nil, errors.New("DNS record name is invalid")
 	}
 	records := make([]DNSRecord, 0)
@@ -557,7 +586,13 @@ func normalizeDNSRecord(record DNSRecord) (DNSRecord, error) {
 	record.Type = strings.ToUpper(strings.TrimSpace(record.Type))
 	record.Name = strings.TrimSpace(record.Name)
 	record.Content = strings.TrimSpace(record.Content)
-	if record.Type != "CNAME" || record.Name == "" || record.Content == "" || len(record.Name) > 253 || len(record.Content) > 253 || strings.ContainsAny(record.Name+record.Content, "\x00\r\n") {
+	wrongType := record.Type != "CNAME"
+	nameMissing := record.Name == ""
+	contentMissing := record.Content == ""
+	nameTooLong := len(record.Name) > 253
+	contentTooLong := len(record.Content) > 253
+	containsControl := strings.ContainsAny(record.Name+record.Content, "\x00\r\n")
+	if wrongType || nameMissing || contentMissing || nameTooLong || contentTooLong || containsControl {
 		return DNSRecord{}, errors.New("DNS record is invalid")
 	}
 	if record.TTL == 0 {
@@ -675,7 +710,10 @@ func (c *APIClient) do(ctx context.Context, method, path string, body any, resul
 
 func safeID(value, label string) (string, error) {
 	value = strings.TrimSpace(value)
-	if value == "" || len(value) > 128 || strings.ContainsAny(value, "\x00\r\n/\\?#[ ]") {
+	valueMissing := value == ""
+	valueTooLong := len(value) > 128
+	valueMalformed := strings.ContainsAny(value, "\x00\r\n/\\?#[ ]")
+	if valueMissing || valueTooLong || valueMalformed {
 		return "", fmt.Errorf("%s ID is invalid", label)
 	}
 	return value, nil
@@ -702,4 +740,4 @@ func StatusIsHealthy(status TunnelStatus) bool {
 	return strings.EqualFold(strings.TrimSpace(status.Status), "healthy")
 }
 
-func NumericStatus(value int) string { return strconv.Itoa(value) }
+func numericStatus(value int) string { return strconv.Itoa(value) }

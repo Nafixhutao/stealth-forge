@@ -5,22 +5,27 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"io"
+	"math"
+	"strings"
+	"time"
+
 	"github.com/Stealth-deplover/stealth/internal/ociartifact"
 	"github.com/Stealth-deplover/stealth/internal/repository"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
-	"io"
-	"math"
-	"strings"
-	"time"
 )
 
 func (w *Worker) processApp(parent context.Context, job repository.AppRuntimeJob) error {
 	appID, _ := uuid.Parse(job.App.ID)
 	ctx, span := otel.Tracer("stealth/internal/appruntime").Start(parent, "app.runtime.reconcile")
-	span.SetAttributes(attribute.String("app.id", job.App.ID), attribute.String("project.id", job.App.ProjectID), attribute.Int64("app.generation", job.App.DesiredGeneration))
+	span.SetAttributes(
+		attribute.String("app.id", job.App.ID),
+		attribute.String("project.id", job.App.ProjectID),
+		attribute.Int64("app.generation", job.App.DesiredGeneration),
+	)
 	defer span.End()
 	started := time.Now()
 	if w.Metrics != nil {
@@ -29,7 +34,9 @@ func (w *Worker) processApp(parent context.Context, job repository.AppRuntimeJob
 	}
 
 	err := w.withAppHeartbeat(ctx, job, func(work context.Context) error { return w.reconcile(work, job) })
-	if err == nil || errors.Is(err, repository.ErrAppRuntimeStale) || errors.Is(err, repository.ErrAppRuntimeLeaseLost) || errors.Is(err, context.Canceled) {
+	if err == nil || errors.Is(err, repository.ErrAppRuntimeStale) ||
+		errors.Is(err, repository.ErrAppRuntimeLeaseLost) ||
+		errors.Is(err, context.Canceled) {
 		if w.Metrics != nil {
 			result := "converged"
 			if errors.Is(err, repository.ErrAppRuntimeStale) || errors.Is(err, repository.ErrAppRuntimeLeaseLost) {
@@ -57,10 +64,22 @@ func (w *Worker) processApp(parent context.Context, job repository.AppRuntimeJob
 		message = "runtime unavailable"
 	}
 	retryAt := time.Now().Add(runtimeBackoff(job.FailureCount))
-	if failErr := w.Store.FailAppRuntime(parent, job, status, message, retryAt); failErr != nil && !errors.Is(failErr, repository.ErrAppRuntimeStale) && !errors.Is(failErr, repository.ErrAppRuntimeLeaseLost) {
+	if failErr := w.Store.FailAppRuntime(parent, job, status, message, retryAt); failErr != nil &&
+		!errors.Is(failErr, repository.ErrAppRuntimeStale) &&
+		!errors.Is(failErr, repository.ErrAppRuntimeLeaseLost) {
 		return errors.Join(err, failErr)
 	}
-	w.Logger.Warn("App runtime did not converge", "app_id", appID, "generation", job.App.DesiredGeneration, "status", status, "reason", message)
+	w.Logger.Warn(
+		"App runtime did not converge",
+		"app_id",
+		appID,
+		"generation",
+		job.App.DesiredGeneration,
+		"status",
+		status,
+		"reason",
+		message,
+	)
 	if w.Metrics != nil {
 		w.Metrics.AppRuntimeJobsCompleted.WithLabelValues(status).Inc()
 		w.Metrics.AppRuntimeDuration.WithLabelValues(status).Observe(time.Since(started).Seconds())
@@ -99,7 +118,11 @@ func (w *Worker) reconcile(ctx context.Context, job repository.AppRuntimeJob) er
 		return w.Store.CompleteAppRuntime(ctx, job, status, nil)
 	}
 
-	if job.Deployment.ID == "" || job.ImagePath == "" || job.Deployment.ImageDigest == nil || job.Deployment.ImageArchiveSHA256 == nil || job.Deployment.ImageSizeBytes == nil || job.Deployment.BuildStatus != "succeeded" || job.Deployment.Status != "ready" {
+	hasDeploymentIdentity := job.Deployment.ID != "" && job.ImagePath != ""
+	hasImageArtifact := job.Deployment.ImageDigest != nil && job.Deployment.ImageArchiveSHA256 != nil &&
+		job.Deployment.ImageSizeBytes != nil
+	isBuiltAndReady := job.Deployment.BuildStatus == "succeeded" && job.Deployment.Status == "ready"
+	if !hasDeploymentIdentity || !hasImageArtifact || !isBuiltAndReady {
 		return ErrImageArtifactUnavailable
 	}
 	imageInfo, archive, err := w.inspectPersistedImage(ctx, job)
@@ -226,7 +249,8 @@ func (w *Worker) reconcile(ctx context.Context, job repository.AppRuntimeJob) er
 	if err != nil {
 		return err
 	}
-	if !managedForApp(container, appID, projectID) || !ContainerMatchesDesired(container, job, image, w.runtimeNetworkName()) {
+	if !managedForApp(container, appID, projectID) ||
+		!ContainerMatchesDesired(container, job, image, w.runtimeNetworkName()) {
 		return ErrRuntimeOwnershipConflict
 	}
 	current, currentErr := w.Store.IsAppRuntimeJobCurrent(ctx, job)
@@ -251,7 +275,11 @@ func (w *Worker) reconcile(ctx context.Context, job repository.AppRuntimeJob) er
 // renameAppOrConfirmMissing returns absent only after a Docker not-found from
 // the exact container rename is followed by an App-wide inspection that finds
 // no managed container. A replacement or ownership conflict stays fail-closed.
-func (w *Worker) renameAppOrConfirmMissing(ctx context.Context, job repository.AppRuntimeJob, containerID, targetName string) (Container, bool, error) {
+func (w *Worker) renameAppOrConfirmMissing(
+	ctx context.Context,
+	job repository.AppRuntimeJob,
+	containerID, targetName string,
+) (Container, bool, error) {
 	container, err := w.Runtime.RenameApp(ctx, job, containerID, targetName)
 	if err == nil {
 		return container, true, nil
@@ -269,7 +297,14 @@ func (w *Worker) renameAppOrConfirmMissing(ctx context.Context, job repository.A
 	return Container{}, false, nil
 }
 
-func (w *Worker) completeRunning(ctx context.Context, job repository.AppRuntimeJob, container Container, image Image, imageInfo ociartifact.ImageInfo, runtimeTag string) error {
+func (w *Worker) completeRunning(
+	ctx context.Context,
+	job repository.AppRuntimeJob,
+	container Container,
+	image Image,
+	imageInfo ociartifact.ImageInfo,
+	runtimeTag string,
+) error {
 	if err := w.requireCurrent(ctx, job); err != nil {
 		return err
 	}
@@ -288,7 +323,10 @@ func (w *Worker) completeRunning(ctx context.Context, job repository.AppRuntimeJ
 	return w.Store.CompleteAppRuntime(ctx, job, "running", state)
 }
 
-func (w *Worker) inspectPersistedImage(ctx context.Context, job repository.AppRuntimeJob) (ociartifact.ImageInfo, io.ReadSeekCloser, error) {
+func (w *Worker) inspectPersistedImage(
+	ctx context.Context,
+	job repository.AppRuntimeJob,
+) (ociartifact.ImageInfo, io.ReadSeekCloser, error) {
 	archive, err := w.Artifacts.Images.OpenRelative(ctx, job.ImagePath)
 	if err != nil {
 		return ociartifact.ImageInfo{}, nil, ErrImageArtifactUnavailable
@@ -380,7 +418,17 @@ func (w *Worker) recordAppProcessExit(job repository.AppRuntimeJob, container Co
 	if w.Metrics != nil {
 		w.Metrics.AppRuntimeProcessExits.WithLabelValues(reason).Inc()
 	}
-	w.Logger.Warn("App runtime process is stopped", "app_id", job.App.ID, "generation", job.App.DesiredGeneration, "reason", reason, "exit_code", container.State.ExitCode)
+	w.Logger.Warn(
+		"App runtime process is stopped",
+		"app_id",
+		job.App.ID,
+		"generation",
+		job.App.DesiredGeneration,
+		"reason",
+		reason,
+		"exit_code",
+		container.State.ExitCode,
+	)
 }
 
 func supportedRuntimePlatform(deploymentPlatform string, image ociartifact.ImageInfo) bool {
@@ -397,7 +445,9 @@ func terminalRuntimeError(err error) bool {
 
 func runtimeErrorClass(err error) string {
 	switch {
-	case errors.Is(err, ErrImageArtifactUnavailable), errors.Is(err, ErrImageVerification), errors.Is(err, ociartifact.ErrInvalidArchive):
+	case errors.Is(err, ErrImageArtifactUnavailable),
+		errors.Is(err, ErrImageVerification),
+		errors.Is(err, ociartifact.ErrInvalidArchive):
 		return "image"
 	case errors.Is(err, ErrRuntimeOwnershipConflict):
 		return "ownership"

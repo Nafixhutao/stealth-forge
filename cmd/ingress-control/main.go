@@ -89,12 +89,22 @@ func run(ctx context.Context, args []string, out *os.File, logger *slog.Logger) 
 	}
 	repo := repository.NewWithDependencies(pool, repository.Dependencies{CloudflareCipher: cipher})
 	reconciler, err := cloudflare.NewReconciler(repo, func(token string) (cloudflare.Client, error) {
-		return cloudflare.NewClient(token, os.Getenv("CLOUDFLARE_API_BASE_URL"), &http.Client{Timeout: 20 * time.Second})
+		return cloudflare.NewClient(
+			token,
+			os.Getenv("CLOUDFLARE_API_BASE_URL"),
+			&http.Client{Timeout: 20 * time.Second},
+		)
 	}, time.Minute, logger)
 	if err != nil {
 		return errors.New("Cloudflare reconciler could not be initialized")
 	}
-	controller, err := ingresscontrol.New(repo, reconciler, ingresscontrol.NewHTTPProbe(), os.Getenv("PUBLIC_APP_URL"), logger)
+	controller, err := ingresscontrol.New(
+		repo,
+		reconciler,
+		ingresscontrol.NewHTTPProbe(),
+		os.Getenv("PUBLIC_APP_URL"),
+		logger,
+	)
 	if err != nil {
 		return err
 	}

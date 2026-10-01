@@ -52,7 +52,9 @@ func loadAuthSettings() (authSettings, error) {
 	}
 	publicAppURL := value("PUBLIC_APP_URL", "http://localhost:4173")
 	if !isPublicAppURL(publicAppURL) {
-		return authSettings{}, fmt.Errorf("PUBLIC_APP_URL must be an absolute HTTP(S) URL without credentials, query, or fragment")
+		return authSettings{}, fmt.Errorf(
+			"PUBLIC_APP_URL must be an absolute HTTP(S) URL without credentials, query, or fragment",
+		)
 	}
 	consoleCORSOrigins, err := parseConsoleCORSOrigins(os.Getenv("CONSOLE_CORS_ORIGINS"))
 	if err != nil {
