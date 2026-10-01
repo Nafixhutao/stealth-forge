@@ -203,7 +203,7 @@ export function StageActions({
       {next ? (
         <Button type="button" onClick={next} disabled={nextDisabled || pending}>
           {pending ? <Loader2 className="size-4 animate-spin" /> : null}
-          {pending ? "Saving" : nextLabel}
+          {pending ? "Saving…" : nextLabel}
           {!pending ? <ArrowRight className="size-4" /> : null}
         </Button>
       ) : null}

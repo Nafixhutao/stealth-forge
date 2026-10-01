@@ -53,7 +53,9 @@ function metricValueLabel(item: AdminMetric) {
   return "Structured value";
 }
 
-export function AdminMetricChart({ items }: { items: AdminMetric[] }) {
+export type AdminMetricChartProps = { items: AdminMetric[] };
+
+export function AdminMetricChart({ items }: AdminMetricChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const descriptionId = useId();
 
@@ -104,14 +106,14 @@ export function AdminMetricChart({ items }: { items: AdminMetric[] }) {
       },
       xAxis: {
         type: "time",
-        axisLabel: { color: "#62666d", fontSize: 11 },
+        axisLabel: { color: "#8a8f98", fontSize: 11 },
         axisLine: { lineStyle: { color: "#23252a" } },
         splitLine: { lineStyle: { color: "#23252a" } },
       },
       yAxis: {
         type: "value",
         scale: true,
-        axisLabel: { color: "#62666d", fontSize: 11 },
+        axisLabel: { color: "#8a8f98", fontSize: 11 },
         axisLine: { show: false },
         splitLine: { lineStyle: { color: "#23252a" } },
       },
@@ -125,7 +127,7 @@ export function AdminMetricChart({ items }: { items: AdminMetric[] }) {
           backgroundColor: "#0f1011",
           fillerColor: "rgba(228, 242, 34, 0.12)",
           handleStyle: { color: "#e4f222" },
-          textStyle: { color: "#62666d", fontSize: 10 },
+          textStyle: { color: "#8a8f98", fontSize: 10 },
         },
       ],
       series,

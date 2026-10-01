@@ -162,7 +162,7 @@ export function GitHubStage({ flow }: { flow: SetupFlow }) {
                 ) : (
                   <ShieldCheck className="size-4" />
                 )}
-                {saveManual.isPending ? "Saving securely" : "Save GitHub App"}
+                {saveManual.isPending ? "Saving securely…" : "Save GitHub App"}
               </Button>
             </form>
           )}

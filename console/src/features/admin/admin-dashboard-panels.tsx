@@ -7,7 +7,7 @@ import { LoadingState } from "@/components/feedback/loading-state";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/format";
-import { AdminMetricChart } from "./admin-metric-chart";
+import { AdminMetricChartLoader } from "./admin-metric-chart-loader";
 import type { Panel } from "./admin-dashboard-model";
 
 export function DashboardPanel({
@@ -57,7 +57,7 @@ function MetricPanel({
         />
       ) : null}
       {metrics.data?.items.length ? (
-        <AdminMetricChart items={metrics.data.items} />
+        <AdminMetricChartLoader items={metrics.data.items} />
       ) : null}
       {metrics.data && !metrics.data.items.length ? (
         <p className="py-8 text-center text-sm text-fog">

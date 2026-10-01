@@ -97,7 +97,7 @@ export function WelcomeStage({ flow }: { flow: SetupFlow }) {
           <div>
             <p className="text-sm font-medium text-white">System check</p>
             <p className="mt-1 text-xs text-slate-500">
-              Unlock the live dependency checks after verifying the setup code.
+              Live dependency checks run after you verify the setup code.
             </p>
           </div>
           {preflight.isPending ? (

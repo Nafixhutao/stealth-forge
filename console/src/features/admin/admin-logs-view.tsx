@@ -11,7 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AdminShell } from "./admin-shell";
 import { formatAdminLogQuery, parseAdminLogQuery } from "./admin-log-query";
-import { AdminQueryEditor } from "./admin-query-editor";
+import { AdminQueryEditorLoader } from "./admin-query-editor-loader";
 import { AdminTimeRange, useAdminTimeRange } from "./admin-time-range";
 import { downloadLogs, VirtualizedLogTable } from "./admin-log-table";
 
@@ -47,7 +47,7 @@ export function AdminLogTailStatus({
       aria-atomic="true"
     >
       <span>
-        {connected ? "Streaming new records" : "Connecting to live stream"}
+        {connected ? "Streaming new records" : "Connecting to live stream…"}
       </span>
       {error ? <span className="text-coral-red">{error}</span> : null}
     </div>
@@ -141,7 +141,7 @@ export function AdminLogsView() {
               <label className="mb-2 block text-xs uppercase tracking-[0.1em] text-fog">
                 Structured query
               </label>
-              <AdminQueryEditor
+              <AdminQueryEditorLoader
                 value={draftQuery}
                 onChange={setDraftQuery}
                 onSubmit={() => applyLogQuery(draftQuery, draftParse.valid)}
@@ -181,7 +181,7 @@ export function AdminLogsView() {
                       const next = event.target.value;
                       if (next) setDraftQuery(next);
                     }}
-                    className="min-h-11 max-w-[220px] rounded-md border border-graphite bg-carbon px-2 py-1.5 text-xs text-mist focus:border-acid-lime/70 focus:outline-none"
+                    className="min-h-11 max-w-[220px] rounded-md border border-control-border bg-carbon px-2 py-1.5 text-xs text-mist focus-visible:border-acid-lime/70 focus-visible:outline-none"
                   >
                     <option value="">History</option>
                     {queryHistory.map((item) => (
