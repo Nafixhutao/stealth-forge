@@ -217,7 +217,8 @@ func buildUninstallPlan(layout InstallLayout, mode uninstallMode) uninstallPlan 
 	plan.volumes = configuredUninstallVolumes(plan.config)
 	plan.appRuntimeNetwork = configuredRuntimeNetwork(plan.config)
 	plan.unknownEntries = unknownLayoutEntries(layout)
-	plan.partial = !plan.configPresent || plan.configErr != nil || !plan.composePresent || !plan.proxyPresent || !plan.versionPresent
+	plan.partial = !plan.configPresent || plan.configErr != nil || !plan.composePresent || !plan.proxyPresent ||
+		!plan.versionPresent
 	return plan
 }
 
@@ -235,20 +236,43 @@ func configuredUninstallVolumes(values map[string]string) []uninstallVolume {
 		{label: "PostgreSQL data volume", name: postgres, composeName: "postgres_data"},
 	}
 	if strings.EqualFold(strings.TrimSpace(values["STORAGE_DRIVER"]), "s3") {
-		volumes = append(volumes, uninstallVolume{label: "Local staging/cache volume", name: storage, composeName: "stealth_storage"})
+		volumes = append(
+			volumes,
+			uninstallVolume{label: "Local staging/cache volume", name: storage, composeName: "stealth_storage"},
+		)
 	} else {
 		volumes = append(volumes, uninstallVolume{label: "Object storage and function/site artifacts", name: storage, composeName: "stealth_storage"})
 	}
-	volumes = append(volumes, uninstallVolume{label: "Function runner staging volume", name: staging, composeName: "function_runner_staging"})
-	volumes = append(volumes,
+	volumes = append(
+		volumes,
+		uninstallVolume{label: "Function runner staging volume", name: staging, composeName: "function_runner_staging"},
+	)
+	volumes = append(
+		volumes,
 		uninstallVolume{label: "App build staging volume", name: appStaging, composeName: "app_build_staging"},
 		uninstallVolume{label: "App BuildKit cache volume", name: buildkitState, composeName: "buildkit_state"},
-		uninstallVolume{label: "App BuildKit worker credential volume", name: composeProject + "_app_buildkit_worker_credentials", composeName: "buildkit_worker_credentials"},
-		uninstallVolume{label: "App BuildKit server credential volume", name: composeProject + "_app_buildkit_server_credentials", composeName: "buildkit_server_credentials"},
-		uninstallVolume{label: "Cloudflare legacy-state handoff volume", name: composeProject + "_cloudflare_setup_state_input", composeName: "cloudflare_setup_state_input"},
+		uninstallVolume{
+			label:       "App BuildKit worker credential volume",
+			name:        composeProject + "_app_buildkit_worker_credentials",
+			composeName: "buildkit_worker_credentials",
+		},
+		uninstallVolume{
+			label:       "App BuildKit server credential volume",
+			name:        composeProject + "_app_buildkit_server_credentials",
+			composeName: "buildkit_server_credentials",
+		},
+		uninstallVolume{
+			label:       "Cloudflare legacy-state handoff volume",
+			name:        composeProject + "_cloudflare_setup_state_input",
+			composeName: "cloudflare_setup_state_input",
+		},
 		uninstallVolume{label: "ClickHouse telemetry volume", name: clickhouse, composeName: "clickhouse_data"},
 		uninstallVolume{label: "OTel Collector state volume", name: otelCollector, composeName: "otelcol_state"},
-		uninstallVolume{label: "Docker log Collector state volume", name: otelDockerLogs, composeName: "otel_docker_logs_state"},
+		uninstallVolume{
+			label:       "Docker log Collector state volume",
+			name:        otelDockerLogs,
+			composeName: "otel_docker_logs_state",
+		},
 	)
 	return uniqueUninstallVolumes(volumes)
 }
@@ -313,7 +337,7 @@ func unknownLayoutEntries(layout InstallLayout) []string {
 		consoleName:                       true,
 		filepath.Base(layout.TraefikDir):  true,
 	}
-	var unknown []string
+	unknown := []string{}
 	entries, err := os.ReadDir(layout.Root)
 	if err != nil {
 		return []string{layout.Root + " (cannot inspect: " + err.Error() + ")"}
@@ -407,7 +431,9 @@ func unknownLayoutEntries(layout InstallLayout) []string {
 			}
 			for _, dynamicEntry := range dynamicEntries {
 				switch dynamicEntry.Name() {
-				case filepath.Base(layout.TraefikCore), filepath.Base(layout.TraefikGenerated), filepath.Base(layout.TraefikReloadMarker):
+				case filepath.Base(layout.TraefikCore),
+					filepath.Base(layout.TraefikGenerated),
+					filepath.Base(layout.TraefikReloadMarker):
 				default:
 					unknown = append(unknown, filepath.Join(dynamicDir, dynamicEntry.Name()))
 				}
@@ -426,7 +452,9 @@ func unknownLayoutEntries(layout InstallLayout) []string {
 				for _, generatedEntry := range generatedEntries {
 					generatedPath := filepath.Join(layout.TraefikGenerated, generatedEntry.Name())
 					generatedInfo, statErr := os.Lstat(generatedPath)
-					if generatedEntry.Name() != ".gitkeep" || statErr != nil || generatedInfo.Mode()&os.ModeSymlink != 0 || !generatedInfo.Mode().IsRegular() {
+					if generatedEntry.Name() != ".gitkeep" || statErr != nil ||
+						generatedInfo.Mode()&os.ModeSymlink != 0 ||
+						!generatedInfo.Mode().IsRegular() {
 						// Generated route files are host/control-plane state, not
 						// release assets. Keep purge from deleting them implicitly.
 						unknown = append(unknown, generatedPath)
@@ -523,23 +551,45 @@ func (p uninstallPlan) localAssets(includeConfig bool) []uninstallAsset {
 		{label: "telemetry/", path: p.layout.TelemetryDir, present: p.telemetryPresent},
 		{label: "console/deploy/nginx.conf", path: p.layout.ProxyFile, present: p.proxyPresent},
 		{label: "traefik/traefik.yaml", path: p.layout.TraefikStatic, present: safeRegularFile(p.layout.TraefikStatic)},
-		{label: "traefik/dynamic/core.yaml", path: p.layout.TraefikCore, present: safeRegularFile(p.layout.TraefikCore)},
-		{label: "traefik/dynamic/.reload.yaml", path: p.layout.TraefikReloadMarker, present: safeRegularFile(p.layout.TraefikReloadMarker)},
-		{label: "traefik/dynamic/generated/.gitkeep", path: filepath.Join(p.layout.TraefikGenerated, ".gitkeep"), present: safeRegularFile(filepath.Join(p.layout.TraefikGenerated, ".gitkeep"))},
+		{
+			label:   "traefik/dynamic/core.yaml",
+			path:    p.layout.TraefikCore,
+			present: safeRegularFile(p.layout.TraefikCore),
+		},
+		{
+			label:   "traefik/dynamic/.reload.yaml",
+			path:    p.layout.TraefikReloadMarker,
+			present: safeRegularFile(p.layout.TraefikReloadMarker),
+		},
+		{
+			label:   "traefik/dynamic/generated/.gitkeep",
+			path:    filepath.Join(p.layout.TraefikGenerated, ".gitkeep"),
+			present: safeRegularFile(filepath.Join(p.layout.TraefikGenerated, ".gitkeep")),
+		},
 		{label: "VERSION", path: p.layout.VersionFile, present: p.versionPresent},
 		{label: "state/", path: p.layout.StateDir, present: p.statePresent},
 	}
 	if includeConfig {
-		assets = append(assets, uninstallAsset{label: "config.env and local secrets", path: p.layout.EnvFile, present: p.configPresent})
-		assets = append(assets, uninstallAsset{label: "private/ (BuildKit control-plane credentials)", path: p.layout.PrivateDir, present: p.privatePresent})
+		assets = append(
+			assets,
+			uninstallAsset{label: "config.env and local secrets", path: p.layout.EnvFile, present: p.configPresent},
+		)
+		assets = append(
+			assets,
+			uninstallAsset{
+				label:   "private/ (BuildKit control-plane credentials)",
+				path:    p.layout.PrivateDir,
+				present: p.privatePresent,
+			},
+		)
 	}
 	return assets
 }
 
 func (p uninstallPlan) warnings() []string {
-	var warnings []string
+	warnings := []string{}
 	if p.partial {
-		var missing []string
+		missing := []string{}
 		if !p.configPresent {
 			missing = append(missing, "config.env")
 		} else if p.configErr != nil {
@@ -562,22 +612,32 @@ func (p uninstallPlan) warnings() []string {
 		warnings = append(warnings, "config.env is preserved but could not be parsed: "+p.configErr.Error())
 	}
 	if p.mode == uninstallConfiguration && p.configPresent {
-		warnings = append(warnings, "config.env is kept because FUNCTIONS_SECRET_KEY and database credentials are required to recover preserved data.")
+		warnings = append(
+			warnings,
+			"config.env is kept because FUNCTIONS_SECRET_KEY and database credentials are required to recover preserved data.",
+		)
 	}
 	if p.externalStorage {
-		warnings = append(warnings, "External S3 object storage is not deleted; remove its owned bucket/prefix with provider tooling after verifying ownership.")
+		warnings = append(
+			warnings,
+			"External S3 object storage is not deleted; remove its owned bucket/prefix with provider tooling after verifying ownership.",
+		)
 	}
 	if len(p.unknownEntries) > 0 {
 		warnings = append(warnings, "Unrecognized files are preserved: "+strings.Join(p.unknownEntries, ", "))
 	}
 	if p.mode == uninstallPurge && !p.canPurge() {
-		warnings = append(warnings, "Purge is blocked until the complete, readable installation layout can be validated; no data will be deleted.")
+		warnings = append(
+			warnings,
+			"Purge is blocked until the complete, readable installation layout can be validated; no data will be deleted.",
+		)
 	}
 	return warnings
 }
 
 func (p uninstallPlan) canPurge() bool {
-	return p.configPresent && p.configErr == nil && p.composePresent && len(p.unknownEntries) == 0 && p.unsafeReason == ""
+	return p.configPresent && p.configErr == nil && p.composePresent && len(p.unknownEntries) == 0 &&
+		p.unsafeReason == ""
 }
 
 func printUninstallPlan(w io.Writer, plan uninstallPlan) {
@@ -710,7 +770,9 @@ func (a *App) verifyServicesRemoved(ctx context.Context, plan uninstallPlan) err
 
 func (a *App) validatePurgeScope(ctx context.Context, plan uninstallPlan) error {
 	if !plan.canPurge() {
-		return fmt.Errorf("purge requires a complete installation with readable config.env, Compose, and no unrecognized local files")
+		return fmt.Errorf(
+			"purge requires a complete installation with readable config.env, Compose, and no unrecognized local files",
+		)
 	}
 	seen := make(map[string]struct{}, len(plan.volumes))
 	declared := make(map[string]struct{}, len(plan.volumes))
@@ -733,7 +795,11 @@ func (a *App) validatePurgeScope(ctx context.Context, plan uninstallPlan) error 
 			return fmt.Errorf("refusing to purge a Compose layout with external resources")
 		}
 	}
-	output, err := a.runner.Output(ctx, plan.layout.Root, "docker", a.composeArgs(plan.layout, "config", "--volumes")...)
+	output, err := a.runner.Output(
+		ctx,
+		plan.layout.Root,
+		"docker",
+		a.composeArgs(plan.layout, "config", "--volumes")...)
 	if err != nil {
 		return fmt.Errorf("validate Compose volumes: %w", err)
 	}
@@ -807,13 +873,27 @@ func (a *App) validateExistingVolumeOwnership(ctx context.Context, plan uninstal
 		if _, ok := existing[volume.name]; !ok {
 			continue
 		}
-		labels, inspectErr := a.runner.Output(ctx, "", "docker", "volume", "inspect", "--format", "{{ index .Labels \"com.docker.compose.project\" }}\t{{ index .Labels \"com.docker.compose.volume\" }}", volume.name)
+		labels, inspectErr := a.runner.Output(
+			ctx,
+			"",
+			"docker",
+			"volume",
+			"inspect",
+			"--format",
+			"{{ index .Labels \"com.docker.compose.project\" }}\t{{ index .Labels \"com.docker.compose.volume\" }}",
+			volume.name,
+		)
 		if inspectErr != nil {
 			return fmt.Errorf("verify ownership of Docker volume %q: %w", volume.name, inspectErr)
 		}
 		fields := strings.SplitN(strings.TrimSpace(string(labels)), "\t", 2)
 		if len(fields) != 2 || fields[0] != projectName || fields[1] != volume.composeName {
-			return fmt.Errorf("Docker volume %q is not labeled as Compose project %q volume %q; refusing purge", volume.name, projectName, volume.composeName)
+			return fmt.Errorf(
+				"Docker volume %q is not labeled as Compose project %q volume %q; refusing purge",
+				volume.name,
+				projectName,
+				volume.composeName,
+			)
 		}
 	}
 	return nil
@@ -854,7 +934,11 @@ func validDockerResourceName(value string) bool {
 		return false
 	}
 	for index, char := range value {
-		if (char < 'a' || char > 'z') && (char < 'A' || char > 'Z') && (char < '0' || char > '9') && char != '_' && char != '-' && char != '.' {
+		isLower := char >= 'a' && char <= 'z'
+		isUpper := char >= 'A' && char <= 'Z'
+		isDigit := char >= '0' && char <= '9'
+		isSeparator := char == '_' || char == '-' || char == '.'
+		if !isLower && !isUpper && !isDigit && !isSeparator {
 			return false
 		}
 		if index == 0 && char == '.' {
@@ -907,7 +991,7 @@ func removeSafePath(path string) error {
 		return err
 	}
 	if info.Mode()&os.ModeSymlink != 0 || (!info.Mode().IsRegular() && !info.IsDir()) {
-		return fmt.Errorf("refusing to remove unsafe path %s", path)
+		return fmt.Errorf("refusing to remove unsafe path %q", path)
 	}
 	if info.IsDir() {
 		return os.RemoveAll(path)
@@ -1000,14 +1084,26 @@ func (a *App) printUninstallFailure(plan uninstallPlan, err error) {
 func (a *App) printUninstallSuccess(plan uninstallPlan) {
 	switch plan.mode {
 	case uninstallServices:
-		fmt.Fprintln(a.out, "\nStealth services were removed. Persistent data, config.env, and recovery files were preserved.")
+		fmt.Fprintln(
+			a.out,
+			"\nStealth services were removed. Persistent data, config.env, and recovery files were preserved.",
+		)
 	case uninstallConfiguration:
 		fmt.Fprintln(a.out, "\nStealth services and local runtime files were removed.")
-		fmt.Fprintln(a.out, "Persistent data was preserved. config.env remains because it contains recovery secrets and the encryption key.")
+		fmt.Fprintln(
+			a.out,
+			"Persistent data was preserved. config.env remains because it contains recovery secrets and the encryption key.",
+		)
 	case uninstallPurge:
-		fmt.Fprintln(a.out, "\nStealth instance data, services, configuration, managed App containers, the App runtime network, and project-owned Docker volumes were permanently removed.")
+		fmt.Fprintln(
+			a.out,
+			"\nStealth instance data, services, configuration, managed App containers, the App runtime network, and project-owned Docker volumes were permanently removed.",
+		)
 		if plan.externalStorage {
-			fmt.Fprintln(a.out, "External S3 object storage was preserved; remove it separately after verifying ownership.")
+			fmt.Fprintln(
+				a.out,
+				"External S3 object storage was preserved; remove it separately after verifying ownership.",
+			)
 		}
 	}
 	if binary := detectedCLIBinaryPath(); binary != "" {

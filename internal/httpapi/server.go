@@ -115,7 +115,12 @@ func New(cfg config.Config, repo *repository.Repository, logger *slog.Logger) ht
 // Infrastructure stores are created from the (defaulted) config; failures are
 // logged and the affected capability reports not-ready through /readyz
 // instead of aborting startup.
-func NewWithDependencies(cfg config.Config, repo *repository.Repository, logger *slog.Logger, deps Dependencies) http.Handler {
+func NewWithDependencies(
+	cfg config.Config,
+	repo *repository.Repository,
+	logger *slog.Logger,
+	deps Dependencies,
+) http.Handler {
 	handler, _ := NewWithDependenciesAndPlatformSiteHandler(cfg, repo, logger, deps)
 	return handler
 }
@@ -124,7 +129,12 @@ func NewWithDependencies(cfg config.Config, repo *repository.Repository, logger 
 // and a separate narrow Site-serving handler. The latter contains no /v1,
 // health, metrics, setup, or Console routes and is the only backend used by
 // generated platform-hostname Traefik routers.
-func NewWithDependenciesAndPlatformSiteHandler(cfg config.Config, repo *repository.Repository, logger *slog.Logger, deps Dependencies) (http.Handler, http.Handler) {
+func NewWithDependenciesAndPlatformSiteHandler(
+	cfg config.Config,
+	repo *repository.Repository,
+	logger *slog.Logger,
+	deps Dependencies,
+) (http.Handler, http.Handler) {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -187,7 +197,11 @@ func NewWithDependenciesAndPlatformSiteHandler(cfg config.Config, repo *reposito
 	if siteArchiveErr != nil {
 		logger.Error("site upload staging storage configuration error", "error", siteArchiveErr)
 	}
-	appArtifactStore, appArtifactErr := appstore.New(cfg.StorageRoot, cfg.AppsMaxSourceArchiveBytes, cfg.AppsMaxImageArchiveBytes)
+	appArtifactStore, appArtifactErr := appstore.New(
+		cfg.StorageRoot,
+		cfg.AppsMaxSourceArchiveBytes,
+		cfg.AppsMaxImageArchiveBytes,
+	)
 	if appArtifactErr != nil {
 		logger.Error("App artifact storage configuration error", "error", appArtifactErr)
 	}
@@ -208,11 +222,18 @@ func NewWithDependenciesAndPlatformSiteHandler(cfg config.Config, repo *reposito
 	if appSecretCipherErr != nil {
 		logger.Error("App environment encryption configuration error", "error", appSecretCipherErr)
 	}
-	functionsReady := functionStoreErr == nil && functionCipherErr == nil && cfg.FunctionsMaxArtifactSize > 0 && cfg.FunctionsDefaultQuotaBytes >= cfg.FunctionsMaxArtifactSize
-	sitesReady := siteStoreErr == nil && siteArchiveErr == nil && cfg.SitesMaxArtifactSize > 0 && cfg.SitesMaxExpandedBytes > 0 && cfg.SitesMaxFiles > 0
-	appsReady := appArtifactErr == nil && appSecretCipherErr == nil && cfg.AppsMaxSourceArchiveBytes > 0 && cfg.AppsMaxExpandedSourceBytes > 0 && cfg.AppsMaxSourceFiles > 0 && cfg.AppsMaxImageArchiveBytes > 0
+	functionsReady := functionStoreErr == nil && functionCipherErr == nil && cfg.FunctionsMaxArtifactSize > 0 &&
+		cfg.FunctionsDefaultQuotaBytes >= cfg.FunctionsMaxArtifactSize
+	sitesReady := siteStoreErr == nil && siteArchiveErr == nil && cfg.SitesMaxArtifactSize > 0 &&
+		cfg.SitesMaxExpandedBytes > 0 &&
+		cfg.SitesMaxFiles > 0
+	appsReady := appArtifactErr == nil && appSecretCipherErr == nil && cfg.AppsMaxSourceArchiveBytes > 0 &&
+		cfg.AppsMaxExpandedSourceBytes > 0 &&
+		cfg.AppsMaxSourceFiles > 0 &&
+		cfg.AppsMaxImageArchiveBytes > 0
 	setupStateStore := deps.SetupState
-	if setupStateStore == nil && cfg.SetupMode && functionCipher != nil && cfg.SetupStateFile != "" {
+	needsSetupStateStore := setupStateStore == nil && cfg.SetupMode && functionCipher != nil && cfg.SetupStateFile != ""
+	if needsSetupStateStore {
 		var setupErr error
 		setupStateStore, setupErr = setupstate.NewFileStore(cfg.SetupStateFile, functionCipher)
 		if setupErr != nil {
@@ -239,7 +260,11 @@ func NewWithDependenciesAndPlatformSiteHandler(cfg config.Config, repo *reposito
 	cloudflareOAuth := deps.CloudflareOAuth
 	if cloudflareOAuth == nil && cfg.CloudflareOAuthClientID != "" && cfg.CloudflareOAuthClientSecret != "" {
 		var oauthErr error
-		cloudflareOAuth, oauthErr = cloudflare.NewOAuthClient(cfg.CloudflareOAuthClientID, cfg.CloudflareOAuthClientSecret, http.DefaultClient)
+		cloudflareOAuth, oauthErr = cloudflare.NewOAuthClient(
+			cfg.CloudflareOAuthClientID,
+			cfg.CloudflareOAuthClientSecret,
+			http.DefaultClient,
+		)
 		if oauthErr != nil {
 			logger.Error("Cloudflare OAuth configuration error", "error", oauthErr)
 		}
@@ -254,7 +279,40 @@ func NewWithDependenciesAndPlatformSiteHandler(cfg config.Config, repo *reposito
 	if authRecheckInterval <= 0 {
 		authRecheckInterval = adminRealtimeAuthRecheckInterval
 	}
-	s := &Server{config: cfg, repo: repo, bootstrap: bootstrapStore, logger: logger, limiter: deps.AuthLimiter, storage: storageStore, storageReady: storageReady, functions: functionStore, functionCipher: functionCipher, appSecretCipher: appSecretCipher, functionsReady: functionsReady, sites: siteStore, siteArchives: siteArchiveStore, siteGitFetcher: deps.SiteGitFetcher, siteGitSlots: make(chan struct{}, cfg.SitesGitFetchConcurrency), sitesReady: sitesReady, apps: appArtifactStore, appsReady: appsReady, metrics: observability.NewAPIMetrics(), realtimeSlots: make(chan struct{}, 256), adminRealtimeAuthRecheckInterval: authRecheckInterval, realtimeBroker: deps.RealtimeBroker, authEmailSender: authEmailSender, githubClient: deps.GitHubClient, githubOAuth: githubOAuth, setupState: setupStateStore, setupHandoff: setupHandoffStore, githubManifest: githubManifest, cloudflareOAuth: cloudflareOAuth, cloudflareFactory: cloudflareFactory, telemetry: deps.TelemetryStore, redis: deps.Redis}
+	s := &Server{
+		config:                           cfg,
+		repo:                             repo,
+		bootstrap:                        bootstrapStore,
+		logger:                           logger,
+		limiter:                          deps.AuthLimiter,
+		storage:                          storageStore,
+		storageReady:                     storageReady,
+		functions:                        functionStore,
+		functionCipher:                   functionCipher,
+		appSecretCipher:                  appSecretCipher,
+		functionsReady:                   functionsReady,
+		sites:                            siteStore,
+		siteArchives:                     siteArchiveStore,
+		siteGitFetcher:                   deps.SiteGitFetcher,
+		siteGitSlots:                     make(chan struct{}, cfg.SitesGitFetchConcurrency),
+		sitesReady:                       sitesReady,
+		apps:                             appArtifactStore,
+		appsReady:                        appsReady,
+		metrics:                          observability.NewAPIMetrics(),
+		realtimeSlots:                    make(chan struct{}, 256),
+		adminRealtimeAuthRecheckInterval: authRecheckInterval,
+		realtimeBroker:                   deps.RealtimeBroker,
+		authEmailSender:                  authEmailSender,
+		githubClient:                     deps.GitHubClient,
+		githubOAuth:                      githubOAuth,
+		setupState:                       setupStateStore,
+		setupHandoff:                     setupHandoffStore,
+		githubManifest:                   githubManifest,
+		cloudflareOAuth:                  cloudflareOAuth,
+		cloudflareFactory:                cloudflareFactory,
+		telemetry:                        deps.TelemetryStore,
+		redis:                            deps.Redis,
+	}
 	return s.routes(), s.platformSiteRoutes()
 }
 

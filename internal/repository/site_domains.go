@@ -36,7 +36,18 @@ const siteDomainProjection = `id,project_id,site_id,hostname,status,verification
 
 func scanSiteDomain(row siteScanner) (domain.SiteDomain, error) {
 	var item domain.SiteDomain
-	err := row.Scan(&item.ID, &item.ProjectID, &item.SiteID, &item.Hostname, &item.Status, &item.VerificationToken, &item.VerifiedAt, &item.TLSStatus, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&item.ID,
+		&item.ProjectID,
+		&item.SiteID,
+		&item.Hostname,
+		&item.Status,
+		&item.VerificationToken,
+		&item.VerifiedAt,
+		&item.TLSStatus,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	if err == nil {
 		item.VerificationRecordName = "_stealth-verification." + item.Hostname
 		item.VerificationRecordType = "TXT"
@@ -63,7 +74,13 @@ func newSiteDomainVerificationToken() (string, error) {
 	return hex.EncodeToString(bytes[:]), nil
 }
 
-func (r *Repository) ListSiteDomains(ctx context.Context, projectID, siteID uuid.UUID, actor SiteActor, limit int, cursor *uuid.UUID) ([]domain.SiteDomain, string, bool, error) {
+func (r *Repository) ListSiteDomains(
+	ctx context.Context,
+	projectID, siteID uuid.UUID,
+	actor SiteActor,
+	limit int,
+	cursor *uuid.UUID,
+) ([]domain.SiteDomain, string, bool, error) {
 	canManage, err := r.requireSiteRead(ctx, projectID, actor)
 	if err != nil {
 		return nil, "", false, err
@@ -71,7 +88,14 @@ func (r *Repository) ListSiteDomains(ctx context.Context, projectID, siteID uuid
 	if _, err := r.siteByID(ctx, r.pool, projectID, siteID, false); err != nil {
 		return nil, "", false, err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+siteDomainProjection+` FROM site_domains WHERE project_id=$1 AND site_id=$2 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $4`, projectID, siteID, cursor, limit+1)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT `+siteDomainProjection+` FROM site_domains WHERE project_id=$1 AND site_id=$2 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $4`,
+		projectID,
+		siteID,
+		cursor,
+		limit+1,
+	)
 	if err != nil {
 		return nil, "", false, err
 	}
@@ -95,7 +119,11 @@ func (r *Repository) ListSiteDomains(ctx context.Context, projectID, siteID uuid
 	return items, next, canManage, nil
 }
 
-func (r *Repository) GetSiteDomain(ctx context.Context, projectID, siteID, domainID uuid.UUID, actor SiteActor) (domain.SiteDomain, error) {
+func (r *Repository) GetSiteDomain(
+	ctx context.Context,
+	projectID, siteID, domainID uuid.UUID,
+	actor SiteActor,
+) (domain.SiteDomain, error) {
 	if _, err := r.requireSiteRead(ctx, projectID, actor); err != nil {
 		return domain.SiteDomain{}, err
 	}
@@ -108,7 +136,11 @@ func (r *Repository) GetSiteDomain(ctx context.Context, projectID, siteID, domai
 // siteDomainForWrite reads the challenge after authenticating the mutation
 // scope. A sites.write key must be sufficient to verify its own DNS proof;
 // read and write scopes remain independent for metadata reads.
-func (r *Repository) siteDomainForWrite(ctx context.Context, projectID, siteID, domainID uuid.UUID, actor SiteActor) (domain.SiteDomain, error) {
+func (r *Repository) siteDomainForWrite(
+	ctx context.Context,
+	projectID, siteID, domainID uuid.UUID,
+	actor SiteActor,
+) (domain.SiteDomain, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.SiteDomain{}, err
@@ -137,14 +169,27 @@ func (r *Repository) siteDomainByID(ctx context.Context, query interface {
 	if lock {
 		suffix = " FOR UPDATE"
 	}
-	item, err := scanSiteDomain(query.QueryRow(ctx, `SELECT `+siteDomainProjection+` FROM site_domains WHERE project_id=$1 AND site_id=$2 AND id=$3`+suffix, projectID, siteID, domainID))
+	item, err := scanSiteDomain(
+		query.QueryRow(
+			ctx,
+			`SELECT `+siteDomainProjection+` FROM site_domains WHERE project_id=$1 AND site_id=$2 AND id=$3`+suffix,
+			projectID,
+			siteID,
+			domainID,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.SiteDomain{}, ErrNotFound
 	}
 	return item, err
 }
 
-func (r *Repository) CreateSiteDomain(ctx context.Context, id, projectID, siteID uuid.UUID, actor SiteActor, input SiteDomainInput) (domain.SiteDomain, error) {
+func (r *Repository) CreateSiteDomain(
+	ctx context.Context,
+	id, projectID, siteID uuid.UUID,
+	actor SiteActor,
+	input SiteDomainInput,
+) (domain.SiteDomain, error) {
 	hostname, err := NormalizeSiteHostname(input.Hostname)
 	if err != nil {
 		return domain.SiteDomain{}, err
@@ -173,7 +218,17 @@ func (r *Repository) CreateSiteDomain(ctx context.Context, id, projectID, siteID
 	if _, err := r.siteByID(ctx, tx, projectID, siteID, true); err != nil {
 		return domain.SiteDomain{}, err
 	}
-	item, err := scanSiteDomain(tx.QueryRow(ctx, `INSERT INTO site_domains (id,project_id,site_id,hostname,verification_token) VALUES ($1,$2,$3,$4,$5) RETURNING `+siteDomainProjection, id, projectID, siteID, hostname, token))
+	item, err := scanSiteDomain(
+		tx.QueryRow(
+			ctx,
+			`INSERT INTO site_domains (id,project_id,site_id,hostname,verification_token) VALUES ($1,$2,$3,$4,$5) RETURNING `+siteDomainProjection,
+			id,
+			projectID,
+			siteID,
+			hostname,
+			token,
+		),
+	)
 	if err != nil {
 		return domain.SiteDomain{}, mapError(err)
 	}
@@ -189,7 +244,11 @@ func (r *Repository) CreateSiteDomain(ctx context.Context, id, projectID, siteID
 	return item, nil
 }
 
-func (r *Repository) DeleteSiteDomain(ctx context.Context, projectID, siteID, domainID uuid.UUID, actor SiteActor) error {
+func (r *Repository) DeleteSiteDomain(
+	ctx context.Context,
+	projectID, siteID, domainID uuid.UUID,
+	actor SiteActor,
+) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -220,7 +279,11 @@ func (r *Repository) DeleteSiteDomain(ctx context.Context, projectID, siteID, do
 // VerifySiteDomain checks the DNS TXT proof at
 // _stealth-verification.<hostname>. Certificate issuance, when enabled, is
 // performed later by the ACME manager after this verified state is recorded.
-func (r *Repository) VerifySiteDomain(ctx context.Context, projectID, siteID, domainID uuid.UUID, actor SiteActor) (domain.SiteDomain, error) {
+func (r *Repository) VerifySiteDomain(
+	ctx context.Context,
+	projectID, siteID, domainID uuid.UUID,
+	actor SiteActor,
+) (domain.SiteDomain, error) {
 	item, err := r.siteDomainForWrite(ctx, projectID, siteID, domainID, actor)
 	if err != nil {
 		return domain.SiteDomain{}, err
@@ -257,7 +320,15 @@ func (r *Repository) VerifySiteDomain(ctx context.Context, projectID, siteID, do
 		}
 		return locked, nil
 	}
-	verified, err := scanSiteDomain(tx.QueryRow(ctx, `UPDATE site_domains SET status='verified',verified_at=now(),updated_at=now() WHERE project_id=$1 AND site_id=$2 AND id=$3 RETURNING `+siteDomainProjection, projectID, siteID, domainID))
+	verified, err := scanSiteDomain(
+		tx.QueryRow(
+			ctx,
+			`UPDATE site_domains SET status='verified',verified_at=now(),updated_at=now() WHERE project_id=$1 AND site_id=$2 AND id=$3 RETURNING `+siteDomainProjection,
+			projectID,
+			siteID,
+			domainID,
+		),
+	)
 	if err != nil {
 		return domain.SiteDomain{}, err
 	}
@@ -313,7 +384,12 @@ func (r *Repository) SetVerifiedSiteDomainTLSStatus(ctx context.Context, hostnam
 	default:
 		return ErrInvalidSiteDomain
 	}
-	_, err = r.pool.Exec(ctx, `UPDATE site_domains SET tls_status=$2,updated_at=now() WHERE hostname=$1 AND status='verified' AND ($2='active' OR tls_status <> 'active')`, hostname, status)
+	_, err = r.pool.Exec(
+		ctx,
+		`UPDATE site_domains SET tls_status=$2,updated_at=now() WHERE hostname=$1 AND status='verified' AND ($2='active' OR tls_status <> 'active')`,
+		hostname,
+		status,
+	)
 	return err
 }
 
@@ -325,9 +401,12 @@ func (r *Repository) GetActiveSiteArtifactByHostname(ctx context.Context, hostna
 		return SitePublicArtifact{}, ErrNotFound
 	}
 	var siteID uuid.UUID
-	if err := r.pool.QueryRow(ctx, `SELECT site_id FROM site_domains WHERE hostname=$1 AND status='verified'`, hostname).Scan(&siteID); errors.Is(err, pgx.ErrNoRows) {
+	err = r.pool.QueryRow(ctx, `SELECT site_id FROM site_domains WHERE hostname=$1 AND status='verified'`, hostname).
+		Scan(&siteID)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return SitePublicArtifact{}, ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return SitePublicArtifact{}, err
 	}
 	return r.GetActiveSiteArtifact(ctx, siteID)

@@ -20,7 +20,7 @@ func parseChecksumsManifest(contents []byte) (map[string]string, error) {
 	checksums := make(map[string]string)
 	scanner := bufio.NewScanner(strings.NewReader(string(contents)))
 	scanner.Buffer(make([]byte, 1024), maxAssetSize)
-	lineNumber := 0
+	var lineNumber int
 	for scanner.Scan() {
 		lineNumber++
 		line := strings.TrimSpace(scanner.Text())
@@ -36,7 +36,8 @@ func parseChecksumsManifest(contents []byte) (map[string]string, error) {
 			return nil, fmt.Errorf("checksum manifest line %d has an invalid SHA-256 digest", lineNumber)
 		}
 		name := strings.TrimPrefix(fields[1], "*")
-		if name == "" || strings.Contains(name, "\\") || path.IsAbs(name) || path.Clean(name) != name || name == "." || strings.HasPrefix(name, "../") {
+		if name == "" || strings.Contains(name, "\\") || path.IsAbs(name) || path.Clean(name) != name || name == "." ||
+			strings.HasPrefix(name, "../") {
 			return nil, fmt.Errorf("checksum manifest line %d has an invalid asset path", lineNumber)
 		}
 		if _, exists := checksums[name]; exists {

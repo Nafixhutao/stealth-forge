@@ -14,8 +14,13 @@ import (
 // ClaimNextAppHealthCheck leases one due probe while keeping probe work outside
 // the database transaction. The selected row must still describe the current
 // observed generation and exact managed container.
-func (r *Repository) ClaimNextAppHealthCheck(ctx context.Context, workerID string, leaseAge time.Duration) (AppHealthCheckJob, error) {
-	if r == nil || r.pool == nil || !validFunctionWorkerID(workerID) || leaseAge < 15*time.Second || leaseAge > 10*time.Minute {
+func (r *Repository) ClaimNextAppHealthCheck(
+	ctx context.Context,
+	workerID string,
+	leaseAge time.Duration,
+) (AppHealthCheckJob, error) {
+	if r == nil || r.pool == nil || !validFunctionWorkerID(workerID) || leaseAge < 15*time.Second ||
+		leaseAge > 10*time.Minute {
 		return AppHealthCheckJob{}, ErrInvalidAppRuntimeJob
 	}
 	token, err := uuid.NewV7()
@@ -123,7 +128,13 @@ func (r *Repository) CompleteAppHealthCheck(ctx context.Context, job AppHealthCh
 		return err
 	}
 	if !runtimeDesiredStateMatches(current, job.App) {
-		_, releaseErr := tx.Exec(ctx, `UPDATE app_runtime_state SET worker_id=NULL,lease_token=NULL,lease_expires_at=NULL,updated_at=now() WHERE app_id=$1 AND worker_id=$2 AND lease_token=$3`, appID, job.WorkerID, job.LeaseToken)
+		_, releaseErr := tx.Exec(
+			ctx,
+			`UPDATE app_runtime_state SET worker_id=NULL,lease_token=NULL,lease_expires_at=NULL,updated_at=now() WHERE app_id=$1 AND worker_id=$2 AND lease_token=$3`,
+			appID,
+			job.WorkerID,
+			job.LeaseToken,
+		)
 		if releaseErr != nil {
 			return releaseErr
 		}
@@ -143,15 +154,17 @@ func (r *Repository) CompleteAppHealthCheck(ctx context.Context, job AppHealthCh
 	var routeIdentity uuid.UUID
 	var healthRouteIdentity *uuid.UUID
 	var failures int
-	if err := tx.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 		SELECT worker_id,lease_token,container_id,host(container_address),health_status,health_generation,health_deployment_id,health_container_id,health_failure_count,
 		       route_identity,container_name,health_route_identity
 		FROM app_runtime_state WHERE app_id=$1 AND lease_expires_at>now() FOR UPDATE`, appID).Scan(
 		&owner, &token, &containerID, &address, &healthStatus, &healthGeneration, &healthDeploymentID, &healthContainerID, &failures,
 		&routeIdentity, &containerName, &healthRouteIdentity,
-	); errors.Is(err, pgx.ErrNoRows) {
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrAppRuntimeLeaseLost
-	} else if err != nil {
+	}
+	if err != nil {
 		return err
 	}
 	if owner != job.WorkerID || token != job.LeaseToken {
@@ -159,9 +172,19 @@ func (r *Repository) CompleteAppHealthCheck(ctx context.Context, job AppHealthCh
 	}
 	if containerID != job.ContainerID || address == nil || *address != job.Address || healthContainerID == nil || *healthContainerID != job.ContainerID ||
 		routeIdentity != job.RouteIdentity || containerName != job.ContainerName || healthRouteIdentity == nil || *healthRouteIdentity != job.RouteIdentity ||
-		healthGeneration == nil || *healthGeneration != job.App.DesiredGeneration || job.App.DesiredDeploymentID == nil || healthDeploymentID == nil || *healthDeploymentID != uuid.MustParse(*job.App.DesiredDeploymentID) ||
-		current.RuntimeStatus != "running" || current.ObservedGeneration != current.DesiredGeneration {
-		_, releaseErr := tx.Exec(ctx, `UPDATE app_runtime_state SET worker_id=NULL,lease_token=NULL,lease_expires_at=NULL,next_inspection_at=now(),updated_at=now() WHERE app_id=$1 AND worker_id=$2 AND lease_token=$3`, appID, job.WorkerID, job.LeaseToken)
+		healthGeneration == nil || *healthGeneration != job.App.DesiredGeneration ||
+		job.App.DesiredDeploymentID == nil ||
+		healthDeploymentID == nil ||
+		*healthDeploymentID != uuid.MustParse(*job.App.DesiredDeploymentID) ||
+		current.RuntimeStatus != "running" ||
+		current.ObservedGeneration != current.DesiredGeneration {
+		_, releaseErr := tx.Exec(
+			ctx,
+			`UPDATE app_runtime_state SET worker_id=NULL,lease_token=NULL,lease_expires_at=NULL,next_inspection_at=now(),updated_at=now() WHERE app_id=$1 AND worker_id=$2 AND lease_token=$3`,
+			appID,
+			job.WorkerID,
+			job.LeaseToken,
+		)
 		if releaseErr != nil {
 			return releaseErr
 		}
@@ -170,9 +193,16 @@ func (r *Repository) CompleteAppHealthCheck(ctx context.Context, job AppHealthCh
 		}
 		return ErrAppRuntimeStale
 	}
-	newStatus, newFailures := healthStateAfterProbe(healthStatus, failures, succeeded, job.App.Workload.HealthCheck.FailureThreshold)
+	newStatus, newFailures := healthStateAfterProbe(
+		healthStatus,
+		failures,
+		succeeded,
+		job.App.Workload.HealthCheck.FailureThreshold,
+	)
 	interval := job.App.Workload.HealthCheck.IntervalSeconds
-	result, err := tx.Exec(ctx, `
+	result, err := tx.Exec(
+		ctx,
+		`
 		UPDATE app_runtime_state
 		SET health_status=$4,health_route_identity=route_identity,health_failure_count=$5,health_checked_at=now(),
 		    next_health_check_at=now()+($6::double precision*interval '1 second'),
@@ -181,8 +211,19 @@ func (r *Repository) CompleteAppHealthCheck(ctx context.Context, job AppHealthCh
 		  AND container_id=$7 AND host(container_address)=$8 AND health_generation=$9
 		  AND health_deployment_id=$10 AND health_container_id=$7
 		  AND route_identity=$11 AND container_name=$12 AND health_route_identity=$11`,
-		appID, job.WorkerID, job.LeaseToken, newStatus, newFailures, interval,
-		job.ContainerID, job.Address, job.App.DesiredGeneration, uuid.MustParse(*job.App.DesiredDeploymentID), job.RouteIdentity, job.ContainerName)
+		appID,
+		job.WorkerID,
+		job.LeaseToken,
+		newStatus,
+		newFailures,
+		interval,
+		job.ContainerID,
+		job.Address,
+		job.App.DesiredGeneration,
+		uuid.MustParse(*job.App.DesiredDeploymentID),
+		job.RouteIdentity,
+		job.ContainerName,
+	)
 	if err != nil {
 		return err
 	}
@@ -223,7 +264,13 @@ func (r *Repository) InvalidateAppHealthIdentity(ctx context.Context, job AppHea
 		return err
 	}
 	if !runtimeDesiredStateMatches(current, job.App) {
-		_, releaseErr := tx.Exec(ctx, `UPDATE app_runtime_state SET worker_id=NULL,lease_token=NULL,lease_expires_at=NULL,updated_at=now() WHERE app_id=$1 AND worker_id=$2 AND lease_token=$3`, appID, job.WorkerID, job.LeaseToken)
+		_, releaseErr := tx.Exec(
+			ctx,
+			`UPDATE app_runtime_state SET worker_id=NULL,lease_token=NULL,lease_expires_at=NULL,updated_at=now() WHERE app_id=$1 AND worker_id=$2 AND lease_token=$3`,
+			appID,
+			job.WorkerID,
+			job.LeaseToken,
+		)
 		if releaseErr != nil {
 			return releaseErr
 		}
@@ -232,7 +279,9 @@ func (r *Repository) InvalidateAppHealthIdentity(ctx context.Context, job AppHea
 		}
 		return ErrAppRuntimeStale
 	}
-	result, err := tx.Exec(ctx, `
+	result, err := tx.Exec(
+		ctx,
+		`
 		UPDATE app_runtime_state
 		SET health_status='pending',health_generation=NULL,health_deployment_id=NULL,health_container_id=NULL,health_route_identity=NULL,
 		    health_failure_count=0,health_checked_at=NULL,next_health_check_at=NULL,
@@ -242,8 +291,17 @@ func (r *Repository) InvalidateAppHealthIdentity(ctx context.Context, job AppHea
 		  AND container_id=$4 AND host(container_address)=$5 AND applied_generation=$6
 		  AND applied_deployment_id=$7 AND applied_workload_spec_sha256=$8
 		  AND route_identity=$9 AND container_name=$10 AND health_route_identity=$9`,
-		appID, job.WorkerID, job.LeaseToken, job.ContainerID, job.Address,
-		job.App.DesiredGeneration, uuid.MustParse(*job.App.DesiredDeploymentID), job.App.WorkloadSpecSHA256, job.RouteIdentity, job.ContainerName)
+		appID,
+		job.WorkerID,
+		job.LeaseToken,
+		job.ContainerID,
+		job.Address,
+		job.App.DesiredGeneration,
+		uuid.MustParse(*job.App.DesiredDeploymentID),
+		job.App.WorkloadSpecSHA256,
+		job.RouteIdentity,
+		job.ContainerName,
+	)
 	if err != nil {
 		return err
 	}
@@ -268,7 +326,13 @@ func (r *Repository) ReleaseAppHealthCheck(ctx context.Context, job AppHealthChe
 	if r == nil || r.pool == nil || !validHealthCheckJob(job) {
 		return ErrInvalidAppRuntimeJob
 	}
-	_, err := r.pool.Exec(ctx, `UPDATE app_runtime_state SET worker_id=NULL,lease_token=NULL,lease_expires_at=NULL,updated_at=now() WHERE app_id=$1 AND worker_id=$2 AND lease_token=$3`, uuid.MustParse(job.App.ID), job.WorkerID, job.LeaseToken)
+	_, err := r.pool.Exec(
+		ctx,
+		`UPDATE app_runtime_state SET worker_id=NULL,lease_token=NULL,lease_expires_at=NULL,updated_at=now() WHERE app_id=$1 AND worker_id=$2 AND lease_token=$3`,
+		uuid.MustParse(job.App.ID),
+		job.WorkerID,
+		job.LeaseToken,
+	)
 	return err
 }
 
@@ -314,9 +378,13 @@ func validHealthCheckJob(job AppHealthCheckJob) bool {
 	}
 	return appErr == nil && projectErr == nil && deploymentID != uuid.Nil && appID != uuid.Nil && projectID != uuid.Nil &&
 		job.RouteIdentity != uuid.Nil && job.ContainerName == AppRuntimeContainerNameForIncarnation(appID, job.RouteIdentity) &&
-		job.App.Enabled && job.App.DesiredGeneration >= 1 && job.App.ObservedGeneration == job.App.DesiredGeneration &&
-		job.App.RuntimeStatus == "running" && job.LeaseToken != uuid.Nil && validFunctionWorkerID(job.WorkerID) &&
-		validRuntimeContainerID(job.ContainerID) && validPrivateRuntimeAddress(job.Address) &&
+		job.App.Enabled && job.App.DesiredGeneration >= 1 &&
+		job.App.ObservedGeneration == job.App.DesiredGeneration &&
+		job.App.RuntimeStatus == "running" &&
+		job.LeaseToken != uuid.Nil &&
+		validFunctionWorkerID(job.WorkerID) &&
+		validRuntimeContainerID(job.ContainerID) &&
+		validPrivateRuntimeAddress(job.Address) &&
 		(job.HealthStatus == "pending" || job.HealthStatus == "healthy" || job.HealthStatus == "unhealthy") &&
 		job.HealthFailureCount >= 0
 }

@@ -12,8 +12,16 @@ import (
 
 // QueueAppRuntimeCleanup is used by the trusted worker for validated orphan
 // containers discovered by the Docker label sweep.
-func (r *Repository) QueueAppRuntimeCleanup(ctx context.Context, projectID *uuid.UUID, appID uuid.UUID, containerID, containerName string, stopGrace int) error {
-	if r == nil || r.pool == nil || appID == uuid.Nil || !validCleanupTarget(appID, containerID, containerName) || stopGrace < 1 || stopGrace > 120 {
+func (r *Repository) QueueAppRuntimeCleanup(
+	ctx context.Context,
+	projectID *uuid.UUID,
+	appID uuid.UUID,
+	containerID, containerName string,
+	stopGrace int,
+) error {
+	if r == nil || r.pool == nil || appID == uuid.Nil || !validCleanupTarget(appID, containerID, containerName) ||
+		stopGrace < 1 ||
+		stopGrace > 120 {
 		return ErrInvalidAppRuntimeJob
 	}
 	tx, err := r.pool.Begin(ctx)
@@ -29,8 +37,13 @@ func (r *Repository) QueueAppRuntimeCleanup(ctx context.Context, projectID *uuid
 
 // ClaimNextAppRuntimeCleanup leases one durable cleanup row without holding a
 // database lock while Docker is inspected or stopped.
-func (r *Repository) ClaimNextAppRuntimeCleanup(ctx context.Context, workerID string, leaseAge time.Duration) (AppRuntimeCleanupJob, error) {
-	if r == nil || r.pool == nil || !validFunctionWorkerID(workerID) || leaseAge < 15*time.Second || leaseAge > 10*time.Minute {
+func (r *Repository) ClaimNextAppRuntimeCleanup(
+	ctx context.Context,
+	workerID string,
+	leaseAge time.Duration,
+) (AppRuntimeCleanupJob, error) {
+	if r == nil || r.pool == nil || !validFunctionWorkerID(workerID) || leaseAge < 15*time.Second ||
+		leaseAge > 10*time.Minute {
 		return AppRuntimeCleanupJob{}, ErrInvalidAppRuntimeJob
 	}
 	token, err := uuid.NewV7()
@@ -74,11 +87,22 @@ func (r *Repository) ClaimNextAppRuntimeCleanup(ctx context.Context, workerID st
 	return job, nil
 }
 
-func (r *Repository) RenewAppRuntimeCleanupLease(ctx context.Context, job AppRuntimeCleanupJob, leaseAge time.Duration) error {
+func (r *Repository) RenewAppRuntimeCleanupLease(
+	ctx context.Context,
+	job AppRuntimeCleanupJob,
+	leaseAge time.Duration,
+) error {
 	if validateCleanupJob(job) != nil || leaseAge < 15*time.Second || leaseAge > 10*time.Minute {
 		return ErrInvalidAppRuntimeJob
 	}
-	result, err := r.pool.Exec(ctx, `UPDATE app_runtime_cleanup_jobs SET lease_expires_at=now()+($4::double precision*interval '1 second'),updated_at=now() WHERE id=$1 AND worker_id=$2 AND lease_token=$3 AND status='leased' AND lease_expires_at>now()`, job.ID, job.WorkerID, job.LeaseToken, leaseAge.Seconds())
+	result, err := r.pool.Exec(
+		ctx,
+		`UPDATE app_runtime_cleanup_jobs SET lease_expires_at=now()+($4::double precision*interval '1 second'),updated_at=now() WHERE id=$1 AND worker_id=$2 AND lease_token=$3 AND status='leased' AND lease_expires_at>now()`,
+		job.ID,
+		job.WorkerID,
+		job.LeaseToken,
+		leaseAge.Seconds(),
+	)
 	if err != nil {
 		return err
 	}
@@ -106,7 +130,13 @@ func (r *Repository) CompleteAppRuntimeCleanup(ctx context.Context, job AppRunti
 	return nil
 }
 
-func (r *Repository) FailAppRuntimeCleanup(ctx context.Context, job AppRuntimeCleanupJob, message string, retryAt time.Time, terminal bool) error {
+func (r *Repository) FailAppRuntimeCleanup(
+	ctx context.Context,
+	job AppRuntimeCleanupJob,
+	message string,
+	retryAt time.Time,
+	terminal bool,
+) error {
 	if validateCleanupJob(job) != nil || retryAt.IsZero() {
 		return ErrInvalidAppRuntimeJob
 	}
@@ -132,8 +162,16 @@ func (r *Repository) FailAppRuntimeCleanup(ctx context.Context, job AppRuntimeCl
 	return nil
 }
 
-func queueAppRuntimeCleanupTx(ctx context.Context, tx pgx.Tx, projectID *uuid.UUID, appID uuid.UUID, containerID, containerName string, stopGrace int) error {
-	if tx == nil || appID == uuid.Nil || !validCleanupTarget(appID, containerID, containerName) || stopGrace < 1 || stopGrace > 120 {
+func queueAppRuntimeCleanupTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID *uuid.UUID,
+	appID uuid.UUID,
+	containerID, containerName string,
+	stopGrace int,
+) error {
+	if tx == nil || appID == uuid.Nil || !validCleanupTarget(appID, containerID, containerName) || stopGrace < 1 ||
+		stopGrace > 120 {
 		return ErrInvalidAppRuntimeJob
 	}
 	id, err := uuid.NewV7()
@@ -171,7 +209,8 @@ func resetAppRuntimeRetryTx(ctx context.Context, tx pgx.Tx, appID uuid.UUID) err
 func queueAppRuntimeCleanupForAppTx(ctx context.Context, tx pgx.Tx, projectID, appID uuid.UUID, stopGrace int) error {
 	containerName := AppRuntimeContainerName(appID)
 	var containerID, storedName string
-	err := tx.QueryRow(ctx, `SELECT COALESCE(container_id,''),COALESCE(container_name,'') FROM app_runtime_state WHERE app_id=$1`, appID).Scan(&containerID, &storedName)
+	err := tx.QueryRow(ctx, `SELECT COALESCE(container_id,''),COALESCE(container_name,'') FROM app_runtime_state WHERE app_id=$1`, appID).
+		Scan(&containerID, &storedName)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
@@ -186,7 +225,9 @@ func validateCleanupJob(job AppRuntimeCleanupJob) error {
 	if job.ContainerID != nil {
 		containerID = *job.ContainerID
 	}
-	if job.ID == uuid.Nil || job.AppID == uuid.Nil || job.LeaseToken == uuid.Nil || !validFunctionWorkerID(job.WorkerID) || !validCleanupTarget(job.AppID, containerID, job.ContainerName) {
+	if job.ID == uuid.Nil || job.AppID == uuid.Nil || job.LeaseToken == uuid.Nil ||
+		!validFunctionWorkerID(job.WorkerID) ||
+		!validCleanupTarget(job.AppID, containerID, job.ContainerName) {
 		return ErrInvalidAppRuntimeJob
 	}
 	return nil
@@ -206,7 +247,9 @@ func validCleanupTarget(appID uuid.UUID, containerID, name string) bool {
 		return false
 	}
 	for _, character := range name {
-		if !(character >= 'a' && character <= 'z') && !(character >= 'A' && character <= 'Z') && !(character >= '0' && character <= '9') && !strings.ContainsRune("_.-", character) {
+		if !(character >= 'a' && character <= 'z') && !(character >= 'A' && character <= 'Z') &&
+			!(character >= '0' && character <= '9') &&
+			!strings.ContainsRune("_.-", character) {
 			return false
 		}
 	}

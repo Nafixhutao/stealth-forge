@@ -28,7 +28,13 @@ func (s *Server) listAgentRuns(w http.ResponseWriter, r *http.Request) {
 		parsed := mustUUID(cursor)
 		cursorID = &parsed
 	}
-	items, next, canManage, err := s.repo.ListAgentRuns(r.Context(), mustUUID(accountFrom(r).ID), agentID, limit, cursorID)
+	items, next, canManage, err := s.repo.ListAgentRuns(
+		r.Context(),
+		mustUUID(accountFrom(r).ID),
+		agentID,
+		limit,
+		cursorID,
+	)
 	if agentRunResourceError(w, err) {
 		return
 	}
@@ -36,7 +42,11 @@ func (s *Server) listAgentRuns(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"runs": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"runs": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 // createAgentRun only records an accepted queue item. It never invokes a
@@ -51,7 +61,13 @@ func (s *Server) createAgentRun(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	item, err := s.repo.CreateAgentRun(r.Context(), uuid.Must(uuid.NewV7()), mustUUID(accountFrom(r).ID), agentID, repository.AgentRunInput{Prompt: req.Prompt})
+	item, err := s.repo.CreateAgentRun(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		mustUUID(accountFrom(r).ID),
+		agentID,
+		repository.AgentRunInput{Prompt: req.Prompt},
+	)
 	if agentRunResourceError(w, err) {
 		return
 	}
@@ -130,7 +146,7 @@ func (s *Server) listAgentRunLogs(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	next := ""
+	var next string
 	if len(items) == limit {
 		next = strconv.FormatInt(items[len(items)-1].Sequence, 10)
 	}
@@ -138,7 +154,11 @@ func (s *Server) listAgentRunLogs(w http.ResponseWriter, r *http.Request) {
 	if next != "" {
 		nextCursor = &next
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"logs": items, "pagination": pagination{Limit: limit, NextCursor: nextCursor}})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"logs": items, "pagination": pagination{Limit: limit, NextCursor: nextCursor}},
+	)
 }
 
 func agentRunPathIDs(w http.ResponseWriter, r *http.Request) (uuid.UUID, uuid.UUID, bool) {

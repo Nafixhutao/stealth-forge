@@ -17,11 +17,52 @@ type FunctionBuildStore interface {
 	ClaimNextFunctionDeployment(context.Context, string) (FunctionBuildJob, error)
 	RequeueStaleFunctionDeployments(context.Context, time.Duration) (int64, error)
 	ReserveArtifactPublishCleanup(context.Context, ArtifactCleanupInput) error
-	CompleteFunctionDeploymentBuild(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, string, int64, string) (domain.FunctionDeployment, error)
-	CompleteFunctionDeploymentBuildWithCleanup(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, string, int64, string, ArtifactCleanupInput) (domain.FunctionDeployment, error)
-	FailFunctionDeploymentBuild(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, string) (domain.FunctionDeployment, error)
-	FunctionRuntimeVariablesForDeployment(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, *functionsecret.Cipher) ([]FunctionRuntimeVariable, error)
-	AppendFunctionBuildLog(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, int64, string, string) (domain.FunctionBuildLog, error)
+	CompleteFunctionDeploymentBuild(
+		context.Context,
+		uuid.UUID,
+		uuid.UUID,
+		uuid.UUID,
+		string,
+		string,
+		int64,
+		string,
+	) (domain.FunctionDeployment, error)
+	CompleteFunctionDeploymentBuildWithCleanup(
+		context.Context,
+		uuid.UUID,
+		uuid.UUID,
+		uuid.UUID,
+		string,
+		string,
+		int64,
+		string,
+		ArtifactCleanupInput,
+	) (domain.FunctionDeployment, error)
+	FailFunctionDeploymentBuild(
+		context.Context,
+		uuid.UUID,
+		uuid.UUID,
+		uuid.UUID,
+		string,
+		string,
+	) (domain.FunctionDeployment, error)
+	FunctionRuntimeVariablesForDeployment(
+		context.Context,
+		uuid.UUID,
+		uuid.UUID,
+		uuid.UUID,
+		*functionsecret.Cipher,
+	) ([]FunctionRuntimeVariable, error)
+	AppendFunctionBuildLog(
+		context.Context,
+		uuid.UUID,
+		uuid.UUID,
+		uuid.UUID,
+		uuid.UUID,
+		int64,
+		string,
+		string,
+	) (domain.FunctionBuildLog, error)
 }
 
 // FunctionExecutionStore is the persistence capability required by the
@@ -30,9 +71,35 @@ type FunctionBuildStore interface {
 type FunctionExecutionStore interface {
 	ClaimNextFunctionExecution(context.Context, string) (FunctionExecutionJob, error)
 	RequeueStaleFunctionExecutions(context.Context, time.Duration) (int64, error)
-	FunctionRuntimeVariablesForDeployment(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, *functionsecret.Cipher) ([]FunctionRuntimeVariable, error)
-	TransitionFunctionExecutionResultForWorker(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, string, string, *int, json.RawMessage, *string) (domain.FunctionExecution, error)
-	AppendFunctionExecutionLog(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, int64, string, string) (domain.FunctionExecutionLog, error)
+	FunctionRuntimeVariablesForDeployment(
+		context.Context,
+		uuid.UUID,
+		uuid.UUID,
+		uuid.UUID,
+		*functionsecret.Cipher,
+	) ([]FunctionRuntimeVariable, error)
+	TransitionFunctionExecutionResultForWorker(
+		context.Context,
+		uuid.UUID,
+		uuid.UUID,
+		uuid.UUID,
+		string,
+		string,
+		string,
+		*int,
+		json.RawMessage,
+		*string,
+	) (domain.FunctionExecution, error)
+	AppendFunctionExecutionLog(
+		context.Context,
+		uuid.UUID,
+		uuid.UUID,
+		uuid.UUID,
+		uuid.UUID,
+		int64,
+		string,
+		string,
+	) (domain.FunctionExecutionLog, error)
 }
 
 // FunctionWorkerStore is the composition seam used by the combined worker.

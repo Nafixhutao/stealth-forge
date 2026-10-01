@@ -28,15 +28,22 @@ func (s *Server) createAppDeployment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	actor := appActorFrom(r)
-	if err := s.repo.AuthorizeAppWrite(r.Context(), projectID, appID, actor); appResourceError(w, err) {
+	err := s.repo.AuthorizeAppWrite(r.Context(), projectID, appID, actor)
+	if appResourceError(w, err) {
 		return
-	} else if err != nil {
+	}
+	if err != nil {
 		internalError(s, w, err)
 		return
 	}
 	mediaType, parameters, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || mediaType != "multipart/form-data" || parameters["boundary"] == "" {
-		writeError(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "Content-Type must be multipart/form-data")
+		writeError(
+			w,
+			http.StatusUnsupportedMediaType,
+			"unsupported_media_type",
+			"Content-Type must be multipart/form-data",
+		)
 		return
 	}
 	platform, err := appbuildspec.CurrentHostPlatform()
@@ -45,14 +52,14 @@ func (s *Server) createAppDeployment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	definition := appbuildspec.Spec{DockerfilePath: "Dockerfile", ContextDirectory: ".", Platform: platform}
-	selectAfterBuild := false
-	haveSource := false
+	var selectAfterBuild bool
+	var haveSource bool
 	seenFields := map[string]bool{}
 	deploymentID := uuid.Must(uuid.NewV7())
 	var sourceName string
 	var prepared appstore.PreparedArtifact
-	preparedSet := false
-	committed := false
+	var preparedSet bool
+	var committed bool
 	defer func() {
 		if preparedSet && !committed {
 			s.apps.Sources.Cleanup(&prepared)
@@ -66,7 +73,12 @@ func (s *Server) createAppDeployment(w http.ResponseWriter, r *http.Request) {
 		}
 		if nextErr != nil {
 			if isMaxBytesError(nextErr) {
-				writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "App source archive exceeds the configured maximum size")
+				writeError(
+					w,
+					http.StatusRequestEntityTooLarge,
+					"payload_too_large",
+					"App source archive exceeds the configured maximum size",
+				)
 			} else {
 				writeError(w, http.StatusBadRequest, "invalid_request", "invalid multipart upload")
 			}
@@ -75,7 +87,12 @@ func (s *Server) createAppDeployment(w http.ResponseWriter, r *http.Request) {
 		field := part.FormName()
 		if seenFields[field] {
 			_ = part.Close()
-			writeError(w, http.StatusUnprocessableEntity, "validation_error", "multipart fields may only be provided once")
+			writeError(
+				w,
+				http.StatusUnprocessableEntity,
+				"validation_error",
+				"multipart fields may only be provided once",
+			)
 			return
 		}
 		seenFields[field] = true
@@ -85,19 +102,41 @@ func (s *Server) createAppDeployment(w http.ResponseWriter, r *http.Request) {
 			sourceName = part.FileName()
 			if storage.ValidateFilename(sourceName) != nil || !supportedAppArchive(sourceName) {
 				_ = part.Close()
-				writeError(w, http.StatusUnprocessableEntity, "validation_error", "source must be a supported .zip, .tar, .tar.gz, or .tgz archive with a valid filename")
+				writeError(
+					w,
+					http.StatusUnprocessableEntity,
+					"validation_error",
+					"source must be a supported .zip, .tar, .tar.gz, or .tgz archive with a valid filename",
+				)
 				return
 			}
-			prepared, err = s.apps.Sources.BeginUpload(r.Context(), projectID, appID, deploymentID, part, s.config.AppsMaxSourceArchiveBytes)
+			prepared, err = s.apps.Sources.BeginUpload(
+				r.Context(),
+				projectID,
+				appID,
+				deploymentID,
+				part,
+				s.config.AppsMaxSourceArchiveBytes,
+			)
 			preparedSet = err == nil
 			_ = part.Close()
 			if errors.Is(err, appstore.ErrTooLarge) {
-				writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "App source archive exceeds the configured maximum size")
+				writeError(
+					w,
+					http.StatusRequestEntityTooLarge,
+					"payload_too_large",
+					"App source archive exceeds the configured maximum size",
+				)
 				return
 			}
 			if err != nil {
 				if isMaxBytesError(err) {
-					writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "App source archive exceeds the configured maximum size")
+					writeError(
+						w,
+						http.StatusRequestEntityTooLarge,
+						"payload_too_large",
+						"App source archive exceeds the configured maximum size",
+					)
 				} else {
 					internalError(s, w, err)
 				}
@@ -147,7 +186,12 @@ func (s *Server) createAppDeployment(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", err.Error())
 		return
 	}
-	cleanup := repository.ArtifactCleanupInput{ProjectID: projectID, StoreKind: repository.ArtifactCleanupAppSources, Operation: repository.ArtifactCleanupRelative, RelativePath: prepared.RelativePath}
+	cleanup := repository.ArtifactCleanupInput{
+		ProjectID:    projectID,
+		StoreKind:    repository.ArtifactCleanupAppSources,
+		Operation:    repository.ArtifactCleanupRelative,
+		RelativePath: prepared.RelativePath,
+	}
 	if err := s.repo.ReserveAppSourceUpload(r.Context(), projectID, appID, actor, prepared.Size, cleanup); err != nil {
 		if appDeploymentResourceError(w, err) || appResourceError(w, err) {
 			return
@@ -166,11 +210,18 @@ func (s *Server) createAppDeployment(w http.ResponseWriter, r *http.Request) {
 		accountID := actor.AccountID
 		createdBy = &accountID
 	}
-	item, err := s.repo.CreateAppDeployment(r.Context(), deploymentID, projectID, appID, actor, repository.AppDeploymentInput{
-		SourceName: sourceName, SourceSizeBytes: prepared.Size, SourceChecksum: prepared.Checksum,
-		SourcePath: prepared.RelativePath, SourceReserved: true, BuildSpec: definition, Select: selectAfterBuild,
-		CreatedByAccount: createdBy, PublishCleanup: &cleanup,
-	})
+	item, err := s.repo.CreateAppDeployment(
+		r.Context(),
+		deploymentID,
+		projectID,
+		appID,
+		actor,
+		repository.AppDeploymentInput{
+			SourceName: sourceName, SourceSizeBytes: prepared.Size, SourceChecksum: prepared.Checksum,
+			SourcePath: prepared.RelativePath, SourceReserved: true, BuildSpec: definition, Select: selectAfterBuild,
+			CreatedByAccount: createdBy, PublishCleanup: &cleanup,
+		},
+	)
 	if err != nil {
 		_ = s.repo.AbandonAppSourceUpload(r.Context(), cleanup)
 		if appResourceError(w, err) || appDeploymentResourceError(w, err) {
@@ -204,7 +255,14 @@ func (s *Server) listAppDeployments(w http.ResponseWriter, r *http.Request) {
 		}
 		cursor = &version
 	}
-	items, next, canManage, err := s.repo.ListAppDeployments(r.Context(), projectID, appID, appActorFrom(r), limit, cursor)
+	items, next, canManage, err := s.repo.ListAppDeployments(
+		r.Context(),
+		projectID,
+		appID,
+		appActorFrom(r),
+		limit,
+		cursor,
+	)
 	if appResourceError(w, err) || appDeploymentResourceError(w, err) {
 		return
 	}
@@ -212,7 +270,11 @@ func (s *Server) listAppDeployments(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"deployments": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"deployments": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) getAppDeployment(w http.ResponseWriter, r *http.Request) {
@@ -286,9 +348,11 @@ func (s *Server) deleteAppDeployment(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.repo.DeleteAppDeployment(r.Context(), projectID, appID, deploymentID, appActorFrom(r)); appResourceError(w, err) || appDeploymentResourceError(w, err) {
+	err := s.repo.DeleteAppDeployment(r.Context(), projectID, appID, deploymentID, appActorFrom(r))
+	if appResourceError(w, err) || appDeploymentResourceError(w, err) {
 		return
-	} else if err != nil {
+	}
+	if err != nil {
 		internalError(s, w, err)
 		return
 	}
@@ -306,7 +370,9 @@ func appDeploymentPathIDs(w http.ResponseWriter, r *http.Request) (uuid.UUID, uu
 
 func supportedAppArchive(name string) bool {
 	lower := strings.ToLower(filepath.Base(name))
-	return strings.HasSuffix(lower, ".zip") || strings.HasSuffix(lower, ".tar") || strings.HasSuffix(lower, ".tar.gz") || strings.HasSuffix(lower, ".tgz")
+	return strings.HasSuffix(lower, ".zip") || strings.HasSuffix(lower, ".tar") ||
+		strings.HasSuffix(lower, ".tar.gz") ||
+		strings.HasSuffix(lower, ".tgz")
 }
 
 func appDeploymentResourceError(w http.ResponseWriter, err error) bool {
@@ -318,13 +384,33 @@ func appDeploymentResourceError(w http.ResponseWriter, err error) bool {
 	case errors.Is(err, repository.ErrAppDeploymentSelected):
 		writeError(w, http.StatusConflict, "deployment_selected", "the selected App deployment cannot be deleted")
 	case errors.Is(err, repository.ErrAppDeploymentRunning):
-		writeError(w, http.StatusConflict, "deployment_building", "an App deployment with an active build cannot be deleted")
+		writeError(
+			w,
+			http.StatusConflict,
+			"deployment_building",
+			"an App deployment with an active build cannot be deleted",
+		)
 	case errors.Is(err, repository.ErrAppDeploymentNotReady):
-		writeError(w, http.StatusConflict, "deployment_not_ready", "only a completed verified App image can be selected")
+		writeError(
+			w,
+			http.StatusConflict,
+			"deployment_not_ready",
+			"only a completed verified App image can be selected",
+		)
 	case errors.Is(err, repository.ErrAppDeploymentAlreadySelected):
-		writeError(w, http.StatusConflict, "already_selected", "the selected deployment is already the desired App release")
+		writeError(
+			w,
+			http.StatusConflict,
+			"already_selected",
+			"the selected deployment is already the desired App release",
+		)
 	case errors.Is(err, repository.ErrAppRollbackNotAvailable):
-		writeError(w, http.StatusConflict, "rollback_not_available", "the deployment is not an eligible older release with a verified artifact")
+		writeError(
+			w,
+			http.StatusConflict,
+			"rollback_not_available",
+			"the deployment is not an eligible older release with a verified artifact",
+		)
 	case errors.Is(err, repository.ErrAppRollbackGenerationLimit):
 		writeError(w, http.StatusConflict, "generation_limit", "the App desired generation cannot be advanced")
 	case errors.Is(err, repository.ErrInvalidAppDeployment), errors.Is(err, appbuildspec.ErrInvalidBuildSpec):

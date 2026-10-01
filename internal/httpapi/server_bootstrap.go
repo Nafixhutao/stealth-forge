@@ -84,7 +84,12 @@ func (s *Server) bootstrapStatus(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) createBootstrapSession(w http.ResponseWriter, r *http.Request) {
 	if !s.bootstrapConfigured() {
-		writeBootstrapError(w, http.StatusServiceUnavailable, "github_not_configured", "GitHub first-owner authentication is not configured")
+		writeBootstrapError(
+			w,
+			http.StatusServiceUnavailable,
+			"github_not_configured",
+			"GitHub first-owner authentication is not configured",
+		)
 		return
 	}
 	if !s.verifyBootstrapCLI(w, r) {
@@ -105,7 +110,12 @@ func (s *Server) createBootstrapSession(w http.ResponseWriter, r *http.Request) 
 		case errors.Is(err, repository.ErrBootstrapSealed):
 			writeBootstrapError(w, http.StatusGone, "bootstrap_complete", "instance setup has already been completed")
 		case errors.Is(err, repository.ErrInvalidBootstrapCode):
-			writeBootstrapError(w, http.StatusUnprocessableEntity, "invalid_bootstrap_session", "unable to create a setup session")
+			writeBootstrapError(
+				w,
+				http.StatusUnprocessableEntity,
+				"invalid_bootstrap_session",
+				"unable to create a setup session",
+			)
 		default:
 			internalError(s, w, err)
 		}
@@ -123,7 +133,12 @@ func (s *Server) verifyBootstrapCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !bootstrap.ValidCode(req.SetupCode) {
-		writeBootstrapError(w, http.StatusUnauthorized, "invalid_bootstrap_code", "invalid, expired, or already used setup code")
+		writeBootstrapError(
+			w,
+			http.StatusUnauthorized,
+			"invalid_bootstrap_code",
+			"invalid, expired, or already used setup code",
+		)
 		return
 	}
 	verification, err := s.bootstrap.VerifyBootstrapCode(r.Context(), bootstrap.HashCode(req.SetupCode))
@@ -133,12 +148,23 @@ func (s *Server) verifyBootstrapCode(w http.ResponseWriter, r *http.Request) {
 			state, stateErr := s.setupState.Load(r.Context())
 			encodedHash := base64.RawURLEncoding.EncodeToString(codeHash)
 			_, sessionErr := uuid.Parse(state.SetupSessionID)
-			if stateErr == nil && state.Phase != setupstate.PhaseComplete && state.SetupExpiresAt.After(time.Now().UTC()) && sessionErr == nil && subtle.ConstantTimeCompare([]byte(state.SetupCodeHash), []byte(encodedHash)) == 1 {
+			stateValid := stateErr == nil && state.Phase != setupstate.PhaseComplete &&
+				state.SetupExpiresAt.After(time.Now().UTC())
+			sessionValid := sessionErr == nil
+			if stateValid && sessionValid &&
+				subtle.ConstantTimeCompare([]byte(state.SetupCodeHash), []byte(encodedHash)) == 1 {
 				if cookieErr := s.setSetupCookie(w, r, state.SetupSessionID, codeHash, state.SetupExpiresAt); cookieErr != nil {
 					internalError(s, w, cookieErr)
 					return
 				}
-				writeBootstrapJSON(w, http.StatusOK, verifyBootstrapCodeResponse{AuthorizationSessionID: state.SetupSessionID, ExpiresAt: state.SetupExpiresAt})
+				writeBootstrapJSON(
+					w,
+					http.StatusOK,
+					verifyBootstrapCodeResponse{
+						AuthorizationSessionID: state.SetupSessionID,
+						ExpiresAt:              state.SetupExpiresAt,
+					},
+				)
 				return
 			}
 		}
@@ -146,7 +172,12 @@ func (s *Server) verifyBootstrapCode(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, repository.ErrBootstrapSealed):
 			writeBootstrapError(w, http.StatusGone, "bootstrap_complete", "instance setup has already been completed")
 		case errors.Is(err, repository.ErrInvalidBootstrapCode):
-			writeBootstrapError(w, http.StatusUnauthorized, "invalid_bootstrap_code", "invalid, expired, or already used setup code")
+			writeBootstrapError(
+				w,
+				http.StatusUnauthorized,
+				"invalid_bootstrap_code",
+				"invalid, expired, or already used setup code",
+			)
 		default:
 			internalError(s, w, err)
 		}
@@ -154,7 +185,12 @@ func (s *Server) verifyBootstrapCode(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.config.SetupMode {
 		if s.setupState == nil {
-			writeBootstrapError(w, http.StatusServiceUnavailable, "setup_unavailable", "browser setup is temporarily unavailable")
+			writeBootstrapError(
+				w,
+				http.StatusServiceUnavailable,
+				"setup_unavailable",
+				"browser setup is temporarily unavailable",
+			)
 			return
 		}
 		codeHash := bootstrap.HashCode(req.SetupCode)
@@ -172,7 +208,12 @@ func (s *Server) verifyBootstrapCode(w http.ResponseWriter, r *http.Request) {
 			return nil
 		})
 		if claimErr != nil {
-			writeBootstrapError(w, http.StatusConflict, "setup_code_used", "this setup code has already been used; request a new code from the local CLI")
+			writeBootstrapError(
+				w,
+				http.StatusConflict,
+				"setup_code_used",
+				"this setup code has already been used; request a new code from the local CLI",
+			)
 			return
 		}
 		if err := s.setSetupCookie(w, r, verification.ID.String(), codeHash, verification.ExpiresAt); err != nil {
@@ -180,7 +221,8 @@ func (s *Server) verifyBootstrapCode(w http.ResponseWriter, r *http.Request) {
 				if setupstate.InstallationLocked(*state) {
 					return nil
 				}
-				if state.SetupSessionID == verification.ID.String() && state.SetupCodeHash == base64.RawURLEncoding.EncodeToString(codeHash) {
+				if state.SetupSessionID == verification.ID.String() &&
+					state.SetupCodeHash == base64.RawURLEncoding.EncodeToString(codeHash) {
 					state.SetupSessionID = ""
 					state.SetupCodeHash = ""
 					state.SetupExpiresAt = time.Time{}
@@ -191,7 +233,14 @@ func (s *Server) verifyBootstrapCode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	writeBootstrapJSON(w, http.StatusOK, verifyBootstrapCodeResponse{AuthorizationSessionID: verification.ID.String(), ExpiresAt: verification.ExpiresAt})
+	writeBootstrapJSON(
+		w,
+		http.StatusOK,
+		verifyBootstrapCodeResponse{
+			AuthorizationSessionID: verification.ID.String(),
+			ExpiresAt:              verification.ExpiresAt,
+		},
+	)
 }
 
 func (s *Server) startGitHubDeviceFlow(w http.ResponseWriter, r *http.Request) {
@@ -200,7 +249,12 @@ func (s *Server) startGitHubDeviceFlow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.config.SetupMode {
-		writeBootstrapError(w, http.StatusGone, "github_device_flow_inactive", "browser setup uses GitHub web authorization; Device Flow is not enabled for this setup service")
+		writeBootstrapError(
+			w,
+			http.StatusGone,
+			"github_device_flow_inactive",
+			"browser setup uses GitHub web authorization; Device Flow is not enabled for this setup service",
+		)
 		return
 	}
 	sessionID, sessionErr := uuid.Parse(strings.TrimSpace(req.AuthorizationSessionID))
@@ -208,11 +262,21 @@ func (s *Server) startGitHubDeviceFlow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !s.bootstrapConfigured() {
-		writeBootstrapError(w, http.StatusServiceUnavailable, "github_not_configured", "GitHub first-owner authentication is not configured")
+		writeBootstrapError(
+			w,
+			http.StatusServiceUnavailable,
+			"github_not_configured",
+			"GitHub first-owner authentication is not configured",
+		)
 		return
 	}
 	if sessionErr != nil || !bootstrap.ValidCode(req.SetupCode) {
-		writeBootstrapError(w, http.StatusUnauthorized, "invalid_bootstrap_code", "invalid, expired, or already used setup code")
+		writeBootstrapError(
+			w,
+			http.StatusUnauthorized,
+			"invalid_bootstrap_code",
+			"invalid, expired, or already used setup code",
+		)
 		return
 	}
 	codeHash := bootstrap.HashCode(req.SetupCode)
@@ -228,32 +292,63 @@ func (s *Server) startGitHubDeviceFlow(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, repository.ErrBootstrapSealed):
 			writeBootstrapError(w, http.StatusGone, "bootstrap_complete", "instance setup has already been completed")
 		case errors.Is(err, repository.ErrInvalidBootstrapCode):
-			writeBootstrapError(w, http.StatusUnauthorized, "invalid_bootstrap_code", "invalid, expired, or already used setup code")
+			writeBootstrapError(
+				w,
+				http.StatusUnauthorized,
+				"invalid_bootstrap_code",
+				"invalid, expired, or already used setup code",
+			)
 		default:
 			internalError(s, w, err)
 		}
 		return
 	}
 	if verification.ID != sessionID {
-		writeBootstrapError(w, http.StatusUnauthorized, "invalid_bootstrap_session", "setup authorization session is invalid")
+		writeBootstrapError(
+			w,
+			http.StatusUnauthorized,
+			"invalid_bootstrap_session",
+			"setup authorization session is invalid",
+		)
 		return
 	}
 	githubClientID := s.githubClientID(r.Context())
 	if githubClientID == "" {
-		writeBootstrapError(w, http.StatusServiceUnavailable, "github_not_configured", "GitHub first-owner authentication is not configured")
+		writeBootstrapError(
+			w,
+			http.StatusServiceUnavailable,
+			"github_not_configured",
+			"GitHub first-owner authentication is not configured",
+		)
 		return
 	}
 	device, err := s.githubClient.RequestDeviceCode(r.Context(), githubClientID)
 	if err != nil {
 		s.logger.Warn("GitHub device authorization request failed", "error", err)
-		writeBootstrapError(w, http.StatusBadGateway, "github_unavailable", "GitHub authorization is temporarily unavailable")
+		writeBootstrapError(
+			w,
+			http.StatusBadGateway,
+			"github_unavailable",
+			"GitHub authorization is temporarily unavailable",
+		)
 		return
 	}
 	deviceCode := strings.TrimSpace(device.DeviceCode)
 	userCode := strings.TrimSpace(device.UserCode)
 	verificationURI := strings.TrimSpace(device.VerificationURI)
-	if device.ExpiresIn <= 0 || device.ExpiresIn > bootstrap.CodeLifetime || device.PollingInterval < time.Second || device.PollingInterval > 5*time.Minute || deviceCode == "" || len(deviceCode) > 2048 || userCode == "" || len(userCode) > 64 || strings.ContainsAny(deviceCode+userCode, "\x00\r\n") || verificationURI != githubauth.DeviceVerificationURI {
-		writeBootstrapError(w, http.StatusBadGateway, "github_invalid_response", "GitHub returned an invalid device authorization")
+	lifetimeInvalid := device.ExpiresIn <= 0 || device.ExpiresIn > bootstrap.CodeLifetime
+	intervalInvalid := device.PollingInterval < time.Second || device.PollingInterval > 5*time.Minute
+	deviceCodeInvalid := deviceCode == "" || len(deviceCode) > 2048
+	userCodeInvalid := userCode == "" || len(userCode) > 64
+	codesContainControl := strings.ContainsAny(deviceCode+userCode, "\x00\r\n")
+	if lifetimeInvalid || intervalInvalid || deviceCodeInvalid || userCodeInvalid || codesContainControl ||
+		verificationURI != githubauth.DeviceVerificationURI {
+		writeBootstrapError(
+			w,
+			http.StatusBadGateway,
+			"github_invalid_response",
+			"GitHub returned an invalid device authorization",
+		)
 		return
 	}
 	sealedDeviceCode, err := bootstrap.SealDeviceCode(s.bootstrapCLIKey(), deviceCode)
@@ -281,7 +376,12 @@ func (s *Server) startGitHubDeviceFlow(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, repository.ErrBootstrapSealed):
 			writeBootstrapError(w, http.StatusGone, "bootstrap_complete", "instance setup has already been completed")
 		case errors.Is(err, repository.ErrInvalidBootstrapCode):
-			writeBootstrapError(w, http.StatusUnauthorized, "invalid_bootstrap_code", "invalid, expired, or already used setup code")
+			writeBootstrapError(
+				w,
+				http.StatusUnauthorized,
+				"invalid_bootstrap_code",
+				"invalid, expired, or already used setup code",
+			)
 		default:
 			internalError(s, w, err)
 		}
@@ -306,7 +406,12 @@ func (s *Server) pollGitHubDeviceFlow(w http.ResponseWriter, r *http.Request) {
 	}
 	sessionID, err := uuid.Parse(strings.TrimSpace(req.AuthorizationSessionID))
 	if err != nil {
-		writeBootstrapError(w, http.StatusUnauthorized, "invalid_github_session", "GitHub authorization session is invalid")
+		writeBootstrapError(
+			w,
+			http.StatusUnauthorized,
+			"invalid_github_session",
+			"GitHub authorization session is invalid",
+		)
 		return
 	}
 	flow, allowed, err := s.bootstrap.ClaimGitHubDevicePoll(r.Context(), sessionID)
@@ -315,14 +420,24 @@ func (s *Server) pollGitHubDeviceFlow(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, repository.ErrBootstrapSealed):
 			writeBootstrapError(w, http.StatusGone, "bootstrap_complete", "instance setup has already been completed")
 		case errors.Is(err, repository.ErrInvalidBootstrapCode):
-			writeBootstrapError(w, http.StatusUnauthorized, "invalid_github_session", "GitHub authorization session is invalid")
+			writeBootstrapError(
+				w,
+				http.StatusUnauthorized,
+				"invalid_github_session",
+				"GitHub authorization session is invalid",
+			)
 		default:
 			internalError(s, w, err)
 		}
 		return
 	}
 	if flow.Status == "expired" {
-		writeBootstrapError(w, http.StatusGone, "github_authorization_expired", "GitHub authorization expired; start again")
+		writeBootstrapError(
+			w,
+			http.StatusGone,
+			"github_authorization_expired",
+			"GitHub authorization expired; start again",
+		)
 		return
 	}
 	if flow.Status == "denied" {
@@ -330,15 +445,29 @@ func (s *Server) pollGitHubDeviceFlow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if flow.Status == "failed" {
-		writeBootstrapError(w, http.StatusConflict, "github_authorization_failed", "GitHub authorization could not be completed; try again")
+		writeBootstrapError(
+			w,
+			http.StatusConflict,
+			"github_authorization_failed",
+			"GitHub authorization could not be completed; try again",
+		)
 		return
 	}
 	if flow.Status != "pending" || len(flow.DeviceCodeCiphertext) == 0 || flow.GitHubExpiresAt.IsZero() {
-		writeBootstrapError(w, http.StatusUnauthorized, "invalid_github_session", "GitHub authorization session is invalid")
+		writeBootstrapError(
+			w,
+			http.StatusUnauthorized,
+			"invalid_github_session",
+			"GitHub authorization session is invalid",
+		)
 		return
 	}
 	if !allowed {
-		writeBootstrapJSON(w, http.StatusOK, pollGitHubDeviceResponse{Status: "pending", RetryAfterSeconds: retryAfterSeconds(flow.NextPollAt)})
+		writeBootstrapJSON(
+			w,
+			http.StatusOK,
+			pollGitHubDeviceResponse{Status: "pending", RetryAfterSeconds: retryAfterSeconds(flow.NextPollAt)},
+		)
 		return
 	}
 	deviceCode, err := bootstrap.OpenDeviceCode(s.bootstrapCLIKey(), flow.DeviceCodeCiphertext)
@@ -355,7 +484,12 @@ func (s *Server) pollGitHubDeviceFlow(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.logger.Warn("GitHub device authorization poll failed", "error", err)
-		writeBootstrapError(w, http.StatusBadGateway, "github_unavailable", "GitHub authorization is temporarily unavailable")
+		writeBootstrapError(
+			w,
+			http.StatusBadGateway,
+			"github_unavailable",
+			"GitHub authorization is temporarily unavailable",
+		)
 		return
 	}
 	switch result.Status {
@@ -363,7 +497,11 @@ func (s *Server) pollGitHubDeviceFlow(w http.ResponseWriter, r *http.Request) {
 		if !s.updateGitHubDeviceFlow(w, r, sessionID, "pending", flow.Interval, time.Now().UTC().Add(flow.Interval)) {
 			return
 		}
-		writeBootstrapJSON(w, http.StatusOK, pollGitHubDeviceResponse{Status: "pending", RetryAfterSeconds: maxInt(1, int(flow.Interval/time.Second))})
+		writeBootstrapJSON(
+			w,
+			http.StatusOK,
+			pollGitHubDeviceResponse{Status: "pending", RetryAfterSeconds: maxInt(1, int(flow.Interval/time.Second))},
+		)
 		return
 	case githubauth.PollSlowDown:
 		interval := flow.Interval + 5*time.Second
@@ -373,13 +511,22 @@ func (s *Server) pollGitHubDeviceFlow(w http.ResponseWriter, r *http.Request) {
 		if !s.updateGitHubDeviceFlow(w, r, sessionID, "pending", interval, time.Now().UTC().Add(interval)) {
 			return
 		}
-		writeBootstrapJSON(w, http.StatusOK, pollGitHubDeviceResponse{Status: "pending", RetryAfterSeconds: maxInt(1, int(interval/time.Second))})
+		writeBootstrapJSON(
+			w,
+			http.StatusOK,
+			pollGitHubDeviceResponse{Status: "pending", RetryAfterSeconds: maxInt(1, int(interval/time.Second))},
+		)
 		return
 	case githubauth.PollExpired:
 		if !s.updateGitHubDeviceFlow(w, r, sessionID, "expired", flow.Interval, time.Now().UTC().Add(flow.Interval)) {
 			return
 		}
-		writeBootstrapError(w, http.StatusGone, "github_authorization_expired", "GitHub authorization expired; start again")
+		writeBootstrapError(
+			w,
+			http.StatusGone,
+			"github_authorization_expired",
+			"GitHub authorization expired; start again",
+		)
 		return
 	case githubauth.PollDenied:
 		if !s.updateGitHubDeviceFlow(w, r, sessionID, "denied", flow.Interval, time.Now().UTC().Add(flow.Interval)) {
@@ -392,30 +539,80 @@ func (s *Server) pollGitHubDeviceFlow(w http.ResponseWriter, r *http.Request) {
 		// is never persisted, returned, or logged.
 		user, userErr := s.githubClient.GetUser(r.Context(), result.AccessToken)
 		if userErr != nil {
-			if !s.updateGitHubDeviceFlow(w, r, sessionID, "failed", flow.Interval, time.Now().UTC().Add(flow.Interval)) {
+			if !s.updateGitHubDeviceFlow(
+				w,
+				r,
+				sessionID,
+				"failed",
+				flow.Interval,
+				time.Now().UTC().Add(flow.Interval),
+			) {
 				return
 			}
 			s.logger.Warn("GitHub identity lookup failed", "error", userErr)
-			writeBootstrapError(w, http.StatusBadGateway, "github_identity_unavailable", "GitHub identity could not be verified")
+			writeBootstrapError(
+				w,
+				http.StatusBadGateway,
+				"github_identity_unavailable",
+				"GitHub identity could not be verified",
+			)
 			return
 		}
-		owner, ownerErr := s.createGitHubInstanceOwner(r.Context(), bootstrap.GitHubAuthorization{SessionID: flow.ID, CodeHash: flow.CodeHash}, user)
+		owner, ownerErr := s.createGitHubInstanceOwner(
+			r.Context(),
+			bootstrap.GitHubAuthorization{SessionID: flow.ID, CodeHash: flow.CodeHash},
+			user,
+		)
 		if ownerErr != nil {
 			switch {
 			case errors.Is(ownerErr, repository.ErrBootstrapSealed):
-				writeBootstrapError(w, http.StatusGone, "bootstrap_complete", "instance setup has already been completed")
+				writeBootstrapError(
+					w,
+					http.StatusGone,
+					"bootstrap_complete",
+					"instance setup has already been completed",
+				)
 			case errors.Is(ownerErr, repository.ErrInvalidBootstrapCode):
-				writeBootstrapError(w, http.StatusUnauthorized, "invalid_bootstrap_code", "setup authorization is invalid")
+				writeBootstrapError(
+					w,
+					http.StatusUnauthorized,
+					"invalid_bootstrap_code",
+					"setup authorization is invalid",
+				)
 			case errors.Is(ownerErr, repository.ErrConflict):
-				if !s.updateGitHubDeviceFlow(w, r, sessionID, "failed", flow.Interval, time.Now().UTC().Add(flow.Interval)) {
+				if !s.updateGitHubDeviceFlow(
+					w,
+					r,
+					sessionID,
+					"failed",
+					flow.Interval,
+					time.Now().UTC().Add(flow.Interval),
+				) {
 					return
 				}
-				writeBootstrapError(w, http.StatusConflict, "github_identity_conflict", "that GitHub identity cannot be used for this installation")
+				writeBootstrapError(
+					w,
+					http.StatusConflict,
+					"github_identity_conflict",
+					"that GitHub identity cannot be used for this installation",
+				)
 			case errors.Is(ownerErr, errInvalidGitHubIdentity):
-				if !s.updateGitHubDeviceFlow(w, r, sessionID, "failed", flow.Interval, time.Now().UTC().Add(flow.Interval)) {
+				if !s.updateGitHubDeviceFlow(
+					w,
+					r,
+					sessionID,
+					"failed",
+					flow.Interval,
+					time.Now().UTC().Add(flow.Interval),
+				) {
 					return
 				}
-				writeBootstrapError(w, http.StatusBadGateway, "github_invalid_identity", "GitHub returned an invalid identity")
+				writeBootstrapError(
+					w,
+					http.StatusBadGateway,
+					"github_invalid_identity",
+					"GitHub returned an invalid identity",
+				)
 			default:
 				internalError(s, w, ownerErr)
 			}
@@ -424,17 +621,30 @@ func (s *Server) pollGitHubDeviceFlow(w http.ResponseWriter, r *http.Request) {
 		if !s.config.SetupMode {
 			s.setSessionCookie(w, owner.SessionToken)
 		}
-		writeBootstrapJSON(w, http.StatusCreated, pollGitHubDeviceResponse{Status: "complete", Account: &owner.Account, HandoffToken: owner.HandoffToken})
+		writeBootstrapJSON(
+			w,
+			http.StatusCreated,
+			pollGitHubDeviceResponse{Status: "complete", Account: &owner.Account, HandoffToken: owner.HandoffToken},
+		)
 		return
 	}
-	writeBootstrapError(w, http.StatusBadGateway, "github_invalid_response", "GitHub returned an invalid authorization response")
+	writeBootstrapError(
+		w,
+		http.StatusBadGateway,
+		"github_invalid_response",
+		"GitHub returned an invalid authorization response",
+	)
 }
 
 var errInvalidGitHubIdentity = bootstrap.ErrInvalidGitHubIdentity
 
 type githubOwnerResult = bootstrap.OwnerResult
 
-func (s *Server) createGitHubInstanceOwner(ctx context.Context, authorization bootstrap.GitHubAuthorization, user githubauth.User) (githubOwnerResult, error) {
+func (s *Server) createGitHubInstanceOwner(
+	ctx context.Context,
+	authorization bootstrap.GitHubAuthorization,
+	user githubauth.User,
+) (githubOwnerResult, error) {
 	creator := bootstrap.OwnerCreator{
 		Store:      s.bootstrap,
 		Handoff:    s.setupHandoff,
@@ -451,7 +661,12 @@ func (s *Server) listBootstrapAdoptionAccounts(w http.ResponseWriter, r *http.Re
 	accounts, err := s.bootstrap.ListBootstrapAdoptionAccounts(r.Context())
 	if err != nil {
 		if errors.Is(err, repository.ErrBootstrapSealed) {
-			writeBootstrapError(w, http.StatusConflict, "adoption_unavailable", "instance owner adoption is not available")
+			writeBootstrapError(
+				w,
+				http.StatusConflict,
+				"adoption_unavailable",
+				"instance owner adoption is not available",
+			)
 			return
 		}
 		internalError(s, w, err)
@@ -478,7 +693,12 @@ func (s *Server) adoptBootstrapOwner(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, repository.ErrNotFound):
 			writeBootstrapError(w, http.StatusNotFound, "not_found", "account was not found")
 		case errors.Is(err, repository.ErrBootstrapSealed):
-			writeBootstrapError(w, http.StatusConflict, "adoption_unavailable", "instance owner adoption is not available")
+			writeBootstrapError(
+				w,
+				http.StatusConflict,
+				"adoption_unavailable",
+				"instance owner adoption is not available",
+			)
 		default:
 			internalError(s, w, err)
 		}
@@ -499,7 +719,14 @@ func (s *Server) verifyBootstrapCLI(w http.ResponseWriter, r *http.Request) bool
 	return true
 }
 
-func (s *Server) updateGitHubDeviceFlow(w http.ResponseWriter, r *http.Request, sessionID uuid.UUID, status string, interval time.Duration, nextPollAt time.Time) bool {
+func (s *Server) updateGitHubDeviceFlow(
+	w http.ResponseWriter,
+	r *http.Request,
+	sessionID uuid.UUID,
+	status string,
+	interval time.Duration,
+	nextPollAt time.Time,
+) bool {
 	if err := s.bootstrap.UpdateGitHubDeviceFlow(r.Context(), sessionID, status, interval, nextPollAt); err != nil {
 		internalError(s, w, err)
 		return false
@@ -540,16 +767,31 @@ func (s *Server) allowBootstrapPoll(w http.ResponseWriter, r *http.Request) bool
 	return s.allowBootstrapAttemptWith(w, r, "", bootstrapPollRateLimit, bootstrapPollRateWindow, "bootstrap_poll")
 }
 
-func (s *Server) allowBootstrapAttemptWith(w http.ResponseWriter, r *http.Request, dimension string, limit int, window time.Duration, operation string) bool {
+func (s *Server) allowBootstrapAttemptWith(
+	w http.ResponseWriter,
+	r *http.Request,
+	dimension string,
+	limit int,
+	window time.Duration,
+	operation string,
+) bool {
 	keys := []string{ratelimit.InstanceIPKey(operation, s.requestClientIP(r))}
 	if dimension != "" {
-		keys = append(keys, ratelimit.InstanceKey(operation, strings.ToLower(strings.TrimSpace(dimension)), s.requestClientIP(r)))
+		keys = append(
+			keys,
+			ratelimit.InstanceKey(operation, strings.ToLower(strings.TrimSpace(dimension)), s.requestClientIP(r)),
+		)
 	}
 	for _, key := range keys {
 		decision, err := s.limiter.Allow(r.Context(), key, limit, window)
 		if err != nil {
 			s.logger.Error("bootstrap rate limiter failed", "error", err)
-			writeBootstrapError(w, http.StatusServiceUnavailable, "service_unavailable", "authentication protection is temporarily unavailable")
+			writeBootstrapError(
+				w,
+				http.StatusServiceUnavailable,
+				"service_unavailable",
+				"authentication protection is temporarily unavailable",
+			)
 			return false
 		}
 		if !decision.Allowed {

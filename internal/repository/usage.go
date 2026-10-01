@@ -34,17 +34,23 @@ func incrementUsageTx(ctx context.Context, tx interface {
 	if projectID == uuid.Nil {
 		return ErrInvalidUsageWindow
 	}
-	if delta.APIRequestCount < 0 || delta.APIEgressBytes < 0 || delta.FunctionInvocationCount < 0 || delta.FunctionFailureCount < 0 || delta.FunctionComputeMS < 0 {
+	if delta.APIRequestCount < 0 || delta.APIEgressBytes < 0 || delta.FunctionInvocationCount < 0 ||
+		delta.FunctionFailureCount < 0 ||
+		delta.FunctionComputeMS < 0 {
 		return ErrInvalidUsageWindow
 	}
-	if delta.APIRequestCount == 0 && delta.APIEgressBytes == 0 && delta.FunctionInvocationCount == 0 && delta.FunctionFailureCount == 0 && delta.FunctionComputeMS == 0 {
+	if delta.APIRequestCount == 0 && delta.APIEgressBytes == 0 && delta.FunctionInvocationCount == 0 &&
+		delta.FunctionFailureCount == 0 &&
+		delta.FunctionComputeMS == 0 {
 		return nil
 	}
 	if occurredAt.IsZero() {
 		occurredAt = time.Now().UTC()
 	}
 	usageDate := occurredAt.UTC().Format("2006-01-02")
-	_, err := tx.Exec(ctx, `
+	_, err := tx.Exec(
+		ctx,
+		`
 		INSERT INTO project_usage_daily (project_id,usage_date,api_request_count,api_egress_bytes,function_invocation_count,function_failure_count,function_compute_ms)
 		VALUES ($1,$2::date,$3,$4,$5,$6,$7)
 		ON CONFLICT (project_id,usage_date) DO UPDATE SET
@@ -54,7 +60,14 @@ func incrementUsageTx(ctx context.Context, tx interface {
 			function_failure_count=project_usage_daily.function_failure_count+EXCLUDED.function_failure_count,
 			function_compute_ms=project_usage_daily.function_compute_ms+EXCLUDED.function_compute_ms,
 			updated_at=now()`,
-		projectID, usageDate, delta.APIRequestCount, delta.APIEgressBytes, delta.FunctionInvocationCount, delta.FunctionFailureCount, delta.FunctionComputeMS)
+		projectID,
+		usageDate,
+		delta.APIRequestCount,
+		delta.APIEgressBytes,
+		delta.FunctionInvocationCount,
+		delta.FunctionFailureCount,
+		delta.FunctionComputeMS,
+	)
 	return err
 }
 
@@ -124,7 +137,11 @@ func (r *Repository) ProjectUsage(ctx context.Context, projectID, accountID uuid
 // ProjectUsageMetering returns durable daily buckets for an authenticated
 // project member. The inclusive window is capped at one year to keep response
 // size bounded and to make the contract safe for operator charts.
-func (r *Repository) ProjectUsageMetering(ctx context.Context, projectID, accountID uuid.UUID, from, to time.Time) (domain.ProjectUsageMetering, error) {
+func (r *Repository) ProjectUsageMetering(
+	ctx context.Context,
+	projectID, accountID uuid.UUID,
+	from, to time.Time,
+) (domain.ProjectUsageMetering, error) {
 	fromDate, toDate, err := normalizeUsageWindow(from, to)
 	if err != nil {
 		return domain.ProjectUsageMetering{}, err
@@ -177,7 +194,10 @@ func normalizeUsageWindow(from, to time.Time) (time.Time, time.Time, error) {
 	from = time.Date(from.UTC().Year(), from.UTC().Month(), from.UTC().Day(), 0, 0, 0, 0, time.UTC)
 	to = time.Date(to.UTC().Year(), to.UTC().Month(), to.UTC().Day(), 0, 0, 0, 0, time.UTC)
 	if to.Before(from) || to.Sub(from) > 366*24*time.Hour {
-		return time.Time{}, time.Time{}, fmt.Errorf("%w: range must be between one and 367 calendar days", ErrInvalidUsageWindow)
+		return time.Time{}, time.Time{}, fmt.Errorf(
+			"%w: range must be between one and 367 calendar days",
+			ErrInvalidUsageWindow,
+		)
 	}
 	return from, to, nil
 }

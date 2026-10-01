@@ -57,7 +57,15 @@ type DatabaseBackupRestoreResult struct {
 func scanDatabaseBackup(row interface{ Scan(...any) error }) (domain.DatabaseBackup, string, error) {
 	var item domain.DatabaseBackup
 	var path string
-	err := row.Scan(&item.ID, &item.ProjectID, &item.DatabaseID, &path, &item.SizeBytes, &item.ChecksumSHA256, &item.CreatedAt)
+	err := row.Scan(
+		&item.ID,
+		&item.ProjectID,
+		&item.DatabaseID,
+		&path,
+		&item.SizeBytes,
+		&item.ChecksumSHA256,
+		&item.CreatedAt,
+	)
 	return item, path, err
 }
 
@@ -68,12 +76,21 @@ func BackupChecksum(payload []byte) string {
 
 // BuildDatabaseBackup reads a bounded management snapshot. The caller stores
 // the returned JSON through the configured BlobStore after this method returns.
-func (r *Repository) BuildDatabaseBackup(ctx context.Context, projectID, databaseID uuid.UUID, actor DatabaseActor, maxRows int) (DatabaseBackupSnapshot, []byte, error) {
+func (r *Repository) BuildDatabaseBackup(
+	ctx context.Context,
+	projectID, databaseID uuid.UUID,
+	actor DatabaseActor,
+	maxRows int,
+) (DatabaseBackupSnapshot, []byte, error) {
 	if maxRows <= 0 {
 		maxRows = DatabaseBackupDefaultMaxRows
 	}
 	if maxRows > DatabaseBackupMaxRows {
-		return DatabaseBackupSnapshot{}, nil, fmt.Errorf("%w: maximum row count is %d", ErrBackupTooLarge, DatabaseBackupMaxRows)
+		return DatabaseBackupSnapshot{}, nil, fmt.Errorf(
+			"%w: maximum row count is %d",
+			ErrBackupTooLarge,
+			DatabaseBackupMaxRows,
+		)
 	}
 	if _, err := r.requireDatabaseRead(ctx, projectID, actor); err != nil {
 		return DatabaseBackupSnapshot{}, nil, err
@@ -86,7 +103,14 @@ func (r *Repository) BuildDatabaseBackup(ctx context.Context, projectID, databas
 	if err := lockDatabaseNamespace(ctx, tx, databaseID); err != nil {
 		return DatabaseBackupSnapshot{}, nil, err
 	}
-	database, err := scanDatabase(tx.QueryRow(ctx, `SELECT `+databaseProjection()+` FROM project_databases WHERE id=$1 AND project_id=$2`, databaseID, projectID))
+	database, err := scanDatabase(
+		tx.QueryRow(
+			ctx,
+			`SELECT `+databaseProjection()+` FROM project_databases WHERE id=$1 AND project_id=$2`,
+			databaseID,
+			projectID,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return DatabaseBackupSnapshot{}, nil, ErrNotFound
 	}
@@ -101,7 +125,12 @@ func (r *Repository) BuildDatabaseBackup(ctx context.Context, projectID, databas
 		Tables:        make([]DatabaseBackupTable, 0),
 		Relationships: make([]domain.DatabaseRelationship, 0),
 	}
-	tableRows, err := tx.Query(ctx, `SELECT `+tableProjection()+` FROM database_tables WHERE project_id=$1 AND database_id=$2 ORDER BY id`, projectID, databaseID)
+	tableRows, err := tx.Query(
+		ctx,
+		`SELECT `+tableProjection()+` FROM database_tables WHERE project_id=$1 AND database_id=$2 ORDER BY id`,
+		projectID,
+		databaseID,
+	)
 	if err != nil {
 		return DatabaseBackupSnapshot{}, nil, err
 	}
@@ -123,11 +152,20 @@ func (r *Repository) BuildDatabaseBackup(ctx context.Context, projectID, databas
 		return DatabaseBackupSnapshot{}, nil, err
 	}
 	tableRows.Close()
-	rowCount := 0
+	var rowCount int
 	for _, table := range tables {
-		item := DatabaseBackupTable{Table: table, Columns: make([]domain.DatabaseColumn, 0), Indexes: make([]domain.DatabaseIndex, 0), Rows: make([]domain.DatabaseRow, 0)}
+		item := DatabaseBackupTable{
+			Table:   table,
+			Columns: make([]domain.DatabaseColumn, 0),
+			Indexes: make([]domain.DatabaseIndex, 0),
+			Rows:    make([]domain.DatabaseRow, 0),
+		}
 		tableID := mustParseUUID(table.ID)
-		columns, err := tx.Query(ctx, `SELECT `+columnProjection()+` FROM database_columns WHERE table_id=$1 ORDER BY id`, tableID)
+		columns, err := tx.Query(
+			ctx,
+			`SELECT `+columnProjection()+` FROM database_columns WHERE table_id=$1 ORDER BY id`,
+			tableID,
+		)
 		if err != nil {
 			return DatabaseBackupSnapshot{}, nil, err
 		}
@@ -144,7 +182,11 @@ func (r *Repository) BuildDatabaseBackup(ctx context.Context, projectID, databas
 			return DatabaseBackupSnapshot{}, nil, err
 		}
 		columns.Close()
-		indexes, err := tx.Query(ctx, `SELECT `+indexProjection()+` FROM database_indexes WHERE table_id=$1 ORDER BY id`, tableID)
+		indexes, err := tx.Query(
+			ctx,
+			`SELECT `+indexProjection()+` FROM database_indexes WHERE table_id=$1 ORDER BY id`,
+			tableID,
+		)
 		if err != nil {
 			return DatabaseBackupSnapshot{}, nil, err
 		}
@@ -165,7 +207,13 @@ func (r *Repository) BuildDatabaseBackup(ctx context.Context, projectID, databas
 		if remaining < 0 {
 			return DatabaseBackupSnapshot{}, nil, ErrBackupTooLarge
 		}
-		rows, err := tx.Query(ctx, `SELECT `+rowProjection+` FROM database_rows r WHERE r.project_id=$1 AND r.table_id=$2 ORDER BY r.id LIMIT $3`, projectID, tableID, remaining+1)
+		rows, err := tx.Query(
+			ctx,
+			`SELECT `+rowProjection+` FROM database_rows r WHERE r.project_id=$1 AND r.table_id=$2 ORDER BY r.id LIMIT $3`,
+			projectID,
+			tableID,
+			remaining+1,
+		)
 		if err != nil {
 			return DatabaseBackupSnapshot{}, nil, err
 		}
@@ -189,7 +237,12 @@ func (r *Repository) BuildDatabaseBackup(ctx context.Context, projectID, databas
 		rows.Close()
 		snapshot.Tables = append(snapshot.Tables, item)
 	}
-	relationships, err := tx.Query(ctx, `SELECT `+databaseRelationshipProjection+` FROM database_relationships WHERE project_id=$1 AND database_id=$2 ORDER BY id`, projectID, databaseID)
+	relationships, err := tx.Query(
+		ctx,
+		`SELECT `+databaseRelationshipProjection+` FROM database_relationships WHERE project_id=$1 AND database_id=$2 ORDER BY id`,
+		projectID,
+		databaseID,
+	)
 	if err != nil {
 		return DatabaseBackupSnapshot{}, nil, err
 	}
@@ -221,16 +274,42 @@ func (r *Repository) BuildDatabaseBackup(ctx context.Context, projectID, databas
 	return snapshot, payload, nil
 }
 
-func (r *Repository) CreateDatabaseBackup(ctx context.Context, id, projectID, databaseID uuid.UUID, actor DatabaseActor, storagePath string, sizeBytes int64, checksum string) (domain.DatabaseBackup, error) {
+func (r *Repository) CreateDatabaseBackup(
+	ctx context.Context,
+	id, projectID, databaseID uuid.UUID,
+	actor DatabaseActor,
+	storagePath string,
+	sizeBytes int64,
+	checksum string,
+) (domain.DatabaseBackup, error) {
 	return r.createDatabaseBackup(ctx, id, projectID, databaseID, actor, storagePath, sizeBytes, checksum, nil)
 }
 
-func (r *Repository) CreateDatabaseBackupWithCleanup(ctx context.Context, id, projectID, databaseID uuid.UUID, actor DatabaseActor, storagePath string, sizeBytes int64, checksum string, cleanup ArtifactCleanupInput) (domain.DatabaseBackup, error) {
+func (r *Repository) CreateDatabaseBackupWithCleanup(
+	ctx context.Context,
+	id, projectID, databaseID uuid.UUID,
+	actor DatabaseActor,
+	storagePath string,
+	sizeBytes int64,
+	checksum string,
+	cleanup ArtifactCleanupInput,
+) (domain.DatabaseBackup, error) {
 	return r.createDatabaseBackup(ctx, id, projectID, databaseID, actor, storagePath, sizeBytes, checksum, &cleanup)
 }
 
-func (r *Repository) createDatabaseBackup(ctx context.Context, id, projectID, databaseID uuid.UUID, actor DatabaseActor, storagePath string, sizeBytes int64, checksum string, cleanup *ArtifactCleanupInput) (domain.DatabaseBackup, error) {
-	if strings.TrimSpace(storagePath) == "" || strings.Contains(storagePath, "..") || sizeBytes < 1 || sizeBytes > DatabaseBackupMaxBytes || len(checksum) != 64 || checksum != strings.ToLower(checksum) {
+func (r *Repository) createDatabaseBackup(
+	ctx context.Context,
+	id, projectID, databaseID uuid.UUID,
+	actor DatabaseActor,
+	storagePath string,
+	sizeBytes int64,
+	checksum string,
+	cleanup *ArtifactCleanupInput,
+) (domain.DatabaseBackup, error) {
+	if strings.TrimSpace(storagePath) == "" || strings.Contains(storagePath, "..") || sizeBytes < 1 ||
+		sizeBytes > DatabaseBackupMaxBytes ||
+		len(checksum) != 64 ||
+		checksum != strings.ToLower(checksum) {
 		return domain.DatabaseBackup{}, ErrInvalidBackup
 	}
 	if _, err := hex.DecodeString(checksum); err != nil {
@@ -250,7 +329,18 @@ func (r *Repository) createDatabaseBackup(ctx context.Context, id, projectID, da
 	if err := ensureDatabaseProjectTx(ctx, tx, projectID, databaseID); err != nil {
 		return domain.DatabaseBackup{}, err
 	}
-	item, _, err := scanDatabaseBackup(tx.QueryRow(ctx, `INSERT INTO database_backups (id,project_id,database_id,storage_path,size_bytes,checksum_sha256) VALUES ($1,$2,$3,$4,$5,$6) RETURNING `+databaseBackupProjection, id, projectID, databaseID, storagePath, sizeBytes, checksum))
+	item, _, err := scanDatabaseBackup(
+		tx.QueryRow(
+			ctx,
+			`INSERT INTO database_backups (id,project_id,database_id,storage_path,size_bytes,checksum_sha256) VALUES ($1,$2,$3,$4,$5,$6) RETURNING `+databaseBackupProjection,
+			id,
+			projectID,
+			databaseID,
+			storagePath,
+			sizeBytes,
+			checksum,
+		),
+	)
 	if err != nil {
 		return domain.DatabaseBackup{}, mapError(err)
 	}
@@ -275,7 +365,13 @@ func (r *Repository) createDatabaseBackup(ctx context.Context, id, projectID, da
 	return item, nil
 }
 
-func (r *Repository) ListDatabaseBackups(ctx context.Context, projectID, databaseID uuid.UUID, actor DatabaseActor, limit int, cursor *uuid.UUID) ([]domain.DatabaseBackup, string, bool, error) {
+func (r *Repository) ListDatabaseBackups(
+	ctx context.Context,
+	projectID, databaseID uuid.UUID,
+	actor DatabaseActor,
+	limit int,
+	cursor *uuid.UUID,
+) ([]domain.DatabaseBackup, string, bool, error) {
 	canManage, err := r.requireDatabaseRead(ctx, projectID, actor)
 	if err != nil {
 		return nil, "", false, err
@@ -283,7 +379,14 @@ func (r *Repository) ListDatabaseBackups(ctx context.Context, projectID, databas
 	if err := r.ensureDatabaseProject(ctx, projectID, databaseID); err != nil {
 		return nil, "", false, err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+databaseBackupProjection+` FROM database_backups WHERE project_id=$1 AND database_id=$2 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $4`, projectID, databaseID, cursor, limit+1)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT `+databaseBackupProjection+` FROM database_backups WHERE project_id=$1 AND database_id=$2 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $4`,
+		projectID,
+		databaseID,
+		cursor,
+		limit+1,
+	)
 	if err != nil {
 		return nil, "", false, err
 	}
@@ -299,7 +402,7 @@ func (r *Repository) ListDatabaseBackups(ctx context.Context, projectID, databas
 	if err := rows.Err(); err != nil {
 		return nil, "", false, err
 	}
-	next := ""
+	var next string
 	if len(items) > limit {
 		next = items[limit-1].ID
 		items = items[:limit]
@@ -307,18 +410,34 @@ func (r *Repository) ListDatabaseBackups(ctx context.Context, projectID, databas
 	return items, next, canManage, nil
 }
 
-func (r *Repository) GetDatabaseBackup(ctx context.Context, projectID, databaseID, backupID uuid.UUID, actor DatabaseActor) (domain.DatabaseBackup, string, error) {
+func (r *Repository) GetDatabaseBackup(
+	ctx context.Context,
+	projectID, databaseID, backupID uuid.UUID,
+	actor DatabaseActor,
+) (domain.DatabaseBackup, string, error) {
 	if _, err := r.requireDatabaseRead(ctx, projectID, actor); err != nil {
 		return domain.DatabaseBackup{}, "", err
 	}
-	item, path, err := scanDatabaseBackup(r.pool.QueryRow(ctx, `SELECT `+databaseBackupProjection+` FROM database_backups WHERE project_id=$1 AND database_id=$2 AND id=$3`, projectID, databaseID, backupID))
+	item, path, err := scanDatabaseBackup(
+		r.pool.QueryRow(
+			ctx,
+			`SELECT `+databaseBackupProjection+` FROM database_backups WHERE project_id=$1 AND database_id=$2 AND id=$3`,
+			projectID,
+			databaseID,
+			backupID,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.DatabaseBackup{}, "", ErrNotFound
 	}
 	return item, path, err
 }
 
-func (r *Repository) DeleteDatabaseBackup(ctx context.Context, projectID, databaseID, backupID uuid.UUID, actor DatabaseActor) (string, error) {
+func (r *Repository) DeleteDatabaseBackup(
+	ctx context.Context,
+	projectID, databaseID, backupID uuid.UUID,
+	actor DatabaseActor,
+) (string, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return "", err
@@ -334,9 +453,12 @@ func (r *Repository) DeleteDatabaseBackup(ctx context.Context, projectID, databa
 		return "", err
 	}
 	var path string
-	if err := tx.QueryRow(ctx, `SELECT storage_path FROM database_backups WHERE project_id=$1 AND database_id=$2 AND id=$3 FOR UPDATE`, projectID, databaseID, backupID).Scan(&path); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT storage_path FROM database_backups WHERE project_id=$1 AND database_id=$2 AND id=$3 FOR UPDATE`, projectID, databaseID, backupID).
+		Scan(&path)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return "", ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return "", err
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM database_backups WHERE project_id=$1 AND database_id=$2 AND id=$3`, projectID, databaseID, backupID); err != nil {
@@ -377,8 +499,16 @@ func backupTime(value time.Time) time.Time {
 // RestoreDatabaseBackup replaces every table in the target database in one
 // transaction. The caller must have an explicit databases.write grant; a
 // failed schema, row, relationship, or index aborts the complete restore.
-func (r *Repository) RestoreDatabaseBackup(ctx context.Context, projectID, databaseID uuid.UUID, actor DatabaseActor, snapshot DatabaseBackupSnapshot) (DatabaseBackupRestoreResult, error) {
-	if snapshot.Version != DatabaseBackupVersion || snapshot.ProjectID != projectID.String() || snapshot.DatabaseID != databaseID.String() || len(snapshot.Tables) > DatabaseBackupMaxTables || len(snapshot.Relationships) > DatabaseBackupMaxRelations {
+func (r *Repository) RestoreDatabaseBackup(
+	ctx context.Context,
+	projectID, databaseID uuid.UUID,
+	actor DatabaseActor,
+	snapshot DatabaseBackupSnapshot,
+) (DatabaseBackupRestoreResult, error) {
+	if snapshot.Version != DatabaseBackupVersion || snapshot.ProjectID != projectID.String() ||
+		snapshot.DatabaseID != databaseID.String() ||
+		len(snapshot.Tables) > DatabaseBackupMaxTables ||
+		len(snapshot.Relationships) > DatabaseBackupMaxRelations {
 		return DatabaseBackupRestoreResult{}, ErrInvalidBackup
 	}
 	rowCount := 0
@@ -412,21 +542,32 @@ func (r *Repository) RestoreDatabaseBackup(ctx context.Context, projectID, datab
 	result := DatabaseBackupRestoreResult{}
 	for _, backupTable := range snapshot.Tables {
 		tableID, err := validateBackupUUID(backupTable.Table.ID)
-		if err != nil || backupTable.Table.DatabaseID != databaseID.String() || backupTable.Table.ProjectID != projectID.String() {
+		if err != nil || backupTable.Table.DatabaseID != databaseID.String() ||
+			backupTable.Table.ProjectID != projectID.String() {
 			return DatabaseBackupRestoreResult{}, ErrInvalidBackup
 		}
 		name, err := dbcore.ValidateName(backupTable.Table.Name)
 		if err != nil {
 			return DatabaseBackupRestoreResult{}, ErrInvalidBackup
 		}
-		permissions, err := normalizeTablePermissions(DatabaseTableInput{CreatePermissions: backupTable.Table.CreatePermissions, ReadPermissions: backupTable.Table.ReadPermissions, UpdatePermissions: backupTable.Table.UpdatePermissions, DeletePermissions: backupTable.Table.DeletePermissions})
+		permissions, err := normalizeTablePermissions(
+			DatabaseTableInput{
+				CreatePermissions: backupTable.Table.CreatePermissions,
+				ReadPermissions:   backupTable.Table.ReadPermissions,
+				UpdatePermissions: backupTable.Table.UpdatePermissions,
+				DeletePermissions: backupTable.Table.DeletePermissions,
+			},
+		)
 		if err != nil {
 			return DatabaseBackupRestoreResult{}, err
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO database_tables (id,database_id,project_id,name,row_security,create_permissions,read_permissions,update_permissions,delete_permissions,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, tableID, databaseID, projectID, name, backupTable.Table.RowSecurity, permissions[0], permissions[1], permissions[2], permissions[3], backupTime(backupTable.Table.CreatedAt), backupTime(backupTable.Table.UpdatedAt)); err != nil {
 			return DatabaseBackupRestoreResult{}, mapError(err)
 		}
-		schema := DatabaseTableSchema{Table: backupTable.Table, Columns: make([]DatabaseColumnSchema, 0, len(backupTable.Columns))}
+		schema := DatabaseTableSchema{
+			Table:   backupTable.Table,
+			Columns: make([]DatabaseColumnSchema, 0, len(backupTable.Columns)),
+		}
 		for _, backupColumn := range backupTable.Columns {
 			columnID, err := validateBackupUUID(backupColumn.ID)
 			if err != nil || backupColumn.TableID != tableID.String() {
@@ -441,7 +582,14 @@ func (r *Repository) RestoreDatabaseBackup(ctx context.Context, projectID, datab
 					return DatabaseBackupRestoreResult{}, ErrInvalidBackup
 				}
 			}
-			column := DatabaseColumnInput{Key: backupColumn.Key, Type: dbcore.ColumnType(backupColumn.Type), Required: backupColumn.Required, VarcharSize: backupColumn.VarcharSize, Default: defaultValue, HasDefault: hasDefault}
+			column := DatabaseColumnInput{
+				Key:         backupColumn.Key,
+				Type:        dbcore.ColumnType(backupColumn.Type),
+				Required:    backupColumn.Required,
+				VarcharSize: backupColumn.VarcharSize,
+				Default:     defaultValue,
+				HasDefault:  hasDefault,
+			}
 			if err := dbcore.ValidateColumn(dbcore.ColumnDefinition{Key: column.Key, Type: column.Type, Required: column.Required, VarcharSize: column.VarcharSize, Default: column.Default, HasDefault: column.HasDefault}); err != nil {
 				return DatabaseBackupRestoreResult{}, ErrInvalidBackup
 			}
@@ -452,7 +600,18 @@ func (r *Repository) RestoreDatabaseBackup(ctx context.Context, projectID, datab
 			if _, err := tx.Exec(ctx, `INSERT INTO database_columns (id,table_id,key,column_type,required,varchar_size,default_value,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9)`, columnID, tableID, column.Key, column.Type, column.Required, column.VarcharSize, defaultJSON, backupTime(backupColumn.CreatedAt), backupTime(backupColumn.UpdatedAt)); err != nil {
 				return DatabaseBackupRestoreResult{}, mapError(err)
 			}
-			schema.Columns = append(schema.Columns, DatabaseColumnSchema{ID: columnID, Key: column.Key, Type: column.Type, Required: column.Required, VarcharSize: column.VarcharSize, Default: defaultValue, HasDefault: hasDefault})
+			schema.Columns = append(
+				schema.Columns,
+				DatabaseColumnSchema{
+					ID:          columnID,
+					Key:         column.Key,
+					Type:        column.Type,
+					Required:    column.Required,
+					VarcharSize: column.VarcharSize,
+					Default:     defaultValue,
+					HasDefault:  hasDefault,
+				},
+			)
 			result.Columns++
 		}
 		tableSchemas[tableID] = schema
@@ -502,7 +661,8 @@ func (r *Repository) RestoreDatabaseBackup(ctx context.Context, projectID, datab
 	}
 	for _, relationship := range snapshot.Relationships {
 		relationshipID, err := validateBackupUUID(relationship.ID)
-		if err != nil || relationship.ProjectID != projectID.String() || relationship.DatabaseID != databaseID.String() {
+		if err != nil || relationship.ProjectID != projectID.String() ||
+			relationship.DatabaseID != databaseID.String() {
 			return DatabaseBackupRestoreResult{}, ErrInvalidBackup
 		}
 		sourceTableUUID, sourceErr := validateBackupUUID(relationship.SourceTableID)
@@ -512,7 +672,8 @@ func (r *Repository) RestoreDatabaseBackup(ctx context.Context, projectID, datab
 		}
 		sourceTable, sourceOK := tableSchemas[sourceTableUUID]
 		_, targetOK := tableSchemas[targetTableUUID]
-		if !sourceOK || !targetOK || relationship.RelationshipType != DatabaseRelationshipManyToOne || relationship.OnDelete != DatabaseRelationshipRestrict {
+		if !sourceOK || !targetOK || relationship.RelationshipType != DatabaseRelationshipManyToOne ||
+			relationship.OnDelete != DatabaseRelationshipRestrict {
 			return DatabaseBackupResultInvalid()
 		}
 		var sourceColumn *DatabaseColumnSchema
@@ -551,7 +712,12 @@ func (r *Repository) RestoreDatabaseBackup(ctx context.Context, projectID, datab
 			if err != nil || backupIndex.TableID != tableID.String() {
 				return DatabaseBackupResultInvalid()
 			}
-			input := DatabaseIndexInput{Name: backupIndex.Name, Type: backupIndex.Type, ColumnKeys: backupIndex.ColumnKeys, Directions: backupIndex.Directions}
+			input := DatabaseIndexInput{
+				Name:       backupIndex.Name,
+				Type:       backupIndex.Type,
+				ColumnKeys: backupIndex.ColumnKeys,
+				Directions: backupIndex.Directions,
+			}
 			if len(input.Directions) == 0 && len(input.ColumnKeys) > 0 {
 				input.Directions = make([]string, len(input.ColumnKeys))
 				for i := range input.Directions {

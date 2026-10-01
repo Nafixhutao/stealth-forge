@@ -22,7 +22,11 @@ func OrganizationMembershipRole(role string) bool {
 	}
 }
 
-func (r *Repository) organizationRoleTx(ctx context.Context, tx pgx.Tx, organizationID, accountID uuid.UUID) (string, error) {
+func (r *Repository) organizationRoleTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	organizationID, accountID uuid.UUID,
+) (string, error) {
 	var role string
 	err := tx.QueryRow(ctx, `
 		SELECT role
@@ -50,7 +54,15 @@ func canManageOrganizationMembership(actorRole, targetRole, nextRole string) boo
 func membershipFromRow(row interface{ Scan(...any) error }) (domain.Membership, error) {
 	var item domain.Membership
 	var email, provider, providerLogin sql.NullString
-	err := row.Scan(&item.OrganizationID, &item.AccountID, &email, &provider, &providerLogin, &item.Role, &item.CreatedAt)
+	err := row.Scan(
+		&item.OrganizationID,
+		&item.AccountID,
+		&email,
+		&provider,
+		&providerLogin,
+		&item.Role,
+		&item.CreatedAt,
+	)
 	item.Email = nullableStringPointer(email)
 	if provider.Valid {
 		item.Provider = provider.String
@@ -64,7 +76,11 @@ func membershipFromRow(row interface{ Scan(...any) error }) (domain.Membership, 
 // AddOrganizationMembership attaches an existing Console account to an
 // organization. Account creation and email invitations remain separate from
 // this mutation, so no unverified identity is silently created here.
-func (r *Repository) AddOrganizationMembership(ctx context.Context, organizationID, actorID uuid.UUID, email, role string) (domain.Membership, error) {
+func (r *Repository) AddOrganizationMembership(
+	ctx context.Context,
+	organizationID, actorID uuid.UUID,
+	email, role string,
+) (domain.Membership, error) {
 	if !OrganizationMembershipRole(role) {
 		return domain.Membership{}, ErrForbidden
 	}
@@ -139,7 +155,11 @@ func (r *Repository) AddOrganizationMembership(ctx context.Context, organization
 
 // UpdateOrganizationMembershipRole changes a regular member's role. Repeating
 // the current role commits without creating a noisy audit event.
-func (r *Repository) UpdateOrganizationMembershipRole(ctx context.Context, organizationID, targetID, actorID uuid.UUID, nextRole string) (domain.Membership, error) {
+func (r *Repository) UpdateOrganizationMembershipRole(
+	ctx context.Context,
+	organizationID, targetID, actorID uuid.UUID,
+	nextRole string,
+) (domain.Membership, error) {
 	if !OrganizationMembershipRole(nextRole) {
 		return domain.Membership{}, ErrForbidden
 	}
@@ -207,7 +227,10 @@ func (r *Repository) UpdateOrganizationMembershipRole(ctx context.Context, organ
 // RemoveOrganizationMembership removes a non-owner member. The owner role is
 // immutable here, which guarantees every organization retains an owner until
 // an explicit ownership-transfer workflow is introduced.
-func (r *Repository) RemoveOrganizationMembership(ctx context.Context, organizationID, targetID, actorID uuid.UUID) error {
+func (r *Repository) RemoveOrganizationMembership(
+	ctx context.Context,
+	organizationID, targetID, actorID uuid.UUID,
+) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err

@@ -107,7 +107,11 @@ func (r *Repository) AdminMonitorByID(ctx context.Context, id uuid.UUID) (domain
 	return item, err
 }
 
-func (r *Repository) CreateAdminMonitor(ctx context.Context, accountID, id uuid.UUID, input AdminMonitorInput) (domain.AdminMonitor, error) {
+func (r *Repository) CreateAdminMonitor(
+	ctx context.Context,
+	accountID, id uuid.UUID,
+	input AdminMonitorInput,
+) (domain.AdminMonitor, error) {
 	if err := validateAdminMonitorInput(id, input); err != nil {
 		return domain.AdminMonitor{}, err
 	}
@@ -135,7 +139,9 @@ func (r *Repository) CreateAdminMonitor(ctx context.Context, accountID, id uuid.
 	if err != nil {
 		return domain.AdminMonitor{}, mapError(err)
 	}
-	item, err := scanAdminMonitor(tx.QueryRow(ctx, `SELECT `+adminMonitorProjection+` FROM admin_monitors m WHERE m.id=$1`, id))
+	item, err := scanAdminMonitor(
+		tx.QueryRow(ctx, `SELECT `+adminMonitorProjection+` FROM admin_monitors m WHERE m.id=$1`, id),
+	)
 	if err != nil {
 		return domain.AdminMonitor{}, err
 	}
@@ -148,7 +154,11 @@ func (r *Repository) CreateAdminMonitor(ctx context.Context, accountID, id uuid.
 	return item, nil
 }
 
-func (r *Repository) UpdateAdminMonitor(ctx context.Context, accountID, id uuid.UUID, input AdminMonitorInput) (domain.AdminMonitor, error) {
+func (r *Repository) UpdateAdminMonitor(
+	ctx context.Context,
+	accountID, id uuid.UUID,
+	input AdminMonitorInput,
+) (domain.AdminMonitor, error) {
 	if err := validateAdminMonitorInput(id, input); err != nil {
 		return domain.AdminMonitor{}, err
 	}
@@ -191,7 +201,9 @@ func (r *Repository) UpdateAdminMonitor(ctx context.Context, accountID, id uuid.
 	if err != nil {
 		return domain.AdminMonitor{}, mapError(err)
 	}
-	item, err := scanAdminMonitor(tx.QueryRow(ctx, `SELECT `+adminMonitorProjection+` FROM admin_monitors m WHERE m.id=$1`, id))
+	item, err := scanAdminMonitor(
+		tx.QueryRow(ctx, `SELECT `+adminMonitorProjection+` FROM admin_monitors m WHERE m.id=$1`, id),
+	)
 	if err != nil {
 		return domain.AdminMonitor{}, err
 	}
@@ -243,9 +255,11 @@ func (r *Repository) DeleteAdminMonitor(ctx context.Context, accountID, id uuid.
 		return err
 	}
 	var monitorKind string
-	if err := tx.QueryRow(ctx, `SELECT kind FROM admin_monitors WHERE id=$1 FOR UPDATE`, id).Scan(&monitorKind); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT kind FROM admin_monitors WHERE id=$1 FOR UPDATE`, id).Scan(&monitorKind)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return err
 	}
 	var hasAlertRules bool
@@ -277,7 +291,11 @@ func (r *Repository) DeleteAdminMonitor(ctx context.Context, accountID, id uuid.
 // ClaimNextAdminMonitor leases one due monitor. SKIP LOCKED prevents two
 // workers from running the same network probe concurrently; a stale lease is
 // recovered by the next worker process after leaseAge.
-func (r *Repository) ClaimNextAdminMonitor(ctx context.Context, workerID string, leaseAge time.Duration) (AdminMonitorJob, error) {
+func (r *Repository) ClaimNextAdminMonitor(
+	ctx context.Context,
+	workerID string,
+	leaseAge time.Duration,
+) (AdminMonitorJob, error) {
 	if r == nil || r.pool == nil || !validFunctionWorkerID(workerID) || leaseAge <= 0 {
 		return AdminMonitorJob{}, ErrInvalidAdminMonitor
 	}
@@ -348,8 +366,14 @@ func (r *Repository) RecordAdminHeartbeat(ctx context.Context, monitorID uuid.UU
 	return nil
 }
 
-func (r *Repository) CompleteAdminMonitorCheck(ctx context.Context, monitorID uuid.UUID, workerID string, input AdminMonitorCheckInput) error {
-	if monitorID == uuid.Nil || !validFunctionWorkerID(workerID) || input.LatencyMS < 0 || (input.StatusCode != nil && (*input.StatusCode < 100 || *input.StatusCode > 599)) {
+func (r *Repository) CompleteAdminMonitorCheck(
+	ctx context.Context,
+	monitorID uuid.UUID,
+	workerID string,
+	input AdminMonitorCheckInput,
+) error {
+	if monitorID == uuid.Nil || !validFunctionWorkerID(workerID) || input.LatencyMS < 0 ||
+		(input.StatusCode != nil && (*input.StatusCode < 100 || *input.StatusCode > 599)) {
 		return ErrInvalidAdminMonitor
 	}
 	if len(input.Details) == 0 {
@@ -369,10 +393,17 @@ func (r *Repository) CompleteAdminMonitorCheck(ctx context.Context, monitorID uu
 	return tx.Commit(ctx)
 }
 
-func completeAdminMonitorCheckTx(ctx context.Context, tx pgx.Tx, monitorID uuid.UUID, workerID string, input AdminMonitorCheckInput) error {
+func completeAdminMonitorCheckTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	monitorID uuid.UUID,
+	workerID string,
+	input AdminMonitorCheckInput,
+) error {
 	errorMessage := normalizeAdminMonitorError(input.Error)
 	var status string
-	err := tx.QueryRow(ctx, `SELECT status FROM admin_monitors WHERE id=$1 AND worker_id=$2 FOR UPDATE`, monitorID, workerID).Scan(&status)
+	err := tx.QueryRow(ctx, `SELECT status FROM admin_monitors WHERE id=$1 AND worker_id=$2 FOR UPDATE`, monitorID, workerID).
+		Scan(&status)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNoAdminMonitor
 	}
@@ -407,7 +438,17 @@ func completeAdminMonitorCheckTx(ctx context.Context, tx pgx.Tx, monitorID uuid.
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO admin_monitor_checks (id,monitor_id,success,latency_ms,status_code,error,details) VALUES ($1,$2,$3,$4,$5,$6,$7)`, checkID, monitorID, input.Success, input.LatencyMS, statusCode, lastError, input.Details)
+	_, err = tx.Exec(
+		ctx,
+		`INSERT INTO admin_monitor_checks (id,monitor_id,success,latency_ms,status_code,error,details) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+		checkID,
+		monitorID,
+		input.Success,
+		input.LatencyMS,
+		statusCode,
+		lastError,
+		input.Details,
+	)
 	if err != nil {
 		return err
 	}
@@ -425,7 +466,11 @@ func completeAdminMonitorCheckTx(ctx context.Context, tx pgx.Tx, monitorID uuid.
 	return nil
 }
 
-func (r *Repository) ListAdminMonitorChecks(ctx context.Context, monitorID uuid.UUID, limit int) ([]domain.AdminMonitorCheck, error) {
+func (r *Repository) ListAdminMonitorChecks(
+	ctx context.Context,
+	monitorID uuid.UUID,
+	limit int,
+) ([]domain.AdminMonitorCheck, error) {
 	if monitorID == uuid.Nil || limit < 1 || limit > adminMonitorMaxLimit {
 		return nil, ErrInvalidAdminMonitor
 	}
@@ -487,13 +532,21 @@ func validateAdminMonitorInput(id uuid.UUID, input AdminMonitorInput) error {
 	}
 	// Synthetic browser checks need a dedicated, sandboxed Playwright runner.
 	// Do not persist them as if the ordinary network worker could execute them.
-	if input.Kind != "http" && input.Kind != "tcp" && input.Kind != "dns" && input.Kind != "tls" && input.Kind != "heartbeat" {
+	validKind := input.Kind == "http" || input.Kind == "tcp" || input.Kind == "dns" || input.Kind == "tls" ||
+		input.Kind == "heartbeat"
+	if !validKind {
 		return ErrInvalidAdminMonitor
 	}
-	if strings.TrimSpace(input.Target) == "" || utf8.RuneCountInString(input.Target) > 2048 || strings.ContainsAny(input.Target, "\x00\r\n") || input.IntervalSeconds < 5 || input.IntervalSeconds > 86400 || input.TimeoutMS < 100 || input.TimeoutMS > 120000 {
+	invalidTarget := strings.TrimSpace(input.Target) == "" || utf8.RuneCountInString(input.Target) > 2048 ||
+		strings.ContainsAny(input.Target, "\x00\r\n")
+	invalidInterval := input.IntervalSeconds < 5 || input.IntervalSeconds > 86400
+	invalidTimeout := input.TimeoutMS < 100 || input.TimeoutMS > 120000
+	if invalidTarget || invalidInterval || invalidTimeout {
 		return ErrInvalidAdminMonitor
 	}
-	if len(input.SecretConfig) == 0 || len(input.SecretConfig) > adminMonitorMaxConfig || len(input.PublicConfig) > adminMonitorMaxConfig || !json.Valid(input.PublicConfig) || !json.Valid(input.SecretConfig) {
+	invalidSecret := len(input.SecretConfig) == 0 || len(input.SecretConfig) > adminMonitorMaxConfig
+	invalidPublic := len(input.PublicConfig) > adminMonitorMaxConfig
+	if invalidSecret || invalidPublic || !json.Valid(input.PublicConfig) || !json.Valid(input.SecretConfig) {
 		return ErrInvalidAdminMonitor
 	}
 	return nil
@@ -501,7 +554,8 @@ func validateAdminMonitorInput(id uuid.UUID, input AdminMonitorInput) error {
 
 func validAdminMonitorText(value string, minimum, maximum int) bool {
 	value = strings.TrimSpace(value)
-	return utf8.RuneCountInString(value) >= minimum && utf8.RuneCountInString(value) <= maximum && !strings.ContainsAny(value, "\x00\r\n")
+	return utf8.RuneCountInString(value) >= minimum && utf8.RuneCountInString(value) <= maximum &&
+		!strings.ContainsAny(value, "\x00\r\n")
 }
 
 func normalizeAdminMonitorError(value string) string {
@@ -522,7 +576,8 @@ func normalizeAdminMonitorError(value string) string {
 // held by CompleteAdminMonitorCheck.
 func inputInterval(ctx context.Context, tx pgx.Tx, monitorID uuid.UUID) int {
 	var interval int
-	if err := tx.QueryRow(ctx, `SELECT interval_seconds FROM admin_monitors WHERE id=$1`, monitorID).Scan(&interval); err != nil || interval < 5 {
+	if err := tx.QueryRow(ctx, `SELECT interval_seconds FROM admin_monitors WHERE id=$1`, monitorID).Scan(&interval); err != nil ||
+		interval < 5 {
 		return 5
 	}
 	return interval
@@ -549,7 +604,14 @@ func requireInstanceAdminTx(ctx context.Context, tx pgx.Tx, accountID uuid.UUID)
 	return nil
 }
 
-func writeInstanceAuditTx(ctx context.Context, tx pgx.Tx, actor uuid.UUID, action, targetType string, target uuid.UUID, metadata map[string]any) error {
+func writeInstanceAuditTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	actor uuid.UUID,
+	action, targetType string,
+	target uuid.UUID,
+	metadata map[string]any,
+) error {
 	encoded, err := json.Marshal(metadata)
 	if err != nil {
 		return err
@@ -558,7 +620,16 @@ func writeInstanceAuditTx(ctx context.Context, tx pgx.Tx, actor uuid.UUID, actio
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO audit_events (id,organization_id,actor_account_id,action,target_type,target_id,metadata) VALUES ($1,NULL,$2,$3,$4,$5,$6)`, id, actor, action, targetType, target, encoded)
+	_, err = tx.Exec(
+		ctx,
+		`INSERT INTO audit_events (id,organization_id,actor_account_id,action,target_type,target_id,metadata) VALUES ($1,NULL,$2,$3,$4,$5,$6)`,
+		id,
+		actor,
+		action,
+		targetType,
+		target,
+		encoded,
+	)
 	if err != nil {
 		return err
 	}

@@ -170,7 +170,11 @@ func (r *Repository) SaveCloudflareConnectionFromSetup(ctx context.Context, inpu
 // PostgreSQL. It never replaces a row that already has a credential or a
 // different identity and can persist an identity without a recoverable token
 // so an Instance Owner can reconnect explicitly.
-func (r *Repository) ImportCloudflareConnectionOnce(ctx context.Context, input CloudflareConnectionInput, unavailableReason string) (bool, error) {
+func (r *Repository) ImportCloudflareConnectionOnce(
+	ctx context.Context,
+	input CloudflareConnectionInput,
+	unavailableReason string,
+) (bool, error) {
 	if r == nil || r.pool == nil {
 		return false, ErrNotFound
 	}
@@ -238,11 +242,20 @@ func (r *Repository) MarkCloudflareConnectionUnavailable(ctx context.Context, re
 	if r == nil || r.pool == nil {
 		return ErrNotFound
 	}
-	_, err := r.pool.Exec(ctx, `UPDATE cloudflare_connections SET status='error',last_error=$1,updated_at=now() WHERE id=TRUE AND api_token_ciphertext IS NULL`, normalizeCloudflareError(reason))
+	_, err := r.pool.Exec(
+		ctx,
+		`UPDATE cloudflare_connections SET status='error',last_error=$1,updated_at=now() WHERE id=TRUE AND api_token_ciphertext IS NULL`,
+		normalizeCloudflareError(reason),
+	)
 	return err
 }
 
-func (r *Repository) saveCloudflareConnection(ctx context.Context, actor uuid.UUID, input CloudflareConnectionInput, requireOwner bool) error {
+func (r *Repository) saveCloudflareConnection(
+	ctx context.Context,
+	actor uuid.UUID,
+	input CloudflareConnectionInput,
+	requireOwner bool,
+) error {
 	if r == nil || r.pool == nil {
 		return ErrNotFound
 	}
@@ -317,11 +330,18 @@ func (r *Repository) saveCloudflareConnection(ctx context.Context, actor uuid.UU
 // SetCloudflareConnectionByOwner establishes or reconnects the existing tunnel
 // under live Instance Owner authorization. It never creates provider
 // resources; the API adapter validates the identity and token first.
-func (r *Repository) SetCloudflareConnectionByOwner(ctx context.Context, actor uuid.UUID, input CloudflareConnectionInput) error {
+func (r *Repository) SetCloudflareConnectionByOwner(
+	ctx context.Context,
+	actor uuid.UUID,
+	input CloudflareConnectionInput,
+) error {
 	return r.saveCloudflareConnection(ctx, actor, input, true)
 }
 
-func (r *Repository) CompleteCloudflareReconcile(ctx context.Context, update domain.CloudflareRoutingUpdate) (bool, error) {
+func (r *Repository) CompleteCloudflareReconcile(
+	ctx context.Context,
+	update domain.CloudflareRoutingUpdate,
+) (bool, error) {
 	if r == nil || r.pool == nil {
 		return false, ErrNotFound
 	}
@@ -338,9 +358,12 @@ func (r *Repository) CompleteCloudflareReconcile(ctx context.Context, update dom
 		return false, err
 	}
 	var accountID, tunnelID, oldZoneID, oldHostname, oldRecordID, currentConsoleOrigin string
-	if err := tx.QueryRow(ctx, `SELECT COALESCE(account_id,''),COALESCE(tunnel_id,''),COALESCE(workload_zone_id,''),COALESCE(wildcard_hostname,''),COALESCE(wildcard_record_id,''),console_origin_desired FROM cloudflare_connections WHERE id=TRUE AND api_token_ciphertext IS NOT NULL FOR UPDATE`).Scan(&accountID, &tunnelID, &oldZoneID, &oldHostname, &oldRecordID, &currentConsoleOrigin); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT COALESCE(account_id,''),COALESCE(tunnel_id,''),COALESCE(workload_zone_id,''),COALESCE(wildcard_hostname,''),COALESCE(wildcard_record_id,''),console_origin_desired FROM cloudflare_connections WHERE id=TRUE AND api_token_ciphertext IS NOT NULL FOR UPDATE`).
+		Scan(&accountID, &tunnelID, &oldZoneID, &oldHostname, &oldRecordID, &currentConsoleOrigin)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return false, ErrCloudflareIdentityRequired
-	} else if err != nil {
+	}
+	if err != nil {
 		return false, err
 	}
 	if currentConsoleOrigin != update.ConsoleOriginDesired {
@@ -367,7 +390,9 @@ func (r *Repository) CompleteCloudflareReconcile(ctx context.Context, update dom
 		return false, nil
 	}
 	newHost := update.WildcardHostname
-	if newHost != "" && (oldRecordID != update.WildcardRecordID || oldHostname != newHost || oldZoneID != update.WorkloadZoneID) && oldRecordID != "" {
+	if newHost != "" &&
+		(oldRecordID != update.WildcardRecordID || oldHostname != newHost || oldZoneID != update.WorkloadZoneID) &&
+		oldRecordID != "" {
 		if err := queueRetiringWildcardTx(ctx, tx, oldZoneID, oldHostname, oldRecordID, tunnelID+".cfargotunnel.com"); err != nil {
 			return false, err
 		}
@@ -401,11 +426,16 @@ func (r *Repository) CompleteCloudflareReconcile(ctx context.Context, update dom
 	return true, nil
 }
 
-func (r *Repository) ListRetiringCloudflareWildcardDNS(ctx context.Context) ([]domain.CloudflareRetiringWildcardDNS, error) {
+func (r *Repository) ListRetiringCloudflareWildcardDNS(
+	ctx context.Context,
+) ([]domain.CloudflareRetiringWildcardDNS, error) {
 	if r == nil || r.pool == nil {
 		return nil, ErrNotFound
 	}
-	rows, err := r.pool.Query(ctx, `SELECT record_id,zone_id,hostname,target FROM cloudflare_retiring_wildcard_dns ORDER BY queued_at,record_id`)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT record_id,zone_id,hostname,target FROM cloudflare_retiring_wildcard_dns ORDER BY queued_at,record_id`,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -433,14 +463,21 @@ func (r *Repository) RecordCloudflareReconcileFailure(ctx context.Context, messa
 	if r == nil || r.pool == nil {
 		return ErrNotFound
 	}
-	_, err := r.pool.Exec(ctx, `UPDATE cloudflare_connections SET status='error',last_error=$1,updated_at=now() WHERE id=TRUE`, normalizeCloudflareError(message))
+	_, err := r.pool.Exec(
+		ctx,
+		`UPDATE cloudflare_connections SET status='error',last_error=$1,updated_at=now() WHERE id=TRUE`,
+		normalizeCloudflareError(message),
+	)
 	return err
 }
 
 // CompleteCloudflareConsoleOrigin persists only the independently observed
 // Tunnel Console origin. The desired-state predicate prevents an older
 // provider operation from overwriting a newer host request.
-func (r *Repository) CompleteCloudflareConsoleOrigin(ctx context.Context, expectedOrigin, observedOrigin string) (bool, error) {
+func (r *Repository) CompleteCloudflareConsoleOrigin(
+	ctx context.Context,
+	expectedOrigin, observedOrigin string,
+) (bool, error) {
 	if r == nil || r.pool == nil {
 		return false, ErrNotFound
 	}
@@ -569,14 +606,16 @@ func validateCloudflareConnectionInput(input CloudflareConnectionInput, requireT
 	if err != nil || hostname != domainname.Canonical(input.ConsoleHostname) {
 		return errors.New("Cloudflare Console hostname is invalid")
 	}
-	if requireToken && (strings.TrimSpace(input.APIToken) == "" || len(input.APIToken) > 4096 || strings.ContainsAny(input.APIToken, "\x00\r\n")) {
+	if requireToken &&
+		(strings.TrimSpace(input.APIToken) == "" || len(input.APIToken) > 4096 || strings.ContainsAny(input.APIToken, "\x00\r\n")) {
 		return errors.New("Cloudflare API token is invalid")
 	}
 	return nil
 }
 
 func validateCloudflareObserved(update domain.CloudflareRoutingUpdate) error {
-	if (update.ConsoleOriginDesired != "proxy" && update.ConsoleOriginDesired != "traefik") || update.ConsoleOriginObserved != update.ConsoleOriginDesired {
+	if (update.ConsoleOriginDesired != "proxy" && update.ConsoleOriginDesired != "traefik") ||
+		update.ConsoleOriginObserved != update.ConsoleOriginDesired {
 		return errors.New("Cloudflare Console origin observation is invalid")
 	}
 	if update.ExpectedWorkloadBaseDomain != nil {
@@ -585,7 +624,8 @@ func validateCloudflareObserved(update domain.CloudflareRoutingUpdate) error {
 			return errors.New("Cloudflare workload domain is invalid")
 		}
 		expected := "*." + domain
-		if update.WildcardHostname != expected || update.WorkloadZoneID == "" || update.WorkloadZoneName == "" || update.WildcardRecordID == "" {
+		if update.WildcardHostname != expected || update.WorkloadZoneID == "" || update.WorkloadZoneName == "" ||
+			update.WildcardRecordID == "" {
 			return errors.New("Cloudflare wildcard observation is incomplete")
 		}
 		switch update.EdgeTLSStatus {
@@ -605,7 +645,10 @@ func validateCloudflareObserved(update domain.CloudflareRoutingUpdate) error {
 }
 
 func sameCloudflareIdentity(existing domain.CloudflareConnection, input CloudflareConnectionInput) bool {
-	return existing.AccountID == input.AccountID && existing.ConsoleZoneID == input.ConsoleZoneID && existing.ConsoleHostname == input.ConsoleHostname && existing.TunnelID == input.TunnelID && existing.TunnelName == input.TunnelName
+	return existing.AccountID == input.AccountID && existing.ConsoleZoneID == input.ConsoleZoneID &&
+		existing.ConsoleHostname == input.ConsoleHostname &&
+		existing.TunnelID == input.TunnelID &&
+		existing.TunnelName == input.TunnelName
 }
 
 func sameOptionalString(left, right *string) bool {
@@ -626,7 +669,14 @@ func queueRetiringWildcardTx(ctx context.Context, tx pgx.Tx, zoneID, hostname, r
 	if zoneID == "" || hostname == "" || recordID == "" || target == "" {
 		return nil
 	}
-	_, err := tx.Exec(ctx, `INSERT INTO cloudflare_retiring_wildcard_dns (record_id,zone_id,hostname,target) VALUES ($1,$2,$3,$4) ON CONFLICT (record_id) DO NOTHING`, recordID, zoneID, hostname, target)
+	_, err := tx.Exec(
+		ctx,
+		`INSERT INTO cloudflare_retiring_wildcard_dns (record_id,zone_id,hostname,target) VALUES ($1,$2,$3,$4) ON CONFLICT (record_id) DO NOTHING`,
+		recordID,
+		zoneID,
+		hostname,
+		target,
+	)
 	return err
 }
 

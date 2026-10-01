@@ -104,7 +104,10 @@ func DecodeAdminAlertEventCursor(value string) (AdminAlertEventCursor, error) {
 	}, nil
 }
 
-func (r *Repository) QueryAdminAlertEvents(ctx context.Context, query AdminAlertEventQuery) (AdminAlertEventPage, error) {
+func (r *Repository) QueryAdminAlertEvents(
+	ctx context.Context,
+	query AdminAlertEventQuery,
+) (AdminAlertEventPage, error) {
 	query, err := normalizeAdminAlertEventQuery(query)
 	if err != nil {
 		return AdminAlertEventPage{}, err
@@ -208,7 +211,9 @@ func normalizeAdminAlertEventQuery(query AdminAlertEventQuery) (AdminAlertEventQ
 	cursor.OccurredAt = cursor.OccurredAt.UTC()
 	cursor.From = utcTimePointer(cursor.From)
 	cursor.To = utcTimePointer(cursor.To)
-	if cursor.ID == uuid.Nil || cursor.OccurredAt.IsZero() || !sameOptionalUUID(query.RuleID, cursor.RuleID) || !sameOptionalTime(query.From, cursor.From) || !sameOptionalTime(query.To, cursor.To) {
+	if cursor.ID == uuid.Nil || cursor.OccurredAt.IsZero() || !sameOptionalUUID(query.RuleID, cursor.RuleID) ||
+		!sameOptionalTime(query.From, cursor.From) ||
+		!sameOptionalTime(query.To, cursor.To) {
 		return AdminAlertEventQuery{}, ErrInvalidAdminAlertHistory
 	}
 	query.Cursor = &cursor

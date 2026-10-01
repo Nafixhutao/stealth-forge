@@ -20,12 +20,13 @@ import (
 	"strings"
 	"time"
 
+	"log/slog"
+
 	"github.com/Stealth-deplover/stealth/internal/domain"
 	"github.com/Stealth-deplover/stealth/internal/domainname"
 	"github.com/Stealth-deplover/stealth/internal/repository"
 	"github.com/google/uuid"
 	"go.yaml.in/yaml/v3"
-	"log/slog"
 )
 
 const (
@@ -62,13 +63,19 @@ type Result struct {
 	ReloadUpdated bool
 }
 
-func New(store Store, generatedDir, reloadFile string, interval time.Duration, logger *slog.Logger) (*Reconciler, error) {
+func New(
+	store Store,
+	generatedDir, reloadFile string,
+	interval time.Duration,
+	logger *slog.Logger,
+) (*Reconciler, error) {
 	if store == nil {
 		return nil, errors.New("platform route store is required")
 	}
 	generatedDir = filepath.Clean(strings.TrimSpace(generatedDir))
 	reloadFile = filepath.Clean(strings.TrimSpace(reloadFile))
-	if !filepath.IsAbs(generatedDir) || !filepath.IsAbs(reloadFile) || generatedDir == string(filepath.Separator) || reloadFile == string(filepath.Separator) {
+	if !filepath.IsAbs(generatedDir) || !filepath.IsAbs(reloadFile) || generatedDir == string(filepath.Separator) ||
+		reloadFile == string(filepath.Separator) {
 		return nil, errors.New("platform route paths must be absolute non-root paths")
 	}
 	if pathWithin(generatedDir, reloadFile) {
@@ -332,7 +339,8 @@ func RenderApps(routes []domain.AppPlatformRoute) ([]byte, error) {
 	}
 	identityCounts := make(map[string]int, len(ordered))
 	for _, route := range ordered {
-		if identity, err := uuid.Parse(route.RouteIdentity); err == nil && identity != uuid.Nil && identity.String() == route.RouteIdentity {
+		if identity, err := uuid.Parse(route.RouteIdentity); err == nil && identity != uuid.Nil &&
+			identity.String() == route.RouteIdentity {
 			identityCounts[route.RouteIdentity]++
 		}
 	}
@@ -395,7 +403,8 @@ func validateAppRendered(contents []byte, routerCount, serviceCount int, expecte
 	if err := yaml.Unmarshal(contents, &parsed); err != nil {
 		return fmt.Errorf("generated App Traefik YAML is invalid: %w", err)
 	}
-	if len(parsed.HTTP.Routers) != routerCount || len(parsed.HTTP.Services) != serviceCount || routerCount != serviceCount {
+	if len(parsed.HTTP.Routers) != routerCount || len(parsed.HTTP.Services) != serviceCount ||
+		routerCount != serviceCount {
 		return errors.New("generated App route and service counts do not match")
 	}
 	for routerID, router := range parsed.HTTP.Routers {
@@ -403,12 +412,18 @@ func validateAppRendered(contents []byte, routerCount, serviceCount int, expecte
 		if !strings.HasPrefix(routerID, "stealth-app-") || len(router.EntryPoints) != 1 || router.EntryPoints[0] != "web" ||
 			router.Service != "stealth-app-service-"+strings.TrimPrefix(routerID, "stealth-app-") ||
 			idErr != nil || appID == uuid.Nil || routerID != "stealth-app-"+strings.ReplaceAll(appID.String(), "-", "") ||
-			!strings.HasPrefix(router.Rule, "Host(`") || !strings.HasSuffix(router.Rule, "`)") {
+			!strings.HasPrefix(router.Rule, "Host(`") ||
+			!strings.HasSuffix(router.Rule, "`)") {
 			return fmt.Errorf("generated App router %q is invalid", routerID)
 		}
 		expectedHost := expectedTargets[routerID]
 		service, ok := parsed.HTTP.Services[router.Service]
-		if expectedHost == "" || !ok || !service.LoadBalancer.PassHostHeader || len(service.LoadBalancer.Servers) != 1 || !validAppBackendURL(service.LoadBalancer.Servers[0].URL, expectedHost) {
+		hasExpectedHost := expectedHost != ""
+		hasService := ok
+		passesHostHeader := service.LoadBalancer.PassHostHeader
+		hasSingleServer := len(service.LoadBalancer.Servers) == 1
+		if !hasExpectedHost || !hasService || !passesHostHeader || !hasSingleServer ||
+			!validAppBackendURL(service.LoadBalancer.Servers[0].URL, expectedHost) {
 			return fmt.Errorf("generated App backend for %q is invalid", routerID)
 		}
 	}
@@ -417,7 +432,8 @@ func validateAppRendered(contents []byte, routerCount, serviceCount int, expecte
 
 func validAppBackendURL(raw, expectedHost string) bool {
 	parsed, err := url.Parse(raw)
-	if err != nil || parsed.Scheme != "http" || parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if err != nil || parsed.Scheme != "http" || parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" ||
+		parsed.Fragment != "" {
 		return false
 	}
 	host, portText, err := net.SplitHostPort(parsed.Host)
@@ -430,7 +446,14 @@ func validAppBackendURL(raw, expectedHost string) bool {
 
 func validBackendURL(raw string) error {
 	parsed, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if err != nil {
+		return errors.New("platform Site backend URL must be an HTTP(S) origin without credentials or path")
+	}
+	validScheme := parsed.Scheme == "http" || parsed.Scheme == "https"
+	hasHost := parsed.Host != ""
+	hasNoUserInfo := parsed.User == nil
+	hasNoPathOrQuery := parsed.Path == "" && parsed.RawQuery == "" && parsed.Fragment == ""
+	if !validScheme || !hasHost || !hasNoUserInfo || !hasNoPathOrQuery {
 		return errors.New("platform Site backend URL must be an HTTP(S) origin without credentials or path")
 	}
 	return nil
@@ -451,11 +474,18 @@ func validateRendered(contents []byte, routeCount int, backendURL string) error 
 		return nil
 	}
 	service, ok := parsed.HTTP.Services["stealth-platform-sites"]
-	if !ok || !service.LoadBalancer.PassHostHeader || len(service.LoadBalancer.Servers) != 1 || service.LoadBalancer.Servers[0].URL != backendURL {
+	if !ok || !service.LoadBalancer.PassHostHeader || len(service.LoadBalancer.Servers) != 1 ||
+		service.LoadBalancer.Servers[0].URL != backendURL {
 		return errors.New("generated platform service is invalid")
 	}
 	for routerID, router := range parsed.HTTP.Routers {
-		if !strings.HasPrefix(routerID, "stealth-site-") || len(router.EntryPoints) != 1 || router.EntryPoints[0] != "web" || router.Service != "stealth-platform-sites" || !strings.HasPrefix(router.Rule, "Host(`") || !strings.HasSuffix(router.Rule, "`)") {
+		isSiteRouter := strings.HasPrefix(routerID, "stealth-site-")
+		hasSingleWebEntryPoint := len(router.EntryPoints) == 1 && router.EntryPoints[0] == "web"
+		usesPlatformService := router.Service == "stealth-platform-sites"
+		hasHostRulePrefix := strings.HasPrefix(router.Rule, "Host(`")
+		hasHostRuleSuffix := strings.HasSuffix(router.Rule, "`)")
+		if !isSiteRouter || !hasSingleWebEntryPoint || !usesPlatformService || !hasHostRulePrefix ||
+			!hasHostRuleSuffix {
 			return fmt.Errorf("generated platform router %q is invalid", routerID)
 		}
 	}
@@ -498,7 +528,12 @@ func publishSnapshotFile(path string, contents []byte) (bool, error) {
 	return true, nil
 }
 
-func publishSnapshot(outputFile string, contents []byte, reloadFile string, reloadContents []byte) (changed, reloadChanged bool, err error) {
+func publishSnapshot(
+	outputFile string,
+	contents []byte,
+	reloadFile string,
+	reloadContents []byte,
+) (changed, reloadChanged bool, err error) {
 	current, currentErr := readManagedFile(outputFile)
 	if currentErr != nil && !errors.Is(currentErr, os.ErrNotExist) {
 		return false, false, currentErr

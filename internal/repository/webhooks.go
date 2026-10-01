@@ -71,6 +71,7 @@ type WebhookDeliveryJob struct {
 }
 
 const webhookProjection = `id,project_id,name,url,events,enabled,failure_count,last_delivery_at,last_failure_at,created_at,updated_at`
+
 const webhookDeliveryProjection = `d.id,d.webhook_id,d.event_id,e.event_name,d.status,d.attempt_count,d.last_status_code,d.last_error,d.delivered_at,d.created_at,d.updated_at`
 
 type webhookScanner interface {
@@ -80,7 +81,19 @@ type webhookScanner interface {
 func scanWebhook(row webhookScanner) (domain.Webhook, error) {
 	var item domain.Webhook
 	var id, projectID uuid.UUID
-	err := row.Scan(&id, &projectID, &item.Name, &item.URL, &item.Events, &item.Enabled, &item.FailureCount, &item.LastDeliveryAt, &item.LastFailureAt, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&id,
+		&projectID,
+		&item.Name,
+		&item.URL,
+		&item.Events,
+		&item.Enabled,
+		&item.FailureCount,
+		&item.LastDeliveryAt,
+		&item.LastFailureAt,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	item.ID = id.String()
 	item.ProjectID = projectID.String()
 	return item, err
@@ -89,7 +102,19 @@ func scanWebhook(row webhookScanner) (domain.Webhook, error) {
 func scanWebhookDelivery(row webhookScanner) (domain.WebhookDelivery, error) {
 	var item domain.WebhookDelivery
 	var id, webhookID, eventID uuid.UUID
-	err := row.Scan(&id, &webhookID, &eventID, &item.EventName, &item.Status, &item.AttemptCount, &item.LastStatusCode, &item.LastError, &item.DeliveredAt, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&id,
+		&webhookID,
+		&eventID,
+		&item.EventName,
+		&item.Status,
+		&item.AttemptCount,
+		&item.LastStatusCode,
+		&item.LastError,
+		&item.DeliveredAt,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	item.ID = id.String()
 	item.WebhookID = webhookID.String()
 	item.EventID = eventID.String()
@@ -208,7 +233,12 @@ func (r *Repository) requireWebhookRead(ctx context.Context, projectID uuid.UUID
 	}
 }
 
-func (r *Repository) requireWebhookWriteTx(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, actor WebhookActor) error {
+func (r *Repository) requireWebhookWriteTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	actor WebhookActor,
+) error {
 	switch actor.Kind {
 	case WebhookConsoleActor:
 		return requireProjectRoleTx(ctx, tx, projectID, actor.AccountID, "owner", "admin")
@@ -222,7 +252,12 @@ func (r *Repository) requireWebhookWriteTx(ctx context.Context, tx pgx.Tx, proje
 	}
 }
 
-func (r *Repository) CreateWebhook(ctx context.Context, id, projectID uuid.UUID, actor WebhookActor, input WebhookInput) (domain.Webhook, string, error) {
+func (r *Repository) CreateWebhook(
+	ctx context.Context,
+	id, projectID uuid.UUID,
+	actor WebhookActor,
+	input WebhookInput,
+) (domain.Webhook, string, error) {
 	if r.webhookCipher == nil {
 		return domain.Webhook{}, "", ErrWebhookNotReady
 	}
@@ -254,7 +289,19 @@ func (r *Repository) CreateWebhook(ctx context.Context, id, projectID uuid.UUID,
 	if err := r.requireWebhookWriteTx(ctx, tx, projectID, actor); err != nil {
 		return domain.Webhook{}, "", err
 	}
-	item, err := scanWebhook(tx.QueryRow(ctx, `INSERT INTO project_webhooks (id,project_id,name,url,secret_ciphertext,events,enabled) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING `+webhookProjection, id, projectID, name, webhookURL, ciphertext, events, input.Enabled))
+	item, err := scanWebhook(
+		tx.QueryRow(
+			ctx,
+			`INSERT INTO project_webhooks (id,project_id,name,url,secret_ciphertext,events,enabled) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING `+webhookProjection,
+			id,
+			projectID,
+			name,
+			webhookURL,
+			ciphertext,
+			events,
+			input.Enabled,
+		),
+	)
 	if err != nil {
 		return domain.Webhook{}, "", mapError(err)
 	}
@@ -267,7 +314,13 @@ func (r *Repository) CreateWebhook(ctx context.Context, id, projectID uuid.UUID,
 	return item, secret, nil
 }
 
-func (r *Repository) ListWebhooks(ctx context.Context, projectID uuid.UUID, actor WebhookActor, limit int, cursor *uuid.UUID) ([]domain.Webhook, string, bool, error) {
+func (r *Repository) ListWebhooks(
+	ctx context.Context,
+	projectID uuid.UUID,
+	actor WebhookActor,
+	limit int,
+	cursor *uuid.UUID,
+) ([]domain.Webhook, string, bool, error) {
 	canManage, err := r.requireWebhookRead(ctx, projectID, actor)
 	if err != nil {
 		return nil, "", false, err
@@ -275,7 +328,13 @@ func (r *Repository) ListWebhooks(ctx context.Context, projectID uuid.UUID, acto
 	if limit < 1 || limit > 100 {
 		return nil, "", false, ErrInvalidWebhook
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+webhookProjection+` FROM project_webhooks WHERE project_id=$1 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $2`, projectID, limit+1, cursor)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT `+webhookProjection+` FROM project_webhooks WHERE project_id=$1 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $2`,
+		projectID,
+		limit+1,
+		cursor,
+	)
 	if err != nil {
 		return nil, "", false, err
 	}
@@ -299,18 +358,34 @@ func (r *Repository) ListWebhooks(ctx context.Context, projectID uuid.UUID, acto
 	return items, next, canManage, nil
 }
 
-func (r *Repository) GetWebhook(ctx context.Context, projectID, webhookID uuid.UUID, actor WebhookActor) (domain.Webhook, error) {
+func (r *Repository) GetWebhook(
+	ctx context.Context,
+	projectID, webhookID uuid.UUID,
+	actor WebhookActor,
+) (domain.Webhook, error) {
 	if _, err := r.requireWebhookRead(ctx, projectID, actor); err != nil {
 		return domain.Webhook{}, err
 	}
-	item, err := scanWebhook(r.pool.QueryRow(ctx, `SELECT `+webhookProjection+` FROM project_webhooks WHERE project_id=$1 AND id=$2`, projectID, webhookID))
+	item, err := scanWebhook(
+		r.pool.QueryRow(
+			ctx,
+			`SELECT `+webhookProjection+` FROM project_webhooks WHERE project_id=$1 AND id=$2`,
+			projectID,
+			webhookID,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Webhook{}, ErrNotFound
 	}
 	return item, err
 }
 
-func (r *Repository) UpdateWebhook(ctx context.Context, projectID, webhookID uuid.UUID, actor WebhookActor, patch WebhookPatch) (domain.Webhook, error) {
+func (r *Repository) UpdateWebhook(
+	ctx context.Context,
+	projectID, webhookID uuid.UUID,
+	actor WebhookActor,
+	patch WebhookPatch,
+) (domain.Webhook, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.Webhook{}, err
@@ -319,7 +394,14 @@ func (r *Repository) UpdateWebhook(ctx context.Context, projectID, webhookID uui
 	if err := r.requireWebhookWriteTx(ctx, tx, projectID, actor); err != nil {
 		return domain.Webhook{}, err
 	}
-	current, err := scanWebhook(tx.QueryRow(ctx, `SELECT `+webhookProjection+` FROM project_webhooks WHERE project_id=$1 AND id=$2 FOR UPDATE`, projectID, webhookID))
+	current, err := scanWebhook(
+		tx.QueryRow(
+			ctx,
+			`SELECT `+webhookProjection+` FROM project_webhooks WHERE project_id=$1 AND id=$2 FOR UPDATE`,
+			projectID,
+			webhookID,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Webhook{}, ErrNotFound
 	}
@@ -364,7 +446,18 @@ func (r *Repository) UpdateWebhook(ctx context.Context, projectID, webhookID uui
 	}
 	item := current
 	if len(changed) > 0 {
-		item, err = scanWebhook(tx.QueryRow(ctx, `UPDATE project_webhooks SET name=$3,url=$4,events=$5,enabled=$6,updated_at=now() WHERE project_id=$1 AND id=$2 RETURNING `+webhookProjection, projectID, webhookID, name, webhookURL, events, enabled))
+		item, err = scanWebhook(
+			tx.QueryRow(
+				ctx,
+				`UPDATE project_webhooks SET name=$3,url=$4,events=$5,enabled=$6,updated_at=now() WHERE project_id=$1 AND id=$2 RETURNING `+webhookProjection,
+				projectID,
+				webhookID,
+				name,
+				webhookURL,
+				events,
+				enabled,
+			),
+		)
 		if err != nil {
 			return domain.Webhook{}, mapError(err)
 		}
@@ -387,7 +480,14 @@ func (r *Repository) DeleteWebhook(ctx context.Context, projectID, webhookID uui
 	if err := r.requireWebhookWriteTx(ctx, tx, projectID, actor); err != nil {
 		return err
 	}
-	item, err := scanWebhook(tx.QueryRow(ctx, `SELECT `+webhookProjection+` FROM project_webhooks WHERE project_id=$1 AND id=$2 FOR UPDATE`, projectID, webhookID))
+	item, err := scanWebhook(
+		tx.QueryRow(
+			ctx,
+			`SELECT `+webhookProjection+` FROM project_webhooks WHERE project_id=$1 AND id=$2 FOR UPDATE`,
+			projectID,
+			webhookID,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
 	}
@@ -403,7 +503,11 @@ func (r *Repository) DeleteWebhook(ctx context.Context, projectID, webhookID uui
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) RotateWebhookSecret(ctx context.Context, projectID, webhookID uuid.UUID, actor WebhookActor) (domain.Webhook, string, error) {
+func (r *Repository) RotateWebhookSecret(
+	ctx context.Context,
+	projectID, webhookID uuid.UUID,
+	actor WebhookActor,
+) (domain.Webhook, string, error) {
 	if r.webhookCipher == nil {
 		return domain.Webhook{}, "", ErrWebhookNotReady
 	}
@@ -423,12 +527,29 @@ func (r *Repository) RotateWebhookSecret(ctx context.Context, projectID, webhook
 	if err := r.requireWebhookWriteTx(ctx, tx, projectID, actor); err != nil {
 		return domain.Webhook{}, "", err
 	}
-	if _, err := scanWebhook(tx.QueryRow(ctx, `SELECT `+webhookProjection+` FROM project_webhooks WHERE project_id=$1 AND id=$2 FOR UPDATE`, projectID, webhookID)); errors.Is(err, pgx.ErrNoRows) {
+	_, err = scanWebhook(
+		tx.QueryRow(
+			ctx,
+			`SELECT `+webhookProjection+` FROM project_webhooks WHERE project_id=$1 AND id=$2 FOR UPDATE`,
+			projectID,
+			webhookID,
+		),
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Webhook{}, "", ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return domain.Webhook{}, "", err
 	}
-	item, err := scanWebhook(tx.QueryRow(ctx, `UPDATE project_webhooks SET secret_ciphertext=$3,updated_at=now() WHERE project_id=$1 AND id=$2 RETURNING `+webhookProjection, projectID, webhookID, ciphertext))
+	item, err := scanWebhook(
+		tx.QueryRow(
+			ctx,
+			`UPDATE project_webhooks SET secret_ciphertext=$3,updated_at=now() WHERE project_id=$1 AND id=$2 RETURNING `+webhookProjection,
+			projectID,
+			webhookID,
+			ciphertext,
+		),
+	)
 	if err != nil {
 		return domain.Webhook{}, "", err
 	}
@@ -441,7 +562,13 @@ func (r *Repository) RotateWebhookSecret(ctx context.Context, projectID, webhook
 	return item, secret, nil
 }
 
-func (r *Repository) ListWebhookDeliveries(ctx context.Context, projectID, webhookID uuid.UUID, actor WebhookActor, limit int, cursor *uuid.UUID) ([]domain.WebhookDelivery, string, error) {
+func (r *Repository) ListWebhookDeliveries(
+	ctx context.Context,
+	projectID, webhookID uuid.UUID,
+	actor WebhookActor,
+	limit int,
+	cursor *uuid.UUID,
+) ([]domain.WebhookDelivery, string, error) {
 	if _, err := r.requireWebhookRead(ctx, projectID, actor); err != nil {
 		return nil, "", err
 	}
@@ -455,7 +582,14 @@ func (r *Repository) ListWebhookDeliveries(ctx context.Context, projectID, webho
 	if !exists {
 		return nil, "", ErrNotFound
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+webhookDeliveryProjection+` FROM webhook_deliveries d JOIN webhook_events e ON e.id=d.event_id JOIN project_webhooks w ON w.id=d.webhook_id WHERE w.project_id=$1 AND d.webhook_id=$2 AND ($3::uuid IS NULL OR d.id<$3) ORDER BY d.id DESC LIMIT $4`, projectID, webhookID, cursor, limit+1)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT `+webhookDeliveryProjection+` FROM webhook_deliveries d JOIN webhook_events e ON e.id=d.event_id JOIN project_webhooks w ON w.id=d.webhook_id WHERE w.project_id=$1 AND d.webhook_id=$2 AND ($3::uuid IS NULL OR d.id<$3) ORDER BY d.id DESC LIMIT $4`,
+		projectID,
+		webhookID,
+		cursor,
+		limit+1,
+	)
 	if err != nil {
 		return nil, "", err
 	}
@@ -521,7 +655,11 @@ func (r *Repository) RequeueStaleWebhookDeliveries(ctx context.Context, maxAge t
 	if maxAge <= 0 {
 		return 0, ErrInvalidWebhook
 	}
-	result, err := r.pool.Exec(ctx, `UPDATE webhook_deliveries SET status='pending',leased_at=NULL,worker_id=NULL,next_attempt_at=LEAST(next_attempt_at,now()),updated_at=now() WHERE status='running' AND leased_at IS NOT NULL AND leased_at < now() - ($1 * interval '1 second')`, maxAge.Seconds())
+	result, err := r.pool.Exec(
+		ctx,
+		`UPDATE webhook_deliveries SET status='pending',leased_at=NULL,worker_id=NULL,next_attempt_at=LEAST(next_attempt_at,now()),updated_at=now() WHERE status='running' AND leased_at IS NOT NULL AND leased_at < now() - ($1 * interval '1 second')`,
+		maxAge.Seconds(),
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -529,7 +667,10 @@ func (r *Repository) RequeueStaleWebhookDeliveries(ctx context.Context, maxAge t
 }
 
 func (r *Repository) ExpireWebhookDeliveries(ctx context.Context) (int64, error) {
-	result, err := r.pool.Exec(ctx, `UPDATE webhook_deliveries d SET status='failed',last_error='event expired before delivery',updated_at=now() FROM webhook_events e WHERE e.id=d.event_id AND d.status='pending' AND e.expires_at<=now()`)
+	result, err := r.pool.Exec(
+		ctx,
+		`UPDATE webhook_deliveries d SET status='failed',last_error='event expired before delivery',updated_at=now() FROM webhook_events e WHERE e.id=d.event_id AND d.status='pending' AND e.expires_at<=now()`,
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -547,7 +688,15 @@ func truncateWebhookError(value string) *string {
 	return &value
 }
 
-func (r *Repository) FinishWebhookDelivery(ctx context.Context, deliveryID uuid.UUID, workerID string, success bool, statusCode *int, lastError string, retryAt *time.Time) error {
+func (r *Repository) FinishWebhookDelivery(
+	ctx context.Context,
+	deliveryID uuid.UUID,
+	workerID string,
+	success bool,
+	statusCode *int,
+	lastError string,
+	retryAt *time.Time,
+) error {
 	if !validFunctionWorkerID(workerID) {
 		return ErrInvalidWebhook
 	}
@@ -558,7 +707,8 @@ func (r *Repository) FinishWebhookDelivery(ctx context.Context, deliveryID uuid.
 	defer tx.Rollback(ctx)
 	var status, owner string
 	var webhookID, projectID uuid.UUID
-	err = tx.QueryRow(ctx, `SELECT d.status,COALESCE(d.worker_id,''),d.webhook_id,w.project_id FROM webhook_deliveries d JOIN project_webhooks w ON w.id=d.webhook_id WHERE d.id=$1 FOR UPDATE`, deliveryID).Scan(&status, &owner, &webhookID, &projectID)
+	err = tx.QueryRow(ctx, `SELECT d.status,COALESCE(d.worker_id,''),d.webhook_id,w.project_id FROM webhook_deliveries d JOIN project_webhooks w ON w.id=d.webhook_id WHERE d.id=$1 FOR UPDATE`, deliveryID).
+		Scan(&status, &owner, &webhookID, &projectID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrWebhookDeliveryNotFound
 	}
@@ -578,7 +728,11 @@ func (r *Repository) FinishWebhookDelivery(ctx context.Context, deliveryID uuid.
 		if _, err := tx.Exec(ctx, `UPDATE webhook_deliveries SET status='succeeded',leased_at=NULL,worker_id=NULL,last_status_code=$2,last_error=NULL,delivered_at=now(),updated_at=now() WHERE id=$1`, deliveryID, statusCode); err != nil {
 			return err
 		}
-		_, err = tx.Exec(ctx, `UPDATE project_webhooks SET failure_count=0,last_delivery_at=now(),updated_at=now() WHERE id=$1`, webhookID)
+		_, err = tx.Exec(
+			ctx,
+			`UPDATE project_webhooks SET failure_count=0,last_delivery_at=now(),updated_at=now() WHERE id=$1`,
+			webhookID,
+		)
 	} else if retryAt != nil {
 		finalStatus = "pending"
 		if _, err := tx.Exec(ctx, `UPDATE webhook_deliveries SET status='pending',leased_at=NULL,worker_id=NULL,last_status_code=$2,last_error=$3,next_attempt_at=$4,updated_at=now() WHERE id=$1`, deliveryID, statusCode, errValue, retryAt.UTC()); err != nil {
@@ -602,7 +756,15 @@ func (r *Repository) FinishWebhookDelivery(ctx context.Context, deliveryID uuid.
 
 // auditWebhook appends to both the existing audit stream and the transactional
 // webhook outbox. It is also used by the other project control planes.
-func (r *Repository) auditWebhook(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, actor WebhookActor, action, targetType string, target uuid.UUID, metadata map[string]any) error {
+func (r *Repository) auditWebhook(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	actor WebhookActor,
+	action, targetType string,
+	target uuid.UUID,
+	metadata map[string]any,
+) error {
 	orgID, err := projectOrganizationIDValue(ctx, tx, projectID)
 	if err != nil {
 		return err
@@ -638,17 +800,39 @@ func (r *Repository) auditWebhook(ctx context.Context, tx pgx.Tx, projectID uuid
 // event independent from integration configuration lets the same transactional
 // stream power Realtime subscribers without making webhook configuration a
 // prerequisite for observing a project mutation.
-func (r *Repository) enqueueWebhookEventTx(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, eventName, targetType string, target uuid.UUID, metadata map[string]any) error {
+func (r *Repository) enqueueWebhookEventTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	eventName, targetType string,
+	target uuid.UUID,
+	metadata map[string]any,
+) error {
 	return r.enqueueEventTx(ctx, tx, projectID, eventName, targetType, target, metadata, true)
 }
 
 // enqueueRealtimeOnlyEventTx records a notification in the durable outbox
 // without recursively sending that internal delivery state to user webhooks.
-func (r *Repository) enqueueRealtimeOnlyEventTx(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, eventName, targetType string, target uuid.UUID, metadata map[string]any) error {
+func (r *Repository) enqueueRealtimeOnlyEventTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	eventName, targetType string,
+	target uuid.UUID,
+	metadata map[string]any,
+) error {
 	return r.enqueueEventTx(ctx, tx, projectID, eventName, targetType, target, metadata, false)
 }
 
-func (r *Repository) enqueueEventTx(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, eventName, targetType string, target uuid.UUID, metadata map[string]any, createWebhookDeliveries bool) error {
+func (r *Repository) enqueueEventTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	eventName, targetType string,
+	target uuid.UUID,
+	metadata map[string]any,
+	createWebhookDeliveries bool,
+) error {
 	if len(eventName) < 3 || len(eventName) > 160 || len(targetType) < 3 || len(targetType) > 80 {
 		return ErrInvalidWebhook
 	}
@@ -727,14 +911,20 @@ func (r *Repository) enqueueEventTx(ctx context.Context, tx pgx.Tx, projectID uu
 	if envelope.CorrelationID != "" {
 		correlationValue = envelope.CorrelationID
 	}
-	err = tx.QueryRow(ctx, `INSERT INTO webhook_events (id,project_id,organization_id,event_name,target_type,target_id,event_version,occurred_at,correlation_id,payload) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`, eventID, projectID, organizationID, eventName, targetType, targetValue, realtime.CurrentVersion, occurredAt, correlationValue, payload).Scan(&insertedID)
+	err = tx.QueryRow(ctx, `INSERT INTO webhook_events (id,project_id,organization_id,event_name,target_type,target_id,event_version,occurred_at,correlation_id,payload) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`, eventID, projectID, organizationID, eventName, targetType, targetValue, realtime.CurrentVersion, occurredAt, correlationValue, payload).
+		Scan(&insertedID)
 	if err != nil {
 		return err
 	}
 	if !createWebhookDeliveries {
 		return nil
 	}
-	rows, err := tx.Query(ctx, `SELECT id FROM project_webhooks WHERE project_id=$1 AND enabled AND (events @> ARRAY['*']::text[] OR $2=ANY(events))`, projectID, eventName)
+	rows, err := tx.Query(
+		ctx,
+		`SELECT id FROM project_webhooks WHERE project_id=$1 AND enabled AND (events @> ARRAY['*']::text[] OR $2=ANY(events))`,
+		projectID,
+		eventName,
+	)
 	if err != nil {
 		return err
 	}

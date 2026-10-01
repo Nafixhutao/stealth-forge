@@ -15,6 +15,7 @@ import (
 	"mime"
 	"net"
 	"net/smtp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -45,7 +46,13 @@ func NewFromConfig(cfg config.Config, logger *slog.Logger) Sender {
 	}
 	switch strings.ToLower(strings.TrimSpace(cfg.EmailDeliveryMode)) {
 	case "smtp":
-		return &SMTP{Host: cfg.SMTPHost, Port: cfg.SMTPPort, Username: cfg.SMTPUsername, Password: cfg.SMTPPassword, From: cfg.SMTPFrom}
+		return &SMTP{
+			Host:     cfg.SMTPHost,
+			Port:     cfg.SMTPPort,
+			Username: cfg.SMTPUsername,
+			Password: cfg.SMTPPassword,
+			From:     cfg.SMTPFrom,
+		}
 	case "log":
 		return LogSender{Logger: logger}
 	default:
@@ -88,7 +95,13 @@ type SMTP struct {
 }
 
 func (s *SMTP) Send(ctx context.Context, message Message) error {
-	if s == nil || strings.TrimSpace(s.Host) == "" || s.Port < 1 || s.Port > 65535 || strings.TrimSpace(s.From) == "" {
+	if s == nil {
+		return fmt.Errorf("smtp configuration is incomplete")
+	}
+	hostMissing := strings.TrimSpace(s.Host) == ""
+	portInvalid := s.Port < 1 || s.Port > 65535
+	fromMissing := strings.TrimSpace(s.From) == ""
+	if hostMissing || portInvalid || fromMissing {
 		return fmt.Errorf("smtp configuration is incomplete")
 	}
 	if err := validHeaderValue(message.To, "recipient"); err != nil {
@@ -119,7 +132,7 @@ func (s *SMTP) Send(ctx context.Context, message Message) error {
 		dialer := &net.Dialer{Timeout: timeout}
 		dialContext = dialer.DialContext
 	}
-	address := net.JoinHostPort(s.Host, fmt.Sprintf("%d", s.Port))
+	address := net.JoinHostPort(s.Host, strconv.Itoa(s.Port))
 	conn, err := dialContext(ctx, "tcp", address)
 	if err != nil {
 		return fmt.Errorf("dial smtp relay: %w", err)

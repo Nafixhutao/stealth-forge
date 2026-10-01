@@ -315,7 +315,11 @@ func (s *ClickHouseStore) EvaluateAlert(ctx context.Context, query AlertQuery) (
 		if err != nil {
 			return AlertValue{}, err
 		}
-		return AlertValue{Value: result.ErrorRate, SampleCount: result.SampleCount, Available: result.SampleCount > 0}, nil
+		return AlertValue{
+			Value:       result.ErrorRate,
+			SampleCount: result.SampleCount,
+			Available:   result.SampleCount > 0,
+		}, nil
 	case "latency":
 		result, err := s.QueryHTTPOverview(ctx, HTTPOverviewQuery{Range: query.Range, Service: query.Service})
 		if err != nil {
@@ -636,7 +640,10 @@ func (s *ClickHouseStore) QueryServiceMap(ctx context.Context, query ServiceMapQ
 	return result, nil
 }
 
-func (s *ClickHouseStore) QueryInfrastructure(ctx context.Context, query InfrastructureQuery) (InfrastructureResult, error) {
+func (s *ClickHouseStore) QueryInfrastructure(
+	ctx context.Context,
+	query InfrastructureQuery,
+) (InfrastructureResult, error) {
 	if err := s.validate(query.Range, query.Limit); err != nil {
 		return InfrastructureResult{}, err
 	}
@@ -645,7 +652,11 @@ func (s *ClickHouseStore) QueryInfrastructure(ctx context.Context, query Infrast
 		return InfrastructureResult{}, err
 	}
 	query.Scope = strings.TrimSpace(strings.ToLower(query.Scope))
-	if query.Scope != "" && query.Scope != "host" && query.Scope != "containers" && query.Scope != "postgres" && query.Scope != "redis" && query.Scope != "services" {
+	hasScope := query.Scope != ""
+	isSupportedScope := query.Scope == "host" || query.Scope == "containers" || query.Scope == "postgres" ||
+		query.Scope == "redis" ||
+		query.Scope == "services"
+	if hasScope && !isSupportedScope {
 		return InfrastructureResult{}, fmt.Errorf("%w: infrastructure scope is unsupported", ErrInvalidQuery)
 	}
 	rows, err := s.query(ctx, infrastructureQuery,

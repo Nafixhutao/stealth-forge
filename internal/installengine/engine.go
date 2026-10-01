@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -56,7 +57,13 @@ type InputCommandRunner interface {
 // It is intentionally small so tests can assert the exact command surface.
 type OSCommandRunner struct{}
 
-func (OSCommandRunner) Run(ctx context.Context, dir string, stdout, stderr io.Writer, name string, args ...string) error {
+func (OSCommandRunner) Run(
+	ctx context.Context,
+	dir string,
+	stdout, stderr io.Writer,
+	name string,
+	args ...string,
+) error {
 	command := exec.CommandContext(ctx, name, args...)
 	command.Dir = dir
 	command.Stdout = stdout
@@ -64,7 +71,14 @@ func (OSCommandRunner) Run(ctx context.Context, dir string, stdout, stderr io.Wr
 	return command.Run()
 }
 
-func (OSCommandRunner) RunInput(ctx context.Context, dir string, stdin io.Reader, stdout, stderr io.Writer, name string, args ...string) error {
+func (OSCommandRunner) RunInput(
+	ctx context.Context,
+	dir string,
+	stdin io.Reader,
+	stdout, stderr io.Writer,
+	name string,
+	args ...string,
+) error {
 	command := exec.CommandContext(ctx, name, args...)
 	command.Dir = dir
 	command.Stdin = stdin
@@ -365,7 +379,9 @@ func (e *Engine) RunStep(ctx context.Context, plan Plan, step Step) error {
 			}
 			stageEnvFile := filepath.Join(prepared.assets.stageDir, "config.env")
 			if err := WritePrivateFile(stageEnvFile, string(prepared.newEnv)); err != nil {
-				return prepared.failCommit(fmt.Errorf("stage target configuration for Traefik state initialization: %w", err))
+				return prepared.failCommit(
+					fmt.Errorf("stage target configuration for Traefik state initialization: %w", err),
+				)
 			}
 			if err := e.runComposeFileWithEnv(ctx, plan, composePath, plan.Layout.Root, stageEnvFile,
 				"run", "--rm", "--no-deps",
@@ -511,14 +527,55 @@ type ManagedAsset struct {
 // invokes the verified target binary before replacing the installed CLI.
 func DefaultManagedAssets() []ManagedAsset {
 	return []ManagedAsset{
-		{Path: "compose.production.yaml", RemotePath: "compose.production.yaml", Marker: "services:", validate: validateProductionComposeAsset},
-		{Path: "buildkit/buildkitd.toml", RemotePath: "buildkit/buildkitd.toml", Marker: "rootless = true", productionOnly: true, validate: validateBuildKitConfigAsset},
-		{Path: "buildkit/stealth-buildkit-rootless.apparmor", RemotePath: "buildkit/stealth-buildkit-rootless.apparmor", Marker: BuildKitAppArmorProfileName, productionOnly: true, validate: validateBuildKitAppArmorProfileAsset},
+		{
+			Path:       "compose.production.yaml",
+			RemotePath: "compose.production.yaml",
+			Marker:     "services:",
+			validate:   validateProductionComposeAsset,
+		},
+		{
+			Path:           "buildkit/buildkitd.toml",
+			RemotePath:     "buildkit/buildkitd.toml",
+			Marker:         "rootless = true",
+			productionOnly: true,
+			validate:       validateBuildKitConfigAsset,
+		},
+		{
+			Path:           "buildkit/stealth-buildkit-rootless.apparmor",
+			RemotePath:     "buildkit/stealth-buildkit-rootless.apparmor",
+			Marker:         BuildKitAppArmorProfileName,
+			productionOnly: true,
+			validate:       validateBuildKitAppArmorProfileAsset,
+		},
 		{Path: "console/deploy/nginx.conf", RemotePath: "console/deploy/nginx.conf", Marker: "server {"},
-		{Path: "traefik/traefik.yaml", RemotePath: "traefik/traefik.yaml", Marker: "entryPoints:", productionOnly: true, render: renderTraefikStaticAsset, validate: validateTraefikStaticAsset},
-		{Path: "traefik/dynamic/core.yaml", RemotePath: "traefik/dynamic/core.yaml", Marker: "__STEALTH_PUBLIC_HOST__", productionOnly: true, render: renderTraefikCoreAsset, validate: validateTraefikCoreAsset},
-		{Path: "traefik/dynamic/generated/.gitkeep", RemotePath: "traefik/dynamic/generated/.gitkeep", Marker: "Stealth route reconciler", productionOnly: true},
-		{Path: "telemetry/otel-collector.yaml", RemotePath: "telemetry/otel-collector.yaml", Marker: "receivers:", validate: validateMainCollectorAsset},
+		{
+			Path:           "traefik/traefik.yaml",
+			RemotePath:     "traefik/traefik.yaml",
+			Marker:         "entryPoints:",
+			productionOnly: true,
+			render:         renderTraefikStaticAsset,
+			validate:       validateTraefikStaticAsset,
+		},
+		{
+			Path:           "traefik/dynamic/core.yaml",
+			RemotePath:     "traefik/dynamic/core.yaml",
+			Marker:         "__STEALTH_PUBLIC_HOST__",
+			productionOnly: true,
+			render:         renderTraefikCoreAsset,
+			validate:       validateTraefikCoreAsset,
+		},
+		{
+			Path:           "traefik/dynamic/generated/.gitkeep",
+			RemotePath:     "traefik/dynamic/generated/.gitkeep",
+			Marker:         "Stealth route reconciler",
+			productionOnly: true,
+		},
+		{
+			Path:       "telemetry/otel-collector.yaml",
+			RemotePath: "telemetry/otel-collector.yaml",
+			Marker:     "receivers:",
+			validate:   validateMainCollectorAsset,
+		},
 		{Path: "telemetry/host-metrics.yaml", RemotePath: "telemetry/host-metrics.yaml", Marker: "hostmetrics:"},
 		{Path: "telemetry/docker-logs.yaml", RemotePath: "telemetry/docker-logs.yaml", Marker: "file_log/docker:"},
 		{Path: "telemetry/docker-stats.yaml", RemotePath: "telemetry/docker-stats.yaml", Marker: "docker_stats:"},
@@ -673,7 +730,7 @@ func (e *Engine) prepareInstallation(ctx context.Context, plan Plan) (*preparedI
 		layout: plan.Layout,
 	}
 	var originalValues map[string]string
-	generatedConfig := false
+	var generatedConfig bool
 	if contents, err := os.ReadFile(plan.Layout.VersionFile); err == nil {
 		prepared.originalVersion = contents
 		prepared.originalVersionSet = true
@@ -708,7 +765,11 @@ func (e *Engine) prepareInstallation(ctx context.Context, plan Plan) (*preparedI
 				return nil, fmt.Errorf("existing VERSION is invalid: %w", err)
 			}
 			if installedVersion != "" && installedVersion != recordedVersion {
-				return nil, fmt.Errorf("installation version skew: plan reports %s but VERSION records %s", installedVersion, recordedVersion)
+				return nil, fmt.Errorf(
+					"installation version skew: plan reports %s but VERSION records %s",
+					installedVersion,
+					recordedVersion,
+				)
 			}
 			installedVersion = recordedVersion
 		}
@@ -718,7 +779,7 @@ func (e *Engine) prepareInstallation(ctx context.Context, plan Plan) (*preparedI
 		if err := rejectReleaseDowngrade(plan.Version, installedVersion); err != nil {
 			return nil, err
 		}
-		migrated, err := MigrateReleaseConfig(values, plan.Version, installedVersion)
+		migrated, err := migrateReleaseConfig(values, plan.Version, installedVersion)
 		if err != nil {
 			return nil, fmt.Errorf("prepare existing configuration migration: %w", err)
 		}
@@ -771,14 +832,22 @@ func (e *Engine) prepareInstallation(ctx context.Context, plan Plan) (*preparedI
 		if err != nil {
 			return nil, fmt.Errorf("prepare ingress network configuration: %w", err)
 		}
-		if previous, previousErr := ingressNetworkConfigFromValues(originalValues); previousErr == nil && previous.trustedProxyCIDR() != ingress.trustedProxyCIDR() {
+		if previous, previousErr := ingressNetworkConfigFromValues(originalValues); previousErr == nil &&
+			previous.trustedProxyCIDR() != ingress.trustedProxyCIDR() {
 			// The previous peer was installer-derived whenever automatic subnet
 			// selection or legacy-network adoption changes it. Remove only that
 			// exact generated entry; all other operator proxy CIDRs survive.
-			values["TRUSTED_PROXY_CIDRS"] = removeTrustedProxyCIDR(values["TRUSTED_PROXY_CIDRS"], previous.trustedProxyCIDR())
+			values["TRUSTED_PROXY_CIDRS"] = removeTrustedProxyCIDR(
+				values["TRUSTED_PROXY_CIDRS"],
+				previous.trustedProxyCIDR(),
+			)
 		}
 		setIngressNetworkValues(values, ingress)
-		trustedProxy := ensureTraefikTrustedProxyCIDR(values["TRUSTED_PROXY_CIDRS"], values["STEALTH_NETWORK_SUBNET"], ingress.trustedProxyCIDR())
+		trustedProxy := ensureTraefikTrustedProxyCIDR(
+			values["TRUSTED_PROXY_CIDRS"],
+			values["STEALTH_NETWORK_SUBNET"],
+			ingress.trustedProxyCIDR(),
+		)
 		if trustedProxy != strings.TrimSpace(values["TRUSTED_PROXY_CIDRS"]) {
 			values["TRUSTED_PROXY_CIDRS"] = trustedProxy
 		}
@@ -893,7 +962,8 @@ func (e *Engine) managedAssetSpecs(plan Plan) []ManagedAsset {
 		if asset.productionOnly && plan.Setup {
 			continue
 		}
-		if asset.setupOnly && (plan.Layout.SetupComposeFile == "" || (!plan.Setup && !(plan.Existing && FileExists(plan.Layout.SetupComposeFile)))) {
+		if asset.setupOnly &&
+			(plan.Layout.SetupComposeFile == "" || (!plan.Setup && !(plan.Existing && FileExists(plan.Layout.SetupComposeFile)))) {
 			continue
 		}
 		assets = append(assets, asset)
@@ -916,7 +986,11 @@ func (e *Engine) stageManagedAssets(ctx context.Context, plan Plan) (*managedAss
 	checksumURL := e.releaseAssetBaseURL + "/" + strings.TrimSpace(plan.Version) + "/checksums.txt"
 	checksumContents, err := e.fetchAsset(ctx, checksumURL)
 	if err != nil {
-		return nil, fmt.Errorf("download managed asset checksum manifest for %s: %w", strings.TrimSpace(plan.Version), err)
+		return nil, fmt.Errorf(
+			"download managed asset checksum manifest for %s: %w",
+			strings.TrimSpace(plan.Version),
+			err,
+		)
 	}
 	checksums, err := parseChecksumsManifest(checksumContents)
 	if err != nil {
@@ -1013,7 +1087,10 @@ func recoverInterruptedManagedAssetMigration(layout Layout, allowedPaths map[str
 	return removeStaleManagedAssetTransactions(layout)
 }
 
-func validateManagedAssetRecoveryManifest(manifest managedAssetRecoveryManifest, allowedPaths map[string]struct{}) error {
+func validateManagedAssetRecoveryManifest(
+	manifest managedAssetRecoveryManifest,
+	allowedPaths map[string]struct{},
+) error {
 	if strings.TrimSpace(manifest.TransactionID) == "" || strings.ContainsAny(manifest.TransactionID, `/\\`) {
 		return errors.New("managed asset recovery journal contains an invalid transaction id")
 	}
@@ -1025,11 +1102,18 @@ func validateManagedAssetRecoveryManifest(manifest managedAssetRecoveryManifest,
 			return fmt.Errorf("managed asset recovery journal contains an invalid original version: %w", err)
 		}
 	}
-	if !validManagedTransactionDirectory(manifest.BackupDir, ".stealth-managed-backup-") || !validManagedTransactionDirectory(manifest.StageDir, ".stealth-managed-assets-") {
+	if !validManagedTransactionDirectory(manifest.BackupDir, ".stealth-managed-backup-") ||
+		!validManagedTransactionDirectory(manifest.StageDir, ".stealth-managed-assets-") {
 		return errors.New("managed asset recovery journal contains an invalid transaction path")
 	}
 	switch manifest.Phase {
-	case migrationPhasePrepared, migrationPhaseBackedUp, migrationPhaseAssetsActivated, migrationPhaseConfigActivated, migrationPhaseVersionActivated, migrationPhaseComposeValidated, migrationPhaseFinalized:
+	case migrationPhasePrepared,
+		migrationPhaseBackedUp,
+		migrationPhaseAssetsActivated,
+		migrationPhaseConfigActivated,
+		migrationPhaseVersionActivated,
+		migrationPhaseComposeValidated,
+		migrationPhaseFinalized:
 	default:
 		return fmt.Errorf("managed asset recovery journal contains an unknown phase %q", manifest.Phase)
 	}
@@ -1039,7 +1123,10 @@ func validateManagedAssetRecoveryManifest(manifest managedAssetRecoveryManifest,
 			return fmt.Errorf("managed asset recovery journal contains an invalid path %q", entry.RelativePath)
 		}
 		if _, ok := allowedPaths[entry.RelativePath]; !ok {
-			return fmt.Errorf("managed asset recovery journal contains a path unknown to this release %q", entry.RelativePath)
+			return fmt.Errorf(
+				"managed asset recovery journal contains a path unknown to this release %q",
+				entry.RelativePath,
+			)
 		}
 		if _, ok := seen[entry.RelativePath]; ok {
 			return fmt.Errorf("managed asset recovery journal contains duplicate path %q", entry.RelativePath)
@@ -1102,7 +1189,7 @@ func rollbackManagedAssetMigration(layout Layout, manifest managedAssetRecoveryM
 				return fmt.Errorf("read recovery backup for managed asset %q: %w", entry.RelativePath, err)
 			}
 			digest := sha256.Sum256(contents)
-			if fmt.Sprintf("%x", digest) != entry.SHA256 {
+			if hex.EncodeToString(digest[:]) != entry.SHA256 {
 				return fmt.Errorf("recover previous managed asset %q: backup checksum mismatch", entry.RelativePath)
 			}
 		}
@@ -1197,7 +1284,11 @@ func finalizeRecoveredManagedAssetMigration(layout Layout, manifest managedAsset
 	return nil
 }
 
-func restoreManagedStateFile(targetPath, backupDir string, state managedAssetRecoveryFile, fallbackMode os.FileMode) error {
+func restoreManagedStateFile(
+	targetPath, backupDir string,
+	state managedAssetRecoveryFile,
+	fallbackMode os.FileMode,
+) error {
 	if !state.Existed {
 		return removeAndSync(targetPath)
 	}
@@ -1248,7 +1339,8 @@ func removeStaleManagedAssetTransactions(layout Layout) error {
 		return fmt.Errorf("inspect managed asset staging directory: %w", err)
 	}
 	for _, entry := range entries {
-		if !strings.HasPrefix(entry.Name(), ".stealth-managed-assets-") && !strings.HasPrefix(entry.Name(), ".stealth-managed-backup-") {
+		if !strings.HasPrefix(entry.Name(), ".stealth-managed-assets-") &&
+			!strings.HasPrefix(entry.Name(), ".stealth-managed-backup-") {
 			continue
 		}
 		if err := removeAllAndSync(filepath.Join(layout.StateDir, entry.Name())); err != nil {
@@ -1368,15 +1460,21 @@ func validateProductionComposeAsset(contents []byte) error {
 	if worker == "" || !strings.Contains(worker, "buildkit_worker_credentials:/run/secrets/stealth-buildkit:ro") {
 		return errors.New("worker must mount only its read-only BuildKit client credentials volume")
 	}
-	if strings.Contains(worker, "buildkit-mtls") || strings.Contains(worker, "buildkit_server_credentials:") || strings.Contains(worker, "ca-key.pem") {
+	if strings.Contains(worker, "buildkit-mtls") || strings.Contains(worker, "buildkit_server_credentials:") ||
+		strings.Contains(worker, "ca-key.pem") {
 		return errors.New("worker must not mount host PKI files or BuildKit server credentials")
 	}
 	workerInit := productionServiceBlock(text, "buildkit-worker-credentials-init")
 	serverInit := productionServiceBlock(text, "buildkit-server-credentials-init")
 	for name, block := range map[string]string{"worker": workerInit, "BuildKit": serverInit} {
-		if block == "" || !strings.Contains(block, "network_mode: none") || !strings.Contains(block, "restart: \"no\"") ||
-			!strings.Contains(block, "cap_drop: [ALL]") || !strings.Contains(block, "cap_add: [CHOWN, DAC_OVERRIDE]") {
-			return fmt.Errorf("%s BuildKit credential initializer must be a networkless one-shot with only copy and ownership capabilities", name)
+		if block == "" || !strings.Contains(block, "network_mode: none") ||
+			!strings.Contains(block, "restart: \"no\"") ||
+			!strings.Contains(block, "cap_drop: [ALL]") ||
+			!strings.Contains(block, "cap_add: [CHOWN, DAC_OVERRIDE]") {
+			return fmt.Errorf(
+				"%s BuildKit credential initializer must be a networkless one-shot with only copy and ownership capabilities",
+				name,
+			)
 		}
 	}
 	for _, required := range []string{
@@ -1389,10 +1487,14 @@ func validateProductionComposeAsset(contents []byte) error {
 			return fmt.Errorf("worker BuildKit credential initializer is missing %q", required)
 		}
 	}
-	if !strings.Contains(workerInit, "for stale in /output/* /output/.[!.]* /output/..?*; do [ ! -e ") || !strings.Contains(workerInit, "$$stale") {
-		return errors.New("worker BuildKit credential initializer must clear stale volume contents before copying its identity")
+	if !strings.Contains(workerInit, "for stale in /output/* /output/.[!.]* /output/..?*; do [ ! -e ") ||
+		!strings.Contains(workerInit, "$$stale") {
+		return errors.New(
+			"worker BuildKit credential initializer must clear stale volume contents before copying its identity",
+		)
 	}
-	if strings.Contains(workerInit, "/server/") || strings.Contains(workerInit, "/health/") || strings.Contains(workerInit, "ca-key.pem") {
+	if strings.Contains(workerInit, "/server/") || strings.Contains(workerInit, "/health/") ||
+		strings.Contains(workerInit, "ca-key.pem") {
 		return errors.New("worker BuildKit credential initializer has access to a non-worker private key")
 	}
 	for _, required := range []string{
@@ -1407,8 +1509,11 @@ func validateProductionComposeAsset(contents []byte) error {
 			return fmt.Errorf("BuildKit credential initializer is missing %q", required)
 		}
 	}
-	if !strings.Contains(serverInit, "for stale in /output/* /output/.[!.]* /output/..?*; do [ ! -e ") || !strings.Contains(serverInit, "$$stale") {
-		return errors.New("BuildKit credential initializer must clear stale volume contents before copying its identities")
+	if !strings.Contains(serverInit, "for stale in /output/* /output/.[!.]* /output/..?*; do [ ! -e ") ||
+		!strings.Contains(serverInit, "$$stale") {
+		return errors.New(
+			"BuildKit credential initializer must clear stale volume contents before copying its identities",
+		)
 	}
 	if strings.Contains(serverInit, "/worker/") || strings.Contains(serverInit, "ca-key.pem") {
 		return errors.New("BuildKit credential initializer has access to the worker private key or CA private key")
@@ -1433,7 +1538,8 @@ func validateProductionComposeAsset(contents []byte) error {
 			return fmt.Errorf("Cloudflare source initializer contains forbidden setting %q", forbidden)
 		}
 	}
-	if strings.Count(sourceInit, "cap_add:") != 1 || !strings.Contains(sourceInit, "cap_add: [CHOWN, DAC_READ_SEARCH]") {
+	if strings.Count(sourceInit, "cap_add:") != 1 ||
+		!strings.Contains(sourceInit, "cap_add: [CHOWN, DAC_READ_SEARCH]") {
 		return errors.New("Cloudflare source initializer may add only CHOWN and DAC_READ_SEARCH")
 	}
 
@@ -1502,8 +1608,8 @@ func validateProductionComposeAsset(contents []byte) error {
 
 func productionServiceNames(contents string) []string {
 	lines := strings.Split(contents, "\n")
-	inServices := false
-	var names []string
+	var inServices bool
+	names := []string{}
 	for _, line := range lines {
 		if line == "services:" {
 			inServices = true
@@ -1522,9 +1628,9 @@ func productionServiceNames(contents string) []string {
 
 func productionServiceBlock(contents, wanted string) string {
 	lines := strings.Split(contents, "\n")
-	inServices := false
-	active := false
-	var block []string
+	var inServices bool
+	var active bool
+	block := []string{}
 	for _, line := range lines {
 		if line == "services:" {
 			inServices = true
@@ -1568,7 +1674,14 @@ func validateMainCollectorAsset(contents []byte) error {
 	return nil
 }
 
-func (m *managedAssetMigration) commit(plan Plan, originalEnv []byte, originalEnvExists bool, originalVersion []byte, originalVersionExists bool, originalVersionMode os.FileMode) error {
+func (m *managedAssetMigration) commit(
+	plan Plan,
+	originalEnv []byte,
+	originalEnvExists bool,
+	originalVersion []byte,
+	originalVersionExists bool,
+	originalVersionMode os.FileMode,
+) error {
 	if m == nil {
 		return errors.New("managed asset migration is nil")
 	}
@@ -1590,7 +1703,11 @@ func (m *managedAssetMigration) commit(plan Plan, originalEnv []byte, originalEn
 		Phase:           migrationPhasePrepared,
 		Assets:          make([]managedAssetRecoveryEntry, 0, len(m.assets)),
 		Config:          managedAssetRecoveryFile{Existed: originalEnvExists, Backup: "config.env", Mode: 0o600},
-		Version:         managedAssetRecoveryFile{Existed: originalVersionExists, Backup: "VERSION", Mode: uint32(originalVersionMode)},
+		Version: managedAssetRecoveryFile{
+			Existed: originalVersionExists,
+			Backup:  "VERSION",
+			Mode:    uint32(originalVersionMode),
+		},
 	}
 	if m.manifest.OriginalVersion == "" && originalVersionExists {
 		m.manifest.OriginalVersion = strings.TrimSpace(string(originalVersion))
@@ -1634,7 +1751,7 @@ func (m *managedAssetMigration) commit(plan Plan, originalEnv []byte, originalEn
 		}
 		digest := sha256.Sum256(contents)
 		m.manifest.Assets = append(m.manifest.Assets, managedAssetRecoveryEntry{
-			RelativePath: asset.spec.Path, Existed: true, SHA256: fmt.Sprintf("%x", digest),
+			RelativePath: asset.spec.Path, Existed: true, SHA256: hex.EncodeToString(digest[:]),
 		})
 	}
 	if plan.Existing && !plan.Setup && m.manifest.OriginalVersion != "" {
@@ -1654,7 +1771,7 @@ func (m *managedAssetMigration) commit(plan Plan, originalEnv []byte, originalEn
 	if err := m.notify(MigrationEvent{Phase: migrationPhasePrepared}); err != nil {
 		return m.failCommit(err)
 	}
-	backupIndex := 0
+	var backupIndex int
 	for index := range m.assets {
 		asset := &m.assets[index]
 		if !asset.existed {
@@ -1790,14 +1907,20 @@ func (e *Engine) Wait(ctx context.Context, plan Plan) error {
 	if proxyURL == "" {
 		proxyURL = "http://127.0.0.1:" + PortOrDefault(values["PROXY_HTTP_PORT"], "8080")
 	}
-	endpoints := []string{apiURL + "/healthz", apiURL + "/readyz", apiURL + "/version", consoleURL + "/", proxyURL + "/"}
+	endpoints := []string{
+		apiURL + "/healthz",
+		apiURL + "/readyz",
+		apiURL + "/version",
+		consoleURL + "/",
+		proxyURL + "/",
+	}
 	if plan.VerifyPublicURL && strings.TrimRight(plan.PublicURL, "/") != "" {
 		endpoints = append(endpoints, strings.TrimRight(plan.PublicURL, "/")+"/")
 	}
 	maxWait := time.Duration(e.pollAttempts)*e.pollInterval + 30*time.Second
 	waitContext, cancel := context.WithTimeout(ctx, maxWait)
 	defer cancel()
-	for attempt := 0; attempt < e.pollAttempts; attempt++ {
+	for attempt := range e.pollAttempts {
 		if err := waitContext.Err(); err != nil {
 			return err
 		}
@@ -1838,11 +1961,21 @@ func (e *Engine) runTraefikStateInit(ctx context.Context, plan Plan, composeFile
 	return e.runComposeFile(ctx, plan, composeFile, projectDirectory, args...)
 }
 
-func (e *Engine) runComposeFile(ctx context.Context, plan Plan, composeFile, projectDirectory string, args ...string) error {
+func (e *Engine) runComposeFile(
+	ctx context.Context,
+	plan Plan,
+	composeFile, projectDirectory string,
+	args ...string,
+) error {
 	return e.runComposeFileWithEnv(ctx, plan, composeFile, projectDirectory, plan.Layout.EnvFile, args...)
 }
 
-func (e *Engine) runComposeFileWithEnv(ctx context.Context, plan Plan, composeFile, projectDirectory, envFile string, args ...string) error {
+func (e *Engine) runComposeFileWithEnv(
+	ctx context.Context,
+	plan Plan,
+	composeFile, projectDirectory, envFile string,
+	args ...string,
+) error {
 	composeArgs := []string{"compose"}
 	if plan.Cloudflare {
 		composeArgs = append(composeArgs, "--profile", "cloudflare")
@@ -2073,7 +2206,9 @@ func ValidEnvKey(value string) bool {
 		return false
 	}
 	for index, character := range value {
-		if (character < 'A' || character > 'Z') && (character < 'a' || character > 'z') && (character < '0' || character > '9') && character != '_' {
+		if (character < 'A' || character > 'Z') && (character < 'a' || character > 'z') &&
+			(character < '0' || character > '9') &&
+			character != '_' {
 			return false
 		}
 		if index == 0 && character >= '0' && character <= '9' {

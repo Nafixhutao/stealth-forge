@@ -56,15 +56,39 @@ func (s *Server) issueAccountVerification(r *http.Request, accountID uuid.UUID, 
 func (s *Server) issueProjectUserVerification(r *http.Request, projectID, userID uuid.UUID, email string) {
 	token, tokenHash, err := auth.NewSessionToken()
 	if err != nil {
-		s.logger.Error("project verification token generation failed", "project_id", projectID, "user_id", userID, "error", err)
+		s.logger.Error(
+			"project verification token generation failed",
+			"project_id",
+			projectID,
+			"user_id",
+			userID,
+			"error",
+			err,
+		)
 		return
 	}
 	if _, err := s.repo.IssueProjectUserAuthToken(r.Context(), projectID, userID, repository.AuthTokenEmailVerification, tokenHash, time.Now().UTC().Add(s.config.AuthVerificationTTL)); err != nil {
-		s.logger.Error("project verification token persistence failed", "project_id", projectID, "user_id", userID, "error", err)
+		s.logger.Error(
+			"project verification token persistence failed",
+			"project_id",
+			projectID,
+			"user_id",
+			userID,
+			"error",
+			err,
+		)
 		return
 	}
 	if err := s.sendAuthEmail(r.Context(), email, mailer.AuthEmailProjectUserVerification, s.authLink("verify-email", &projectID, token)); err != nil {
-		s.logger.Warn("project verification email was not delivered", "project_id", projectID, "user_id", userID, "error", err)
+		s.logger.Warn(
+			"project verification email was not delivered",
+			"project_id",
+			projectID,
+			"user_id",
+			userID,
+			"error",
+			err,
+		)
 	}
 }
 
@@ -82,7 +106,12 @@ func (s *Server) sendAccountVerification(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if strings.TrimSpace(account.Email) == "" {
-		writeError(w, http.StatusConflict, "email_auth_unavailable", "this provider account does not have a local email address")
+		writeError(
+			w,
+			http.StatusConflict,
+			"email_auth_unavailable",
+			"this provider account does not have a local email address",
+		)
 		return
 	}
 	if !s.allowAccountAuth(w, r, "verification_send", account.Email) {
@@ -107,7 +136,12 @@ func (s *Server) sendAccountVerification(w http.ResponseWriter, r *http.Request)
 	}
 	if err := s.sendAuthEmail(r.Context(), account.Email, mailer.AuthEmailAccountVerification, link); err != nil {
 		s.logger.Error("account verification email delivery failed", "account_id", account.ID, "error", err)
-		writeError(w, http.StatusServiceUnavailable, "email_delivery_unavailable", "verification email could not be delivered")
+		writeError(
+			w,
+			http.StatusServiceUnavailable,
+			"email_delivery_unavailable",
+			"verification email could not be delivered",
+		)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -160,7 +194,12 @@ func (s *Server) createAccountRecovery(w http.ResponseWriter, r *http.Request) {
 	// Keep the emailed recovery link on the trusted configured origin. The
 	// request URL is an accepted compatibility field, not an email destination.
 	link := s.authLink("reset-password", nil, token)
-	account, found, err := s.repo.CreateAccountPasswordResetToken(r.Context(), email, tokenHash, time.Now().UTC().Add(s.config.AuthPasswordResetTTL))
+	account, found, err := s.repo.CreateAccountPasswordResetToken(
+		r.Context(),
+		email,
+		tokenHash,
+		time.Now().UTC().Add(s.config.AuthPasswordResetTTL),
+	)
 	if err != nil {
 		internalError(s, w, err)
 		return
@@ -236,8 +275,21 @@ func (s *Server) sendProjectUserVerification(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	if err := s.sendAuthEmail(r.Context(), user.Email, mailer.AuthEmailProjectUserVerification, link); err != nil {
-		s.logger.Error("project user verification email delivery failed", "project_id", projectID, "user_id", user.ID, "error", err)
-		writeError(w, http.StatusServiceUnavailable, "email_delivery_unavailable", "verification email could not be delivered")
+		s.logger.Error(
+			"project user verification email delivery failed",
+			"project_id",
+			projectID,
+			"user_id",
+			user.ID,
+			"error",
+			err,
+		)
+		writeError(
+			w,
+			http.StatusServiceUnavailable,
+			"email_delivery_unavailable",
+			"verification email could not be delivered",
+		)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -294,14 +346,28 @@ func (s *Server) createProjectUserRecovery(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	link := s.authLink("reset-password", &projectID, token)
-	user, found, err := s.repo.CreateProjectUserPasswordResetToken(r.Context(), projectID, email, tokenHash, time.Now().UTC().Add(s.config.AuthPasswordResetTTL))
+	user, found, err := s.repo.CreateProjectUserPasswordResetToken(
+		r.Context(),
+		projectID,
+		email,
+		tokenHash,
+		time.Now().UTC().Add(s.config.AuthPasswordResetTTL),
+	)
 	if err != nil {
 		internalError(s, w, err)
 		return
 	}
 	if found {
 		if sendErr := s.sendAuthEmail(r.Context(), user.Email, mailer.AuthEmailProjectUserPasswordReset, link); sendErr != nil {
-			s.logger.Error("project user recovery email delivery failed", "project_id", projectID, "user_id", user.ID, "error", sendErr)
+			s.logger.Error(
+				"project user recovery email delivery failed",
+				"project_id",
+				projectID,
+				"user_id",
+				user.ID,
+				"error",
+				sendErr,
+			)
 		}
 	}
 	writeJSON(w, http.StatusAccepted, map[string]string{"status": "accepted"})
@@ -369,7 +435,11 @@ func (s *Server) configuredAuthBase() *url.URL {
 		base = "http://localhost:4173"
 	}
 	parsed, err := url.Parse(base)
-	if err != nil || parsed.Scheme != "http" && parsed.Scheme != "https" || parsed.Host == "" || parsed.Hostname() == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != "" || strings.IndexFunc(base, unicode.IsControl) >= 0 {
+	schemeInvalid := parsed.Scheme != "http" && parsed.Scheme != "https"
+	hostMissing := parsed.Host == "" || parsed.Hostname() == ""
+	hasCredentialsOrQuery := parsed.User != nil || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != ""
+	hasControlChars := strings.IndexFunc(base, unicode.IsControl) >= 0
+	if err != nil || schemeInvalid || hostMissing || hasCredentialsOrQuery || hasControlChars {
 		parsed = &url.URL{Scheme: "http", Host: "localhost:4173"}
 	}
 	parsed.Path = strings.TrimRight(parsed.Path, "/")
@@ -395,15 +465,24 @@ func authLinkFromBase(base *url.URL, path string, projectID *uuid.UUID, token st
 // configured base (or an exact project CORS origin), the fixed route, and the
 // server-generated token. No caller path, query, Host header, Origin header,
 // or forwarded-host value is copied into the email.
-func (s *Server) authLinkFor(r *http.Request, path string, projectID *uuid.UUID, token, redirect string) (string, error) {
+func (s *Server) authLinkFor(
+	r *http.Request,
+	path string,
+	projectID *uuid.UUID,
+	token, redirect string,
+) (string, error) {
 	if redirect == "" {
 		return s.authLink(path, projectID, token), nil
 	}
-	if len(redirect) > 2048 || redirect != strings.TrimSpace(redirect) || strings.IndexFunc(redirect, unicode.IsControl) >= 0 {
+	if len(redirect) > 2048 || redirect != strings.TrimSpace(redirect) ||
+		strings.IndexFunc(redirect, unicode.IsControl) >= 0 {
 		return "", errors.New("url must be a trusted HTTP(S) auth route without whitespace or control characters")
 	}
 	parsed, err := url.Parse(redirect)
-	if err != nil || parsed.User != nil || parsed.Fragment != "" || parsed.RawFragment != "" || parsed.RawQuery != "" || parsed.ForceQuery {
+	hasCredentials := parsed.User != nil
+	hasQueryOrFragment := parsed.Fragment != "" || parsed.RawFragment != "" || parsed.RawQuery != "" ||
+		parsed.ForceQuery
+	if err != nil || hasCredentials || hasQueryOrFragment {
 		return "", errors.New("url must be a trusted auth route without credentials, queries, or fragments")
 	}
 
@@ -413,7 +492,9 @@ func (s *Server) authLinkFor(r *http.Request, path string, projectID *uuid.UUID,
 			return "", errors.New("url must be an absolute HTTP(S) URL or a relative auth route")
 		}
 	} else {
-		if parsed.Scheme != "http" && parsed.Scheme != "https" || parsed.Host == "" || parsed.Hostname() == "" {
+		schemeInvalid := parsed.Scheme != "http" && parsed.Scheme != "https"
+		hostMissing := parsed.Host == "" || parsed.Hostname() == ""
+		if schemeInvalid || hostMissing {
 			return "", errors.New("url must be a trusted HTTP(S) auth route")
 		}
 		origin, normalizeErr := repository.NormalizeCORSOrigin(parsed.Scheme + "://" + parsed.Host)
@@ -442,7 +523,8 @@ func (s *Server) authLinkFor(r *http.Request, path string, projectID *uuid.UUID,
 	}
 
 	pathValue := parsed.Path
-	if unescaped, unescapeErr := url.PathUnescape(parsed.EscapedPath()); unescapeErr != nil || strings.IndexFunc(unescaped, unicode.IsControl) >= 0 {
+	if unescaped, unescapeErr := url.PathUnescape(parsed.EscapedPath()); unescapeErr != nil ||
+		strings.IndexFunc(unescaped, unicode.IsControl) >= 0 {
 		return "", errors.New("url path contains invalid control characters")
 	}
 	expectedPath := strings.TrimRight(base.Path, "/") + "/" + strings.TrimLeft(path, "/")
@@ -469,7 +551,9 @@ func (s *Server) sendAuthEmail(ctx context.Context, recipient string, kind maile
 
 func authEmailTTL(s *Server, kind mailer.AuthEmailKind) time.Duration {
 	switch kind {
-	case mailer.AuthEmailAccountVerification, mailer.AuthEmailProjectUserVerification, mailer.AuthEmailOrganizationInvitation:
+	case mailer.AuthEmailAccountVerification,
+		mailer.AuthEmailProjectUserVerification,
+		mailer.AuthEmailOrganizationInvitation:
 		return s.config.AuthVerificationTTL
 	default:
 		return s.config.AuthPasswordResetTTL

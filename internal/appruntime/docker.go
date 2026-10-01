@@ -3,8 +3,9 @@ package appruntime
 import (
 	"context"
 	"errors"
-	"github.com/Stealth-deplover/stealth/internal/ociartifact"
 	"time"
+
+	"github.com/Stealth-deplover/stealth/internal/ociartifact"
 )
 
 const (
@@ -61,7 +62,12 @@ func NewMoby(runner CommandRunner, networkName string, actionTimeout, importTime
 	if importTimeout < time.Minute || importTimeout > 30*time.Minute {
 		return nil, errors.New("App image import timeout is outside its supported range")
 	}
-	return &Moby{Runner: runner, NetworkName: networkName, ActionTimeout: actionTimeout, ImportTimeout: importTimeout}, nil
+	return &Moby{
+		Runner:        runner,
+		NetworkName:   networkName,
+		ActionTimeout: actionTimeout,
+		ImportTimeout: importTimeout,
+	}, nil
 }
 
 func IsDockerNotFound(err error) bool { return errors.Is(err, ErrDockerObjectNotFound) }

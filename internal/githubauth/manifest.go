@@ -53,7 +53,12 @@ func NewManifestClient(baseURL string, httpClient *http.Client) (*HTTPManifestCl
 		baseURL = defaultAPIURL
 	}
 	parsed, err := url.Parse(baseURL)
-	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if err != nil {
+		return nil, errors.New("GitHub API base URL is invalid")
+	}
+	schemeInvalid := parsed.Scheme != "http" && parsed.Scheme != "https"
+	hostInvalid := parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != ""
+	if schemeInvalid || hostInvalid {
 		return nil, errors.New("GitHub API base URL is invalid")
 	}
 	if httpClient == nil {
@@ -70,7 +75,12 @@ func (c *HTTPManifestClient) ConvertManifest(ctx context.Context, code string) (
 	if code == "" || len(code) > 4096 || strings.ContainsAny(code, "\x00\r\n") {
 		return AppCredentials{}, errors.New("GitHub manifest code is invalid")
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/app-manifests/"+url.PathEscape(code)+"/conversions", bytes.NewReader(nil))
+	request, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		c.baseURL+"/app-manifests/"+url.PathEscape(code)+"/conversions",
+		bytes.NewReader(nil),
+	)
 	if err != nil {
 		return AppCredentials{}, fmt.Errorf("create GitHub manifest request: %w", err)
 	}
@@ -92,7 +102,14 @@ func (c *HTTPManifestClient) ConvertManifest(ctx context.Context, code string) (
 	if err := json.Unmarshal(contents, &credentials); err != nil {
 		return AppCredentials{}, errors.New("GitHub returned an invalid app manifest response")
 	}
-	if credentials.ID <= 0 || !validClientID(credentials.ClientID) || strings.TrimSpace(credentials.ClientSecret) == "" || !strings.Contains(credentials.PrivateKey, "BEGIN") || len(credentials.ClientSecret) > 512 || len(credentials.PrivateKey) > 32768 || len(credentials.WebhookSecret) > 512 {
+	invalidIdentity := credentials.ID <= 0 || !validClientID(credentials.ClientID)
+	secretMissing := strings.TrimSpace(credentials.ClientSecret) == ""
+	privateKeyInvalid := !strings.Contains(credentials.PrivateKey, "BEGIN")
+	secretTooLong := len(credentials.ClientSecret) > 512
+	privateKeyTooLong := len(credentials.PrivateKey) > 32768
+	webhookSecretTooLong := len(credentials.WebhookSecret) > 512
+	if invalidIdentity || secretMissing || privateKeyInvalid || secretTooLong || privateKeyTooLong ||
+		webhookSecretTooLong {
 		return AppCredentials{}, errors.New("GitHub returned incomplete app credentials")
 	}
 	return credentials, nil
@@ -125,7 +142,19 @@ func ManifestForm(manifest AppManifest, state string) (string, string, error) {
 }
 
 func validateAndEncodeManifest(manifest AppManifest, state string) ([]byte, error) {
-	if !validRedirectURL(manifest.RedirectURL) || !validRedirectURL(manifest.URL) || (manifest.SetupURL != "" && !validRedirectURL(manifest.SetupURL)) || len(manifest.CallbackURLs) > 10 || strings.TrimSpace(manifest.Name) == "" || len(manifest.Name) > 34 || strings.TrimSpace(state) == "" || len(state) > 512 || strings.ContainsAny(state, "\x00\r\n") {
+	redirectURLInvalid := !validRedirectURL(manifest.RedirectURL)
+	appURLInvalid := !validRedirectURL(manifest.URL)
+	setupURLInvalid := manifest.SetupURL != "" && !validRedirectURL(manifest.SetupURL)
+	tooManyCallbacks := len(manifest.CallbackURLs) > 10
+	nameMissing := strings.TrimSpace(manifest.Name) == ""
+	nameTooLong := len(manifest.Name) > 34
+	stateMissing := strings.TrimSpace(state) == ""
+	stateTooLong := len(state) > 512
+	stateMalformed := strings.ContainsAny(state, "\x00\r\n")
+	if redirectURLInvalid || appURLInvalid || setupURLInvalid || tooManyCallbacks || nameMissing || nameTooLong ||
+		stateMissing ||
+		stateTooLong ||
+		stateMalformed {
 		return nil, errors.New("GitHub manifest settings are invalid")
 	}
 	for _, callbackURL := range manifest.CallbackURLs {
@@ -157,7 +186,8 @@ func DefaultAppName() (string, error) {
 
 func validRedirectURL(raw string) bool {
 	parsed, err := url.Parse(strings.TrimSpace(raw))
-	return err == nil && parsed.Scheme == "https" && parsed.Host != "" && parsed.User == nil && parsed.RawQuery == "" && parsed.Fragment == ""
+	return err == nil && parsed.Scheme == "https" && parsed.Host != "" && parsed.User == nil && parsed.RawQuery == "" &&
+		parsed.Fragment == ""
 }
 
 func validClientID(raw string) bool {
@@ -166,7 +196,11 @@ func validClientID(raw string) bool {
 		return false
 	}
 	for _, character := range raw {
-		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') || strings.ContainsRune(".-_", character) {
+		isLower := character >= 'a' && character <= 'z'
+		isUpper := character >= 'A' && character <= 'Z'
+		isDigit := character >= '0' && character <= '9'
+		isAllowedSymbol := strings.ContainsRune(".-_", character)
+		if isLower || isUpper || isDigit || isAllowedSymbol {
 			continue
 		}
 		return false

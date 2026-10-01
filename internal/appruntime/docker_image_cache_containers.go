@@ -92,7 +92,8 @@ func parseManagedAppImageReferenceBatch(output []byte, ids []string) ([]ManagedA
 	seenRefs := make(map[string]ManagedAppImageReference, len(ids))
 	for _, line := range lines {
 		fields := strings.SplitN(line, "\t", 4)
-		if len(fields) != 4 || !validRuntimeID(fields[0]) || !validImageID(fields[1]) || !validManagedDockerContainerName(fields[2]) {
+		if len(fields) != 4 || !validRuntimeID(fields[0]) || !validImageID(fields[1]) ||
+			!validManagedDockerContainerName(fields[2]) {
 			return nil, ErrContainerInspection
 		}
 		if _, requested := expected[fields[0]]; !requested {
@@ -106,7 +107,12 @@ func parseManagedAppImageReferenceBatch(output []byte, ids []string) ([]ManagedA
 		if err := json.Unmarshal([]byte(fields[3]), &labels); err != nil || labels == nil {
 			return nil, ErrContainerInspection
 		}
-		container := Container{ID: fields[0], ImageID: fields[1], Name: fields[2], Config: containerConfig{Labels: labels}}
+		container := Container{
+			ID:      fields[0],
+			ImageID: fields[1],
+			Name:    fields[2],
+			Config:  containerConfig{Labels: labels},
+		}
 		appID, projectID, valid := validManagedAppContainerIdentity(container)
 		if !valid || !managedForApp(container, appID, projectID) {
 			return nil, ErrRuntimeOwnershipConflict

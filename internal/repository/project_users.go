@@ -10,7 +10,12 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (r *Repository) ListProjectUsers(ctx context.Context, projectID, accountID uuid.UUID, limit int, cursor *uuid.UUID) ([]domain.ApplicationUser, string, bool, error) {
+func (r *Repository) ListProjectUsers(
+	ctx context.Context,
+	projectID, accountID uuid.UUID,
+	limit int,
+	cursor *uuid.UUID,
+) ([]domain.ApplicationUser, string, bool, error) {
 	role, err := r.projectRole(ctx, projectID, accountID)
 	if err != nil {
 		return nil, "", false, err
@@ -44,7 +49,10 @@ func (r *Repository) ListProjectUsers(ctx context.Context, projectID, accountID 
 	return items, next, role == "owner" || role == "admin", nil
 }
 
-func (r *Repository) ProjectUserByID(ctx context.Context, projectID, userID, accountID uuid.UUID) (domain.ApplicationUser, error) {
+func (r *Repository) ProjectUserByID(
+	ctx context.Context,
+	projectID, userID, accountID uuid.UUID,
+) (domain.ApplicationUser, error) {
 	if err := r.requireProjectAccess(ctx, projectID, accountID); err != nil {
 		return domain.ApplicationUser{}, err
 	}
@@ -59,7 +67,12 @@ func (r *Repository) ProjectUserByID(ctx context.Context, projectID, userID, acc
 	return item, err
 }
 
-func (r *Repository) CreateProjectUser(ctx context.Context, id, projectID, accountID uuid.UUID, email, passwordHash string, name *string) (domain.ApplicationUser, error) {
+func (r *Repository) CreateProjectUser(
+	ctx context.Context,
+	id, projectID, accountID uuid.UUID,
+	email, passwordHash string,
+	name *string,
+) (domain.ApplicationUser, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.ApplicationUser{}, err
@@ -119,7 +132,11 @@ func (r *Repository) AuthorizeProjectUserWrite(ctx context.Context, projectID, a
 
 // ApplicationUserPassword is an internal credential lookup. Callers must not
 // serialize the returned hash; it exists only to perform Argon2id verification.
-func (r *Repository) ApplicationUserPassword(ctx context.Context, projectID uuid.UUID, email string) (uuid.UUID, string, string, error) {
+func (r *Repository) ApplicationUserPassword(
+	ctx context.Context,
+	projectID uuid.UUID,
+	email string,
+) (uuid.UUID, string, string, error) {
 	var userID uuid.UUID
 	var passwordHash, status string
 	err := r.pool.QueryRow(ctx, `
@@ -135,14 +152,22 @@ func (r *Repository) ApplicationUserPassword(ctx context.Context, projectID uuid
 // RegisterProjectUser creates a project user and its first application session
 // in one transaction. Registration is checked again while the transaction is
 // open so a settings change cannot race this write.
-func (r *Repository) RegisterProjectUser(ctx context.Context, userID, sessionID, projectID uuid.UUID, email, passwordHash string, name *string, tokenHash []byte, expiresAt time.Time) (domain.ApplicationUser, error) {
+func (r *Repository) RegisterProjectUser(
+	ctx context.Context,
+	userID, sessionID, projectID uuid.UUID,
+	email, passwordHash string,
+	name *string,
+	tokenHash []byte,
+	expiresAt time.Time,
+) (domain.ApplicationUser, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.ApplicationUser{}, err
 	}
 	defer tx.Rollback(ctx)
 	var registrationEnabled bool
-	err = tx.QueryRow(ctx, `SELECT registration_enabled FROM project_auth_settings WHERE project_id=$1 FOR SHARE`, projectID).Scan(&registrationEnabled)
+	err = tx.QueryRow(ctx, `SELECT registration_enabled FROM project_auth_settings WHERE project_id=$1 FOR SHARE`, projectID).
+		Scan(&registrationEnabled)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ApplicationUser{}, ErrNotFound
 	}
@@ -186,14 +211,20 @@ func (r *Repository) RegisterProjectUser(ctx context.Context, userID, sessionID,
 // CreateProjectUserSession rechecks that the application user is still active
 // under a row lock. This closes the race where a block could otherwise happen
 // between password verification and session insertion.
-func (r *Repository) CreateProjectUserSession(ctx context.Context, sessionID, projectID, userID uuid.UUID, tokenHash []byte, expiresAt time.Time) error {
+func (r *Repository) CreateProjectUserSession(
+	ctx context.Context,
+	sessionID, projectID, userID uuid.UUID,
+	tokenHash []byte,
+	expiresAt time.Time,
+) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
 	var status string
-	err = tx.QueryRow(ctx, `SELECT status FROM project_users WHERE id=$1 AND project_id=$2 FOR UPDATE`, userID, projectID).Scan(&status)
+	err = tx.QueryRow(ctx, `SELECT status FROM project_users WHERE id=$1 AND project_id=$2 FOR UPDATE`, userID, projectID).
+		Scan(&status)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
 	}
@@ -211,7 +242,11 @@ func (r *Repository) CreateProjectUserSession(ctx context.Context, sessionID, pr
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) ApplicationUserBySession(ctx context.Context, projectID uuid.UUID, tokenHash []byte) (domain.ApplicationUser, uuid.UUID, error) {
+func (r *Repository) ApplicationUserBySession(
+	ctx context.Context,
+	projectID uuid.UUID,
+	tokenHash []byte,
+) (domain.ApplicationUser, uuid.UUID, error) {
 	var item domain.ApplicationUser
 	var sessionID uuid.UUID
 	err := r.pool.QueryRow(ctx, `
@@ -231,7 +266,11 @@ func (r *Repository) DeleteProjectUserSession(ctx context.Context, projectID, se
 	return err
 }
 
-func (r *Repository) UpdateProjectUserStatus(ctx context.Context, projectID, userID, accountID uuid.UUID, status string) (domain.ApplicationUser, error) {
+func (r *Repository) UpdateProjectUserStatus(
+	ctx context.Context,
+	projectID, userID, accountID uuid.UUID,
+	status string,
+) (domain.ApplicationUser, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.ApplicationUser{}, err
@@ -327,11 +366,19 @@ func (r *Repository) DeleteProjectUserByAPIKey(ctx context.Context, projectID, u
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) deleteProjectUserTx(ctx context.Context, tx pgx.Tx, projectID, userID, actorID uuid.UUID, metadata map[string]any) error {
+func (r *Repository) deleteProjectUserTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID, userID, actorID uuid.UUID,
+	metadata map[string]any,
+) error {
 	var email string
-	if err := tx.QueryRow(ctx, `SELECT email FROM project_users WHERE project_id=$1 AND id=$2 FOR UPDATE`, projectID, userID).Scan(&email); errors.Is(err, pgx.ErrNoRows) {
+	err := tx.QueryRow(ctx, `SELECT email FROM project_users WHERE project_id=$1 AND id=$2 FOR UPDATE`, projectID, userID).
+		Scan(&email)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return err
 	}
 	orgID, err := projectOrganizationIDValue(ctx, tx, projectID)

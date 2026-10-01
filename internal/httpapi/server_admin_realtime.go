@@ -139,7 +139,10 @@ func (s *Server) adminRealtime(w http.ResponseWriter, r *http.Request) {
 }
 
 func writeAdminRealtimeEvent(w http.ResponseWriter, flusher http.Flusher, item repository.AdminRealtimeEvent) error {
-	if item.ID == uuid.Nil || item.Sequence <= 0 || len(item.Payload) == 0 || !json.Valid(item.Payload) {
+	invalidID := item.ID == uuid.Nil
+	invalidSequence := item.Sequence <= 0
+	emptyPayload := len(item.Payload) == 0
+	if invalidID || invalidSequence || emptyPayload || !json.Valid(item.Payload) {
 		return fmt.Errorf("invalid admin realtime event")
 	}
 	if _, err := fmt.Fprintf(w, "id: %s\nevent: admin\ndata: %s\n\n", encodeAdminRealtimeCursor(item.Sequence), item.Payload); err != nil {

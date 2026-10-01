@@ -17,9 +17,11 @@ func (r *Repository) InstanceRole(ctx context.Context, accountID uuid.UUID) (str
 		return "", ErrNotFound
 	}
 	var role string
-	if err := r.pool.QueryRow(ctx, `SELECT role FROM instance_roles WHERE account_id=$1`, accountID).Scan(&role); errors.Is(err, pgx.ErrNoRows) {
+	err := r.pool.QueryRow(ctx, `SELECT role FROM instance_roles WHERE account_id=$1`, accountID).Scan(&role)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return "", ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return "", err
 	}
 	return role, nil

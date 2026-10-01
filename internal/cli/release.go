@@ -46,7 +46,11 @@ func releaseAsset(goos, goarch string) (string, error) {
 	case goos == "linux" && goarch == "arm64":
 		return "stealth_Linux_arm64.tar.gz", nil
 	default:
-		return "", fmt.Errorf("unsupported platform %s/%s; release installers support Linux amd64 and arm64", goos, goarch)
+		return "", fmt.Errorf(
+			"unsupported platform %s/%s; release installers support Linux amd64 and arm64",
+			goos,
+			goarch,
+		)
 	}
 }
 

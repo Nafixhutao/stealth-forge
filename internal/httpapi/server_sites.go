@@ -54,7 +54,11 @@ func siteActorFrom(r *http.Request) repository.SiteActor {
 		return repository.SiteActor{}
 	}
 	if actor.kind == apiKeyProjectActor {
-		return repository.SiteActor{Kind: repository.SiteAPIKeyActor, APIKeyID: actor.apiKeyID, APIKeyScopes: actor.scopes}
+		return repository.SiteActor{
+			Kind:         repository.SiteAPIKeyActor,
+			APIKeyID:     actor.apiKeyID,
+			APIKeyScopes: actor.scopes,
+		}
 	}
 	account, ok := r.Context().Value(accountContextKey).(domain.Account)
 	if !ok {
@@ -96,7 +100,9 @@ func parseSiteCreateRequest(s *Server, req siteRequest) (repository.SiteInput, e
 		enabled = status == "active"
 	}
 	if status != "active" && status != "disabled" || (status == "active") != enabled {
-		return repository.SiteInput{}, errors.New("status and enabled must describe an active or disabled site consistently")
+		return repository.SiteInput{}, errors.New(
+			"status and enabled must describe an active or disabled site consistently",
+		)
 	}
 	quota := s.config.SitesDefaultQuotaBytes
 	if req.ArtifactQuotaBytes != nil {
@@ -105,12 +111,18 @@ func parseSiteCreateRequest(s *Server, req siteRequest) (repository.SiteInput, e
 	if quota <= 0 {
 		return repository.SiteInput{}, errors.New("artifact_quota_bytes must be positive")
 	}
-	return repository.SiteInput{Name: name, Framework: framework, Enabled: enabled, Status: status, ArtifactQuotaBytes: quota}, nil
+	return repository.SiteInput{
+		Name:               name,
+		Framework:          framework,
+		Enabled:            enabled,
+		Status:             status,
+		ArtifactQuotaBytes: quota,
+	}, nil
 }
 
 func parseSitePatchRequest(req siteRequest) (repository.SitePatch, error) {
 	patch := repository.SitePatch{}
-	changed := false
+	var changed bool
 	if req.Name != nil {
 		value, err := validateSiteName(*req.Name)
 		if err != nil {
@@ -180,7 +192,8 @@ func parseSiteBuildOptions(runtime, command, outputDirectory string) (siteBuildO
 	if outputDirectory == "" {
 		outputDirectory = "."
 	}
-	if len(outputDirectory) > 255 || strings.HasPrefix(outputDirectory, "/") || strings.ContainsAny(outputDirectory, "\\\x00\r\n") {
+	if len(outputDirectory) > 255 || strings.HasPrefix(outputDirectory, "/") ||
+		strings.ContainsAny(outputDirectory, "\\\x00\r\n") {
 		return siteBuildOptions{}, errors.New("output_directory must be a safe relative path")
 	}
 	if outputDirectory != "." {
@@ -220,7 +233,11 @@ func (s *Server) listSites(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"sites": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"sites": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) getSite(w http.ResponseWriter, r *http.Request) {
@@ -322,7 +339,14 @@ func (s *Server) listSiteDeployments(w http.ResponseWriter, r *http.Request) {
 		parsed := mustUUID(cursor)
 		cursorID = &parsed
 	}
-	items, next, canManage, err := s.repo.ListSiteDeployments(r.Context(), projectID, siteID, siteActorFrom(r), limit, cursorID)
+	items, next, canManage, err := s.repo.ListSiteDeployments(
+		r.Context(),
+		projectID,
+		siteID,
+		siteActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if siteResourceError(w, err) {
 		return
 	}
@@ -330,7 +354,11 @@ func (s *Server) listSiteDeployments(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"deployments": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"deployments": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) listSiteBuildLogs(w http.ResponseWriter, r *http.Request) {
@@ -359,7 +387,7 @@ func (s *Server) listSiteBuildLogs(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	next := ""
+	var next string
 	if len(items) == limit {
 		next = strconv.FormatInt(items[len(items)-1].Sequence, 10)
 	}
@@ -367,7 +395,11 @@ func (s *Server) listSiteBuildLogs(w http.ResponseWriter, r *http.Request) {
 	if next != "" {
 		nextCursor = &next
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"logs": items, "pagination": pagination{Limit: limit, NextCursor: nextCursor}})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"logs": items, "pagination": pagination{Limit: limit, NextCursor: nextCursor}},
+	)
 }
 
 func (s *Server) getSiteDeployment(w http.ResponseWriter, r *http.Request) {
@@ -397,7 +429,12 @@ func (s *Server) uploadSiteDeployment(w http.ResponseWriter, r *http.Request) {
 	}
 	mediaType, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || mediaType != "multipart/form-data" || params["boundary"] == "" {
-		writeError(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "Content-Type must be multipart/form-data")
+		writeError(
+			w,
+			http.StatusUnsupportedMediaType,
+			"unsupported_media_type",
+			"Content-Type must be multipart/form-data",
+		)
 		return
 	}
 	reader := multipart.NewReader(r.Body, params["boundary"])
@@ -406,8 +443,8 @@ func (s *Server) uploadSiteDeployment(w http.ResponseWriter, r *http.Request) {
 	var sourceFilename, sourceNameOverride string
 	var buildRuntime, buildCommand, outputDirectory string
 	activate := true
-	haveSource, haveActivate := false, false
-	sourceCommitted := false
+	var haveSource, haveActivate bool
+	var sourceCommitted bool
 	defer func() {
 		if !sourceCommitted {
 			s.siteArchives.Cleanup(&prepared)
@@ -420,7 +457,12 @@ func (s *Server) uploadSiteDeployment(w http.ResponseWriter, r *http.Request) {
 		}
 		if nextErr != nil {
 			if isMaxBytesError(nextErr) {
-				writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "request body exceeds the configured upload limit")
+				writeError(
+					w,
+					http.StatusRequestEntityTooLarge,
+					"payload_too_large",
+					"request body exceeds the configured upload limit",
+				)
 			} else {
 				writeError(w, http.StatusBadRequest, "invalid_request", "invalid multipart upload")
 			}
@@ -442,10 +484,22 @@ func (s *Server) uploadSiteDeployment(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			}
-			prepared, err = s.siteArchives.BeginUploadWithLimit(r.Context(), projectID, siteID, deploymentID, part, s.config.SitesMaxArtifactSize)
+			prepared, err = s.siteArchives.BeginUploadWithLimit(
+				r.Context(),
+				projectID,
+				siteID,
+				deploymentID,
+				part,
+				s.config.SitesMaxArtifactSize,
+			)
 			_ = part.Close()
 			if errors.Is(err, functionstore.ErrTooLarge) {
-				writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "site archive exceeds the configured maximum size")
+				writeError(
+					w,
+					http.StatusRequestEntityTooLarge,
+					"payload_too_large",
+					"site archive exceeds the configured maximum size",
+				)
 				return
 			}
 			if err != nil {
@@ -481,7 +535,12 @@ func (s *Server) uploadSiteDeployment(w http.ResponseWriter, r *http.Request) {
 		case "build_runtime":
 			if buildRuntime != "" {
 				_ = part.Close()
-				writeError(w, http.StatusUnprocessableEntity, "validation_error", "build_runtime may only be provided once")
+				writeError(
+					w,
+					http.StatusUnprocessableEntity,
+					"validation_error",
+					"build_runtime may only be provided once",
+				)
 				return
 			}
 			value, readErr := readFunctionMultipartField(part, 64)
@@ -494,7 +553,12 @@ func (s *Server) uploadSiteDeployment(w http.ResponseWriter, r *http.Request) {
 		case "build_command":
 			if buildCommand != "" {
 				_ = part.Close()
-				writeError(w, http.StatusUnprocessableEntity, "validation_error", "build_command may only be provided once")
+				writeError(
+					w,
+					http.StatusUnprocessableEntity,
+					"validation_error",
+					"build_command may only be provided once",
+				)
 				return
 			}
 			value, readErr := readFunctionMultipartField(part, maxSiteBuildCommandBytes+1)
@@ -507,7 +571,12 @@ func (s *Server) uploadSiteDeployment(w http.ResponseWriter, r *http.Request) {
 		case "output_directory":
 			if outputDirectory != "" {
 				_ = part.Close()
-				writeError(w, http.StatusUnprocessableEntity, "validation_error", "output_directory may only be provided once")
+				writeError(
+					w,
+					http.StatusUnprocessableEntity,
+					"validation_error",
+					"output_directory may only be provided once",
+				)
 				return
 			}
 			value, readErr := readFunctionMultipartField(part, 256)
@@ -532,7 +601,12 @@ func (s *Server) uploadSiteDeployment(w http.ResponseWriter, r *http.Request) {
 		sourceName = sourceNameOverride
 	}
 	if sourceName == "" || storage.ValidateFilename(sourceName) != nil {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "source filename is required and must be safe")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"source filename is required and must be safe",
+		)
 		return
 	}
 	buildOptions, err := parseSiteBuildOptions(buildRuntime, buildCommand, outputDirectory)
@@ -566,22 +640,29 @@ func (s *Server) uploadSiteDeployment(w http.ResponseWriter, r *http.Request) {
 		if actor.Kind == repository.SiteConsoleActor && actor.AccountID != uuid.Nil {
 			createdBy = &actor.AccountID
 		}
-		item, err := s.repo.CreateSiteDeployment(r.Context(), deploymentID, projectID, siteID, actor, repository.SiteDeploymentInput{
-			Source:             "upload",
-			SourceName:         &sourceName,
-			SizeBytes:          0,
-			ArchiveSizeBytes:   prepared.Size,
-			ChecksumSHA256:     prepared.Checksum,
-			ArtifactPath:       artifactPath,
-			SourcePath:         &prepared.RelativePath,
-			BuildRuntime:       buildOptions.Runtime,
-			BuildCommand:       buildOptions.Command,
-			OutputDirectory:    buildOptions.OutputDirectory,
-			ReservedBytes:      s.config.SitesMaxExpandedBytes,
-			CreatedByAccountID: createdBy,
-			Activate:           activate,
-			PublishCleanup:     &publishCleanup,
-		})
+		item, err := s.repo.CreateSiteDeployment(
+			r.Context(),
+			deploymentID,
+			projectID,
+			siteID,
+			actor,
+			repository.SiteDeploymentInput{
+				Source:             "upload",
+				SourceName:         &sourceName,
+				SizeBytes:          0,
+				ArchiveSizeBytes:   prepared.Size,
+				ChecksumSHA256:     prepared.Checksum,
+				ArtifactPath:       artifactPath,
+				SourcePath:         &prepared.RelativePath,
+				BuildRuntime:       buildOptions.Runtime,
+				BuildCommand:       buildOptions.Command,
+				OutputDirectory:    buildOptions.OutputDirectory,
+				ReservedBytes:      s.config.SitesMaxExpandedBytes,
+				CreatedByAccountID: createdBy,
+				Activate:           activate,
+				PublishCleanup:     &publishCleanup,
+			},
+		)
 		if siteResourceError(w, err) {
 			return
 		}
@@ -603,13 +684,18 @@ func (s *Server) uploadSiteDeployment(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	committed := false
+	var committed bool
 	defer func() {
 		if !committed {
 			s.sites.CleanupStaging(staging)
 		}
 	}()
-	limits := functionrunner.ArchiveLimits{MaxBytes: s.config.SitesMaxExpandedBytes, MaxFiles: s.config.SitesMaxFiles, MaxEntry: s.config.SitesMaxExpandedBytes, MaxCompressed: s.config.SitesMaxArtifactSize}
+	limits := functionrunner.ArchiveLimits{
+		MaxBytes:      s.config.SitesMaxExpandedBytes,
+		MaxFiles:      s.config.SitesMaxFiles,
+		MaxEntry:      s.config.SitesMaxExpandedBytes,
+		MaxCompressed: s.config.SitesMaxArtifactSize,
+	}
 	stats, extractErr := functionrunner.Extract(r.Context(), archive, sourceName, staging, limits)
 	closeErr := archive.Close()
 	if extractErr != nil {
@@ -625,7 +711,12 @@ func (s *Server) uploadSiteDeployment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := sitestore.ValidateEntrypoint(staging, "index.html"); err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "site archive must contain a regular index.html at its root")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"site archive must contain a regular index.html at its root",
+		)
 		return
 	}
 	publishCleanup := repository.ArtifactCleanupInput{
@@ -648,7 +739,24 @@ func (s *Server) uploadSiteDeployment(w http.ResponseWriter, r *http.Request) {
 	if actor.Kind == repository.SiteConsoleActor && actor.AccountID != uuid.Nil {
 		createdBy = &actor.AccountID
 	}
-	item, err := s.repo.CreateSiteDeployment(r.Context(), deploymentID, projectID, siteID, actor, repository.SiteDeploymentInput{Source: "upload", SourceName: &sourceName, SizeBytes: stats.Bytes, ArchiveSizeBytes: prepared.Size, ChecksumSHA256: prepared.Checksum, ArtifactPath: artifactPath, CreatedByAccountID: createdBy, Activate: activate, PublishCleanup: &publishCleanup})
+	item, err := s.repo.CreateSiteDeployment(
+		r.Context(),
+		deploymentID,
+		projectID,
+		siteID,
+		actor,
+		repository.SiteDeploymentInput{
+			Source:             "upload",
+			SourceName:         &sourceName,
+			SizeBytes:          stats.Bytes,
+			ArchiveSizeBytes:   prepared.Size,
+			ChecksumSHA256:     prepared.Checksum,
+			ArtifactPath:       artifactPath,
+			CreatedByAccountID: createdBy,
+			Activate:           activate,
+			PublishCleanup:     &publishCleanup,
+		},
+	)
 	if siteResourceError(w, err) {
 		return
 	}
@@ -686,7 +794,12 @@ func (s *Server) createGitSiteDeployment(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if buildOptions.Command == "" {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "build_command is required for a Git deployment")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"build_command is required for a Git deployment",
+		)
 		return
 	}
 	if s.siteGitSlots == nil {
@@ -698,7 +811,12 @@ func (s *Server) createGitSiteDeployment(w http.ResponseWriter, r *http.Request)
 		defer func() { <-s.siteGitSlots }()
 	default:
 		w.Header().Set("Retry-After", "5")
-		writeError(w, http.StatusTooManyRequests, "git_deployment_busy", "too many Git deployments are downloading; retry later")
+		writeError(
+			w,
+			http.StatusTooManyRequests,
+			"git_deployment_busy",
+			"too many Git deployments are downloading; retry later",
+		)
 		return
 	}
 	activate := true
@@ -712,15 +830,30 @@ func (s *Server) createGitSiteDeployment(w http.ResponseWriter, r *http.Request)
 		case errors.Is(err, gitarchive.ErrInvalidRepository), errors.Is(err, gitarchive.ErrInvalidRef):
 			writeError(w, http.StatusUnprocessableEntity, "validation_error", err.Error())
 		case errors.Is(err, gitarchive.ErrTooLarge):
-			writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "Git archive exceeds the configured maximum size")
+			writeError(
+				w,
+				http.StatusRequestEntityTooLarge,
+				"payload_too_large",
+				"Git archive exceeds the configured maximum size",
+			)
 		case errors.Is(err, gitarchive.ErrUnavailable):
-			writeError(w, http.StatusBadGateway, "git_archive_unavailable", "the Git provider archive could not be downloaded")
+			writeError(
+				w,
+				http.StatusBadGateway,
+				"git_archive_unavailable",
+				"the Git provider archive could not be downloaded",
+			)
 		default:
 			internalError(s, w, err)
 		}
 		return
 	}
-	if archive.Body == nil || storage.ValidateFilename(archive.Filename) != nil || (archive.Provider != "github" && archive.Provider != "gitlab") || archive.Repository == "" || archive.Ref == "" {
+	bodyMissing := archive.Body == nil
+	filenameInvalid := storage.ValidateFilename(archive.Filename) != nil
+	providerInvalid := archive.Provider != "github" && archive.Provider != "gitlab"
+	repositoryMissing := archive.Repository == ""
+	refMissing := archive.Ref == ""
+	if bodyMissing || filenameInvalid || providerInvalid || repositoryMissing || refMissing {
 		if archive.Body != nil {
 			_ = archive.Body.Close()
 		}
@@ -728,20 +861,37 @@ func (s *Server) createGitSiteDeployment(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	defer archive.Body.Close()
-	prepared, err := s.siteArchives.BeginUploadWithLimit(r.Context(), projectID, siteID, deploymentID, archive.Body, s.config.SitesMaxArtifactSize)
+	prepared, err := s.siteArchives.BeginUploadWithLimit(
+		r.Context(),
+		projectID,
+		siteID,
+		deploymentID,
+		archive.Body,
+		s.config.SitesMaxArtifactSize,
+	)
 	if errors.Is(err, functionstore.ErrTooLarge) || errors.Is(err, gitarchive.ErrTooLarge) {
-		writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "Git archive exceeds the configured maximum size")
+		writeError(
+			w,
+			http.StatusRequestEntityTooLarge,
+			"payload_too_large",
+			"Git archive exceeds the configured maximum size",
+		)
 		return
 	}
 	if errors.Is(err, gitarchive.ErrUnavailable) {
-		writeError(w, http.StatusBadGateway, "git_archive_unavailable", "the Git provider archive could not be downloaded")
+		writeError(
+			w,
+			http.StatusBadGateway,
+			"git_archive_unavailable",
+			"the Git provider archive could not be downloaded",
+		)
 		return
 	}
 	if err != nil {
 		internalError(s, w, err)
 		return
 	}
-	committed := false
+	var committed bool
 	defer func() {
 		if !committed {
 			s.siteArchives.Cleanup(&prepared)
@@ -773,24 +923,31 @@ func (s *Server) createGitSiteDeployment(w http.ResponseWriter, r *http.Request)
 		createdBy = &actor.AccountID
 	}
 	gitRepository, gitRef := archive.Repository, archive.Ref
-	item, err := s.repo.CreateSiteDeployment(r.Context(), deploymentID, projectID, siteID, actor, repository.SiteDeploymentInput{
-		Source:             archive.Provider,
-		SourceName:         &archive.Filename,
-		GitRepository:      &gitRepository,
-		GitRef:             &gitRef,
-		SizeBytes:          0,
-		ArchiveSizeBytes:   prepared.Size,
-		ChecksumSHA256:     prepared.Checksum,
-		ArtifactPath:       artifactPath,
-		SourcePath:         &prepared.RelativePath,
-		BuildRuntime:       buildOptions.Runtime,
-		BuildCommand:       buildOptions.Command,
-		OutputDirectory:    buildOptions.OutputDirectory,
-		ReservedBytes:      s.config.SitesMaxExpandedBytes,
-		CreatedByAccountID: createdBy,
-		Activate:           activate,
-		PublishCleanup:     &publishCleanup,
-	})
+	item, err := s.repo.CreateSiteDeployment(
+		r.Context(),
+		deploymentID,
+		projectID,
+		siteID,
+		actor,
+		repository.SiteDeploymentInput{
+			Source:             archive.Provider,
+			SourceName:         &archive.Filename,
+			GitRepository:      &gitRepository,
+			GitRef:             &gitRef,
+			SizeBytes:          0,
+			ArchiveSizeBytes:   prepared.Size,
+			ChecksumSHA256:     prepared.Checksum,
+			ArtifactPath:       artifactPath,
+			SourcePath:         &prepared.RelativePath,
+			BuildRuntime:       buildOptions.Runtime,
+			BuildCommand:       buildOptions.Command,
+			OutputDirectory:    buildOptions.OutputDirectory,
+			ReservedBytes:      s.config.SitesMaxExpandedBytes,
+			CreatedByAccountID: createdBy,
+			Activate:           activate,
+			PublishCleanup:     &publishCleanup,
+		},
+	)
 	if siteResourceError(w, err) {
 		return
 	}
@@ -804,11 +961,26 @@ func (s *Server) createGitSiteDeployment(w http.ResponseWriter, r *http.Request)
 func writeSiteArchiveError(s *Server, w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, functionrunner.ErrArchiveTooLarge):
-		writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "site archive expands beyond the configured limits")
+		writeError(
+			w,
+			http.StatusRequestEntityTooLarge,
+			"payload_too_large",
+			"site archive expands beyond the configured limits",
+		)
 	case errors.Is(err, functionrunner.ErrUnsupportedArchive):
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "site archive must be a .zip, .tar, .tar.gz, or .tgz file")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"site archive must be a .zip, .tar, .tar.gz, or .tgz file",
+		)
 	case errors.Is(err, functionrunner.ErrArchiveTraversal), errors.Is(err, functionrunner.ErrArchiveEntry):
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "site archive contains an unsafe or duplicate entry")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"site archive contains an unsafe or duplicate entry",
+		)
 	default:
 		internalError(s, w, err)
 	}
@@ -902,7 +1074,11 @@ func (s *Server) serveSiteDeploymentFile(w http.ResponseWriter, r *http.Request)
 	s.servePublishedSiteFile(w, r, artifact)
 }
 
-func (s *Server) servePublishedSiteFile(w http.ResponseWriter, r *http.Request, artifact repository.SitePublicArtifact) {
+func (s *Server) servePublishedSiteFile(
+	w http.ResponseWriter,
+	r *http.Request,
+	artifact repository.SitePublicArtifact,
+) {
 	requested := chi.URLParam(r, "*")
 	if requested == "" {
 		requested = "index.html"

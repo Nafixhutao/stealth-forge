@@ -14,6 +14,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"regexp"
 	"strings"
@@ -71,8 +72,21 @@ func NewFetcher() *Fetcher {
 // GitHub repositories are owner/repo; GitLab also permits nested groups.
 func Parse(repositoryURL, ref string) (Archive, error) {
 	parsed, err := url.Parse(strings.TrimSpace(repositoryURL))
-	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return Archive{}, fmt.Errorf("%w: repository must be an HTTPS GitHub or GitLab URL without credentials, query, or fragment", ErrInvalidRepository)
+	if err != nil {
+		return Archive{}, fmt.Errorf(
+			"%w: repository must be an HTTPS GitHub or GitLab URL without credentials, query, or fragment",
+			ErrInvalidRepository,
+		)
+	}
+	wrongScheme := parsed.Scheme != "https"
+	missingHost := parsed.Host == ""
+	hasUserInfo := parsed.User != nil
+	hasQueryOrFragment := parsed.RawQuery != "" || parsed.Fragment != ""
+	if wrongScheme || missingHost || hasUserInfo || hasQueryOrFragment {
+		return Archive{}, fmt.Errorf(
+			"%w: repository must be an HTTPS GitHub or GitLab URL without credentials, query, or fragment",
+			ErrInvalidRepository,
+		)
 	}
 	host := strings.ToLower(parsed.Hostname())
 	if parsed.Port() != "" && parsed.Port() != "443" {
@@ -88,11 +102,16 @@ func Parse(repositoryURL, ref string) (Archive, error) {
 		return Archive{}, fmt.Errorf("%w: only github.com and gitlab.com are supported", ErrInvalidRepository)
 	}
 	pathValue := strings.Trim(parsed.Path, "/")
-	if pathValue == "" || strings.Contains(pathValue, "\\") || strings.Contains(pathValue, "\x00") {
+	pathMissing := pathValue == ""
+	pathHasBackslash := strings.Contains(pathValue, "\\")
+	pathHasNull := strings.Contains(pathValue, "\x00")
+	if pathMissing || pathHasBackslash || pathHasNull {
 		return Archive{}, fmt.Errorf("%w: repository path is invalid", ErrInvalidRepository)
 	}
 	parts := strings.Split(pathValue, "/")
-	if provider == ProviderGitHub && len(parts) != 2 || provider == ProviderGitLab && len(parts) < 2 {
+	githubWrongSegments := provider == ProviderGitHub && len(parts) != 2
+	gitlabWrongSegments := provider == ProviderGitLab && len(parts) < 2
+	if githubWrongSegments || gitlabWrongSegments {
 		return Archive{}, fmt.Errorf("%w: repository path has the wrong number of segments", ErrInvalidRepository)
 	}
 	for index, part := range parts {
@@ -100,7 +119,10 @@ func Parse(repositoryURL, ref string) (Archive, error) {
 			part = strings.TrimSuffix(part, ".git")
 			parts[index] = part
 		}
-		if part == "" || part == "." || part == ".." || !repositoryPart.MatchString(part) {
+		emptySegment := part == ""
+		dotSegment := part == "." || part == ".."
+		unsafeSegment := !repositoryPart.MatchString(part)
+		if emptySegment || dotSegment || unsafeSegment {
 			return Archive{}, fmt.Errorf("%w: repository path contains an unsafe segment", ErrInvalidRepository)
 		}
 	}
@@ -114,7 +136,13 @@ func Parse(repositoryURL, ref string) (Archive, error) {
 	}
 	archiveURL := buildArchiveURL(provider, parts, canonicalRef)
 	filename := archiveFilename(provider, parts[len(parts)-1], canonicalRef, canonicalURL)
-	return Archive{Provider: provider, Repository: canonicalURL, Ref: canonicalRef, ArchiveURL: archiveURL, Filename: filename}, nil
+	return Archive{
+		Provider:   provider,
+		Repository: canonicalURL,
+		Ref:        canonicalRef,
+		ArchiveURL: archiveURL,
+		Filename:   filename,
+	}, nil
 }
 
 func validateRef(value string) (string, error) {
@@ -122,16 +150,29 @@ func validateRef(value string) (string, error) {
 	if value == "" {
 		value = defaultRef
 	}
-	if len([]byte(value)) > maxRefBytes || strings.HasPrefix(value, "/") || strings.HasSuffix(value, "/") || strings.Contains(value, "//") || strings.Contains(value, "..") || strings.Contains(value, "@{") {
+	refTooLong := len([]byte(value)) > maxRefBytes
+	hasLeadingSlash := strings.HasPrefix(value, "/")
+	hasTrailingSlash := strings.HasSuffix(value, "/")
+	hasDoubleSlash := strings.Contains(value, "//")
+	hasParentSegment := strings.Contains(value, "..")
+	hasAtBrace := strings.Contains(value, "@{")
+	if refTooLong || hasLeadingSlash || hasTrailingSlash || hasDoubleSlash || hasParentSegment || hasAtBrace {
 		return "", fmt.Errorf("%w: ref contains an unsafe path", ErrInvalidRef)
 	}
 	for _, part := range strings.Split(value, "/") {
-		if part == "" || part == "." || part == ".." || strings.HasSuffix(part, ".lock") {
+		emptySegment := part == ""
+		dotSegment := part == "." || part == ".."
+		lockFile := strings.HasSuffix(part, ".lock")
+		if emptySegment || dotSegment || lockFile {
 			return "", fmt.Errorf("%w: ref contains an unsafe segment", ErrInvalidRef)
 		}
 	}
 	for _, character := range value {
-		if (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || strings.ContainsRune("._/-", character) {
+		isUpper := character >= 'A' && character <= 'Z'
+		isLower := character >= 'a' && character <= 'z'
+		isDigit := character >= '0' && character <= '9'
+		isAllowedSymbol := strings.ContainsRune("._/-", character)
+		if isUpper || isLower || isDigit || isAllowedSymbol {
 			continue
 		}
 		return "", fmt.Errorf("%w: ref contains unsupported characters", ErrInvalidRef)
@@ -141,7 +182,11 @@ func validateRef(value string) (string, error) {
 
 func buildArchiveURL(provider string, parts []string, ref string) string {
 	if provider == ProviderGitHub {
-		return "https://codeload.github.com/" + escapeSegments(parts) + "/tar.gz/" + escapeSegments(strings.Split(ref, "/"))
+		return "https://codeload.github.com/" + escapeSegments(
+			parts,
+		) + "/tar.gz/" + escapeSegments(
+			strings.Split(ref, "/"),
+		)
 	}
 	project := parts[len(parts)-1]
 	refPath := escapeSegments(strings.Split(ref, "/"))
@@ -199,7 +244,14 @@ func (f *Fetcher) Fetch(ctx context.Context, repositoryURL, ref string, maxBytes
 		_ = response.Body.Close()
 		return Archive{}, ErrTooLarge
 	}
-	return Archive{Provider: descriptor.Provider, Repository: descriptor.Repository, Ref: descriptor.Ref, ArchiveURL: descriptor.ArchiveURL, Filename: descriptor.Filename, Body: &boundedBody{body: response.Body, remaining: maxBytes}}, nil
+	return Archive{
+		Provider:   descriptor.Provider,
+		Repository: descriptor.Repository,
+		Ref:        descriptor.Ref,
+		ArchiveURL: descriptor.ArchiveURL,
+		Filename:   descriptor.Filename,
+		Body:       &boundedBody{body: response.Body, remaining: maxBytes},
+	}, nil
 }
 
 type boundedBody struct {
@@ -286,17 +338,8 @@ func safeDialContext(dialer *net.Dialer) func(context.Context, string, string) (
 	}
 }
 
-func blockedIP(ip netipLike) bool {
-	return ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() || ip.IsMulticast()
-}
-
-// net.IP and netip.Addr have similar predicates, but this tiny interface
-// keeps blockedIP easy to exercise with either representation.
-type netipLike interface {
-	IsPrivate() bool
-	IsLoopback() bool
-	IsLinkLocalUnicast() bool
-	IsLinkLocalMulticast() bool
-	IsUnspecified() bool
-	IsMulticast() bool
+func blockedIP(ip netip.Addr) bool {
+	return ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||
+		ip.IsUnspecified() ||
+		ip.IsMulticast()
 }

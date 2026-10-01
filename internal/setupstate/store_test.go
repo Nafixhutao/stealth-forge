@@ -169,8 +169,8 @@ func TestInstallationPhasesRequireRunIdentifier(t *testing.T) {
 	for _, phase := range []string{PhaseInstallRequested, PhaseInstalling, PhaseHandoff} {
 		state := NewState()
 		state.Phase = phase
-		if err := ValidateState(state); err == nil || !strings.Contains(err.Error(), "run identifier") {
-			t.Fatalf("ValidateState(%q) = %v, want missing run identifier error", phase, err)
+		if err := validateState(state); err == nil || !strings.Contains(err.Error(), "run identifier") {
+			t.Fatalf("validateState(%q) = %v, want missing run identifier error", phase, err)
 		}
 	}
 }
@@ -209,11 +209,11 @@ func TestHostLifecycleRejectsStaleWriterAndPreservesHandoffOrder(t *testing.T) {
 func TestHostPreflightProjectionIsValidatedAsDurableState(t *testing.T) {
 	state := NewState()
 	state.HostPreflight = []HostPreflightCheck{{Name: "Docker", Detail: "host daemon ready", OK: true, Required: true}}
-	if err := ValidateState(state); err != nil {
+	if err := validateState(state); err != nil {
 		t.Fatal(err)
 	}
 	state.HostPreflight[0].Detail = strings.Repeat("x", 241)
-	if err := ValidateState(state); err == nil {
+	if err := validateState(state); err == nil {
 		t.Fatal("oversized host preflight detail was accepted")
 	}
 }
@@ -475,7 +475,7 @@ func TestManifestStateIsRandomHashedAndExpires(t *testing.T) {
 	if plain == "" || hash == "" || !expiresAt.After(time.Now().UTC()) {
 		t.Fatalf("manifest state = %q, %q, %s", plain, hash, expiresAt)
 	}
-	if hash != HashManifestState(plain) || hash == plain {
+	if hash != hashManifestState(plain) || hash == plain {
 		t.Fatalf("manifest hash = %q, want digest of %q", hash, plain)
 	}
 	other, _, _, err := NewManifestState()

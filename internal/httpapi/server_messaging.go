@@ -12,7 +12,11 @@ import (
 func messagingActorFrom(r *http.Request) repository.MessagingActor {
 	actor := projectActorFrom(r)
 	if actor.kind == apiKeyProjectActor {
-		return repository.MessagingActor{Kind: repository.MessagingAPIKeyActor, APIKeyID: actor.apiKeyID, APIKeyScopes: actor.scopes}
+		return repository.MessagingActor{
+			Kind:         repository.MessagingAPIKeyActor,
+			APIKeyID:     actor.apiKeyID,
+			APIKeyScopes: actor.scopes,
+		}
 	}
 	account, ok := r.Context().Value(accountContextKey).(domain.Account)
 	if !ok {
@@ -77,7 +81,13 @@ func (s *Server) listMessagingProviders(w http.ResponseWriter, r *http.Request) 
 		parsed := mustUUID(cursor)
 		cursorID = &parsed
 	}
-	items, next, canManage, err := s.repo.ListMessagingProviders(r.Context(), projectID, messagingActorFrom(r), limit, cursorID)
+	items, next, canManage, err := s.repo.ListMessagingProviders(
+		r.Context(),
+		projectID,
+		messagingActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if messagingResourceError(w, err) {
 		return
 	}
@@ -85,7 +95,11 @@ func (s *Server) listMessagingProviders(w http.ResponseWriter, r *http.Request) 
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"providers": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"providers": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) createMessagingProvider(w http.ResponseWriter, r *http.Request) {
@@ -101,7 +115,19 @@ func (s *Server) createMessagingProvider(w http.ResponseWriter, r *http.Request)
 	if req.Enabled != nil {
 		enabled = *req.Enabled
 	}
-	item, err := s.repo.CreateMessagingProvider(r.Context(), uuid.Must(uuid.NewV7()), projectID, messagingActorFrom(r), repository.MessagingProviderInput{Name: req.Name, Channel: req.Channel, Provider: req.Provider, Credentials: req.Credentials, Enabled: enabled})
+	item, err := s.repo.CreateMessagingProvider(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		projectID,
+		messagingActorFrom(r),
+		repository.MessagingProviderInput{
+			Name:        req.Name,
+			Channel:     req.Channel,
+			Provider:    req.Provider,
+			Credentials: req.Credentials,
+			Enabled:     enabled,
+		},
+	)
 	if messagingResourceError(w, err) {
 		return
 	}
@@ -137,11 +163,30 @@ func (s *Server) updateMessagingProvider(w http.ResponseWriter, r *http.Request)
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	if req.Name == nil && req.Channel == nil && req.Provider == nil && req.Credentials == nil && req.Enabled == nil {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "at least one provider field must be provided")
+	noFieldsProvided := req.Name == nil && req.Channel == nil && req.Provider == nil && req.Credentials == nil &&
+		req.Enabled == nil
+	if noFieldsProvided {
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"at least one provider field must be provided",
+		)
 		return
 	}
-	item, err := s.repo.UpdateMessagingProvider(r.Context(), projectID, providerID, messagingActorFrom(r), repository.MessagingProviderPatch{Name: req.Name, Channel: req.Channel, Provider: req.Provider, Credentials: req.Credentials, Enabled: req.Enabled})
+	item, err := s.repo.UpdateMessagingProvider(
+		r.Context(),
+		projectID,
+		providerID,
+		messagingActorFrom(r),
+		repository.MessagingProviderPatch{
+			Name:        req.Name,
+			Channel:     req.Channel,
+			Provider:    req.Provider,
+			Credentials: req.Credentials,
+			Enabled:     req.Enabled,
+		},
+	)
 	if messagingResourceError(w, err) {
 		return
 	}
@@ -157,9 +202,11 @@ func (s *Server) deleteMessagingProvider(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	if err := s.repo.DeleteMessagingProvider(r.Context(), projectID, providerID, messagingActorFrom(r)); messagingResourceError(w, err) {
+	err := s.repo.DeleteMessagingProvider(r.Context(), projectID, providerID, messagingActorFrom(r))
+	if messagingResourceError(w, err) {
 		return
-	} else if err != nil {
+	}
+	if err != nil {
 		internalError(s, w, err)
 		return
 	}
@@ -180,7 +227,13 @@ func (s *Server) listMessagingTopics(w http.ResponseWriter, r *http.Request) {
 		parsed := mustUUID(cursor)
 		cursorID = &parsed
 	}
-	items, next, canManage, err := s.repo.ListMessagingTopics(r.Context(), projectID, messagingActorFrom(r), limit, cursorID)
+	items, next, canManage, err := s.repo.ListMessagingTopics(
+		r.Context(),
+		projectID,
+		messagingActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if messagingResourceError(w, err) {
 		return
 	}
@@ -188,7 +241,11 @@ func (s *Server) listMessagingTopics(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"topics": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"topics": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) createMessagingTopic(w http.ResponseWriter, r *http.Request) {
@@ -204,7 +261,13 @@ func (s *Server) createMessagingTopic(w http.ResponseWriter, r *http.Request) {
 	if req.Enabled != nil {
 		enabled = *req.Enabled
 	}
-	item, err := s.repo.CreateMessagingTopic(r.Context(), uuid.Must(uuid.NewV7()), projectID, messagingActorFrom(r), repository.MessagingTopicInput{Name: req.Name, Description: req.Description, Enabled: enabled})
+	item, err := s.repo.CreateMessagingTopic(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		projectID,
+		messagingActorFrom(r),
+		repository.MessagingTopicInput{Name: req.Name, Description: req.Description, Enabled: enabled},
+	)
 	if messagingResourceError(w, err) {
 		return
 	}
@@ -244,7 +307,13 @@ func (s *Server) updateMessagingTopic(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", "at least one topic field must be provided")
 		return
 	}
-	item, err := s.repo.UpdateMessagingTopic(r.Context(), projectID, topicID, messagingActorFrom(r), repository.MessagingTopicPatch{Name: req.Name, Description: req.Description, Enabled: req.Enabled})
+	item, err := s.repo.UpdateMessagingTopic(
+		r.Context(),
+		projectID,
+		topicID,
+		messagingActorFrom(r),
+		repository.MessagingTopicPatch{Name: req.Name, Description: req.Description, Enabled: req.Enabled},
+	)
 	if messagingResourceError(w, err) {
 		return
 	}
@@ -260,9 +329,11 @@ func (s *Server) deleteMessagingTopic(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.repo.DeleteMessagingTopic(r.Context(), projectID, topicID, messagingActorFrom(r)); messagingResourceError(w, err) {
+	err := s.repo.DeleteMessagingTopic(r.Context(), projectID, topicID, messagingActorFrom(r))
+	if messagingResourceError(w, err) {
 		return
-	} else if err != nil {
+	}
+	if err != nil {
 		internalError(s, w, err)
 		return
 	}
@@ -283,7 +354,14 @@ func (s *Server) listMessagingSubscribers(w http.ResponseWriter, r *http.Request
 		parsed := mustUUID(cursor)
 		cursorID = &parsed
 	}
-	items, next, canManage, err := s.repo.ListMessagingSubscribers(r.Context(), projectID, topicID, messagingActorFrom(r), limit, cursorID)
+	items, next, canManage, err := s.repo.ListMessagingSubscribers(
+		r.Context(),
+		projectID,
+		topicID,
+		messagingActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if messagingResourceError(w, err) {
 		return
 	}
@@ -291,7 +369,11 @@ func (s *Server) listMessagingSubscribers(w http.ResponseWriter, r *http.Request
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"subscribers": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"subscribers": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) createMessagingSubscriber(w http.ResponseWriter, r *http.Request) {
@@ -307,7 +389,14 @@ func (s *Server) createMessagingSubscriber(w http.ResponseWriter, r *http.Reques
 	if req.Enabled != nil {
 		enabled = *req.Enabled
 	}
-	item, err := s.repo.CreateMessagingSubscriber(r.Context(), uuid.Must(uuid.NewV7()), projectID, topicID, messagingActorFrom(r), repository.MessagingSubscriberInput{Channel: req.Channel, Address: req.Address, Enabled: enabled})
+	item, err := s.repo.CreateMessagingSubscriber(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		projectID,
+		topicID,
+		messagingActorFrom(r),
+		repository.MessagingSubscriberInput{Channel: req.Channel, Address: req.Address, Enabled: enabled},
+	)
 	if messagingResourceError(w, err) {
 		return
 	}
@@ -339,9 +428,11 @@ func (s *Server) deleteMessagingSubscriber(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
-	if err := s.repo.DeleteMessagingSubscriber(r.Context(), projectID, topicID, subscriberID, messagingActorFrom(r)); messagingResourceError(w, err) {
+	err := s.repo.DeleteMessagingSubscriber(r.Context(), projectID, topicID, subscriberID, messagingActorFrom(r))
+	if messagingResourceError(w, err) {
 		return
-	} else if err != nil {
+	}
+	if err != nil {
 		internalError(s, w, err)
 		return
 	}
@@ -362,7 +453,13 @@ func (s *Server) listMessagingMessages(w http.ResponseWriter, r *http.Request) {
 		parsed := mustUUID(cursor)
 		cursorID = &parsed
 	}
-	items, next, canManage, err := s.repo.ListMessagingMessages(r.Context(), projectID, messagingActorFrom(r), limit, cursorID)
+	items, next, canManage, err := s.repo.ListMessagingMessages(
+		r.Context(),
+		projectID,
+		messagingActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if messagingResourceError(w, err) {
 		return
 	}
@@ -370,7 +467,11 @@ func (s *Server) listMessagingMessages(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"messages": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"messages": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) createMessagingMessage(w http.ResponseWriter, r *http.Request) {
@@ -387,14 +488,20 @@ func (s *Server) createMessagingMessage(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", "topic_id must be a UUID")
 		return
 	}
-	result, err := s.repo.CreateMessagingMessage(r.Context(), uuid.Must(uuid.NewV7()), projectID, messagingActorFrom(r), repository.MessagingMessageInput{
-		TopicID:        topicID,
-		Channel:        req.Channel,
-		Subject:        req.Subject,
-		Body:           req.Body,
-		Data:           req.Data,
-		IdempotencyKey: r.Header.Get("Idempotency-Key"),
-	})
+	result, err := s.repo.CreateMessagingMessage(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		projectID,
+		messagingActorFrom(r),
+		repository.MessagingMessageInput{
+			TopicID:        topicID,
+			Channel:        req.Channel,
+			Subject:        req.Subject,
+			Body:           req.Body,
+			Data:           req.Data,
+			IdempotencyKey: r.Header.Get("Idempotency-Key"),
+		},
+	)
 	if messagingResourceError(w, err) {
 		return
 	}
@@ -455,7 +562,14 @@ func (s *Server) listMessagingDeliveries(w http.ResponseWriter, r *http.Request)
 		parsed := mustUUID(cursor)
 		cursorID = &parsed
 	}
-	items, next, err := s.repo.ListMessagingDeliveries(r.Context(), projectID, messageID, messagingActorFrom(r), limit, cursorID)
+	items, next, err := s.repo.ListMessagingDeliveries(
+		r.Context(),
+		projectID,
+		messageID,
+		messagingActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if messagingResourceError(w, err) {
 		return
 	}
@@ -532,16 +646,36 @@ func messagingResourceError(w http.ResponseWriter, err error) bool {
 		writeError(w, http.StatusServiceUnavailable, "not_ready", "messaging encryption is not configured")
 		return true
 	case errors.Is(err, repository.ErrMessagingProviderUnavailable):
-		writeError(w, http.StatusConflict, "provider_unavailable", "no enabled provider is configured for this message channel")
+		writeError(
+			w,
+			http.StatusConflict,
+			"provider_unavailable",
+			"no enabled provider is configured for this message channel",
+		)
 		return true
 	case errors.Is(err, repository.ErrMessagingNoRecipients):
-		writeError(w, http.StatusUnprocessableEntity, "no_recipients", "the topic has no active subscribers for this channel")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"no_recipients",
+			"the topic has no active subscribers for this channel",
+		)
 		return true
 	case errors.Is(err, repository.ErrMessagingTooManyRecipients):
-		writeError(w, http.StatusUnprocessableEntity, "too_many_recipients", "the topic exceeds the per-message recipient limit")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"too_many_recipients",
+			"the topic exceeds the per-message recipient limit",
+		)
 		return true
 	case errors.Is(err, repository.ErrMessagingMessageTerminal):
-		writeError(w, http.StatusConflict, "message_terminal", "the message is already terminal and cannot be cancelled")
+		writeError(
+			w,
+			http.StatusConflict,
+			"message_terminal",
+			"the message is already terminal and cannot be cancelled",
+		)
 		return true
 	case errors.Is(err, repository.ErrNoMessagingDelivery), errors.Is(err, repository.ErrMessagingDeliveryNotFound):
 		writeError(w, http.StatusNotFound, "not_found", "messaging delivery was not found")

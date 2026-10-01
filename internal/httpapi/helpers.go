@@ -29,7 +29,12 @@ type pagination struct {
 func decodeJSON(w http.ResponseWriter, r *http.Request, target any) bool {
 	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || mediaType != "application/json" {
-		writeError(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "Content-Type must be application/json")
+		writeError(
+			w,
+			http.StatusUnsupportedMediaType,
+			"unsupported_media_type",
+			"Content-Type must be application/json",
+		)
 		return false
 	}
 	de := json.NewDecoder(r.Body)
@@ -85,7 +90,7 @@ func paginationOf(limit int, next string) pagination {
 func pathUUID(w http.ResponseWriter, r *http.Request, key string) (uuid.UUID, bool) {
 	id, err := repository.ParseUUID(chi.URLParam(r, key))
 	if err != nil {
-		writeError(w, 400, "validation_error", fmt.Sprintf("%s must be a UUID", key))
+		writeError(w, 400, "validation_error", fmt.Sprintf("%q must be a UUID", key))
 		return uuid.Nil, false
 	}
 	return id, true

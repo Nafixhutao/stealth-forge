@@ -115,7 +115,12 @@ func (a *App) runUpdate(args []string) int {
 		return 0
 	}
 	if comparable && comparison > 0 {
-		fmt.Fprintf(a.out, "Current version %s is newer than latest stable %s.\nNo update performed.\n", currentLabel, latest)
+		fmt.Fprintf(
+			a.out,
+			"Current version %s is newer than latest stable %s.\nNo update performed.\n",
+			currentLabel,
+			latest,
+		)
 		return 0
 	}
 
@@ -249,7 +254,12 @@ func (a *App) performUpdateWithTargetMigration(ctx context.Context, release gith
 	})
 }
 
-func (a *App) performUpdateWithTargetMigrationHook(ctx context.Context, release githubRelease, asset string, beforeReplace func(string) error) error {
+func (a *App) performUpdateWithTargetMigrationHook(
+	ctx context.Context,
+	release githubRelease,
+	asset string,
+	beforeReplace func(string) error,
+) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("update canceled: %w", err)
 	}
@@ -304,7 +314,11 @@ func (a *App) performUpdateWithTargetMigrationHook(ctx context.Context, release 
 	if err := a.replaceExecutable(ctx, temporaryBinary, target); err != nil {
 		return &platformMigratedUpdateError{
 			targetVersion: release.TagName,
-			err:           fmt.Errorf("target platform migration completed, but replacing the CLI executable failed: %w; the installed stack is at %s and a later `stealth update` will reconcile the CLI", err, release.TagName),
+			err: fmt.Errorf(
+				"target platform migration completed, but replacing the CLI executable failed: %w; the installed stack is at %s and a later `stealth update` will reconcile the CLI",
+				err,
+				release.TagName,
+			),
 		}
 	}
 	return nil
@@ -318,7 +332,17 @@ func (a *App) invokeTargetMigration(ctx context.Context, binaryPath, targetVersi
 	if runner == nil {
 		runner = execCommandRunner{}
 	}
-	return runner.Run(ctx, "", a.out, a.errOut, binaryPath, "internal", "migrate-installation", "--target-version", targetVersion)
+	return runner.Run(
+		ctx,
+		"",
+		a.out,
+		a.errOut,
+		binaryPath,
+		"internal",
+		"migrate-installation",
+		"--target-version",
+		targetVersion,
+	)
 }
 
 // migrateInstalledRelease runs the trusted host-side install engine for an
@@ -545,7 +569,7 @@ func extractUpdateBinary(archive []byte) (string, string, error) {
 		return "", "", fmt.Errorf("read gzip archive: %w", err)
 	}
 	tarReader := tar.NewReader(reader)
-	found := false
+	var found bool
 	temporaryBinary := filepath.Join(temporaryDir, "stealth")
 	for {
 		header, nextErr := tarReader.Next()
@@ -557,7 +581,8 @@ func extractUpdateBinary(archive []byte) (string, string, error) {
 			cleanup()
 			return "", "", fmt.Errorf("read tar archive: %w", nextErr)
 		}
-		if header.Name != "stealth" || path.IsAbs(header.Name) || filepath.IsAbs(header.Name) || path.Clean(header.Name) != header.Name {
+		if header.Name != "stealth" || path.IsAbs(header.Name) || filepath.IsAbs(header.Name) ||
+			path.Clean(header.Name) != header.Name {
 			_ = reader.Close()
 			cleanup()
 			return "", "", fmt.Errorf("release archive contains unexpected path %q", header.Name)
@@ -640,7 +665,11 @@ func (a *App) replaceExecutable(ctx context.Context, source, target string) erro
 	}
 	temporary, err := os.CreateTemp(filepath.Dir(target), ".stealth-update-")
 	if err != nil {
-		return fmt.Errorf("cannot update this installation because %s is not writable; re-run the update with appropriate system permissions: %w", target, err)
+		return fmt.Errorf(
+			"cannot update this installation because %s is not writable; re-run the update with appropriate system permissions: %w",
+			target,
+			err,
+		)
 	}
 	temporaryPath := temporary.Name()
 	defer os.Remove(temporaryPath)
@@ -720,7 +749,11 @@ func (a *App) printUpdateFailure(err error) {
 	fmt.Fprintln(a.errOut, err)
 	var migrated *platformMigratedUpdateError
 	if errors.As(err, &migrated) {
-		fmt.Fprintf(a.errOut, "The installed CLI was not replaced, but the platform migration reached %s. Re-run `stealth update` to reconcile the CLI.\n", migrated.targetVersion)
+		fmt.Fprintf(
+			a.errOut,
+			"The installed CLI was not replaced, but the platform migration reached %s. Re-run `stealth update` to reconcile the CLI.\n",
+			migrated.targetVersion,
+		)
 		return
 	}
 	fmt.Fprintln(a.errOut, "Your existing Stealth CLI was not modified.")

@@ -77,7 +77,13 @@ func (w *Worker) sweepRuntimeImageCacheIfDue(ctx context.Context, currentDeploym
 		protected[currentDeploymentID] = struct{}{}
 	}
 	if activeLease {
-		w.Logger.Warn("Stealth App runtime image cache exceeds its limit while runtime work is protected", "cache_bytes", cacheBytes, "limit_bytes", maxBytes)
+		w.Logger.Warn(
+			"Stealth App runtime image cache exceeds its limit while runtime work is protected",
+			"cache_bytes",
+			cacheBytes,
+			"limit_bytes",
+			maxBytes,
+		)
 		w.reportRuntimeImageCacheSweep("pressure", 0, cacheBytes, true, nil)
 		return
 	}
@@ -87,7 +93,8 @@ func (w *Worker) sweepRuntimeImageCacheIfDue(ctx context.Context, currentDeploym
 		return
 	}
 	for _, reference := range containerReferences {
-		if reference.DeploymentID == uuid.Nil || reference.DeploymentID.Version() != uuid.Version(7) || !validImageID(reference.ImageID) {
+		if reference.DeploymentID == uuid.Nil || reference.DeploymentID.Version() != uuid.Version(7) ||
+			!validImageID(reference.ImageID) {
 			w.reportRuntimeImageCacheSweep("error", 0, cacheBytes, true, ErrRuntimeOwnershipConflict)
 			return
 		}
@@ -104,7 +111,7 @@ func (w *Worker) sweepRuntimeImageCacheIfDue(ctx context.Context, currentDeploym
 		return strings.Compare(left.Reference, right.Reference)
 	})
 
-	attempted := 0
+	var attempted int
 	removed := 0
 	var reclaimedBytes int64
 	removalFailed := false
@@ -117,13 +124,22 @@ func (w *Worker) sweepRuntimeImageCacheIfDue(ctx context.Context, currentDeploym
 		}
 		// Re-read the protected set before each destructive Docker operation.
 		// A deployment may have become desired after the initial inventory.
-		latestIDs, leaseActive, err := w.Store.ListProtectedAppRuntimeDeploymentIDs(ctx, []uuid.UUID{entry.DeploymentID})
+		latestIDs, leaseActive, err := w.Store.ListProtectedAppRuntimeDeploymentIDs(
+			ctx,
+			[]uuid.UUID{entry.DeploymentID},
+		)
 		if err != nil {
 			w.reportRuntimeImageCacheSweepWithProgress("error", reclaimedBytes, cacheBytes, true, err, removed > 0)
 			return
 		}
 		if leaseActive {
-			w.Logger.Warn("Stealth App runtime image cache exceeds its limit while runtime work is protected", "cache_bytes", cacheBytes, "limit_bytes", maxBytes)
+			w.Logger.Warn(
+				"Stealth App runtime image cache exceeds its limit while runtime work is protected",
+				"cache_bytes",
+				cacheBytes,
+				"limit_bytes",
+				maxBytes,
+			)
 			w.reportRuntimeImageCacheSweepWithProgress("pressure", reclaimedBytes, cacheBytes, true, nil, removed > 0)
 			return
 		}
@@ -141,7 +157,13 @@ func (w *Worker) sweepRuntimeImageCacheIfDue(ctx context.Context, currentDeploym
 		attempted++
 		if err := w.Runtime.RemoveRuntimeImageTag(ctx, entry); err != nil {
 			removalFailed = true
-			w.Logger.Warn("Stealth App runtime image cache entry could not be removed", "deployment_id", entry.DeploymentID, "reason", safeRuntimeError(err))
+			w.Logger.Warn(
+				"Stealth App runtime image cache entry could not be removed",
+				"deployment_id",
+				entry.DeploymentID,
+				"reason",
+				safeRuntimeError(err),
+			)
 			continue
 		}
 		removed++
@@ -174,7 +196,13 @@ func (w *Worker) sweepRuntimeImageCacheIfDue(ctx context.Context, currentDeploym
 		if result == "completed" {
 			result = "pressure"
 		}
-		w.Logger.Warn("Stealth App runtime image cache remains above its configured limit", "cache_bytes", cacheBytes, "limit_bytes", maxBytes)
+		w.Logger.Warn(
+			"Stealth App runtime image cache remains above its configured limit",
+			"cache_bytes",
+			cacheBytes,
+			"limit_bytes",
+			maxBytes,
+		)
 	}
 	w.reportRuntimeImageCacheSweepWithProgress(result, reclaimedBytes, cacheBytes, pressure, nil, removed > 0)
 }
@@ -198,7 +226,9 @@ func validateRuntimeImageCacheEntries(entries []RuntimeImageCacheEntry) error {
 	seen := make(map[string]struct{}, len(entries))
 	for _, entry := range entries {
 		deploymentID, ok := ParseRuntimeImageReference(entry.Reference)
-		if !ok || deploymentID != entry.DeploymentID || deploymentID.Version() != uuid.Version(7) || !validImageID(entry.ImageID) || entry.SizeBytes < 0 {
+		if !ok || deploymentID != entry.DeploymentID || deploymentID.Version() != uuid.Version(7) ||
+			!validImageID(entry.ImageID) ||
+			entry.SizeBytes < 0 {
 			return ErrImageVerification
 		}
 		if _, duplicate := seen[entry.Reference]; duplicate {
@@ -263,11 +293,22 @@ func (w *Worker) imageCacheSweepInterval() time.Duration {
 	return w.ImageCacheGCSweepInterval
 }
 
-func (w *Worker) reportRuntimeImageCacheSweep(result string, reclaimedBytes, cacheBytes int64, pressure bool, err error) {
+func (w *Worker) reportRuntimeImageCacheSweep(
+	result string,
+	reclaimedBytes, cacheBytes int64,
+	pressure bool,
+	err error,
+) {
 	w.reportRuntimeImageCacheSweepWithProgress(result, reclaimedBytes, cacheBytes, pressure, err, false)
 }
 
-func (w *Worker) reportRuntimeImageCacheSweepWithProgress(result string, reclaimedBytes, cacheBytes int64, pressure bool, err error, madeProgress bool) {
+func (w *Worker) reportRuntimeImageCacheSweepWithProgress(
+	result string,
+	reclaimedBytes, cacheBytes int64,
+	pressure bool,
+	err error,
+	madeProgress bool,
+) {
 	if result != "completed" && result != "error" && result != "pressure" {
 		result = "error"
 	}

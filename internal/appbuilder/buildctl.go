@@ -92,10 +92,20 @@ func (c *BuildKitClient) Build(ctx context.Context, request BuildRequest, progre
 		return errors.Join(ErrBuildKitUnavailable, tlsErr)
 	}
 	definition, err := appbuildspec.Normalize(request.Definition)
-	if err != nil || strings.TrimSpace(c.Address) == "" || request.ContextPath == "" || request.DockerfileRoot == "" || request.OutputPath == "" || request.MetadataPath == "" {
+	if err != nil || strings.TrimSpace(c.Address) == "" || request.ContextPath == "" || request.DockerfileRoot == "" ||
+		request.OutputPath == "" ||
+		request.MetadataPath == "" {
 		return appbuildspec.ErrInvalidBuildSpec
 	}
-	args, err := buildctlArgs(c.Address, tlsArgs, definition, request.ContextPath, request.DockerfileRoot, request.OutputPath, request.MetadataPath)
+	args, err := buildctlArgs(
+		c.Address,
+		tlsArgs,
+		definition,
+		request.ContextPath,
+		request.DockerfileRoot,
+		request.OutputPath,
+		request.MetadataPath,
+	)
 	if err != nil {
 		return err
 	}
@@ -115,14 +125,20 @@ func (c *BuildKitClient) Build(ctx context.Context, request BuildRequest, progre
 func (c *BuildKitClient) tlsArgs() ([]string, error) {
 	paths := []string{c.CACertPath, c.ClientCertPath, c.ClientKeyPath}
 	for _, path := range paths {
-		if path == "" || !filepath.IsAbs(path) || filepath.Clean(path) != path || path == string(filepath.Separator) || strings.ContainsAny(path, "\x00\r\n") {
+		if path == "" || !filepath.IsAbs(path) || filepath.Clean(path) != path || path == string(filepath.Separator) ||
+			strings.ContainsAny(path, "\x00\r\n") {
 			return nil, ErrBuildKitTLSConfig
 		}
 	}
 	return []string{"--tlscacert", c.CACertPath, "--tlscert", c.ClientCertPath, "--tlskey", c.ClientKeyPath}, nil
 }
 
-func buildctlArgs(address string, tlsArgs []string, definition appbuildspec.Spec, contextPath, dockerfileRoot, outputPath, metadataPath string) ([]string, error) {
+func buildctlArgs(
+	address string,
+	tlsArgs []string,
+	definition appbuildspec.Spec,
+	contextPath, dockerfileRoot, outputPath, metadataPath string,
+) ([]string, error) {
 	definition, err := appbuildspec.Normalize(definition)
 	if err != nil || strings.ContainsAny(address+contextPath+dockerfileRoot+outputPath+metadataPath, "\x00\r\n") {
 		return nil, appbuildspec.ErrInvalidBuildSpec

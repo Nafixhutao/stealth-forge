@@ -15,7 +15,10 @@ import (
 
 func (a *App) runIngress(args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(a.errOut, "Usage: stealth ingress status|verify [--site-hostname HOST --site-sha256 DIGEST]|cutover|rollback")
+		fmt.Fprintln(
+			a.errOut,
+			"Usage: stealth ingress status|verify [--site-hostname HOST --site-sha256 DIGEST]|cutover|rollback",
+		)
 		return 2
 	}
 	operation := args[0]
@@ -59,7 +62,7 @@ func (a *App) runIngress(args []string) int {
 		fmt.Fprintln(a.errOut, "ingress operations require a completed production installation")
 		return 1
 	}
-	var locks []*os.File
+	locks := []*os.File{}
 	if operation == "cutover" || operation == "rollback" {
 		// install.lock is already the update/repair coordinator. Hold it with a
 		// focused ingress lock so no platform replacement races provider work.
@@ -125,7 +128,12 @@ func (a *App) runIngress(args []string) int {
 	return 0
 }
 
-func (a *App) checkIngressServices(ctx context.Context, layout InstallLayout, config map[string]string, operation string) error {
+func (a *App) checkIngressServices(
+	ctx context.Context,
+	layout InstallLayout,
+	config map[string]string,
+	operation string,
+) error {
 	statuses, err := a.composeStatuses(ctx, layout)
 	if err != nil {
 		return err
@@ -143,7 +151,9 @@ func (a *App) checkIngressServices(ctx context.Context, layout InstallLayout, co
 			if strings.EqualFold(status.State, "running") || strings.HasPrefix(strings.ToLower(status.Status), "up ") {
 				continue
 			}
-			return errors.New("Cloudflare Named Tunnel is not active for this installation; ingress operations require the configured tunnel profile")
+			return errors.New(
+				"Cloudflare Named Tunnel is not active for this installation; ingress operations require the configured tunnel profile",
+			)
 		}
 		if !status.Healthy() {
 			return fmt.Errorf("%s is not healthy", service)

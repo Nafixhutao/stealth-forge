@@ -48,7 +48,12 @@ func Normalize(spec Spec) (Spec, error) {
 }
 
 func validRelativePath(value string, allowDot bool) bool {
-	if value == "" || len([]byte(value)) > MaxRelativePathBytes || strings.ContainsAny(value, "\\\x00") || strings.HasPrefix(value, "/") || strings.TrimSpace(value) != value {
+	empty := value == ""
+	tooLong := len([]byte(value)) > MaxRelativePathBytes
+	hasUnsafeCharacters := strings.ContainsAny(value, "\\\x00")
+	isAbsolute := strings.HasPrefix(value, "/")
+	hasSurroundingSpace := strings.TrimSpace(value) != value
+	if empty || tooLong || hasUnsafeCharacters || isAbsolute || hasSurroundingSpace {
 		return false
 	}
 	if allowDot && value == "." {

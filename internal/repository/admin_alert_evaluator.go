@@ -20,7 +20,13 @@ type adminAlertTransition struct {
 // transitionAdminAlert is a small deterministic state machine. It is kept
 // independent of SQL so pending/for-duration behavior can be regression
 // tested without a database.
-func transitionAdminAlert(current string, pendingSince *time.Time, now time.Time, trigger bool, forSeconds int) adminAlertTransition {
+func transitionAdminAlert(
+	current string,
+	pendingSince *time.Time,
+	now time.Time,
+	trigger bool,
+	forSeconds int,
+) adminAlertTransition {
 	if current == "muted" {
 		return adminAlertTransition{State: "muted", PendingSince: pendingSince}
 	}
@@ -51,7 +57,13 @@ func transitionAdminAlert(current string, pendingSince *time.Time, now time.Time
 // transition, event insertion, and notification enqueue happen in one
 // transaction so a firing or recovery cannot be observed without its
 // corresponding delivery work.
-func (r *Repository) EvaluateAdminAlert(ctx context.Context, ruleID uuid.UUID, trigger bool, value *float64, message string) error {
+func (r *Repository) EvaluateAdminAlert(
+	ctx context.Context,
+	ruleID uuid.UUID,
+	trigger bool,
+	value *float64,
+	message string,
+) error {
 	if r == nil || r.pool == nil || ruleID == uuid.Nil {
 		return ErrInvalidAdminAlert
 	}
@@ -66,7 +78,14 @@ func (r *Repository) EvaluateAdminAlert(ctx context.Context, ruleID uuid.UUID, t
 	return tx.Commit(ctx)
 }
 
-func evaluateAdminAlertTx(ctx context.Context, tx pgx.Tx, ruleID uuid.UUID, trigger bool, value *float64, lastError, message string) (uuid.UUID, error) {
+func evaluateAdminAlertTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	ruleID uuid.UUID,
+	trigger bool,
+	value *float64,
+	lastError, message string,
+) (uuid.UUID, error) {
 	var name, kind, severity, state string
 	var condition json.RawMessage
 	var forSeconds int
@@ -129,7 +148,12 @@ func evaluateAdminAlertTx(ctx context.Context, tx pgx.Tx, ruleID uuid.UUID, trig
 	return eventID, nil
 }
 
-func evaluateAdminMonitorAlertsTx(ctx context.Context, tx pgx.Tx, monitorID uuid.UUID, input AdminMonitorCheckInput) error {
+func evaluateAdminMonitorAlertsTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	monitorID uuid.UUID,
+	input AdminMonitorCheckInput,
+) error {
 	if monitorID == uuid.Nil {
 		return ErrInvalidAdminMonitor
 	}
@@ -191,7 +215,8 @@ func evaluateAdminMonitorAlertsTx(ctx context.Context, tx pgx.Tx, monitorID uuid
 
 func normalizeAdminAlertMessage(value string) string {
 	value = strings.TrimSpace(strings.Map(func(r rune) rune {
-		if r == '\x00' || r == '\r' || r == '\n' {
+		isControl := r == '\x00' || r == '\r' || r == '\n'
+		if isControl {
 			return ' '
 		}
 		return r

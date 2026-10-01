@@ -77,7 +77,10 @@ func scanAppDeployment(row appDeploymentScanner) (domain.AppDeployment, error) {
 	return item, err
 }
 
-func scanAppDeploymentFields(row appDeploymentScanner, includePrivate bool) (domain.AppDeployment, string, *string, *string, bool, *string, int64, error) {
+func scanAppDeploymentFields(
+	row appDeploymentScanner,
+	includePrivate bool,
+) (domain.AppDeployment, string, *string, *string, bool, *string, int64, error) {
 	var item domain.AppDeployment
 	var rawSpec []byte
 	var sourceName, target, errorMessage, imageDigest, archiveChecksum *string
@@ -96,7 +99,15 @@ func scanAppDeploymentFields(row appDeploymentScanner, includePrivate bool) (dom
 		&item.QueuedAt, &item.BuildStartedAt, &item.BuiltAt, &item.FinishedAt, &item.CreatedAt, &item.UpdatedAt,
 	}
 	if includePrivate {
-		args = append(args, &sourcePath, &imagePath, &workerID, &selectRequested, &selectionBaseDeploymentID, &reservedBytes)
+		args = append(
+			args,
+			&sourcePath,
+			&imagePath,
+			&workerID,
+			&selectRequested,
+			&selectionBaseDeploymentID,
+			&reservedBytes,
+		)
 	}
 	if err := row.Scan(args...); err != nil {
 		return domain.AppDeployment{}, "", nil, nil, false, nil, 0, err
@@ -113,7 +124,11 @@ func scanAppDeploymentFields(row appDeploymentScanner, includePrivate bool) (dom
 	}
 	spec, err := workloadspec.Decode(rawSpec)
 	if err != nil {
-		return domain.AppDeployment{}, "", nil, nil, false, nil, 0, fmt.Errorf("%w: stored AppDeployment WorkloadSpec: %v", ErrAppDeploymentSnapshotInvalid, err)
+		return domain.AppDeployment{}, "", nil, nil, false, nil, 0, fmt.Errorf(
+			"%w: stored AppDeployment WorkloadSpec: %v",
+			ErrAppDeploymentSnapshotInvalid,
+			err,
+		)
 	}
 	digest, err := workloadspec.Digest(spec)
 	if err != nil || digest != item.WorkloadSpecSHA256 {
@@ -123,10 +138,15 @@ func scanAppDeploymentFields(row appDeploymentScanner, includePrivate bool) (dom
 	return item, sourcePath, imagePath, workerID, selectRequested, selectionBaseDeploymentID, reservedBytes, nil
 }
 
-func appDeploymentByID(ctx context.Context, query interface {
-	QueryRow(context.Context, string, ...any) pgx.Row
-}, projectID, appID, deploymentID uuid.UUID, lock, includePrivate bool) (domain.AppDeployment, string, *string, *string, bool, *string, int64, error) {
-	suffix := ""
+func appDeploymentByID(
+	ctx context.Context,
+	query interface {
+		QueryRow(context.Context, string, ...any) pgx.Row
+	},
+	projectID, appID, deploymentID uuid.UUID,
+	lock, includePrivate bool,
+) (domain.AppDeployment, string, *string, *string, bool, *string, int64, error) {
+	var suffix string
 	if lock {
 		suffix = " FOR UPDATE OF d"
 	}
@@ -139,26 +159,48 @@ func appDeploymentByID(ctx context.Context, query interface {
 			FROM app_deployments d JOIN project_apps a ON a.id=d.app_id AND a.project_id=d.project_id
 			WHERE d.project_id=$1 AND d.app_id=$2 AND d.id=$3`+suffix,
 		projectID, appID, deploymentID)
-	item, sourcePath, imagePath, workerID, selectRequested, selectionBaseDeploymentID, reservedBytes, err := scanAppDeploymentFields(row, includePrivate)
+	item, sourcePath, imagePath, workerID, selectRequested, selectionBaseDeploymentID, reservedBytes, err := scanAppDeploymentFields(
+		row,
+		includePrivate,
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.AppDeployment{}, "", nil, nil, false, nil, 0, ErrNotFound
 	}
 	return item, sourcePath, imagePath, workerID, selectRequested, selectionBaseDeploymentID, reservedBytes, err
 }
 
-func (r *Repository) CreateAppDeployment(ctx context.Context, id, projectID, appID uuid.UUID, actor AppActor, input AppDeploymentInput) (domain.AppDeployment, error) {
+func (r *Repository) CreateAppDeployment(
+	ctx context.Context,
+	id, projectID, appID uuid.UUID,
+	actor AppActor,
+	input AppDeploymentInput,
+) (domain.AppDeployment, error) {
 	buildSpec, err := appbuildspec.Normalize(input.BuildSpec)
-	if err != nil || id == uuid.Nil || id.Version() != uuid.Version(7) || input.SourceSizeBytes <= 0 || !validAppSHA256(input.SourceChecksum) || !validAppArtifactPath(input.SourcePath) || storage.ValidateFilename(input.SourceName) != nil {
+	if err != nil || id == uuid.Nil || id.Version() != uuid.Version(7) || input.SourceSizeBytes <= 0 ||
+		!validAppSHA256(input.SourceChecksum) ||
+		!validAppArtifactPath(input.SourcePath) ||
+		storage.ValidateFilename(input.SourceName) != nil {
 		return domain.AppDeployment{}, ErrInvalidAppDeployment
 	}
-	cleanup := ArtifactCleanupInput{ProjectID: projectID, StoreKind: ArtifactCleanupAppSources, Operation: ArtifactCleanupRelative, RelativePath: input.SourcePath}
+	cleanup := ArtifactCleanupInput{
+		ProjectID:    projectID,
+		StoreKind:    ArtifactCleanupAppSources,
+		Operation:    ArtifactCleanupRelative,
+		RelativePath: input.SourcePath,
+	}
 	if input.PublishCleanup == nil || *input.PublishCleanup != cleanup {
 		return domain.AppDeployment{}, ErrInvalidAppDeployment
 	}
 	return r.createAppDeployment(ctx, id, projectID, appID, actor, input, buildSpec)
 }
 
-func (r *Repository) createAppDeployment(ctx context.Context, id, projectID, appID uuid.UUID, actor AppActor, input AppDeploymentInput, buildSpec appbuildspec.Spec) (domain.AppDeployment, error) {
+func (r *Repository) createAppDeployment(
+	ctx context.Context,
+	id, projectID, appID uuid.UUID,
+	actor AppActor,
+	input AppDeploymentInput,
+	buildSpec appbuildspec.Spec,
+) (domain.AppDeployment, error) {
 	cleanup := *input.PublishCleanup
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -218,7 +260,13 @@ func (r *Repository) createAppDeployment(ctx context.Context, id, projectID, app
 	if err := consumeAppSourceUploadReservationTx(ctx, tx, cleanup, appID, input.SourceSizeBytes); err != nil {
 		return domain.AppDeployment{}, err
 	}
-	quotaUpdate, err := tx.Exec(ctx, `UPDATE project_apps SET artifact_reserved_bytes=artifact_reserved_bytes-$3,artifact_used_bytes=artifact_used_bytes+$3,updated_at=now() WHERE project_id=$1 AND id=$2 AND artifact_reserved_bytes >= $3`, projectID, appID, input.SourceSizeBytes)
+	quotaUpdate, err := tx.Exec(
+		ctx,
+		`UPDATE project_apps SET artifact_reserved_bytes=artifact_reserved_bytes-$3,artifact_used_bytes=artifact_used_bytes+$3,updated_at=now() WHERE project_id=$1 AND id=$2 AND artifact_reserved_bytes >= $3`,
+		projectID,
+		appID,
+		input.SourceSizeBytes,
+	)
 	if err != nil {
 		return domain.AppDeployment{}, err
 	}
@@ -243,10 +291,17 @@ func (r *Repository) createAppDeployment(ctx context.Context, id, projectID, app
 	return item, nil
 }
 
-func consumeAppSourceUploadReservationTx(ctx context.Context, tx pgx.Tx, cleanup ArtifactCleanupInput, appID uuid.UUID, size int64) error {
+func consumeAppSourceUploadReservationTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	cleanup ArtifactCleanupInput,
+	appID uuid.UUID,
+	size int64,
+) error {
 	var reservedAppID *uuid.UUID
 	var reservedBytes int64
-	err := tx.QueryRow(ctx, `SELECT quota_app_id,quota_reserved_bytes FROM artifact_cleanup_jobs WHERE project_id=$1 AND store_kind=$2 AND operation=$3 AND relative_path=$4 AND status='reserved' AND leased_at IS NULL FOR UPDATE`, cleanup.ProjectID, cleanup.StoreKind, cleanup.Operation, cleanup.RelativePath).Scan(&reservedAppID, &reservedBytes)
+	err := tx.QueryRow(ctx, `SELECT quota_app_id,quota_reserved_bytes FROM artifact_cleanup_jobs WHERE project_id=$1 AND store_kind=$2 AND operation=$3 AND relative_path=$4 AND status='reserved' AND leased_at IS NULL FOR UPDATE`, cleanup.ProjectID, cleanup.StoreKind, cleanup.Operation, cleanup.RelativePath).
+		Scan(&reservedAppID, &reservedBytes)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrArtifactPublishLost
 	}
@@ -256,7 +311,14 @@ func consumeAppSourceUploadReservationTx(ctx context.Context, tx pgx.Tx, cleanup
 	if reservedAppID == nil || *reservedAppID != appID || reservedBytes != size {
 		return ErrInvalidAppDeployment
 	}
-	result, err := tx.Exec(ctx, `DELETE FROM artifact_cleanup_jobs WHERE project_id=$1 AND store_kind=$2 AND operation=$3 AND relative_path=$4 AND status='reserved' AND leased_at IS NULL`, cleanup.ProjectID, cleanup.StoreKind, cleanup.Operation, cleanup.RelativePath)
+	result, err := tx.Exec(
+		ctx,
+		`DELETE FROM artifact_cleanup_jobs WHERE project_id=$1 AND store_kind=$2 AND operation=$3 AND relative_path=$4 AND status='reserved' AND leased_at IS NULL`,
+		cleanup.ProjectID,
+		cleanup.StoreKind,
+		cleanup.Operation,
+		cleanup.RelativePath,
+	)
 	if err != nil {
 		return err
 	}
@@ -269,7 +331,13 @@ func consumeAppSourceUploadReservationTx(ctx context.Context, tx pgx.Tx, cleanup
 // promoteAppImagePublishCleanupTx releases an image publish reservation when
 // its owning build fails or becomes stale. The immutable path is tied to the
 // deployment row so one build cannot consume another build's quota reservation.
-func promoteAppImagePublishCleanupTx(ctx context.Context, tx pgx.Tx, projectID, appID uuid.UUID, imagePath string, reserved int64) error {
+func promoteAppImagePublishCleanupTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID, appID uuid.UUID,
+	imagePath string,
+	reserved int64,
+) error {
 	if !validAppArtifactPath(imagePath) || reserved <= 0 {
 		return ErrArtifactPublishLost
 	}
@@ -288,7 +356,13 @@ func promoteAppImagePublishCleanupTx(ctx context.Context, tx pgx.Tx, projectID, 
 	return nil
 }
 
-func (r *Repository) ListAppDeployments(ctx context.Context, projectID, appID uuid.UUID, actor AppActor, limit int, cursor *int64) ([]domain.AppDeployment, string, bool, error) {
+func (r *Repository) ListAppDeployments(
+	ctx context.Context,
+	projectID, appID uuid.UUID,
+	actor AppActor,
+	limit int,
+	cursor *int64,
+) ([]domain.AppDeployment, string, bool, error) {
 	if limit < 1 || limit > 100 {
 		return nil, "", false, ErrInvalidAppDeployment
 	}
@@ -327,7 +401,11 @@ func (r *Repository) ListAppDeployments(ctx context.Context, projectID, appID uu
 	return items, next, canManage, nil
 }
 
-func (r *Repository) GetAppDeployment(ctx context.Context, projectID, appID, deploymentID uuid.UUID, actor AppActor) (domain.AppDeployment, error) {
+func (r *Repository) GetAppDeployment(
+	ctx context.Context,
+	projectID, appID, deploymentID uuid.UUID,
+	actor AppActor,
+) (domain.AppDeployment, error) {
 	if _, err := r.requireAppRead(ctx, projectID, actor); err != nil {
 		return domain.AppDeployment{}, err
 	}
@@ -341,7 +419,13 @@ func publicAppDeploymentByID(ctx context.Context, query interface {
 	return item, err
 }
 
-func (r *Repository) ListAppBuildLogs(ctx context.Context, projectID, appID, deploymentID uuid.UUID, actor AppActor, limit int, after int64) ([]domain.AppBuildLog, error) {
+func (r *Repository) ListAppBuildLogs(
+	ctx context.Context,
+	projectID, appID, deploymentID uuid.UUID,
+	actor AppActor,
+	limit int,
+	after int64,
+) ([]domain.AppBuildLog, error) {
 	if limit < 1 || limit > 1000 || after < 0 {
 		return nil, ErrInvalidAppDeployment
 	}
@@ -354,7 +438,15 @@ func (r *Repository) ListAppBuildLogs(ctx context.Context, projectID, appID, dep
 	if _, err := publicAppDeploymentByID(ctx, r.pool, projectID, appID, deploymentID); err != nil {
 		return nil, err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+appBuildLogProjection+` FROM app_build_logs WHERE project_id=$1 AND app_id=$2 AND deployment_id=$3 AND sequence>$4 ORDER BY sequence LIMIT $5`, projectID, appID, deploymentID, after, limit)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT `+appBuildLogProjection+` FROM app_build_logs WHERE project_id=$1 AND app_id=$2 AND deployment_id=$3 AND sequence>$4 ORDER BY sequence LIMIT $5`,
+		projectID,
+		appID,
+		deploymentID,
+		after,
+		limit,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -370,7 +462,11 @@ func (r *Repository) ListAppBuildLogs(ctx context.Context, projectID, appID, dep
 	return items, rows.Err()
 }
 
-func (r *Repository) SelectAppDeployment(ctx context.Context, projectID, appID, deploymentID uuid.UUID, actor AppActor) (domain.AppDeployment, error) {
+func (r *Repository) SelectAppDeployment(
+	ctx context.Context,
+	projectID, appID, deploymentID uuid.UUID,
+	actor AppActor,
+) (domain.AppDeployment, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.AppDeployment{}, err
@@ -387,7 +483,10 @@ func (r *Repository) SelectAppDeployment(ctx context.Context, projectID, appID, 
 	if err != nil {
 		return domain.AppDeployment{}, err
 	}
-	if item.BuildStatus != "succeeded" || item.Status != "ready" || item.ImageDigest == nil || item.ImageArchiveSHA256 == nil || item.ImageSizeBytes == nil || imagePath == nil {
+	if item.BuildStatus != "succeeded" || item.Status != "ready" || item.ImageDigest == nil ||
+		item.ImageArchiveSHA256 == nil ||
+		item.ImageSizeBytes == nil ||
+		imagePath == nil {
 		return domain.AppDeployment{}, ErrAppDeploymentNotReady
 	}
 	if app.DesiredDeploymentID == nil || *app.DesiredDeploymentID != deploymentID.String() {
@@ -416,7 +515,11 @@ func (r *Repository) SelectAppDeployment(ctx context.Context, projectID, appID, 
 	return item, nil
 }
 
-func (r *Repository) DeleteAppDeployment(ctx context.Context, projectID, appID, deploymentID uuid.UUID, actor AppActor) error {
+func (r *Repository) DeleteAppDeployment(
+	ctx context.Context,
+	projectID, appID, deploymentID uuid.UUID,
+	actor AppActor,
+) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -429,7 +532,15 @@ func (r *Repository) DeleteAppDeployment(ctx context.Context, projectID, appID, 
 	if err != nil {
 		return err
 	}
-	item, sourcePath, imagePath, _, _, _, reserved, err := appDeploymentByID(ctx, tx, projectID, appID, deploymentID, true, true)
+	item, sourcePath, imagePath, _, _, _, reserved, err := appDeploymentByID(
+		ctx,
+		tx,
+		projectID,
+		appID,
+		deploymentID,
+		true,
+		true,
+	)
 	if err != nil {
 		return err
 	}
@@ -439,7 +550,14 @@ func (r *Repository) DeleteAppDeployment(ctx context.Context, projectID, appID, 
 	if item.Status == "building" || item.BuildStatus == "running" {
 		return ErrAppDeploymentRunning
 	}
-	quotaUpdate, err := tx.Exec(ctx, `UPDATE project_apps SET artifact_used_bytes=artifact_used_bytes-$3,artifact_reserved_bytes=artifact_reserved_bytes-$4,updated_at=now() WHERE project_id=$1 AND id=$2 AND artifact_used_bytes >= $3 AND artifact_reserved_bytes >= $4`, projectID, appID, item.SourceSizeBytes+valueInt64(item.ImageSizeBytes), reserved)
+	quotaUpdate, err := tx.Exec(
+		ctx,
+		`UPDATE project_apps SET artifact_used_bytes=artifact_used_bytes-$3,artifact_reserved_bytes=artifact_reserved_bytes-$4,updated_at=now() WHERE project_id=$1 AND id=$2 AND artifact_used_bytes >= $3 AND artifact_reserved_bytes >= $4`,
+		projectID,
+		appID,
+		item.SourceSizeBytes+valueInt64(item.ImageSizeBytes),
+		reserved,
+	)
 	if err != nil {
 		return err
 	}
@@ -491,7 +609,15 @@ func (r *Repository) ClaimNextAppDeployment(ctx context.Context, workerID string
 	if err != nil {
 		return AppBuildJob{}, err
 	}
-	deployment, sourcePath, _, _, _, _, _, err := appDeploymentByID(ctx, tx, projectID, appID, deploymentID, false, true)
+	deployment, sourcePath, _, _, _, _, _, err := appDeploymentByID(
+		ctx,
+		tx,
+		projectID,
+		appID,
+		deploymentID,
+		false,
+		true,
+	)
 	if err != nil {
 		return AppBuildJob{}, err
 	}
@@ -542,12 +668,22 @@ func (r *Repository) RequeueStaleAppDeployments(ctx context.Context, maxAge time
 	rows.Close()
 	changed := int64(0)
 	for _, item := range items {
-		if _, err := appByID(ctx, tx, item.projectID, item.appID, true); errors.Is(err, ErrNotFound) {
+		_, err = appByID(ctx, tx, item.projectID, item.appID, true)
+		if errors.Is(err, ErrNotFound) {
 			continue
-		} else if err != nil {
+		}
+		if err != nil {
 			return 0, err
 		}
-		_, _, _, _, _, _, reserved, err := appDeploymentByID(ctx, tx, item.projectID, item.appID, item.deploymentID, true, true)
+		_, _, _, _, _, _, reserved, err := appDeploymentByID(
+			ctx,
+			tx,
+			item.projectID,
+			item.appID,
+			item.deploymentID,
+			true,
+			true,
+		)
 		if errors.Is(err, ErrNotFound) {
 			continue
 		}
@@ -571,7 +707,13 @@ func (r *Repository) RequeueStaleAppDeployments(ctx context.Context, maxAge time
 			continue
 		}
 		if reserved > 0 {
-			quotaUpdate, err := tx.Exec(ctx, `UPDATE project_apps SET artifact_reserved_bytes=artifact_reserved_bytes-$3,updated_at=now() WHERE project_id=$1 AND id=$2 AND artifact_reserved_bytes >= $3`, item.projectID, item.appID, reserved)
+			quotaUpdate, err := tx.Exec(
+				ctx,
+				`UPDATE project_apps SET artifact_reserved_bytes=artifact_reserved_bytes-$3,updated_at=now() WHERE project_id=$1 AND id=$2 AND artifact_reserved_bytes >= $3`,
+				item.projectID,
+				item.appID,
+				reserved,
+			)
 			if err != nil {
 				return 0, err
 			}
@@ -602,7 +744,11 @@ func (r *Repository) RequeueStaleAppDeployments(ctx context.Context, maxAge time
 // DeferAppDeploymentBuild releases the current lease without making a
 // terminal claim when the dedicated BuildKit daemon became unavailable after
 // the readiness check. The same immutable build input remains queued.
-func (r *Repository) DeferAppDeploymentBuild(ctx context.Context, projectID, appID, deploymentID uuid.UUID, workerID, diagnostic string) error {
+func (r *Repository) DeferAppDeploymentBuild(
+	ctx context.Context,
+	projectID, appID, deploymentID uuid.UUID,
+	workerID, diagnostic string,
+) error {
 	if !validFunctionWorkerID(workerID) {
 		return ErrInvalidAppDeployment
 	}
@@ -642,7 +788,13 @@ func (r *Repository) DeferAppDeploymentBuild(ctx context.Context, projectID, app
 		return ErrAppBuildNotOwned
 	}
 	if reserved > 0 {
-		quotaUpdate, err := tx.Exec(ctx, `UPDATE project_apps SET artifact_reserved_bytes=artifact_reserved_bytes-$3,updated_at=now() WHERE project_id=$1 AND id=$2 AND artifact_reserved_bytes >= $3`, projectID, appID, reserved)
+		quotaUpdate, err := tx.Exec(
+			ctx,
+			`UPDATE project_apps SET artifact_reserved_bytes=artifact_reserved_bytes-$3,updated_at=now() WHERE project_id=$1 AND id=$2 AND artifact_reserved_bytes >= $3`,
+			projectID,
+			appID,
+			reserved,
+		)
 		if err != nil {
 			return err
 		}
@@ -671,8 +823,17 @@ func (r *Repository) DeferAppDeploymentBuild(ctx context.Context, projectID, app
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) ReserveAppImagePublish(ctx context.Context, projectID, appID, deploymentID uuid.UUID, workerID string, imageSize int64, cleanup ArtifactCleanupInput) error {
-	if !validFunctionWorkerID(workerID) || imageSize <= 0 || cleanup.ProjectID != projectID || cleanup.StoreKind != ArtifactCleanupAppImages || cleanup.Operation != ArtifactCleanupRelative || !validAppArtifactPath(cleanup.RelativePath) {
+func (r *Repository) ReserveAppImagePublish(
+	ctx context.Context,
+	projectID, appID, deploymentID uuid.UUID,
+	workerID string,
+	imageSize int64,
+	cleanup ArtifactCleanupInput,
+) error {
+	if !validFunctionWorkerID(workerID) || imageSize <= 0 || cleanup.ProjectID != projectID ||
+		cleanup.StoreKind != ArtifactCleanupAppImages ||
+		cleanup.Operation != ArtifactCleanupRelative ||
+		!validAppArtifactPath(cleanup.RelativePath) {
 		return ErrInvalidAppDeployment
 	}
 	tx, err := r.pool.Begin(ctx)
@@ -725,8 +886,21 @@ func (r *Repository) ReserveAppImagePublish(ctx context.Context, projectID, appI
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) CompleteAppDeploymentBuildWithCleanup(ctx context.Context, projectID, appID, deploymentID uuid.UUID, workerID, imageDigest, imagePath, archiveChecksum string, imageSize int64, cleanup ArtifactCleanupInput) (domain.AppDeployment, error) {
-	if !validFunctionWorkerID(workerID) || !buildkitmetadata.ValidDigest(imageDigest) || !validAppSHA256(archiveChecksum) || !validAppArtifactPath(imagePath) || imageSize <= 0 || cleanup.ProjectID != projectID || cleanup.StoreKind != ArtifactCleanupAppImages || cleanup.Operation != ArtifactCleanupRelative || cleanup.RelativePath != imagePath {
+func (r *Repository) CompleteAppDeploymentBuildWithCleanup(
+	ctx context.Context,
+	projectID, appID, deploymentID uuid.UUID,
+	workerID, imageDigest, imagePath, archiveChecksum string,
+	imageSize int64,
+	cleanup ArtifactCleanupInput,
+) (domain.AppDeployment, error) {
+	if !validFunctionWorkerID(workerID) || !buildkitmetadata.ValidDigest(imageDigest) ||
+		!validAppSHA256(archiveChecksum) ||
+		!validAppArtifactPath(imagePath) ||
+		imageSize <= 0 ||
+		cleanup.ProjectID != projectID ||
+		cleanup.StoreKind != ArtifactCleanupAppImages ||
+		cleanup.Operation != ArtifactCleanupRelative ||
+		cleanup.RelativePath != imagePath {
 		return domain.AppDeployment{}, ErrInvalidAppDeployment
 	}
 	tx, err := r.pool.Begin(ctx)
@@ -738,7 +912,15 @@ func (r *Repository) CompleteAppDeploymentBuildWithCleanup(ctx context.Context, 
 	if err != nil {
 		return domain.AppDeployment{}, err
 	}
-	item, _, _, claimedBy, selectRequested, selectionBaseDeploymentID, reserved, err := appDeploymentByID(ctx, tx, projectID, appID, deploymentID, true, true)
+	item, _, _, claimedBy, selectRequested, selectionBaseDeploymentID, reserved, err := appDeploymentByID(
+		ctx,
+		tx,
+		projectID,
+		appID,
+		deploymentID,
+		true,
+		true,
+	)
 	if err != nil {
 		return domain.AppDeployment{}, err
 	}
@@ -771,7 +953,8 @@ func (r *Repository) CompleteAppDeploymentBuildWithCleanup(ctx context.Context, 
 		return domain.AppDeployment{}, err
 	}
 	autoSelected := false
-	if selectRequested && sameOptionalID(app.DesiredDeploymentID, selectionBaseDeploymentID) && app.DesiredGeneration < math.MaxInt64 {
+	if selectRequested && sameOptionalID(app.DesiredDeploymentID, selectionBaseDeploymentID) &&
+		app.DesiredGeneration < math.MaxInt64 {
 		if _, err := tx.Exec(ctx, `UPDATE project_apps SET desired_deployment_id=$3,desired_generation=desired_generation+1,runtime_status='pending',runtime_error=NULL,updated_at=now() WHERE project_id=$1 AND id=$2 AND desired_generation=$4`, projectID, appID, deploymentID, app.DesiredGeneration); err != nil {
 			return domain.AppDeployment{}, err
 		}
@@ -808,7 +991,11 @@ func sameOptionalID(left, right *string) bool {
 	return *left == *right
 }
 
-func (r *Repository) FailAppDeploymentBuild(ctx context.Context, projectID, appID, deploymentID uuid.UUID, workerID, message string) (domain.AppDeployment, error) {
+func (r *Repository) FailAppDeploymentBuild(
+	ctx context.Context,
+	projectID, appID, deploymentID uuid.UUID,
+	workerID, message string,
+) (domain.AppDeployment, error) {
 	if !validFunctionWorkerID(workerID) {
 		return domain.AppDeployment{}, ErrInvalidAppDeployment
 	}
@@ -835,7 +1022,13 @@ func (r *Repository) FailAppDeploymentBuild(ctx context.Context, projectID, appI
 		return domain.AppDeployment{}, ErrAppBuildNotOwned
 	}
 	if reserved > 0 {
-		quotaUpdate, err := tx.Exec(ctx, `UPDATE project_apps SET artifact_reserved_bytes=artifact_reserved_bytes-$3,updated_at=now() WHERE project_id=$1 AND id=$2 AND artifact_reserved_bytes >= $3`, projectID, appID, reserved)
+		quotaUpdate, err := tx.Exec(
+			ctx,
+			`UPDATE project_apps SET artifact_reserved_bytes=artifact_reserved_bytes-$3,updated_at=now() WHERE project_id=$1 AND id=$2 AND artifact_reserved_bytes >= $3`,
+			projectID,
+			appID,
+			reserved,
+		)
 		if err != nil {
 			return domain.AppDeployment{}, err
 		}
@@ -874,7 +1067,13 @@ func (r *Repository) FailAppDeploymentBuild(ctx context.Context, projectID, appI
 	return item, nil
 }
 
-func (r *Repository) AppendAppBuildLog(ctx context.Context, projectID, appID, deploymentID uuid.UUID, workerID string, id uuid.UUID, level, message string) (domain.AppBuildLog, error) {
+func (r *Repository) AppendAppBuildLog(
+	ctx context.Context,
+	projectID, appID, deploymentID uuid.UUID,
+	workerID string,
+	id uuid.UUID,
+	level, message string,
+) (domain.AppBuildLog, error) {
 	if !validFunctionWorkerID(workerID) || id == uuid.Nil || id.Version() != uuid.Version(7) {
 		return domain.AppBuildLog{}, ErrInvalidAppDeployment
 	}
@@ -912,7 +1111,12 @@ func (r *Repository) AppendAppBuildLog(ctx context.Context, projectID, appID, de
 	return item, nil
 }
 
-func appendAppBuildLogTx(ctx context.Context, tx pgx.Tx, projectID, appID, deploymentID uuid.UUID, level, message string) (domain.AppBuildLog, error) {
+func appendAppBuildLogTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID, appID, deploymentID uuid.UUID,
+	level, message string,
+) (domain.AppBuildLog, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return domain.AppBuildLog{}, err
@@ -920,7 +1124,12 @@ func appendAppBuildLogTx(ctx context.Context, tx pgx.Tx, projectID, appID, deplo
 	return appendAppBuildLogTxWithID(ctx, tx, projectID, appID, deploymentID, id, level, message)
 }
 
-func appendAppBuildLogTxWithID(ctx context.Context, tx pgx.Tx, projectID, appID, deploymentID, id uuid.UUID, level, message string) (domain.AppBuildLog, error) {
+func appendAppBuildLogTxWithID(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID, appID, deploymentID, id uuid.UUID,
+	level, message string,
+) (domain.AppBuildLog, error) {
 	level = strings.ToLower(strings.TrimSpace(level))
 	if level != "info" && level != "warn" && level != "error" {
 		return domain.AppBuildLog{}, ErrInvalidAppDeployment
@@ -934,7 +1143,8 @@ func appendAppBuildLogTxWithID(ctx context.Context, tx pgx.Tx, projectID, appID,
 		return domain.AppBuildLog{}, err
 	}
 	var item domain.AppBuildLog
-	err := tx.QueryRow(ctx, `INSERT INTO app_build_logs (id,deployment_id,app_id,project_id,sequence,level,message) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING `+appBuildLogProjection, id, deploymentID, appID, projectID, sequence, level, message).Scan(&item.ID, &item.DeploymentID, &item.AppID, &item.ProjectID, &item.Sequence, &item.Level, &item.Message, &item.CreatedAt)
+	err := tx.QueryRow(ctx, `INSERT INTO app_build_logs (id,deployment_id,app_id,project_id,sequence,level,message) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING `+appBuildLogProjection, id, deploymentID, appID, projectID, sequence, level, message).
+		Scan(&item.ID, &item.DeploymentID, &item.AppID, &item.ProjectID, &item.Sequence, &item.Level, &item.Message, &item.CreatedAt)
 	if err != nil {
 		return domain.AppBuildLog{}, err
 	}
@@ -946,7 +1156,15 @@ func appendAppBuildLogTxWithID(ctx context.Context, tx pgx.Tx, projectID, appID,
 	return item, nil
 }
 
-func (r *Repository) auditAppDeploymentTx(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, actor *AppActor, action string, deploymentID uuid.UUID, metadata map[string]any) error {
+func (r *Repository) auditAppDeploymentTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	actor *AppActor,
+	action string,
+	deploymentID uuid.UUID,
+	metadata map[string]any,
+) error {
 	organizationID, err := projectOrganizationIDValue(ctx, tx, projectID)
 	if err != nil {
 		return err
@@ -976,7 +1194,12 @@ func appDeploymentAuditMetadata(item domain.AppDeployment) map[string]any {
 }
 
 func queueAppDeploymentArtifactsForDeletionTx(ctx context.Context, tx pgx.Tx, projectID, appID uuid.UUID) error {
-	rows, err := tx.Query(ctx, `SELECT source_path,image_path FROM app_deployments WHERE project_id=$1 AND app_id=$2`, projectID, appID)
+	rows, err := tx.Query(
+		ctx,
+		`SELECT source_path,image_path FROM app_deployments WHERE project_id=$1 AND app_id=$2`,
+		projectID,
+		appID,
+	)
 	if err != nil {
 		return err
 	}

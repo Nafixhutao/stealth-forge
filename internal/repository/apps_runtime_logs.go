@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 )
 
@@ -9,7 +10,11 @@ import (
 // successful runtime convergence. Callers cannot select a container ID, and
 // the project/App authorization check happens before the private mapping is
 // read. The extra row detects overflow rather than silently hiding history.
-func (r *Repository) ListAppRuntimeLogSources(ctx context.Context, projectID, appID uuid.UUID, actor AppActor) ([]string, error) {
+func (r *Repository) ListAppRuntimeLogSources(
+	ctx context.Context,
+	projectID, appID uuid.UUID,
+	actor AppActor,
+) ([]string, error) {
 	if r == nil || r.pool == nil || projectID == uuid.Nil || appID == uuid.Nil {
 		return nil, ErrNotFound
 	}

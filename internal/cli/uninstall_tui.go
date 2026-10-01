@@ -51,7 +51,7 @@ func (a *App) runUninstallTUI(ctx context.Context, plan uninstallPlan, options u
 	if options.modeSet && options.yes && !options.dryRun {
 		printUninstallPlan(a.out, plan)
 	}
-	model := newUninstallModel(a, uiCtx, cancel, plan, options)
+	model := newUninstallModel(uiCtx, a, cancel, plan, options)
 	program := tea.NewProgram(model, tea.WithInput(a.in), tea.WithOutput(a.out))
 	finalModel, err := program.Run()
 	if err != nil {
@@ -77,7 +77,13 @@ func (a *App) runUninstallTUI(ctx context.Context, plan uninstallPlan, options u
 	}
 }
 
-func newUninstallModel(app *App, ctx context.Context, cancel context.CancelFunc, plan uninstallPlan, options uninstallOptions) uninstallModel {
+func newUninstallModel(
+	ctx context.Context,
+	app *App,
+	cancel context.CancelFunc,
+	plan uninstallPlan,
+	options uninstallOptions,
+) uninstallModel {
 	confirm := textinput.New()
 	confirm.Prompt = "> "
 	confirm.CharLimit = len("stealth")
@@ -300,10 +306,10 @@ func renderUninstallMenu(m uninstallModel) string {
 		name   string
 		detail string
 	}{
-		{"Remove services only", "Preserve database, storage, configuration, and secrets"},
-		{"Remove services + local configuration", "Preserve data; keep config.env for recovery"},
-		{"Purge everything", "Permanently delete project-owned data and secrets"},
-		{"Cancel", "Leave the Stealth installation unchanged"},
+		{name: "Remove services only", detail: "Preserve database, storage, configuration, and secrets"},
+		{name: "Remove services + local configuration", detail: "Preserve data; keep config.env for recovery"},
+		{name: "Purge everything", detail: "Permanently delete project-owned data and secrets"},
+		{name: "Cancel", detail: "Leave the Stealth installation unchanged"},
 	}
 	for index, option := range options {
 		marker := "  "

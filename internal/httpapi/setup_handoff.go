@@ -33,7 +33,12 @@ func (s *Server) completeSetupHandoff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if status.SetupRequired {
-		writeError(w, http.StatusConflict, "handoff_not_ready", "finish first-owner setup before opening the production dashboard")
+		writeError(
+			w,
+			http.StatusConflict,
+			"handoff_not_ready",
+			"finish first-owner setup before opening the production dashboard",
+		)
 		return
 	}
 	sessionToken, err := s.setupHandoff.Consume(r.Context(), token)
@@ -56,7 +61,8 @@ func setupHandoffToken(r *http.Request) (string, bool) {
 		}
 		return strings.TrimSpace(request.Token), true
 	}
-	if strings.HasPrefix(contentType, "application/x-www-form-urlencoded") || strings.HasPrefix(contentType, "multipart/form-data") {
+	if strings.HasPrefix(contentType, "application/x-www-form-urlencoded") ||
+		strings.HasPrefix(contentType, "multipart/form-data") {
 		if err := r.ParseForm(); err != nil {
 			return "", false
 		}

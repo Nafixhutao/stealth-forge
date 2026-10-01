@@ -78,7 +78,12 @@ func (r ExecCommandRunner) Run(ctx context.Context, args []string, stdin io.Read
 	command.Stdout = stdout
 	command.Stderr = stderr
 	err := command.Run()
-	result := CommandResult{Stdout: stdout.Bytes(), Stderr: stderr.Bytes(), StdoutTruncated: stdout.truncated, StderrTruncated: stderr.truncated}
+	result := CommandResult{
+		Stdout:          stdout.Bytes(),
+		Stderr:          stderr.Bytes(),
+		StdoutTruncated: stdout.truncated,
+		StderrTruncated: stderr.truncated,
+	}
 	if err == nil {
 		return result, nil
 	}
@@ -104,7 +109,12 @@ func (m *Moby) runStopAction(parent context.Context, args []string, grace int) (
 	return m.runActionWithTimeout(parent, timeout, args, nil)
 }
 
-func (m *Moby) runActionWithTimeout(parent context.Context, timeout time.Duration, args []string, stdin io.Reader) (CommandResult, error) {
+func (m *Moby) runActionWithTimeout(
+	parent context.Context,
+	timeout time.Duration,
+	args []string,
+	stdin io.Reader,
+) (CommandResult, error) {
 	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
 	return m.run(ctx, args, stdin)

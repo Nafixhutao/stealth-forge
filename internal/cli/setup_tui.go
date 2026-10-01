@@ -86,11 +86,16 @@ type setupModel struct {
 	width         int
 }
 
-func (a *App) runSetupTUI(ctx context.Context, layout InstallLayout, values map[string]string, apiURL, localURL string) int {
+func (a *App) runSetupTUI(
+	ctx context.Context,
+	layout InstallLayout,
+	values map[string]string,
+	apiURL, localURL string,
+) int {
 	initTerminalStyles()
 	uiCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	model := newSetupModel(a, uiCtx, cancel, layout, values, apiURL, localURL, &setupTunnelState{})
+	model := newSetupModel(uiCtx, a, cancel, layout, values, apiURL, localURL, &setupTunnelState{})
 	program := tea.NewProgram(model, tea.WithInput(a.in), tea.WithOutput(a.out))
 	finalModel, err := program.Run()
 	if err != nil {
@@ -101,7 +106,10 @@ func (a *App) runSetupTUI(ctx context.Context, layout InstallLayout, values map[
 			cleanupCancel()
 			if cleanupErr != nil {
 				fmt.Fprintf(a.errOut, "temporary onboarding tunnel cleanup failed: %v\n", cleanupErr)
-				fmt.Fprintln(a.errOut, "The Stealth installation and its data were left intact. Remove only the temporary onboarding container before retrying.")
+				fmt.Fprintln(
+					a.errOut,
+					"The Stealth installation and its data were left intact. Remove only the temporary onboarding container before retrying.",
+				)
 			}
 		}
 		return 1
@@ -125,13 +133,17 @@ func (a *App) runSetupTUI(ctx context.Context, layout InstallLayout, values map[
 		tunnelStarted = true
 	}
 	if tunnelStarted && containerName != "" && (!final.tunnelClosed || final.cleanupErr != nil) {
-		if cleanupErr := a.closeQuickTunnel(cleanupContext, layout, containerName); cleanupErr != nil && final.cleanupErr == nil {
+		if cleanupErr := a.closeQuickTunnel(cleanupContext, layout, containerName); cleanupErr != nil &&
+			final.cleanupErr == nil {
 			final.cleanupErr = cleanupErr
 		}
 	}
 	if final.cleanupErr != nil {
 		fmt.Fprintf(a.errOut, "temporary onboarding tunnel cleanup failed: %v\n", final.cleanupErr)
-		fmt.Fprintln(a.errOut, "The Stealth installation and its data were left intact. Remove the temporary container before retrying.")
+		fmt.Fprintln(
+			a.errOut,
+			"The Stealth installation and its data were left intact. Remove the temporary container before retrying.",
+		)
 		return 1
 	}
 	if final.phase == setupComplete {
@@ -147,7 +159,15 @@ func (a *App) runSetupTUI(ctx context.Context, layout InstallLayout, values map[
 	return 1
 }
 
-func newSetupModel(app *App, ctx context.Context, cancel context.CancelFunc, layout InstallLayout, values map[string]string, apiURL, localURL string, tunnelState *setupTunnelState) setupModel {
+func newSetupModel(
+	ctx context.Context,
+	app *App,
+	cancel context.CancelFunc,
+	layout InstallLayout,
+	values map[string]string,
+	apiURL, localURL string,
+	tunnelState *setupTunnelState,
+) setupModel {
 	model := setupModel{
 		app:           app,
 		ctx:           ctx,
@@ -173,7 +193,16 @@ func (m setupModel) Init() tea.Cmd {
 
 func (m setupModel) prepareCmd() tea.Cmd {
 	return func() tea.Msg {
-		return m.app.prepareSetup(m.ctx, m.layout, m.values, m.apiURL, m.localURL, m.containerName, m.tunnelURL, m.tunnelState)
+		return m.app.prepareSetup(
+			m.ctx,
+			m.layout,
+			m.values,
+			m.apiURL,
+			m.localURL,
+			m.containerName,
+			m.tunnelURL,
+			m.tunnelState,
+		)
 	}
 }
 
@@ -327,7 +356,9 @@ func (m setupModel) View() string {
 		if m.pollError != nil {
 			builder.WriteString("\n" + warningStyle.Render("! Waiting for the API; retrying automatically") + "\n")
 		}
-		builder.WriteString("\nEnter the setup code on the page, then authorize the first Instance Owner in GitHub's browser flow.\n")
+		builder.WriteString(
+			"\nEnter the setup code on the page, then authorize the first Instance Owner in GitHub's browser flow.\n",
+		)
 		builder.WriteString(m.spinner.View() + " Waiting for GitHub authorization…\n\n")
 		builder.WriteString(renderSubtitle("Ctrl+C cancels safely; data and configuration are preserved."))
 	case setupExpired:

@@ -19,7 +19,11 @@ type AppRollbackResult struct {
 // RollbackAppDeployment atomically selects an older immutable release and
 // restores the WorkloadSpec captured when that release was built. Environment
 // values, App metadata, and worker-owned observed state are left untouched.
-func (r *Repository) RollbackAppDeployment(ctx context.Context, projectID, appID, deploymentID uuid.UUID, actor AppActor) (AppRollbackResult, error) {
+func (r *Repository) RollbackAppDeployment(
+	ctx context.Context,
+	projectID, appID, deploymentID uuid.UUID,
+	actor AppActor,
+) (AppRollbackResult, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return AppRollbackResult{}, err
@@ -42,12 +46,14 @@ func (r *Repository) RollbackAppDeployment(ctx context.Context, projectID, appID
 	}
 
 	var currentVersion int64
-	if err := tx.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 		SELECT version FROM app_deployments
 		WHERE project_id=$1 AND app_id=$2 AND id=$3
-		FOR UPDATE`, projectID, appID, currentDeploymentID).Scan(&currentVersion); errors.Is(err, pgx.ErrNoRows) {
+		FOR UPDATE`, projectID, appID, currentDeploymentID).Scan(&currentVersion)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return AppRollbackResult{}, ErrAppRollbackNotAvailable
-	} else if err != nil {
+	}
+	if err != nil {
 		return AppRollbackResult{}, err
 	}
 	if currentDeploymentID == deploymentID {
@@ -71,7 +77,10 @@ func (r *Repository) RollbackAppDeployment(ctx context.Context, projectID, appID
 		return AppRollbackResult{}, ErrAppRollbackNotAvailable
 	}
 
-	canonicalSpec, workloadDigest, err := canonicalAppRollbackWorkload(target.WorkloadSnapshot, target.WorkloadSpecSHA256)
+	canonicalSpec, workloadDigest, err := canonicalAppRollbackWorkload(
+		target.WorkloadSnapshot,
+		target.WorkloadSpecSHA256,
+	)
 	if err != nil {
 		return AppRollbackResult{}, ErrAppRollbackNotAvailable
 	}
@@ -123,7 +132,8 @@ func (r *Repository) RollbackAppDeployment(ctx context.Context, projectID, appID
 }
 
 func validAppImageDigest(value string) bool {
-	return len(value) == len("sha256:")+64 && value[:len("sha256:")] == "sha256:" && validAppSHA256(value[len("sha256:"):])
+	return len(value) == len("sha256:")+64 && value[:len("sha256:")] == "sha256:" &&
+		validAppSHA256(value[len("sha256:"):])
 }
 
 func appRollbackArtifactReady(target domain.AppDeployment, imagePath *string, projectID, appID uuid.UUID) bool {

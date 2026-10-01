@@ -3,16 +3,21 @@ package appruntime
 import (
 	"context"
 	"errors"
-	"github.com/Stealth-deplover/stealth/internal/repository"
-	"github.com/google/uuid"
 	"strconv"
 	"strings"
+
+	"github.com/Stealth-deplover/stealth/internal/repository"
+	"github.com/google/uuid"
 )
 
 // RenameApp rotates the container's Docker DNS identity before a restarted
 // process starts. Docker updates the endpoint's DNS names with the rename, so
 // an old Traefik snapshot cannot resolve its old target to the new process.
-func (m *Moby) RenameApp(ctx context.Context, job repository.AppRuntimeJob, containerID, targetName string) (Container, error) {
+func (m *Moby) RenameApp(
+	ctx context.Context,
+	job repository.AppRuntimeJob,
+	containerID, targetName string,
+) (Container, error) {
 	appID, appErr := uuid.Parse(job.App.ID)
 	projectID, projectErr := uuid.Parse(job.App.ProjectID)
 	if appErr != nil || projectErr != nil || appID == uuid.Nil || projectID == uuid.Nil ||
@@ -27,7 +32,8 @@ func (m *Moby) RenameApp(ctx context.Context, job repository.AppRuntimeJob, cont
 	if !found {
 		return Container{}, ErrDockerObjectNotFound
 	}
-	if container.ID != containerID || !managedForApp(container, appID, projectID) || !repository.ValidAppRuntimeContainerName(appID, targetName) {
+	if container.ID != containerID || !managedForApp(container, appID, projectID) ||
+		!repository.ValidAppRuntimeContainerName(appID, targetName) {
 		return Container{}, ErrRuntimeOwnershipConflict
 	}
 	if strings.TrimPrefix(container.Name, "/") != targetName {
@@ -105,7 +111,8 @@ func (m *Moby) RemoveCleanupTarget(ctx context.Context, job repository.AppRuntim
 	}
 	storedName := strings.TrimPrefix(job.ContainerName, "/")
 	actualName := strings.TrimPrefix(container.Name, "/")
-	if actualName != storedName && (!repository.ValidAppRuntimeContainerName(job.AppID, actualName) || !repository.ValidAppRuntimeContainerName(job.AppID, storedName)) {
+	if actualName != storedName &&
+		(!repository.ValidAppRuntimeContainerName(job.AppID, actualName) || !repository.ValidAppRuntimeContainerName(job.AppID, storedName)) {
 		return ErrRuntimeOwnershipConflict
 	}
 	if job.ContainerID == nil && !validRuntimeNameForApp(job.AppID, storedName) {
@@ -126,7 +133,11 @@ func (m *Moby) stopAndRemove(ctx context.Context, containerID string, grace int)
 		return ErrRuntimeOwnershipConflict
 	}
 	if container.State.Running {
-		_, stopErr := m.runStopAction(ctx, []string{"container", "stop", "--time", strconv.Itoa(grace), container.ID}, grace)
+		_, stopErr := m.runStopAction(
+			ctx,
+			[]string{"container", "stop", "--time", strconv.Itoa(grace), container.ID},
+			grace,
+		)
 		stopped, stillFound, inspectErr := m.inspectContainer(ctx, container.ID)
 		if inspectErr != nil {
 			return inspectErr

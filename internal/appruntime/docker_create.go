@@ -3,14 +3,20 @@ package appruntime
 import (
 	"context"
 	"errors"
+	"strconv"
+
 	"github.com/Stealth-deplover/stealth/internal/repository"
 	"github.com/Stealth-deplover/stealth/internal/workloadspec"
 	"github.com/google/uuid"
-	"strconv"
 )
 
-func (m *Moby) CreateApp(ctx context.Context, job repository.AppRuntimeJob, image Image, environment []RuntimeEnvironmentVariable) (Container, error) {
-	environmentFile := ""
+func (m *Moby) CreateApp(
+	ctx context.Context,
+	job repository.AppRuntimeJob,
+	image Image,
+	environment []RuntimeEnvironmentVariable,
+) (Container, error) {
+	var environmentFile string
 	var cleanupEnvironment func() error
 	if len(environment) > 0 {
 		var err error
@@ -51,20 +57,32 @@ func (m *Moby) CreateApp(ctx context.Context, job repository.AppRuntimeJob, imag
 	return container, nil
 }
 
-func ContainerCreateArgs(job repository.AppRuntimeJob, imageRef, networkName string, profile RuntimeSecurityProfile) ([]string, error) {
+func ContainerCreateArgs(
+	job repository.AppRuntimeJob,
+	imageRef, networkName string,
+	profile RuntimeSecurityProfile,
+) ([]string, error) {
 	return containerCreateArgsWithEnvironmentFile(job, imageRef, networkName, profile, "")
 }
 
-func containerCreateArgsWithEnvironmentFile(job repository.AppRuntimeJob, imageRef, networkName string, profile RuntimeSecurityProfile, environmentFile string) ([]string, error) {
+func containerCreateArgsWithEnvironmentFile(
+	job repository.AppRuntimeJob,
+	imageRef, networkName string,
+	profile RuntimeSecurityProfile,
+	environmentFile string,
+) ([]string, error) {
 	appID, err := uuid.Parse(job.App.ID)
 	if err != nil || appID == uuid.Nil {
 		return nil, ErrContainerCreate
 	}
 	projectID, err := uuid.Parse(job.App.ProjectID)
-	if err != nil || projectID == uuid.Nil || job.App.DesiredDeploymentID == nil || job.App.WorkloadSpecSHA256 == "" || !validDockerName(networkName) || !validImageTag(imageRef) {
+	if err != nil || projectID == uuid.Nil || job.App.DesiredDeploymentID == nil || job.App.WorkloadSpecSHA256 == "" ||
+		!validDockerName(networkName) ||
+		!validImageTag(imageRef) {
 		return nil, ErrContainerCreate
 	}
-	if job.RouteIdentity == uuid.Nil || job.ContainerName != repository.AppRuntimeContainerNameForIncarnation(appID, job.RouteIdentity) {
+	if job.RouteIdentity == uuid.Nil ||
+		job.ContainerName != repository.AppRuntimeContainerNameForIncarnation(appID, job.RouteIdentity) {
 		return nil, ErrContainerCreate
 	}
 	if profile.Runtime != "" && !validDockerName(profile.Runtime) {

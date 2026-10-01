@@ -76,7 +76,12 @@ type ArchiveStats struct {
 // Extract accepts zip, tar, tar.gz and tgz source names. Archive entries are
 // always created below destination; absolute paths, dot segments, symlinks,
 // hard links and special files are rejected before any user file is written.
-func Extract(ctx context.Context, source io.Reader, sourceName, destination string, limits ArchiveLimits) (ArchiveStats, error) {
+func Extract(
+	ctx context.Context,
+	source io.Reader,
+	sourceName, destination string,
+	limits ArchiveLimits,
+) (ArchiveStats, error) {
 	return extractArchive(ctx, source, sourceName, destination, limits, false)
 }
 
@@ -84,11 +89,22 @@ func Extract(ctx context.Context, source io.Reader, sourceName, destination stri
 // permits only lexically in-workspace relative symlinks (package managers
 // commonly create these), while still rejecting absolute targets, dot-segment
 // escapes, hard links, and special files. Untrusted uploads must use Extract.
-func ExtractTrusted(ctx context.Context, source io.Reader, sourceName, destination string, limits ArchiveLimits) (ArchiveStats, error) {
+func ExtractTrusted(
+	ctx context.Context,
+	source io.Reader,
+	sourceName, destination string,
+	limits ArchiveLimits,
+) (ArchiveStats, error) {
 	return extractArchive(ctx, source, sourceName, destination, limits, true)
 }
 
-func extractArchive(ctx context.Context, source io.Reader, sourceName, destination string, limits ArchiveLimits, allowSymlinks bool) (ArchiveStats, error) {
+func extractArchive(
+	ctx context.Context,
+	source io.Reader,
+	sourceName, destination string,
+	limits ArchiveLimits,
+	allowSymlinks bool,
+) (ArchiveStats, error) {
 	limits = limits.withDefaults()
 	destination, root, err := prepareArchiveRoot(destination)
 	if err != nil {
@@ -161,7 +177,14 @@ func gzipReader(source io.Reader) (io.Reader, func() error, error) {
 	return reader, reader.Close, nil
 }
 
-func extractZip(ctx context.Context, compressed []byte, destination string, root *os.Root, limits ArchiveLimits, allowSymlinks bool) (ArchiveStats, error) {
+func extractZip(
+	ctx context.Context,
+	compressed []byte,
+	destination string,
+	root *os.Root,
+	limits ArchiveLimits,
+	allowSymlinks bool,
+) (ArchiveStats, error) {
 	archive, err := zip.NewReader(bytes.NewReader(compressed), int64(len(compressed)))
 	if err != nil {
 		return ArchiveStats{}, fmt.Errorf("open zip source archive: %w", err)
@@ -241,7 +264,15 @@ func extractZip(ctx context.Context, compressed []byte, destination string, root
 		if err != nil {
 			return ArchiveStats{}, fmt.Errorf("open zip entry: %w", err)
 		}
-		written, writeErr := writeEntry(ctx, root, reader, destination, relative, limits.MaxEntry, limits.MaxBytes-stats.Bytes)
+		written, writeErr := writeEntry(
+			ctx,
+			root,
+			reader,
+			destination,
+			relative,
+			limits.MaxEntry,
+			limits.MaxBytes-stats.Bytes,
+		)
 		closeErr := reader.Close()
 		if writeErr != nil {
 			return ArchiveStats{}, writeErr
@@ -255,7 +286,14 @@ func extractZip(ctx context.Context, compressed []byte, destination string, root
 	return stats, nil
 }
 
-func extractTar(ctx context.Context, source io.Reader, destination string, root *os.Root, limits ArchiveLimits, allowSymlinks bool) (ArchiveStats, error) {
+func extractTar(
+	ctx context.Context,
+	source io.Reader,
+	destination string,
+	root *os.Root,
+	limits ArchiveLimits,
+	allowSymlinks bool,
+) (ArchiveStats, error) {
 	reader := tar.NewReader(source)
 	stats := ArchiveStats{}
 	seen := map[string]struct{}{}
@@ -272,7 +310,9 @@ func extractTar(ctx context.Context, source io.Reader, destination string, root 
 		if err != nil {
 			return ArchiveStats{}, fmt.Errorf("read tar source archive: %w", err)
 		}
-		if header.Typeflag == tar.TypeXHeader || header.Typeflag == tar.TypeXGlobalHeader || header.Typeflag == tar.TypeGNULongName || header.Typeflag == tar.TypeGNULongLink {
+		if header.Typeflag == tar.TypeXHeader || header.Typeflag == tar.TypeXGlobalHeader ||
+			header.Typeflag == tar.TypeGNULongName ||
+			header.Typeflag == tar.TypeGNULongLink {
 			// archive/tar consumes PAX/GNU metadata while iterating. These
 			// records do not represent a filesystem object.
 			continue
@@ -311,10 +351,19 @@ func extractTar(ctx context.Context, source io.Reader, destination string, root 
 			}
 			stats.Directories++
 		case tar.TypeReg, tar.TypeRegA:
-			if stats.Files >= limits.MaxFiles || header.Size < 0 || header.Size > limits.MaxEntry || header.Size > limits.MaxBytes-stats.Bytes {
+			if stats.Files >= limits.MaxFiles || header.Size < 0 || header.Size > limits.MaxEntry ||
+				header.Size > limits.MaxBytes-stats.Bytes {
 				return ArchiveStats{}, ErrArchiveTooLarge
 			}
-			written, writeErr := writeEntry(ctx, root, reader, destination, relative, limits.MaxEntry, limits.MaxBytes-stats.Bytes)
+			written, writeErr := writeEntry(
+				ctx,
+				root,
+				reader,
+				destination,
+				relative,
+				limits.MaxEntry,
+				limits.MaxBytes-stats.Bytes,
+			)
 			if writeErr != nil {
 				return ArchiveStats{}, writeErr
 			}
@@ -395,7 +444,9 @@ func safeArchiveEntryPath(name string) (string, bool, error) {
 	if name == "." || name == "" {
 		return "", true, nil
 	}
-	if name == "" || strings.ContainsRune(name, '\x00') || strings.Contains(name, "\\") || strings.HasPrefix(name, "/") || hasWindowsDrivePrefix(name) {
+	if name == "" || strings.ContainsRune(name, '\x00') || strings.Contains(name, "\\") ||
+		strings.HasPrefix(name, "/") ||
+		hasWindowsDrivePrefix(name) {
 		return "", false, fmt.Errorf("%w: %q", ErrArchiveTraversal, name)
 	}
 	isDirectory := strings.HasSuffix(name, "/")
@@ -421,7 +472,8 @@ func safeArchiveEntryPath(name string) (string, bool, error) {
 }
 
 func hasWindowsDrivePrefix(value string) bool {
-	return len(value) >= 2 && ((value[0] >= 'A' && value[0] <= 'Z') || (value[0] >= 'a' && value[0] <= 'z')) && value[1] == ':'
+	return len(value) >= 2 && ((value[0] >= 'A' && value[0] <= 'Z') || (value[0] >= 'a' && value[0] <= 'z')) &&
+		value[1] == ':'
 }
 
 func makeDirectory(root *os.Root, destination, relative string) error {
@@ -452,7 +504,13 @@ func makeDirectory(root *os.Root, destination, relative string) error {
 	return nil
 }
 
-func writeEntry(ctx context.Context, root *os.Root, source io.Reader, destination, relative string, maxEntry, maxRemaining int64) (int64, error) {
+func writeEntry(
+	ctx context.Context,
+	root *os.Root,
+	source io.Reader,
+	destination, relative string,
+	maxEntry, maxRemaining int64,
+) (int64, error) {
 	if _, err := safeDestination(destination, relative); err != nil {
 		return 0, err
 	}
@@ -460,12 +518,14 @@ func writeEntry(ctx context.Context, root *os.Root, source io.Reader, destinatio
 		return 0, err
 	}
 	nativeRelative := filepath.FromSlash(relative)
-	if existing, err := root.Lstat(nativeRelative); err == nil {
+	existing, err := root.Lstat(nativeRelative)
+	if err == nil {
 		if existing.IsDir() || existing.Mode()&os.ModeSymlink != 0 {
 			return 0, fmt.Errorf("%w: destination is not a regular file", ErrArchiveEntry)
 		}
 		return 0, fmt.Errorf("%w: duplicate destination", ErrArchiveEntry)
-	} else if !errors.Is(err, os.ErrNotExist) {
+	}
+	if !errors.Is(err, os.ErrNotExist) {
 		return 0, err
 	}
 	parent := filepath.ToSlash(filepath.Dir(relative))
@@ -531,7 +591,11 @@ func createArchiveTemporaryFile(root *os.Root, parent string) (string, *os.File,
 }
 
 func writeSymlink(root *os.Root, destination, relative, target string) error {
-	if relative == "" || target == "" || strings.ContainsAny(target, "\\\x00\r\n") || strings.HasPrefix(target, "/") || hasWindowsDrivePrefix(target) || filepath.IsAbs(filepath.FromSlash(target)) || filepath.VolumeName(filepath.FromSlash(target)) != "" {
+	empty := relative == "" || target == ""
+	hasUnsafeCharacters := strings.ContainsAny(target, "\\\x00\r\n")
+	isAbsolute := strings.HasPrefix(target, "/") || filepath.IsAbs(filepath.FromSlash(target))
+	hasDrivePrefix := hasWindowsDrivePrefix(target) || filepath.VolumeName(filepath.FromSlash(target)) != ""
+	if empty || hasUnsafeCharacters || isAbsolute || hasDrivePrefix {
 		return fmt.Errorf("%w: unsafe symlink target", ErrArchiveEntry)
 	}
 	if _, err := safeDestination(destination, relative); err != nil {
@@ -549,9 +613,11 @@ func writeSymlink(root *os.Root, destination, relative, target string) error {
 		return err
 	}
 	nativeRelative := filepath.FromSlash(relative)
-	if _, err := root.Lstat(nativeRelative); err == nil {
+	_, err := root.Lstat(nativeRelative)
+	if err == nil {
 		return fmt.Errorf("%w: duplicate destination", ErrArchiveEntry)
-	} else if !errors.Is(err, os.ErrNotExist) {
+	}
+	if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	if err := root.Symlink(target, nativeRelative); err != nil {
@@ -571,7 +637,8 @@ func safeDestination(destination, relative string) (string, error) {
 		return "", ErrArchiveTraversal
 	}
 	rel, err := filepath.Rel(base, resolved)
-	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) ||
+		filepath.IsAbs(rel) {
 		return "", ErrArchiveTraversal
 	}
 	return resolved, nil

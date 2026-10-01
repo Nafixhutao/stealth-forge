@@ -74,13 +74,28 @@ type StorageFilePatch struct {
 }
 
 const storageBucketProjection = `id,project_id,name,file_security,create_permissions,read_permissions,update_permissions,delete_permissions,max_file_size_bytes,quota_bytes,used_bytes,created_at,updated_at`
+
 const storageFileProjection = `id,bucket_id,project_id,name,mime_type,size_bytes,checksum_sha256,storage_path,read_permissions,update_permissions,delete_permissions,creator_project_user_id,created_at,updated_at`
 
 type storageScanner interface{ Scan(...any) error }
 
 func scanStorageBucket(row storageScanner) (domain.StorageBucket, error) {
 	var item domain.StorageBucket
-	err := row.Scan(&item.ID, &item.ProjectID, &item.Name, &item.FileSecurity, &item.CreatePermissions, &item.ReadPermissions, &item.UpdatePermissions, &item.DeletePermissions, &item.MaxFileSizeBytes, &item.QuotaBytes, &item.UsedBytes, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&item.ID,
+		&item.ProjectID,
+		&item.Name,
+		&item.FileSecurity,
+		&item.CreatePermissions,
+		&item.ReadPermissions,
+		&item.UpdatePermissions,
+		&item.DeletePermissions,
+		&item.MaxFileSizeBytes,
+		&item.QuotaBytes,
+		&item.UsedBytes,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	return item, err
 }
 
@@ -88,7 +103,22 @@ func scanStorageFile(row storageScanner) (domain.StorageFile, string, error) {
 	var item domain.StorageFile
 	var path string
 	var creator *uuid.UUID
-	err := row.Scan(&item.ID, &item.BucketID, &item.ProjectID, &item.Name, &item.MimeType, &item.SizeBytes, &item.ChecksumSHA256, &path, &item.ReadPermissions, &item.UpdatePermissions, &item.DeletePermissions, &creator, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&item.ID,
+		&item.BucketID,
+		&item.ProjectID,
+		&item.Name,
+		&item.MimeType,
+		&item.SizeBytes,
+		&item.ChecksumSHA256,
+		&path,
+		&item.ReadPermissions,
+		&item.UpdatePermissions,
+		&item.DeletePermissions,
+		&creator,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	if err != nil {
 		return item, "", err
 	}
@@ -106,7 +136,14 @@ func (r *Repository) storageBucket(ctx context.Context, query interface {
 	if lock {
 		suffix = " FOR UPDATE"
 	}
-	item, err := scanStorageBucket(query.QueryRow(ctx, `SELECT `+storageBucketProjection+` FROM storage_buckets WHERE project_id=$1 AND id=$2`+suffix, projectID, bucketID))
+	item, err := scanStorageBucket(
+		query.QueryRow(
+			ctx,
+			`SELECT `+storageBucketProjection+` FROM storage_buckets WHERE project_id=$1 AND id=$2`+suffix,
+			projectID,
+			bucketID,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.StorageBucket{}, ErrNotFound
 	}
@@ -118,7 +155,12 @@ func normalizeStoragePermissions(raw []string) ([]string, error) {
 }
 
 func storageBucketPermissions(input StorageBucketInput) ([4][]string, error) {
-	values := [][]string{input.CreatePermissions, input.ReadPermissions, input.UpdatePermissions, input.DeletePermissions}
+	values := [][]string{
+		input.CreatePermissions,
+		input.ReadPermissions,
+		input.UpdatePermissions,
+		input.DeletePermissions,
+	}
 	var result [4][]string
 	for i, value := range values {
 		permissions, err := normalizeStoragePermissions(value)
@@ -165,7 +207,12 @@ func (r *Repository) requireStorageRead(ctx context.Context, projectID uuid.UUID
 	}
 }
 
-func (r *Repository) requireStorageWriteTx(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, actor StorageActor) error {
+func (r *Repository) requireStorageWriteTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	actor StorageActor,
+) error {
 	switch actor.Kind {
 	case StorageConsoleActor:
 		return requireProjectRoleTx(ctx, tx, projectID, actor.AccountID, "owner", "admin")
@@ -210,7 +257,12 @@ func requireStorageBucketPermission(bucket domain.StorageBucket, actor StorageAc
 	}
 }
 
-func (r *Repository) AuthorizeStorageBucket(ctx context.Context, projectID, bucketID uuid.UUID, actor StorageActor, operation string) (domain.StorageBucket, error) {
+func (r *Repository) AuthorizeStorageBucket(
+	ctx context.Context,
+	projectID, bucketID uuid.UUID,
+	actor StorageActor,
+	operation string,
+) (domain.StorageBucket, error) {
 	if actor.IsManagement() {
 		if operation == "read" {
 			if _, err := r.requireStorageRead(ctx, projectID, actor); err != nil {
@@ -243,12 +295,24 @@ func (r *Repository) AuthorizeStorageBucket(ctx context.Context, projectID, buck
 	return item, nil
 }
 
-func (r *Repository) ListStorageBuckets(ctx context.Context, projectID uuid.UUID, actor StorageActor, limit int, cursor *uuid.UUID) ([]domain.StorageBucket, string, bool, error) {
+func (r *Repository) ListStorageBuckets(
+	ctx context.Context,
+	projectID uuid.UUID,
+	actor StorageActor,
+	limit int,
+	cursor *uuid.UUID,
+) ([]domain.StorageBucket, string, bool, error) {
 	canManage, err := r.requireStorageRead(ctx, projectID, actor)
 	if err != nil {
 		return nil, "", false, err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+storageBucketProjection+` FROM storage_buckets WHERE project_id=$1 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $2`, projectID, limit+1, cursor)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT `+storageBucketProjection+` FROM storage_buckets WHERE project_id=$1 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $2`,
+		projectID,
+		limit+1,
+		cursor,
+	)
 	if err != nil {
 		return nil, "", false, err
 	}
@@ -272,14 +336,23 @@ func (r *Repository) ListStorageBuckets(ctx context.Context, projectID uuid.UUID
 	return items, next, canManage, nil
 }
 
-func (r *Repository) GetStorageBucket(ctx context.Context, projectID, bucketID uuid.UUID, actor StorageActor) (domain.StorageBucket, error) {
+func (r *Repository) GetStorageBucket(
+	ctx context.Context,
+	projectID, bucketID uuid.UUID,
+	actor StorageActor,
+) (domain.StorageBucket, error) {
 	if _, err := r.requireStorageRead(ctx, projectID, actor); err != nil {
 		return domain.StorageBucket{}, err
 	}
 	return r.storageBucket(ctx, r.pool, projectID, bucketID, false)
 }
 
-func (r *Repository) CreateStorageBucket(ctx context.Context, id, projectID uuid.UUID, actor StorageActor, input StorageBucketInput) (domain.StorageBucket, error) {
+func (r *Repository) CreateStorageBucket(
+	ctx context.Context,
+	id, projectID uuid.UUID,
+	actor StorageActor,
+	input StorageBucketInput,
+) (domain.StorageBucket, error) {
 	permissions, err := storageBucketPermissions(input)
 	if err != nil {
 		return domain.StorageBucket{}, err
@@ -305,7 +378,22 @@ func (r *Repository) CreateStorageBucket(ctx context.Context, id, projectID uuid
 	if err := lockStorageNamespace(ctx, tx, projectID); err != nil {
 		return domain.StorageBucket{}, err
 	}
-	item, err := scanStorageBucket(tx.QueryRow(ctx, `INSERT INTO storage_buckets (id,project_id,name,file_security,create_permissions,read_permissions,update_permissions,delete_permissions,max_file_size_bytes,quota_bytes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING `+storageBucketProjection, id, projectID, input.Name, input.FileSecurity, permissions[0], permissions[1], permissions[2], permissions[3], input.MaxFileSizeBytes, input.QuotaBytes))
+	item, err := scanStorageBucket(
+		tx.QueryRow(
+			ctx,
+			`INSERT INTO storage_buckets (id,project_id,name,file_security,create_permissions,read_permissions,update_permissions,delete_permissions,max_file_size_bytes,quota_bytes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING `+storageBucketProjection,
+			id,
+			projectID,
+			input.Name,
+			input.FileSecurity,
+			permissions[0],
+			permissions[1],
+			permissions[2],
+			permissions[3],
+			input.MaxFileSizeBytes,
+			input.QuotaBytes,
+		),
+	)
 	if err != nil {
 		return domain.StorageBucket{}, mapError(err)
 	}
@@ -318,7 +406,12 @@ func (r *Repository) CreateStorageBucket(ctx context.Context, id, projectID uuid
 	return item, nil
 }
 
-func (r *Repository) UpdateStorageBucket(ctx context.Context, projectID, bucketID uuid.UUID, actor StorageActor, patch StorageBucketPatch) (domain.StorageBucket, error) {
+func (r *Repository) UpdateStorageBucket(
+	ctx context.Context,
+	projectID, bucketID uuid.UUID,
+	actor StorageActor,
+	patch StorageBucketPatch,
+) (domain.StorageBucket, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.StorageBucket{}, err
@@ -381,7 +474,22 @@ func (r *Repository) UpdateStorageBucket(ctx context.Context, projectID, bucketI
 	if quota <= 0 || quota < item.UsedBytes || maxFileSize <= 0 || maxFileSize > quota {
 		return domain.StorageBucket{}, ErrStorageQuotaExceeded
 	}
-	item, err = scanStorageBucket(tx.QueryRow(ctx, `UPDATE storage_buckets SET name=$3,file_security=$4,create_permissions=$5,read_permissions=$6,update_permissions=$7,delete_permissions=$8,max_file_size_bytes=$9,quota_bytes=$10,updated_at=now() WHERE project_id=$1 AND id=$2 RETURNING `+storageBucketProjection, projectID, bucketID, name, fileSecurity, createPermissions, readPermissions, updatePermissions, deletePermissions, maxFileSize, quota))
+	item, err = scanStorageBucket(
+		tx.QueryRow(
+			ctx,
+			`UPDATE storage_buckets SET name=$3,file_security=$4,create_permissions=$5,read_permissions=$6,update_permissions=$7,delete_permissions=$8,max_file_size_bytes=$9,quota_bytes=$10,updated_at=now() WHERE project_id=$1 AND id=$2 RETURNING `+storageBucketProjection,
+			projectID,
+			bucketID,
+			name,
+			fileSecurity,
+			createPermissions,
+			readPermissions,
+			updatePermissions,
+			deletePermissions,
+			maxFileSize,
+			quota,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.StorageBucket{}, ErrNotFound
 	}
@@ -429,7 +537,11 @@ func storageBucketChangedFields(patch StorageBucketPatch) []string {
 
 // DeleteStorageBucket removes metadata/accounting and records durable
 // UUID-derived cleanup jobs in the same transaction.
-func (r *Repository) DeleteStorageBucket(ctx context.Context, projectID, bucketID uuid.UUID, actor StorageActor) ([]string, error) {
+func (r *Repository) DeleteStorageBucket(
+	ctx context.Context,
+	projectID, bucketID uuid.UUID,
+	actor StorageActor,
+) ([]string, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -444,7 +556,12 @@ func (r *Repository) DeleteStorageBucket(ctx context.Context, projectID, bucketI
 	if _, err := r.storageBucket(ctx, tx, projectID, bucketID, true); err != nil {
 		return nil, err
 	}
-	rows, err := tx.Query(ctx, `SELECT storage_path FROM storage_files WHERE project_id=$1 AND bucket_id=$2 FOR UPDATE`, projectID, bucketID)
+	rows, err := tx.Query(
+		ctx,
+		`SELECT storage_path FROM storage_files WHERE project_id=$1 AND bucket_id=$2 FOR UPDATE`,
+		projectID,
+		bucketID,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -486,7 +603,13 @@ func storageFilePermissionSQL(column string, actor StorageActor, args *[]any) st
 	return rowPermissionSQL(column, actor, args)
 }
 
-func (r *Repository) ListStorageFiles(ctx context.Context, projectID, bucketID uuid.UUID, actor StorageActor, limit int, cursor *uuid.UUID) ([]domain.StorageFile, string, bool, error) {
+func (r *Repository) ListStorageFiles(
+	ctx context.Context,
+	projectID, bucketID uuid.UUID,
+	actor StorageActor,
+	limit int,
+	cursor *uuid.UUID,
+) ([]domain.StorageFile, string, bool, error) {
 	bucket, err := r.storageBucket(ctx, r.pool, projectID, bucketID, false)
 	if err != nil {
 		return nil, "", false, err
@@ -506,7 +629,17 @@ func (r *Repository) ListStorageFiles(ctx context.Context, projectID, bucketID u
 	cursorArg := len(args) + 1
 	limitArg := cursorArg + 1
 	args = append(args, cursor, limit+1)
-	rows, err := r.pool.Query(ctx, fmt.Sprintf(`SELECT %s FROM storage_files f WHERE %s AND ($%d::uuid IS NULL OR f.id>$%d) ORDER BY f.id LIMIT $%d`, storageFileProjection, where, cursorArg, cursorArg, limitArg), args...)
+	rows, err := r.pool.Query(
+		ctx,
+		fmt.Sprintf(
+			`SELECT %s FROM storage_files f WHERE %s AND ($%d::uuid IS NULL OR f.id>$%d) ORDER BY f.id LIMIT $%d`,
+			storageFileProjection,
+			where,
+			cursorArg,
+			cursorArg,
+			limitArg,
+		),
+		args...)
 	if err != nil {
 		return nil, "", false, err
 	}
@@ -527,11 +660,17 @@ func (r *Repository) ListStorageFiles(ctx context.Context, projectID, bucketID u
 		next = items[limit-1].ID
 		items = items[:limit]
 	}
-	canManage := actor.Kind == StorageConsoleActor || (actor.Kind == StorageAPIKeyActor && apikey.HasScope(actor.APIKeyScopes, "storage.write"))
+	canManage := actor.Kind == StorageConsoleActor ||
+		(actor.Kind == StorageAPIKeyActor && apikey.HasScope(actor.APIKeyScopes, "storage.write"))
 	return items, next, canManage, nil
 }
 
-func (r *Repository) storageFile(ctx context.Context, projectID, bucketID, fileID uuid.UUID, actor StorageActor, lock bool) (domain.StorageFile, string, error) {
+func (r *Repository) storageFile(
+	ctx context.Context,
+	projectID, bucketID, fileID uuid.UUID,
+	actor StorageActor,
+	lock bool,
+) (domain.StorageFile, string, error) {
 	bucket, err := r.storageBucket(ctx, r.pool, projectID, bucketID, false)
 	if err != nil {
 		return domain.StorageFile{}, "", err
@@ -552,19 +691,29 @@ func (r *Repository) storageFile(ctx context.Context, projectID, bucketID, fileI
 	if lock {
 		suffix = " FOR UPDATE"
 	}
-	item, path, err := scanStorageFile(r.pool.QueryRow(ctx, `SELECT `+storageFileProjection+` FROM storage_files f WHERE `+where+suffix, args...))
+	item, path, err := scanStorageFile(
+		r.pool.QueryRow(ctx, `SELECT `+storageFileProjection+` FROM storage_files f WHERE `+where+suffix, args...),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.StorageFile{}, "", ErrRowHidden
 	}
 	return item, path, err
 }
 
-func (r *Repository) GetStorageFile(ctx context.Context, projectID, bucketID, fileID uuid.UUID, actor StorageActor) (domain.StorageFile, error) {
+func (r *Repository) GetStorageFile(
+	ctx context.Context,
+	projectID, bucketID, fileID uuid.UUID,
+	actor StorageActor,
+) (domain.StorageFile, error) {
 	item, _, err := r.storageFile(ctx, projectID, bucketID, fileID, actor, false)
 	return item, err
 }
 
-func (r *Repository) StorageFileForDownload(ctx context.Context, projectID, bucketID, fileID uuid.UUID, actor StorageActor) (domain.StorageFile, string, error) {
+func (r *Repository) StorageFileForDownload(
+	ctx context.Context,
+	projectID, bucketID, fileID uuid.UUID,
+	actor StorageActor,
+) (domain.StorageFile, string, error) {
 	return r.storageFile(ctx, projectID, bucketID, fileID, actor, false)
 }
 
@@ -572,7 +721,12 @@ func (r *Repository) StorageFileForDownload(ctx context.Context, projectID, buck
 // immutable blob. Management actors require storage.write; application actors
 // may rename only when the effective update grant allows it, and cannot change
 // ACLs (the same anti-escalation rule used by Database rows).
-func (r *Repository) UpdateStorageFile(ctx context.Context, projectID, bucketID, fileID uuid.UUID, actor StorageActor, patch StorageFilePatch) (domain.StorageFile, error) {
+func (r *Repository) UpdateStorageFile(
+	ctx context.Context,
+	projectID, bucketID, fileID uuid.UUID,
+	actor StorageActor,
+	patch StorageFilePatch,
+) (domain.StorageFile, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.StorageFile{}, err
@@ -655,7 +809,19 @@ func (r *Repository) UpdateStorageFile(ctx context.Context, projectID, bucketID,
 		}
 		deletePermissions = &permissions
 	}
-	item, _, err := scanStorageFile(tx.QueryRow(ctx, `UPDATE storage_files SET name=$4,read_permissions=$5,update_permissions=$6,delete_permissions=$7,updated_at=now() WHERE project_id=$1 AND bucket_id=$2 AND id=$3 RETURNING `+storageFileProjection, projectID, bucketID, fileID, name, *readPermissions, *updatePermissions, *deletePermissions))
+	item, _, err := scanStorageFile(
+		tx.QueryRow(
+			ctx,
+			`UPDATE storage_files SET name=$4,read_permissions=$5,update_permissions=$6,delete_permissions=$7,updated_at=now() WHERE project_id=$1 AND bucket_id=$2 AND id=$3 RETURNING `+storageFileProjection,
+			projectID,
+			bucketID,
+			fileID,
+			name,
+			*readPermissions,
+			*updatePermissions,
+			*deletePermissions,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.StorageFile{}, ErrNotFound
 	}
@@ -686,7 +852,11 @@ func (r *Repository) UpdateStorageFile(ctx context.Context, projectID, bucketID,
 	return item, nil
 }
 
-func storageFilePermissions(bucket domain.StorageBucket, actor StorageActor, input StorageFileInput) ([3][]string, error) {
+func storageFilePermissions(
+	bucket domain.StorageBucket,
+	actor StorageActor,
+	input StorageFileInput,
+) ([3][]string, error) {
 	// PostgreSQL permission columns are NOT NULL arrays. Management uploads on
 	// file-security buckets intentionally default to deny, so represent omitted
 	// grants as non-nil empty arrays instead of driver-encoded SQL NULL values.
@@ -746,7 +916,12 @@ func storageFilePermissions(bucket domain.StorageBucket, actor StorageActor, inp
 // A publishing caller supplies a durable reservation created before the blob
 // was published; this transaction consumes that reservation before metadata
 // becomes visible.
-func (r *Repository) CreateStorageFile(ctx context.Context, id, projectID, bucketID uuid.UUID, actor StorageActor, input StorageFileInput) (domain.StorageFile, error) {
+func (r *Repository) CreateStorageFile(
+	ctx context.Context,
+	id, projectID, bucketID uuid.UUID,
+	actor StorageActor,
+	input StorageFileInput,
+) (domain.StorageFile, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.StorageFile{}, err
@@ -763,8 +938,12 @@ func (r *Repository) CreateStorageFile(ctx context.Context, id, projectID, bucke
 	} else if err := requireStorageBucketPermission(bucket, actor, "create"); err != nil {
 		return domain.StorageFile{}, err
 	}
-	if actor.Kind == StorageAnonymousActor && (input.ReadPermissions == nil || input.UpdatePermissions == nil || input.DeletePermissions == nil) {
-		return domain.StorageFile{}, fmt.Errorf("%w: anonymous uploads must specify read, update, and delete permissions", database.ErrInvalidPermissions)
+	if actor.Kind == StorageAnonymousActor &&
+		(input.ReadPermissions == nil || input.UpdatePermissions == nil || input.DeletePermissions == nil) {
+		return domain.StorageFile{}, fmt.Errorf(
+			"%w: anonymous uploads must specify read, update, and delete permissions",
+			database.ErrInvalidPermissions,
+		)
 	}
 	if input.SizeBytes < 0 {
 		return domain.StorageFile{}, ErrStorageFileTooLarge
@@ -783,7 +962,24 @@ func (r *Repository) CreateStorageFile(ctx context.Context, id, projectID, bucke
 	if input.CreatorProjectUserID != nil {
 		creator = *input.CreatorProjectUserID
 	}
-	item, _, err := scanStorageFile(tx.QueryRow(ctx, `INSERT INTO storage_files (id,bucket_id,project_id,name,mime_type,size_bytes,checksum_sha256,storage_path,read_permissions,update_permissions,delete_permissions,creator_project_user_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING `+storageFileProjection, id, bucketID, projectID, input.Name, input.MimeType, input.SizeBytes, input.ChecksumSHA256, input.StoragePath, permissions[0], permissions[1], permissions[2], creator))
+	item, _, err := scanStorageFile(
+		tx.QueryRow(
+			ctx,
+			`INSERT INTO storage_files (id,bucket_id,project_id,name,mime_type,size_bytes,checksum_sha256,storage_path,read_permissions,update_permissions,delete_permissions,creator_project_user_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING `+storageFileProjection,
+			id,
+			bucketID,
+			projectID,
+			input.Name,
+			input.MimeType,
+			input.SizeBytes,
+			input.ChecksumSHA256,
+			input.StoragePath,
+			permissions[0],
+			permissions[1],
+			permissions[2],
+			creator,
+		),
+	)
 	if err != nil {
 		return domain.StorageFile{}, mapError(err)
 	}
@@ -816,9 +1012,12 @@ func (r *Repository) RemoveStorageFileMetadata(ctx context.Context, projectID, b
 	}
 	defer tx.Rollback(ctx)
 	var size int64
-	if err := tx.QueryRow(ctx, `SELECT size_bytes FROM storage_files WHERE project_id=$1 AND bucket_id=$2 AND id=$3 FOR UPDATE`, projectID, bucketID, fileID).Scan(&size); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT size_bytes FROM storage_files WHERE project_id=$1 AND bucket_id=$2 AND id=$3 FOR UPDATE`, projectID, bucketID, fileID).
+		Scan(&size)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
-	} else if err != nil {
+	}
+	if err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM storage_files WHERE project_id=$1 AND bucket_id=$2 AND id=$3`, projectID, bucketID, fileID); err != nil {
@@ -830,7 +1029,11 @@ func (r *Repository) RemoveStorageFileMetadata(ctx context.Context, projectID, b
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) DeleteStorageFile(ctx context.Context, projectID, bucketID, fileID uuid.UUID, actor StorageActor) (string, error) {
+func (r *Repository) DeleteStorageFile(
+	ctx context.Context,
+	projectID, bucketID, fileID uuid.UUID,
+	actor StorageActor,
+) (string, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return "", err
@@ -861,7 +1064,8 @@ func (r *Repository) DeleteStorageFile(ctx context.Context, projectID, bucketID,
 	var item domain.StorageFile
 	var path string
 	var creator *uuid.UUID
-	err = tx.QueryRow(ctx, `SELECT `+storageFileProjection+` FROM storage_files WHERE `+where+` FOR UPDATE`, args...).Scan(&item.ID, &item.BucketID, &item.ProjectID, &item.Name, &item.MimeType, &item.SizeBytes, &item.ChecksumSHA256, &path, &item.ReadPermissions, &item.UpdatePermissions, &item.DeletePermissions, &creator, &item.CreatedAt, &item.UpdatedAt)
+	err = tx.QueryRow(ctx, `SELECT `+storageFileProjection+` FROM storage_files WHERE `+where+` FOR UPDATE`, args...).
+		Scan(&item.ID, &item.BucketID, &item.ProjectID, &item.Name, &item.MimeType, &item.SizeBytes, &item.ChecksumSHA256, &path, &item.ReadPermissions, &item.UpdatePermissions, &item.DeletePermissions, &creator, &item.CreatedAt, &item.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		if actor.IsApplication() && bucket.FileSecurity {
 			return "", ErrRowHidden
@@ -897,7 +1101,15 @@ func lockStorageNamespace(ctx context.Context, tx pgx.Tx, projectID uuid.UUID) e
 	return err
 }
 
-func (r *Repository) auditStorage(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, actor StorageActor, action, targetType string, target uuid.UUID, metadata map[string]any) error {
+func (r *Repository) auditStorage(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	actor StorageActor,
+	action, targetType string,
+	target uuid.UUID,
+	metadata map[string]any,
+) error {
 	orgID, err := projectOrganizationIDValue(ctx, tx, projectID)
 	if err != nil {
 		return err

@@ -77,11 +77,17 @@ type AgentPatch struct {
 	Instructions *string
 }
 
-func (r *Repository) ListAgents(ctx context.Context, accountID uuid.UUID, limit int, cursor *uuid.UUID, projectID *uuid.UUID) ([]domain.Agent, string, bool, error) {
+func (r *Repository) ListAgents(
+	ctx context.Context,
+	accountID uuid.UUID,
+	limit int,
+	cursor *uuid.UUID,
+	projectID *uuid.UUID,
+) ([]domain.Agent, string, bool, error) {
 	if limit < 1 || limit > 100 {
 		return nil, "", false, fmt.Errorf("%w: limit must be between 1 and 100", ErrInvalidAgent)
 	}
-	canManage := false
+	var canManage bool
 	if projectID != nil {
 		var err error
 		canManage, err = r.AgentProjectCanManage(ctx, accountID, *projectID)
@@ -188,15 +194,34 @@ func (r *Repository) CreateAgent(ctx context.Context, id, accountID uuid.UUID, i
 	if err != nil {
 		return domain.Agent{}, err
 	}
-	_, err = tx.Exec(ctx, `
+	_, err = tx.Exec(
+		ctx,
+		`
 		INSERT INTO project_agents (id,project_id,created_by_account_id,name,description,role,branch,provider,model,current_task,tools,instructions)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-		id, normalized.ProjectID, accountID, normalized.Name, normalized.Description, normalized.Role,
-		normalized.Branch, normalized.Provider, normalized.Model, normalized.CurrentTask, normalized.Tools, normalized.Instructions)
+		id,
+		normalized.ProjectID,
+		accountID,
+		normalized.Name,
+		normalized.Description,
+		normalized.Role,
+		normalized.Branch,
+		normalized.Provider,
+		normalized.Model,
+		normalized.CurrentTask,
+		normalized.Tools,
+		normalized.Instructions,
+	)
 	if err != nil {
 		return domain.Agent{}, mapError(err)
 	}
-	item, err := scanAgent(tx.QueryRow(ctx, `SELECT `+agentProjection+` FROM project_agents a JOIN projects p ON p.id=a.project_id WHERE a.id=$1`, id))
+	item, err := scanAgent(
+		tx.QueryRow(
+			ctx,
+			`SELECT `+agentProjection+` FROM project_agents a JOIN projects p ON p.id=a.project_id WHERE a.id=$1`,
+			id,
+		),
+	)
 	if err != nil {
 		return domain.Agent{}, err
 	}
@@ -216,22 +241,34 @@ func (r *Repository) CreateAgent(ctx context.Context, id, accountID uuid.UUID, i
 	return item, nil
 }
 
-func (r *Repository) UpdateAgent(ctx context.Context, accountID, agentID uuid.UUID, patch AgentPatch) (domain.Agent, error) {
+func (r *Repository) UpdateAgent(
+	ctx context.Context,
+	accountID, agentID uuid.UUID,
+	patch AgentPatch,
+) (domain.Agent, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.Agent{}, err
 	}
 	defer tx.Rollback(ctx)
 	var projectID uuid.UUID
-	if err := tx.QueryRow(ctx, `SELECT project_id FROM project_agents WHERE id=$1 FOR UPDATE`, agentID).Scan(&projectID); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT project_id FROM project_agents WHERE id=$1 FOR UPDATE`, agentID).Scan(&projectID)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Agent{}, ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return domain.Agent{}, err
 	}
 	if err := requireProjectRoleTx(ctx, tx, projectID, accountID, "owner", "admin"); err != nil {
 		return domain.Agent{}, err
 	}
-	current, err := scanAgent(tx.QueryRow(ctx, `SELECT `+agentProjection+` FROM project_agents a JOIN projects p ON p.id=a.project_id WHERE a.id=$1`, agentID))
+	current, err := scanAgent(
+		tx.QueryRow(
+			ctx,
+			`SELECT `+agentProjection+` FROM project_agents a JOIN projects p ON p.id=a.project_id WHERE a.id=$1`,
+			agentID,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Agent{}, ErrNotFound
 	}
@@ -252,7 +289,13 @@ func (r *Repository) UpdateAgent(ctx context.Context, accountID, agentID uuid.UU
 	if err != nil {
 		return domain.Agent{}, mapError(err)
 	}
-	updated, err = scanAgent(tx.QueryRow(ctx, `SELECT `+agentProjection+` FROM project_agents a JOIN projects p ON p.id=a.project_id WHERE a.id=$1`, agentID))
+	updated, err = scanAgent(
+		tx.QueryRow(
+			ctx,
+			`SELECT `+agentProjection+` FROM project_agents a JOIN projects p ON p.id=a.project_id WHERE a.id=$1`,
+			agentID,
+		),
+	)
 	if err != nil {
 		return domain.Agent{}, err
 	}
@@ -279,9 +322,11 @@ func (r *Repository) DeleteAgent(ctx context.Context, accountID, agentID uuid.UU
 	}
 	defer tx.Rollback(ctx)
 	var projectID uuid.UUID
-	if err := tx.QueryRow(ctx, `SELECT project_id FROM project_agents WHERE id=$1 FOR UPDATE`, agentID).Scan(&projectID); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT project_id FROM project_agents WHERE id=$1 FOR UPDATE`, agentID).Scan(&projectID)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return err
 	}
 	if err := requireProjectRoleTx(ctx, tx, projectID, accountID, "owner", "admin"); err != nil {

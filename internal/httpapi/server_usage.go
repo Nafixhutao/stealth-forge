@@ -62,7 +62,12 @@ func (s *Server) getProjectUsageMetering(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if errors.Is(err, repository.ErrInvalidUsageWindow) {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "usage window must be between one and 367 calendar days")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"usage window must be between one and 367 calendar days",
+		)
 		return
 	}
 	if err != nil {
@@ -81,7 +86,8 @@ func (s *Server) getProjectUsageMetering(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="stealth-usage-%s-%s-to-%s.csv"`, item.ProjectID, item.From, item.To))
+		w.Header().
+			Set("Content-Disposition", fmt.Sprintf(`attachment; filename="stealth-usage-%s-%s-to-%s.csv"`, item.ProjectID, item.From, item.To))
 		_, _ = w.Write(body)
 		return
 	}

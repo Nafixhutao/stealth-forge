@@ -158,12 +158,22 @@ func (s *Server) issueSetupHandoffToken(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if status.SetupRequired {
-		writeError(w, http.StatusConflict, "handoff_not_ready", "finish first-owner setup before preparing the production dashboard")
+		writeError(
+			w,
+			http.StatusConflict,
+			"handoff_not_ready",
+			"finish first-owner setup before preparing the production dashboard",
+		)
 		return
 	}
 	token, err := s.setupHandoff.Issue(r.Context())
 	if err != nil {
-		writeError(w, http.StatusConflict, "handoff_unavailable", "the production session handoff is no longer available")
+		writeError(
+			w,
+			http.StatusConflict,
+			"handoff_unavailable",
+			"the production session handoff is no longer available",
+		)
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
@@ -183,7 +193,12 @@ func (s *Server) setupHandoffStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	pendingStore, ok := s.setupHandoff.(setuphandoff.PendingStore)
 	if !ok {
-		writeError(w, http.StatusServiceUnavailable, "handoff_unavailable", "production session handoff status is unavailable")
+		writeError(
+			w,
+			http.StatusServiceUnavailable,
+			"handoff_unavailable",
+			"production session handoff status is unavailable",
+		)
 		return
 	}
 	pending, err := pendingStore.Pending(r.Context())
@@ -210,7 +225,11 @@ func (s *Server) setupStatus(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, setupStatusResponse{SetupRequired: status.SetupRequired, Ready: s.setupStateReady(), State: state.Public()})
+	writeJSON(
+		w,
+		http.StatusOK,
+		setupStatusResponse{SetupRequired: status.SetupRequired, Ready: s.setupStateReady(), State: state.Public()},
+	)
 }
 
 func (s *Server) saveSetupConfig(w http.ResponseWriter, r *http.Request) {
@@ -241,17 +260,32 @@ func (s *Server) saveSetupConfig(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) startGitHubManifest(w http.ResponseWriter, r *http.Request) {
 	if s.githubManifest == nil || s.githubOAuth == nil {
-		writeError(w, http.StatusServiceUnavailable, "github_manifest_unavailable", "GitHub App Manifest setup is unavailable")
+		writeError(
+			w,
+			http.StatusServiceUnavailable,
+			"github_manifest_unavailable",
+			"GitHub App Manifest setup is unavailable",
+		)
 		return
 	}
 	callbackURL, err := s.externalURL(r, "/v1/setup/github/manifest/callback")
 	if err != nil || !strings.HasPrefix(callbackURL, "https://") {
-		writeError(w, http.StatusUnprocessableEntity, "https_required", "open the temporary HTTPS setup URL before connecting GitHub")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"https_required",
+			"open the temporary HTTPS setup URL before connecting GitHub",
+		)
 		return
 	}
 	authorizationCallbackURL, err := s.externalURL(r, "/v1/setup/github/authorize/callback")
 	if err != nil || !strings.HasPrefix(authorizationCallbackURL, "https://") {
-		writeError(w, http.StatusUnprocessableEntity, "https_required", "open the temporary HTTPS setup URL before connecting GitHub")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"https_required",
+			"open the temporary HTTPS setup URL before connecting GitHub",
+		)
 		return
 	}
 	plainState, stateHash, expiresAt, err := setupstate.NewManifestState()
@@ -290,7 +324,12 @@ func (s *Server) startGitHubManifest(w http.ResponseWriter, r *http.Request) {
 		SetupURL:      setupURL,
 	}, plainState)
 	if err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "github_manifest_invalid", "the setup host cannot be used for GitHub App registration")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"github_manifest_invalid",
+			"the setup host cannot be used for GitHub App registration",
+		)
 		return
 	}
 	if _, err := s.setupState.Update(r.Context(), func(state *setupstate.State) error {
@@ -305,18 +344,26 @@ func (s *Server) startGitHubManifest(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "setup_state_conflict", "the GitHub setup session could not be started")
 		return
 	}
-	writeJSON(w, http.StatusOK, setupGitHubManifestResponse{ManifestURL: manifestURL, Manifest: manifestPayload, ExpiresAt: expiresAt})
+	writeJSON(
+		w,
+		http.StatusOK,
+		setupGitHubManifestResponse{ManifestURL: manifestURL, Manifest: manifestPayload, ExpiresAt: expiresAt},
+	)
 }
 
 func (s *Server) setupGitHubManifestCallback(w http.ResponseWriter, r *http.Request) {
 	code := strings.TrimSpace(r.URL.Query().Get("code"))
 	providedState := strings.TrimSpace(r.URL.Query().Get("state"))
-	if code == "" || len(code) > 4096 || strings.ContainsAny(code, "\x00\r\n") || providedState == "" || s.setupState == nil || s.githubManifest == nil || s.githubOAuth == nil {
+	codeInvalid := code == "" || len(code) > 4096 || strings.ContainsAny(code, "\x00\r\n")
+	stateMissing := providedState == ""
+	setupMissing := s.setupState == nil || s.githubManifest == nil || s.githubOAuth == nil
+	if codeInvalid || stateMissing || setupMissing {
 		http.Redirect(w, r, setupRedirect("/setup?github=error"), http.StatusFound)
 		return
 	}
 	state, err := s.setupState.Load(r.Context())
-	if err != nil || state.GitHub.ManifestExpiresAt.Before(time.Now().UTC()) || !compareStateHash(state.GitHub.ManifestStateHash, providedState) {
+	if err != nil || state.GitHub.ManifestExpiresAt.Before(time.Now().UTC()) ||
+		!compareStateHash(state.GitHub.ManifestStateHash, providedState) {
 		http.Redirect(w, r, setupRedirect("/setup?github=error"), http.StatusFound)
 		return
 	}
@@ -365,7 +412,12 @@ func (s *Server) setupGitHubManifestCallback(w http.ResponseWriter, r *http.Requ
 
 func (s *Server) startGitHubAuthorization(w http.ResponseWriter, r *http.Request) {
 	if s.githubOAuth == nil || s.setupState == nil {
-		writeError(w, http.StatusServiceUnavailable, "github_authorization_unavailable", "GitHub browser authorization is unavailable")
+		writeError(
+			w,
+			http.StatusServiceUnavailable,
+			"github_authorization_unavailable",
+			"GitHub browser authorization is unavailable",
+		)
 		return
 	}
 	state, err := s.setupState.Load(r.Context())
@@ -373,19 +425,38 @@ func (s *Server) startGitHubAuthorization(w http.ResponseWriter, r *http.Request
 		internalError(s, w, err)
 		return
 	}
-	if !state.GitHub.Connected || !githubauth.ValidClientID(state.GitHub.ClientID) || strings.TrimSpace(state.Secret("github_client_secret")) == "" {
-		writeError(w, http.StatusConflict, "github_not_connected", "connect a GitHub App before authorizing the first owner")
+	if !state.GitHub.Connected || !githubauth.ValidClientID(state.GitHub.ClientID) ||
+		strings.TrimSpace(state.Secret("github_client_secret")) == "" {
+		writeError(
+			w,
+			http.StatusConflict,
+			"github_not_connected",
+			"connect a GitHub App before authorizing the first owner",
+		)
 		return
 	}
 	authorizationURL, expiresAt, err := s.beginGitHubAuthorization(r.Context(), r, state.GitHub.ClientID)
 	if err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "github_authorization_invalid", "the setup host cannot be used for GitHub browser authorization")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"github_authorization_invalid",
+			"the setup host cannot be used for GitHub browser authorization",
+		)
 		return
 	}
-	writeJSON(w, http.StatusOK, setupGitHubAuthorizationResponse{AuthorizationURL: authorizationURL, ExpiresAt: expiresAt})
+	writeJSON(
+		w,
+		http.StatusOK,
+		setupGitHubAuthorizationResponse{AuthorizationURL: authorizationURL, ExpiresAt: expiresAt},
+	)
 }
 
-func (s *Server) beginGitHubAuthorization(ctx context.Context, r *http.Request, clientID string) (string, time.Time, error) {
+func (s *Server) beginGitHubAuthorization(
+	ctx context.Context,
+	r *http.Request,
+	clientID string,
+) (string, time.Time, error) {
 	if s.githubOAuth == nil || s.setupState == nil || !githubauth.ValidClientID(clientID) {
 		return "", time.Time{}, errors.New("GitHub browser authorization is unavailable")
 	}
@@ -424,7 +495,9 @@ func (s *Server) beginGitHubAuthorization(ctx context.Context, r *http.Request, 
 
 func (s *Server) setupGitHubAuthorizationCallback(w http.ResponseWriter, r *http.Request) {
 	providedState := strings.TrimSpace(r.URL.Query().Get("state"))
-	if providedState == "" || len(providedState) > 512 || strings.ContainsAny(providedState, "\x00\r\n") || s.setupState == nil {
+	providedStateInvalid := providedState == "" || len(providedState) > 512 ||
+		strings.ContainsAny(providedState, "\x00\r\n")
+	if providedStateInvalid || s.setupState == nil {
 		http.Redirect(w, r, setupRedirect("/setup?github=error"), http.StatusFound)
 		return
 	}
@@ -433,7 +506,8 @@ func (s *Server) setupGitHubAuthorizationCallback(w http.ResponseWriter, r *http
 		if setupstate.InstallationLocked(*state) {
 			return errors.New("installation is already in progress or complete")
 		}
-		if state.GitHub.AuthorizationExpiresAt.Before(time.Now().UTC()) || !compareStateHash(state.GitHub.AuthorizationStateHash, providedState) {
+		if state.GitHub.AuthorizationExpiresAt.Before(time.Now().UTC()) ||
+			!compareStateHash(state.GitHub.AuthorizationStateHash, providedState) {
 			return errors.New("GitHub authorization state is expired or already used")
 		}
 		clientID = strings.TrimSpace(state.GitHub.ClientID)
@@ -441,7 +515,8 @@ func (s *Server) setupGitHubAuthorizationCallback(w http.ResponseWriter, r *http
 		codeVerifier = state.Secret("github_oauth_code_verifier")
 		setupSessionID = state.SetupSessionID
 		setupCodeHash = state.SetupCodeHash
-		if !githubauth.ValidClientID(clientID) || clientSecret == "" || codeVerifier == "" || setupSessionID == "" || setupCodeHash == "" {
+		credentialsComplete := clientSecret != "" && codeVerifier != "" && setupSessionID != "" && setupCodeHash != ""
+		if !githubauth.ValidClientID(clientID) || !credentialsComplete {
 			return errors.New("GitHub authorization state is incomplete")
 		}
 		state.GitHub.AuthorizationStateHash = ""
@@ -454,7 +529,10 @@ func (s *Server) setupGitHubAuthorizationCallback(w http.ResponseWriter, r *http
 		return
 	}
 	code := strings.TrimSpace(r.URL.Query().Get("code"))
-	if r.URL.Query().Get("error") != "" || code == "" || len(code) > 4096 || strings.ContainsAny(code, "\x00\r\n") || s.githubOAuth == nil || s.bootstrap == nil {
+	oauthError := r.URL.Query().Get("error") != ""
+	codeInvalid := code == "" || len(code) > 4096 || strings.ContainsAny(code, "\x00\r\n")
+	oauthReady := s.githubOAuth != nil && s.bootstrap != nil
+	if oauthError || codeInvalid || !oauthReady {
 		http.Redirect(w, r, setupRedirect("/setup?github=error"), http.StatusFound)
 		return
 	}
@@ -463,7 +541,14 @@ func (s *Server) setupGitHubAuthorizationCallback(w http.ResponseWriter, r *http
 		http.Redirect(w, r, setupRedirect("/setup?github=error"), http.StatusFound)
 		return
 	}
-	token, err := s.githubOAuth.ExchangeAuthorizationCode(r.Context(), clientID, clientSecret, code, callbackURL, codeVerifier)
+	token, err := s.githubOAuth.ExchangeAuthorizationCode(
+		r.Context(),
+		clientID,
+		clientSecret,
+		code,
+		callbackURL,
+		codeVerifier,
+	)
 	if err != nil {
 		s.logger.Warn("GitHub browser authorization exchange failed", "error", err)
 		http.Redirect(w, r, setupRedirect("/setup?github=error"), http.StatusFound)
@@ -495,7 +580,11 @@ func (s *Server) setupGitHubAuthorizationCallback(w http.ResponseWriter, r *http
 		http.Redirect(w, r, setupRedirect("/setup?github=error"), http.StatusFound)
 		return
 	}
-	owner, err := s.createGitHubInstanceOwner(r.Context(), bootstrap.GitHubAuthorization{SessionID: sessionID, CodeHash: codeHash}, user)
+	owner, err := s.createGitHubInstanceOwner(
+		r.Context(),
+		bootstrap.GitHubAuthorization{SessionID: sessionID, CodeHash: codeHash},
+		user,
+	)
 	if err != nil {
 		s.logger.Warn("GitHub browser owner creation failed", "error", err)
 		http.Redirect(w, r, setupRedirect("/setup?github=error"), http.StatusFound)
@@ -512,7 +601,14 @@ func (s *Server) saveGitHubManual(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &request) {
 		return
 	}
-	if !githubauth.ValidClientID(request.ClientID) || strings.TrimSpace(request.ClientSecret) == "" || strings.TrimSpace(request.PrivateKey) == "" || strings.ContainsAny(request.ClientSecret+request.WebhookSecret, "\x00\r\n") || strings.ContainsRune(request.PrivateKey, '\x00') || len(request.ClientSecret) > 512 || len(request.PrivateKey) > 32768 || len(request.WebhookSecret) > 512 {
+	clientSecret := strings.TrimSpace(request.ClientSecret)
+	privateKey := strings.TrimSpace(request.PrivateKey)
+	missingCredentials := clientSecret == "" || privateKey == ""
+	invalidCredentials := strings.ContainsAny(request.ClientSecret+request.WebhookSecret, "\x00\r\n") ||
+		strings.ContainsRune(request.PrivateKey, '\x00')
+	oversizedCredentials := len(request.ClientSecret) > 512 || len(request.PrivateKey) > 32768 ||
+		len(request.WebhookSecret) > 512
+	if !githubauth.ValidClientID(request.ClientID) || missingCredentials || invalidCredentials || oversizedCredentials {
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", "GitHub App credentials are invalid")
 		return
 	}
@@ -544,7 +640,12 @@ func (s *Server) startCloudflareOAuth(w http.ResponseWriter, r *http.Request) {
 	// but this setup flow deliberately stays inactive until Cloudflare provides
 	// a verified redirect and scope configuration for the deployed origin. In
 	// particular, never derive an OAuth redirect from a random Quick Tunnel.
-	writeError(w, http.StatusGone, "cloudflare_oauth_inactive", "Cloudflare OAuth is experimental and inactive; use a scoped Cloudflare API token")
+	writeError(
+		w,
+		http.StatusGone,
+		"cloudflare_oauth_inactive",
+		"Cloudflare OAuth is experimental and inactive; use a scoped Cloudflare API token",
+	)
 }
 
 func (s *Server) setupCloudflareOAuthCallback(w http.ResponseWriter, r *http.Request) {
@@ -657,18 +758,28 @@ func (s *Server) createCloudflareTunnel(w http.ResponseWriter, r *http.Request) 
 		_ = errors.As(err, &provisioningErr)
 		switch {
 		case errors.Is(err, cloudflare.ErrInvalidRequest):
-			writeError(w, http.StatusUnprocessableEntity, "validation_error", "Cloudflare account, zone, and hostname are invalid")
+			writeError(
+				w,
+				http.StatusUnprocessableEntity,
+				"validation_error",
+				"Cloudflare account, zone, and hostname are invalid",
+			)
 		case errors.Is(err, cloudflare.ErrConflict):
 			var bindingConflict *setupstate.CloudflareBindingConflict
 			if provisioningErr != nil && errors.As(provisioningErr.Err, &bindingConflict) {
-				writeError(w, http.StatusConflict, "cloudflare_tunnel_reconfiguration_required", bindingConflict.Error())
+				writeError(
+					w,
+					http.StatusConflict,
+					"cloudflare_tunnel_reconfiguration_required",
+					bindingConflict.Error(),
+				)
 			} else {
 				writeError(w, http.StatusConflict, "cloudflare_tunnel_conflict", cloudflareTunnelConflictMessage(err))
 			}
 		case errors.Is(err, cloudflare.ErrState):
 			writeError(w, http.StatusConflict, "setup_state_conflict", "Cloudflare setup state could not be saved")
 		case errors.Is(err, cloudflare.ErrProvider):
-			stage := ""
+			var stage string
 			if provisioningErr != nil {
 				stage = strings.ToLower(strings.TrimSpace(provisioningErr.Stage))
 			}
@@ -686,9 +797,19 @@ func (s *Server) createCloudflareTunnel(w http.ResponseWriter, r *http.Request) 
 			case strings.HasPrefix(stage, "dns"):
 				writeError(w, http.StatusBadGateway, "cloudflare_dns_failed", cloudflareDNSFailureMessage(err))
 			case stage == "zones":
-				writeError(w, http.StatusBadGateway, "cloudflare_unavailable", "Cloudflare zones could not be verified. Confirm the token grants Zone:Zone:Read for the selected account.")
+				writeError(
+					w,
+					http.StatusBadGateway,
+					"cloudflare_unavailable",
+					"Cloudflare zones could not be verified. Confirm the token grants Zone:Zone:Read for the selected account.",
+				)
 			default:
-				writeError(w, http.StatusBadGateway, "cloudflare_tunnel_failed", "Cloudflare could not provision the named tunnel. Confirm the token grants Account:Cloudflare Tunnel:Edit for the selected account.")
+				writeError(
+					w,
+					http.StatusBadGateway,
+					"cloudflare_tunnel_failed",
+					"Cloudflare could not provision the named tunnel. Confirm the token grants Account:Cloudflare Tunnel:Edit for the selected account.",
+				)
 			}
 		default:
 			internalError(s, w, err)
@@ -704,7 +825,12 @@ func (s *Server) createCloudflareTunnel(w http.ResponseWriter, r *http.Request) 
 		})
 		if persistErr != nil {
 			if errors.Is(persistErr, repository.ErrCloudflareConnectionConflict) {
-				writeError(w, http.StatusConflict, "cloudflare_connection_conflict", "a different production Cloudflare tunnel connection is already saved")
+				writeError(
+					w,
+					http.StatusConflict,
+					"cloudflare_connection_conflict",
+					"a different production Cloudflare tunnel connection is already saved",
+				)
 			} else {
 				writeError(w, http.StatusServiceUnavailable, "cloudflare_connection_unavailable", "Cloudflare was provisioned, but its production connection could not be persisted; retry this setup step")
 			}
@@ -723,9 +849,15 @@ func cloudflareTunnelConflictMessage(err error) string {
 	if errors.As(err, &provisioningErr) {
 		switch provisioningErr.Stage {
 		case "DNS lookup":
-			return fmt.Sprintf("%v. The hostname is already bound in Cloudflare. Remove or update that DNS record, or reuse the existing tunnel, then retry this step.", provisioningErr.Err)
+			return fmt.Sprintf(
+				"%v. The hostname is already bound in Cloudflare. Remove or update that DNS record, or reuse the existing tunnel, then retry this step.",
+				provisioningErr.Err,
+			)
 		case "tunnel lookup":
-			return fmt.Sprintf("%v. Remove the conflicting tunnel in Cloudflare or choose a different tunnel name, then retry this step.", provisioningErr.Err)
+			return fmt.Sprintf(
+				"%v. Remove the conflicting tunnel in Cloudflare or choose a different tunnel name, then retry this step.",
+				provisioningErr.Err,
+			)
 		}
 	}
 	return "the saved Cloudflare tunnel conflicts with the requested account, zone, hostname, or provider resource"
@@ -764,12 +896,22 @@ func (s *Server) cloudflareTunnelStatus(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if binding.AccountID == "" || binding.TunnelID == "" {
-		writeError(w, http.StatusConflict, "cloudflare_tunnel_missing", "create the named tunnel before checking status")
+		writeError(
+			w,
+			http.StatusConflict,
+			"cloudflare_tunnel_missing",
+			"create the named tunnel before checking status",
+		)
 		return
 	}
 	client, err := s.cloudflareClient(r.Context())
 	if err != nil {
-		writeError(w, http.StatusConflict, "cloudflare_not_connected", "connect Cloudflare before checking tunnel status")
+		writeError(
+			w,
+			http.StatusConflict,
+			"cloudflare_not_connected",
+			"connect Cloudflare before checking tunnel status",
+		)
 		return
 	}
 	status, err := client.TunnelStatus(r.Context(), binding.AccountID, binding.TunnelID)
@@ -784,7 +926,16 @@ func (s *Server) cloudflareTunnelStatus(w http.ResponseWriter, r *http.Request) 
 		state.Cloudflare.TokenValid = true
 		return nil
 	})
-	writeJSON(w, http.StatusOK, setupCloudflareStatusResponse{TunnelID: binding.TunnelID, Status: status.Status, Healthy: cloudflare.StatusIsHealthy(status), Connections: status.Connections})
+	writeJSON(
+		w,
+		http.StatusOK,
+		setupCloudflareStatusResponse{
+			TunnelID:    binding.TunnelID,
+			Status:      status.Status,
+			Healthy:     cloudflare.StatusIsHealthy(status),
+			Connections: status.Connections,
+		},
+	)
 }
 
 func (s *Server) cloudflareClient(ctx context.Context) (cloudflare.Client, error) {
@@ -923,7 +1074,10 @@ func (s *Server) testSetupStorage(w http.ResponseWriter, r *http.Request) {
 		if request.PathStyle != nil {
 			pathStyle = *request.PathStyle
 		}
-		if endpoint != state.Draft.StorageS3Endpoint || region != state.Draft.StorageS3Region || bucket != state.Draft.StorageS3Bucket || accessKey != credentials.StorageS3AccessKey || secretKey != credentials.StorageS3SecretKey || useSSL != state.Draft.StorageS3UseSSL || pathStyle != state.Draft.StorageS3PathStyle {
+		connectionChanged := endpoint != state.Draft.StorageS3Endpoint || region != state.Draft.StorageS3Region || bucket != state.Draft.StorageS3Bucket
+		credentialsChanged := accessKey != credentials.StorageS3AccessKey || secretKey != credentials.StorageS3SecretKey
+		optionsChanged := useSSL != state.Draft.StorageS3UseSSL || pathStyle != state.Draft.StorageS3PathStyle
+		if connectionChanged || credentialsChanged || optionsChanged {
 			return errors.New("test the saved S3-compatible storage settings before installing")
 		}
 		state.Draft.StorageTested = true
@@ -950,7 +1104,12 @@ func (s *Server) recoverSetupSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if status.SetupRequired {
-		writeError(w, http.StatusConflict, "recovery_not_needed", "first-owner setup is still waiting for its original local session")
+		writeError(
+			w,
+			http.StatusConflict,
+			"recovery_not_needed",
+			"first-owner setup is still waiting for its original local session",
+		)
 		return
 	}
 	code, err := bootstrap.GenerateCode()
@@ -1017,7 +1176,20 @@ func (s *Server) pingSetupStorage(ctx context.Context, state setupstate.State, r
 	if request.PathStyle != nil {
 		pathStyle = *request.PathStyle
 	}
-	store, err := storage.NewS3(storage.S3Options{Endpoint: endpoint, Region: region, Bucket: bucket, AccessKey: accessKey, SecretKey: secretKey, UseSSL: useSSL, ForcePathStyle: pathStyle, Prefix: state.Draft.StorageS3Prefix, StagingRoot: filepath.Join(s.config.StorageRoot, "setup-staging")}, s.config.StorageMaxFileSize)
+	store, err := storage.NewS3(
+		storage.S3Options{
+			Endpoint:       endpoint,
+			Region:         region,
+			Bucket:         bucket,
+			AccessKey:      accessKey,
+			SecretKey:      secretKey,
+			UseSSL:         useSSL,
+			ForcePathStyle: pathStyle,
+			Prefix:         state.Draft.StorageS3Prefix,
+			StagingRoot:    filepath.Join(s.config.StorageRoot, "setup-staging"),
+		},
+		s.config.StorageMaxFileSize,
+	)
 	if err != nil {
 		return err
 	}
@@ -1104,7 +1276,12 @@ func (s *Server) startSetupInstall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if bootstrapStatus.SetupRequired {
-		writeError(w, http.StatusConflict, "setup_owner_required", "finish GitHub first-owner verification before installing")
+		writeError(
+			w,
+			http.StatusConflict,
+			"setup_owner_required",
+			"finish GitHub first-owner verification before installing",
+		)
 		return
 	}
 	if err := setupconfig.ValidateInstallableSetup(state); err != nil {
@@ -1234,7 +1411,11 @@ func validQuickTunnelURL(value string) bool {
 		return false
 	}
 	host := strings.ToLower(parsed.Hostname())
-	return parsed.Scheme == "https" && parsed.Host != "" && parsed.User == nil && parsed.Path == "" && parsed.RawQuery == "" && parsed.Fragment == "" && strings.HasSuffix(host, ".trycloudflare.com") && strings.TrimSuffix(host, ".trycloudflare.com") != ""
+	return parsed.Scheme == "https" && parsed.Host != "" && parsed.User == nil && parsed.Path == "" &&
+		parsed.RawQuery == "" &&
+		parsed.Fragment == "" &&
+		strings.HasSuffix(host, ".trycloudflare.com") &&
+		strings.TrimSuffix(host, ".trycloudflare.com") != ""
 }
 
 func safeDockerName(value string) bool {
@@ -1242,7 +1423,11 @@ func safeDockerName(value string) bool {
 		return false
 	}
 	for index, character := range value {
-		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') || character == '-' || character == '_' || character == '.' {
+		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+			(character >= '0' && character <= '9') ||
+			character == '-' ||
+			character == '_' ||
+			character == '.' {
 			if index == 0 && character != 's' {
 				return false
 			}

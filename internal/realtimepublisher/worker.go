@@ -93,12 +93,14 @@ func (w *Worker) Run(ctx context.Context) error {
 			lastPendingMetric = time.Now()
 		}
 		if time.Since(lastAdminRealtimePrune) >= pendingMetricPeriod {
-			if _, err := w.Store.PruneExpiredAdminRealtimeEvents(ctx, 1000); err != nil && !errors.Is(err, context.Canceled) {
+			if _, err := w.Store.PruneExpiredAdminRealtimeEvents(ctx, 1000); err != nil &&
+				!errors.Is(err, context.Canceled) {
 				w.logError("prune expired admin realtime events failed", err)
 			}
 			lastAdminRealtimePrune = time.Now()
 		}
-		if _, err := w.Store.RequeueStaleRealtimeEvents(ctx, leaseAge); err != nil && !errors.Is(err, context.Canceled) {
+		if _, err := w.Store.RequeueStaleRealtimeEvents(ctx, leaseAge); err != nil &&
+			!errors.Is(err, context.Canceled) {
 			w.logError("requeue stale realtime events failed", err)
 		}
 		processed, err := w.RunOnce(ctx)
@@ -190,7 +192,21 @@ func (w *Worker) RunOnce(ctx context.Context) (bool, error) {
 			eventType = envelope.Type
 			correlationID = envelope.CorrelationID
 		}
-		w.Logger.Warn("realtime event publication failed", "event_id", job.EventID, "event_type", eventType, "project_id", job.ProjectID, "correlation_id", correlationID, "attempt", job.AttemptCount, "error", err)
+		w.Logger.Warn(
+			"realtime event publication failed",
+			"event_id",
+			job.EventID,
+			"event_type",
+			eventType,
+			"project_id",
+			job.ProjectID,
+			"correlation_id",
+			correlationID,
+			"attempt",
+			job.AttemptCount,
+			"error",
+			err,
+		)
 	}
 	maxAttempts := w.MaxAttempts
 	if maxAttempts <= 0 {

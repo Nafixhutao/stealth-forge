@@ -35,10 +35,43 @@ type SitePersistence interface {
 	RequeueStaleSiteDeployments(context.Context, time.Duration) (int64, error)
 	ClaimNextSiteDeployment(context.Context, string) (repository.SiteBuildJob, error)
 	ReserveArtifactPublishCleanup(context.Context, repository.ArtifactCleanupInput) error
-	CompleteSiteDeploymentBuild(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, string, int64) (domain.SiteDeployment, error)
-	CompleteSiteDeploymentBuildWithCleanup(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, string, int64, repository.ArtifactCleanupInput) (domain.SiteDeployment, error)
-	FailSiteDeploymentBuild(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, string) (domain.SiteDeployment, error)
-	AppendSiteBuildLog(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, int64, string, string) (domain.SiteBuildLog, error)
+	CompleteSiteDeploymentBuild(
+		context.Context,
+		uuid.UUID,
+		uuid.UUID,
+		uuid.UUID,
+		string,
+		string,
+		int64,
+	) (domain.SiteDeployment, error)
+	CompleteSiteDeploymentBuildWithCleanup(
+		context.Context,
+		uuid.UUID,
+		uuid.UUID,
+		uuid.UUID,
+		string,
+		string,
+		int64,
+		repository.ArtifactCleanupInput,
+	) (domain.SiteDeployment, error)
+	FailSiteDeploymentBuild(
+		context.Context,
+		uuid.UUID,
+		uuid.UUID,
+		uuid.UUID,
+		string,
+		string,
+	) (domain.SiteDeployment, error)
+	AppendSiteBuildLog(
+		context.Context,
+		uuid.UUID,
+		uuid.UUID,
+		uuid.UUID,
+		uuid.UUID,
+		int64,
+		string,
+		string,
+	) (domain.SiteBuildLog, error)
 }
 
 var _ SitePersistence = (*repository.Repository)(nil)
@@ -61,7 +94,14 @@ type SiteWorker struct {
 	Metrics      *observability.WorkerMetrics
 }
 
-func NewSiteWorker(store SitePersistence, sourceStore *functionstore.Store, publicStore *sitestore.Store, builder SiteBuildExecutor, workerID, stagingRoot string, logger *slog.Logger) (*SiteWorker, error) {
+func NewSiteWorker(
+	store SitePersistence,
+	sourceStore *functionstore.Store,
+	publicStore *sitestore.Store,
+	builder SiteBuildExecutor,
+	workerID, stagingRoot string,
+	logger *slog.Logger,
+) (*SiteWorker, error) {
 	if store == nil || sourceStore == nil || publicStore == nil || builder == nil || !validWorkerID(workerID) {
 		return nil, fmt.Errorf("invalid site worker dependencies")
 	}
@@ -112,7 +152,8 @@ func (w *SiteWorker) Run(ctx context.Context) error {
 		if metrics := w.Metrics; metrics != nil {
 			metrics.Polls.Inc()
 		}
-		if requeued, err := w.Store.RequeueStaleSiteDeployments(ctx, leaseAge); err != nil && !errors.Is(err, context.Canceled) {
+		if requeued, err := w.Store.RequeueStaleSiteDeployments(ctx, leaseAge); err != nil &&
+			!errors.Is(err, context.Canceled) {
 			if metrics := w.Metrics; metrics != nil {
 				metrics.Errors.WithLabelValues("site_requeue_build").Inc()
 			}
@@ -156,13 +197,27 @@ func (w *SiteWorker) RunOnce(ctx context.Context) (bool, error) {
 		metrics.BuildsClaimed.Inc()
 		metrics.BuildInFlight.Inc()
 	}
-	spanContext, span := observability.StartWorkerSpan(ctx, "sites.build", attribute.String("stealth.site.framework", job.Site.Framework))
+	spanContext, span := observability.StartWorkerSpan(
+		ctx,
+		"sites.build",
+		attribute.String("stealth.site.framework", job.Site.Framework),
+	)
 	result, buildErr := w.buildDeployment(spanContext, job)
 	span.SetAttributes(attribute.String("stealth.operation.result", result))
 	if buildErr != nil {
 		span.RecordError(errors.New("site build failed"))
 		span.SetStatus(codes.Error, "site build failed")
-		w.Logger.Error("site build failed", "deployment_id", job.Deployment.ID, "site_id", job.Deployment.SiteID, "project_id", job.Deployment.ProjectID, "error", buildErr)
+		w.Logger.Error(
+			"site build failed",
+			"deployment_id",
+			job.Deployment.ID,
+			"site_id",
+			job.Deployment.SiteID,
+			"project_id",
+			job.Deployment.ProjectID,
+			"error",
+			buildErr,
+		)
 	} else {
 		span.SetStatus(codes.Ok, "")
 	}
@@ -221,18 +276,32 @@ func (w *SiteWorker) buildDeployment(parent context.Context, job repository.Site
 	limits := w.ArchiveLimit.withDefaults()
 	sourceLimits := limits
 	sourceLimits.StripTopLevel = job.Deployment.Source == "github" || job.Deployment.Source == "gitlab"
-	stats, extractErr := Extract(parent, checkedArchive, valueOr(job.Deployment.SourceName, ""), workspace, sourceLimits)
+	stats, extractErr := Extract(
+		parent,
+		checkedArchive,
+		valueOr(job.Deployment.SourceName, ""),
+		workspace,
+		sourceLimits,
+	)
 	_ = archive.Close()
 	if extractErr != nil {
 		return w.failBuild(parent, projectID, siteID, deploymentID, redactFailure(extractErr.Error(), nil))
 	}
-	if expected := strings.TrimSpace(job.Deployment.ChecksumSHA256); expected == "" || !strings.EqualFold(expected, checkedArchive.SumHex()) {
+	if expected := strings.TrimSpace(job.Deployment.ChecksumSHA256); expected == "" ||
+		!strings.EqualFold(expected, checkedArchive.SumHex()) {
 		return w.failBuild(parent, projectID, siteID, deploymentID, "site source archive checksum mismatch")
 	}
 	if stats.Files == 0 {
 		return w.failBuild(parent, projectID, siteID, deploymentID, "site source archive contains no files")
 	}
-	w.emitBuildLog(parent, projectID, siteID, deploymentID, "info", fmt.Sprintf("source archive extracted (%d files, %d bytes)", stats.Files, stats.Bytes))
+	w.emitBuildLog(
+		parent,
+		projectID,
+		siteID,
+		deploymentID,
+		"info",
+		fmt.Sprintf("source archive extracted (%d files, %d bytes)", stats.Files, stats.Bytes),
+	)
 
 	buildTimeout := w.BuildTimeout
 	if buildTimeout <= 0 {
@@ -289,9 +358,22 @@ func (w *SiteWorker) buildDeployment(parent context.Context, job repository.Site
 		return w.failBuild(parent, projectID, siteID, deploymentID, "site build output contains no files")
 	}
 	if err := sitestore.ValidateEntrypoint(artifactStaging, "index.html"); err != nil {
-		return w.failBuild(parent, projectID, siteID, deploymentID, "site build output must contain a regular index.html at its root")
+		return w.failBuild(
+			parent,
+			projectID,
+			siteID,
+			deploymentID,
+			"site build output must contain a regular index.html at its root",
+		)
 	}
-	w.emitBuildLog(parent, projectID, siteID, deploymentID, "info", fmt.Sprintf("build artifact produced (%d files, %d bytes)", outputStats.Files, outputStats.Bytes))
+	w.emitBuildLog(
+		parent,
+		projectID,
+		siteID,
+		deploymentID,
+		"info",
+		fmt.Sprintf("build artifact produced (%d files, %d bytes)", outputStats.Files, outputStats.Bytes),
+	)
 	publishCleanup := repository.ArtifactCleanupInput{
 		ProjectID:    projectID,
 		StoreKind:    repository.ArtifactCleanupSites,
@@ -299,7 +381,13 @@ func (w *SiteWorker) buildDeployment(parent context.Context, job repository.Site
 		RelativePath: artifactPath,
 	}
 	if err := w.Store.ReserveArtifactPublishCleanup(parent, publishCleanup); err != nil {
-		return w.failBuild(parent, projectID, siteID, deploymentID, "site build artifact publication could not be reserved")
+		return w.failBuild(
+			parent,
+			projectID,
+			siteID,
+			deploymentID,
+			"site build artifact publication could not be reserved",
+		)
 	}
 	if err := w.PublicStore.CommitDirectory(artifactStaging, artifactPath); err != nil {
 		return w.failBuild(parent, projectID, siteID, deploymentID, "site build artifact could not be committed")
@@ -307,7 +395,13 @@ func (w *SiteWorker) buildDeployment(parent context.Context, job repository.Site
 	committed = true
 	if _, err := w.Store.CompleteSiteDeploymentBuildWithCleanup(parent, projectID, siteID, deploymentID, w.WorkerID, checkedBuild.SumHex(), outputStats.Bytes, publishCleanup); err != nil {
 		if errors.Is(err, repository.ErrSiteQuotaExceeded) {
-			return w.failBuild(parent, projectID, siteID, deploymentID, "site build artifact exceeds the remaining quota")
+			return w.failBuild(
+				parent,
+				projectID,
+				siteID,
+				deploymentID,
+				"site build artifact exceeds the remaining quota",
+			)
 		}
 		return "error", err
 	}
@@ -315,7 +409,11 @@ func (w *SiteWorker) buildDeployment(parent context.Context, job repository.Site
 	return "succeeded", nil
 }
 
-func (w *SiteWorker) failBuild(ctx context.Context, projectID, siteID, deploymentID uuid.UUID, message string) (string, error) {
+func (w *SiteWorker) failBuild(
+	ctx context.Context,
+	projectID, siteID, deploymentID uuid.UUID,
+	message string,
+) (string, error) {
 	if errors.Is(ctx.Err(), context.Canceled) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return "error", ctx.Err()
 	}
@@ -326,17 +424,34 @@ func (w *SiteWorker) failBuild(ctx context.Context, projectID, siteID, deploymen
 	return "failed", nil
 }
 
-func (w *SiteWorker) emitBuildLog(ctx context.Context, projectID, siteID, deploymentID uuid.UUID, level, message string) {
+func (w *SiteWorker) emitBuildLog(
+	ctx context.Context,
+	projectID, siteID, deploymentID uuid.UUID,
+	level, message string,
+) {
 	if err := w.appendBuildLog(ctx, projectID, siteID, deploymentID, level, message); err != nil && w.Logger != nil {
 		w.Logger.Error("append site build log failed", "deployment_id", deploymentID, "error", err)
 	}
 }
 
-func (w *SiteWorker) appendBuildLog(ctx context.Context, projectID, siteID, deploymentID uuid.UUID, level, message string) error {
+func (w *SiteWorker) appendBuildLog(
+	ctx context.Context,
+	projectID, siteID, deploymentID uuid.UUID,
+	level, message string,
+) error {
 	message = redactFailure(normalizeBuildLogMessage(message), nil)
 	if strings.TrimSpace(message) == "" {
 		return nil
 	}
-	_, err := w.Store.AppendSiteBuildLog(ctx, projectID, siteID, deploymentID, uuid.Must(uuid.NewV7()), 0, level, message)
+	_, err := w.Store.AppendSiteBuildLog(
+		ctx,
+		projectID,
+		siteID,
+		deploymentID,
+		uuid.Must(uuid.NewV7()),
+		0,
+		level,
+		message,
+	)
 	return err
 }

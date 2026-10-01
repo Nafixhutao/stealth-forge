@@ -52,9 +52,8 @@ func (e *Engine) ensureBuildKitAppArmorProfile(ctx context.Context, plan Plan) e
 	if err := installManagedAppArmorProfile(e.appArmorProfilePath, contents); err != nil {
 		if os.Geteuid() != 0 && errors.Is(err, os.ErrPermission) {
 			return installAppArmorProfileWithSudo(ctx, e.runner, e.output, contents, e.appArmorProfilePath)
-		} else {
-			return err
 		}
+		return err
 	}
 	name, args := "apparmor_parser", []string{"-r", "-W", e.appArmorProfilePath}
 	if os.Geteuid() != 0 {
@@ -67,10 +66,18 @@ func (e *Engine) ensureBuildKitAppArmorProfile(ctx context.Context, plan Plan) e
 	return nil
 }
 
-func installAppArmorProfileWithSudo(ctx context.Context, runner CommandRunner, output io.Writer, contents []byte, path string) error {
+func installAppArmorProfileWithSudo(
+	ctx context.Context,
+	runner CommandRunner,
+	output io.Writer,
+	contents []byte,
+	path string,
+) error {
 	inputRunner, ok := runner.(InputCommandRunner)
 	if !ok {
-		return errors.New("installing the BuildKit AppArmor profile requires a command runner with trusted input support")
+		return errors.New(
+			"installing the BuildKit AppArmor profile requires a command runner with trusted input support",
+		)
 	}
 	stagingPath := buildKitAppArmorStagingPath(path)
 	if err := inputRunner.RunInput(ctx, filepath.Dir(path), bytes.NewReader(contents), io.Discard, output, "sudo", "tee", stagingPath); err != nil {
@@ -94,7 +101,10 @@ func installAppArmorProfileWithSudo(ctx context.Context, runner CommandRunner, o
 }
 
 func buildKitAppArmorStagingPath(path string) string {
-	return filepath.Join(filepath.Dir(filepath.Dir(path)), "."+filepath.Base(path)+".install-"+strconv.Itoa(os.Getpid()))
+	return filepath.Join(
+		filepath.Dir(filepath.Dir(path)),
+		"."+filepath.Base(path)+".install-"+strconv.Itoa(os.Getpid()),
+	)
 }
 
 func installManagedAppArmorProfile(path string, contents []byte) error {
@@ -144,7 +154,12 @@ func RemoveManagedBuildKitAppArmorProfile(ctx context.Context, runner CommandRun
 	return removeManagedBuildKitAppArmorProfileAt(ctx, runner, stdout, stderr, BuildKitAppArmorProfilePath)
 }
 
-func removeManagedBuildKitAppArmorProfileAt(ctx context.Context, runner CommandRunner, stdout, stderr io.Writer, path string) error {
+func removeManagedBuildKitAppArmorProfileAt(
+	ctx context.Context,
+	runner CommandRunner,
+	stdout, stderr io.Writer,
+	path string,
+) error {
 	info, err := os.Lstat(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil

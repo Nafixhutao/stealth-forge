@@ -169,7 +169,14 @@ func (s *Server) adminOverview(w http.ResponseWriter, r *http.Request) {
 	if explorer, ok := s.telemetry.(telemetry.OverviewExplorer); ok {
 		if result, err := explorer.QueryHTTPOverview(healthContext, telemetry.HTTPOverviewQuery{Range: queryRange}); err == nil {
 			if result.SampleCount > 0 {
-				httpOverview = &adminHTTPOverview{RequestRate: result.RequestRate, ErrorRate: result.ErrorRate, P50LatencyMS: result.P50LatencyMS, P95LatencyMS: result.P95LatencyMS, P99LatencyMS: result.P99LatencyMS, SampleCount: result.SampleCount}
+				httpOverview = &adminHTTPOverview{
+					RequestRate:  result.RequestRate,
+					ErrorRate:    result.ErrorRate,
+					P50LatencyMS: result.P50LatencyMS,
+					P95LatencyMS: result.P95LatencyMS,
+					P99LatencyMS: result.P99LatencyMS,
+					SampleCount:  result.SampleCount,
+				}
 			}
 		}
 	}
@@ -422,7 +429,12 @@ func (s *Server) adminTelemetryTraces(w http.ResponseWriter, r *http.Request) {
 	}
 	minMS, err := parseFloatQuery(r, "min_duration_ms", 0, 24*60*60*1000)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "validation_error", "min_duration_ms must be a non-negative number within one day")
+		writeError(
+			w,
+			http.StatusBadRequest,
+			"validation_error",
+			"min_duration_ms must be a non-negative number within one day",
+		)
 		return
 	}
 	result, err := s.telemetry.QueryTraces(r.Context(), telemetry.TracesQuery{
@@ -488,7 +500,12 @@ func (s *Server) updateAdminTelemetryErrorStatus(w http.ResponseWriter, r *http.
 	if !decodeJSON(w, r, &request) {
 		return
 	}
-	state, err := s.repo.UpdateAdminErrorGroupStatus(r.Context(), mustUUID(accountFrom(r).ID), fingerprint, request.Status)
+	state, err := s.repo.UpdateAdminErrorGroupStatus(
+		r.Context(),
+		mustUUID(accountFrom(r).ID),
+		fingerprint,
+		request.Status,
+	)
 	if errors.Is(err, repository.ErrInvalidAdminErrorGroup) {
 		writeError(w, http.StatusBadRequest, "validation_error", "error group status is invalid")
 		return
@@ -681,7 +698,12 @@ func (s *Server) adminTimeRange(w http.ResponseWriter, r *http.Request) (telemet
 	}
 	queryRange := telemetry.TimeRange{From: from, To: to}
 	if !to.After(from) || to.Sub(from) > s.config.TelemetryMaxQueryRange {
-		writeError(w, http.StatusBadRequest, "validation_error", "time range is invalid or exceeds the configured limit")
+		writeError(
+			w,
+			http.StatusBadRequest,
+			"validation_error",
+			"time range is invalid or exceeds the configured limit",
+		)
 		return telemetry.TimeRange{}, false
 	}
 	return queryRange, true
@@ -710,7 +732,9 @@ func parseFloatQuery(r *http.Request, key string, minimum, maximum float64) (flo
 		return 0, nil
 	}
 	parsed, err := strconv.ParseFloat(value, 64)
-	if err != nil || math.IsNaN(parsed) || math.IsInf(parsed, 0) || parsed < minimum || parsed > maximum {
+	notFinite := math.IsNaN(parsed) || math.IsInf(parsed, 0)
+	outOfRange := parsed < minimum || parsed > maximum
+	if err != nil || notFinite || outOfRange {
 		return 0, errors.New("invalid number")
 	}
 	return parsed, nil

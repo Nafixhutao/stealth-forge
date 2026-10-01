@@ -97,7 +97,14 @@ func New(cfg Config) (*ClickHouseStore, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open telemetry store: %w", err)
 	}
-	return &ClickHouseStore{conn: conn, database: cfg.Database, maxQueryDuration: cfg.MaxQueryDuration, maxQueryRange: cfg.MaxQueryRange, maxQueryRows: cfg.MaxQueryRows, retention: cfg.Retention}, nil
+	return &ClickHouseStore{
+		conn:             conn,
+		database:         cfg.Database,
+		maxQueryDuration: cfg.MaxQueryDuration,
+		maxQueryRange:    cfg.MaxQueryRange,
+		maxQueryRows:     cfg.MaxQueryRows,
+		retention:        cfg.Retention,
+	}, nil
 }
 
 // NewWithConn is intentionally small and is useful for integration tests
@@ -116,7 +123,14 @@ func NewWithConn(conn driver.Conn, cfg Config) *ClickHouseStore {
 	if cfg.Database == "" {
 		cfg.Database = "stealth_telemetry"
 	}
-	return &ClickHouseStore{conn: conn, database: cfg.Database, maxQueryDuration: cfg.MaxQueryDuration, maxQueryRange: cfg.MaxQueryRange, maxQueryRows: cfg.MaxQueryRows, retention: cfg.Retention}
+	return &ClickHouseStore{
+		conn:             conn,
+		database:         cfg.Database,
+		maxQueryDuration: cfg.MaxQueryDuration,
+		maxQueryRange:    cfg.MaxQueryRange,
+		maxQueryRows:     cfg.MaxQueryRows,
+		retention:        cfg.Retention,
+	}
 }
 
 func (s *ClickHouseStore) Close() error {
@@ -423,12 +437,18 @@ LIMIT {limit:UInt32}`
 
 var runtimeContainerIDPattern = regexp.MustCompile(`^[0-9a-f]{12,64}$`)
 
-func (s *ClickHouseStore) QueryContainerLogs(ctx context.Context, query ContainerLogsQuery) (ContainerLogsResult, error) {
+func (s *ClickHouseStore) QueryContainerLogs(
+	ctx context.Context,
+	query ContainerLogsQuery,
+) (ContainerLogsResult, error) {
 	if err := s.validate(query.Range, query.Limit); err != nil {
 		return ContainerLogsResult{}, err
 	}
 	if len(query.ContainerIDs) == 0 || len(query.ContainerIDs) > 2048 {
-		return ContainerLogsResult{}, fmt.Errorf("%w: runtime container source count is outside the allowed range", ErrInvalidQuery)
+		return ContainerLogsResult{}, fmt.Errorf(
+			"%w: runtime container source count is outside the allowed range",
+			ErrInvalidQuery,
+		)
 	}
 	ids := make([]string, 0, len(query.ContainerIDs))
 	seen := make(map[string]struct{}, len(query.ContainerIDs))
@@ -442,7 +462,10 @@ func (s *ClickHouseStore) QueryContainerLogs(ctx context.Context, query Containe
 		}
 	}
 	if len(query.Level) > 64 || len(query.Search) > 256 {
-		return ContainerLogsResult{}, fmt.Errorf("%w: App runtime log filter exceeds the allowed length", ErrInvalidQuery)
+		return ContainerLogsResult{}, fmt.Errorf(
+			"%w: App runtime log filter exceeds the allowed length",
+			ErrInvalidQuery,
+		)
 	}
 	limit, err := clickHouseLimit(query.Limit)
 	if err != nil {
@@ -667,7 +690,15 @@ func (s *ClickHouseStore) QueryLogs(ctx context.Context, query LogsQuery) (LogsR
 		delete(attributes, logEventIDAttribute)
 		item.Attributes = redactAttributes(attributes)
 		item.ResourceAttributes = redactAttributes(resourceAttributes)
-		item.ResourceAttributes = enrichContainerAttributes(item.ResourceAttributes, containerName, imageName, imageID, composeProject, composeService, composeContainerNumber)
+		item.ResourceAttributes = enrichContainerAttributes(
+			item.ResourceAttributes,
+			containerName,
+			imageName,
+			imageID,
+			composeProject,
+			composeService,
+			composeContainerNumber,
+		)
 		result.Items = append(result.Items, item)
 	}
 	if err := rows.Err(); err != nil {
@@ -683,7 +714,10 @@ func boolToUint(value bool) uint8 {
 	return 0
 }
 
-func enrichContainerAttributes(attributes map[string]string, containerName, imageName, imageID, composeProject, composeService, composeContainerNumber string) map[string]string {
+func enrichContainerAttributes(
+	attributes map[string]string,
+	containerName, imageName, imageID, composeProject, composeService, composeContainerNumber string,
+) map[string]string {
 	values := map[string]string{
 		"container.name":                  containerName,
 		"container.image.name":            imageName,
@@ -794,11 +828,36 @@ func (s *ClickHouseStore) QueryMetrics(ctx context.Context, query MetricsQuery) 
 		case "gauge", "sum":
 			item.Value = finiteMetricValue(scalarValue)
 		case "histogram":
-			item.Histogram = &MetricHistogram{Count: metricCount, Sum: metricSum, BucketCounts: bucketCounts, ExplicitBounds: explicitBounds, Min: finiteMetricValue(metricMin), Max: finiteMetricValue(metricMax), AggregationTemporality: aggregationTemporality}
+			item.Histogram = &MetricHistogram{
+				Count:                  metricCount,
+				Sum:                    metricSum,
+				BucketCounts:           bucketCounts,
+				ExplicitBounds:         explicitBounds,
+				Min:                    finiteMetricValue(metricMin),
+				Max:                    finiteMetricValue(metricMax),
+				AggregationTemporality: aggregationTemporality,
+			}
 		case "summary":
-			item.Summary = &MetricSummary{Count: metricCount, Sum: metricSum, Quantiles: metricQuantiles(quantiles, quantileValues), AggregationTemporality: aggregationTemporality}
+			item.Summary = &MetricSummary{
+				Count:                  metricCount,
+				Sum:                    metricSum,
+				Quantiles:              metricQuantiles(quantiles, quantileValues),
+				AggregationTemporality: aggregationTemporality,
+			}
 		case "exponential_histogram":
-			item.Exponential = &MetricExponentialHistogram{Count: metricCount, Sum: metricSum, Scale: scale, ZeroCount: zeroCount, PositiveOffset: positiveOffset, PositiveBucketCounts: positiveBucketCounts, NegativeOffset: negativeOffset, NegativeBucketCounts: negativeBucketCounts, Min: finiteMetricValue(metricMin), Max: finiteMetricValue(metricMax), AggregationTemporality: aggregationTemporality}
+			item.Exponential = &MetricExponentialHistogram{
+				Count:                  metricCount,
+				Sum:                    metricSum,
+				Scale:                  scale,
+				ZeroCount:              zeroCount,
+				PositiveOffset:         positiveOffset,
+				PositiveBucketCounts:   positiveBucketCounts,
+				NegativeOffset:         negativeOffset,
+				NegativeBucketCounts:   negativeBucketCounts,
+				Min:                    finiteMetricValue(metricMin),
+				Max:                    finiteMetricValue(metricMax),
+				AggregationTemporality: aggregationTemporality,
+			}
 		}
 		item.Attributes = redactAttributes(attributes)
 		item.ResourceAttributes = redactAttributes(resourceAttributes)
@@ -823,8 +882,9 @@ func metricQuantiles(quantiles, values []float64) []MetricQuantile {
 		count = len(values)
 	}
 	result := make([]MetricQuantile, 0, count)
-	for index := 0; index < count; index++ {
-		if math.IsNaN(quantiles[index]) || math.IsInf(quantiles[index], 0) || math.IsNaN(values[index]) || math.IsInf(values[index], 0) {
+	for index := range count {
+		if math.IsNaN(quantiles[index]) || math.IsInf(quantiles[index], 0) || math.IsNaN(values[index]) ||
+			math.IsInf(values[index], 0) {
 			continue
 		}
 		result = append(result, MetricQuantile{Quantile: quantiles[index], Value: values[index]})
@@ -932,8 +992,13 @@ func boundedFilter(value string, maximum int) string {
 	return value
 }
 
-var sensitiveKeyPattern = regexp.MustCompile(`(?i)(^|[._-])(password|passwd|pwd|secret|token|api[_-]?key|apikey|authorization|cookie|set-cookie|private[_-]?key|client[_-]?secret|access[_-]?token|refresh[_-]?token)([._-]|$)`)
-var sensitiveTextPattern = regexp.MustCompile(`(?i)((?:bearer|basic)\s+|(?:password|passwd|pwd|secret|token|api[_-]?key|apikey|authorization|cookie|set-cookie|private[_-]?key|client[_-]?secret|access[_-]?token|refresh[_-]?token)['"]?\s*[:=]\s*(?:(?:bearer|basic)\s+)?)(["']?)[^\s,;{}"']+`)
+var sensitiveKeyPattern = regexp.MustCompile(
+	`(?i)(^|[._-])(password|passwd|pwd|secret|token|api[_-]?key|apikey|authorization|cookie|set-cookie|private[_-]?key|client[_-]?secret|access[_-]?token|refresh[_-]?token)([._-]|$)`,
+)
+
+var sensitiveTextPattern = regexp.MustCompile(
+	`(?i)((?:bearer|basic)\s+|(?:password|passwd|pwd|secret|token|api[_-]?key|apikey|authorization|cookie|set-cookie|private[_-]?key|client[_-]?secret|access[_-]?token|refresh[_-]?token)['"]?\s*[:=]\s*(?:(?:bearer|basic)\s+)?)(["']?)[^\s,;{}"']+`,
+)
 var sensitiveURLPattern = regexp.MustCompile(`(?i)([a-z][a-z0-9+.-]*://[^:/\s]+:)[^@/\s]+`)
 
 func redactAttributes(attributes map[string]string) map[string]string {

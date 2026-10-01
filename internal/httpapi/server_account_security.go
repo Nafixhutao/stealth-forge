@@ -38,7 +38,12 @@ func (s *Server) updateAccountPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if auth.VerifyPasswordOrDummy(currentHash, req.Password) {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "new password must differ from the current password")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"new password must differ from the current password",
+		)
 		return
 	}
 	passwordHash, err := auth.HashPassword(req.Password)

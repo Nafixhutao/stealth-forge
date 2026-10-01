@@ -53,7 +53,13 @@ func (s *Server) listAgents(w http.ResponseWriter, r *http.Request) {
 		}
 		projectID = &parsed
 	}
-	items, next, canManage, err := s.repo.ListAgents(r.Context(), mustUUID(accountFrom(r).ID), limit, cursorID, projectID)
+	items, next, canManage, err := s.repo.ListAgents(
+		r.Context(),
+		mustUUID(accountFrom(r).ID),
+		limit,
+		cursorID,
+		projectID,
+	)
 	if agentResourceError(w, err) {
 		return
 	}
@@ -61,7 +67,11 @@ func (s *Server) listAgents(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"agents": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"agents": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) createAgent(w http.ResponseWriter, r *http.Request) {
@@ -78,11 +88,16 @@ func (s *Server) createAgent(w http.ResponseWriter, r *http.Request) {
 		writeAgentProviderModelError(w)
 		return
 	}
-	item, err := s.repo.CreateAgent(r.Context(), uuid.Must(uuid.NewV7()), mustUUID(accountFrom(r).ID), repository.AgentInput{
-		ProjectID: projectID, Name: req.Name, Description: req.Description, Role: req.Role,
-		Branch: req.Branch, Provider: req.Provider, Model: req.Model, CurrentTask: req.CurrentTask,
-		Tools: req.Tools, Instructions: req.Instructions,
-	})
+	item, err := s.repo.CreateAgent(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		mustUUID(accountFrom(r).ID),
+		repository.AgentInput{
+			ProjectID: projectID, Name: req.Name, Description: req.Description, Role: req.Role,
+			Branch: req.Branch, Provider: req.Provider, Model: req.Model, CurrentTask: req.CurrentTask,
+			Tools: req.Tools, Instructions: req.Instructions,
+		},
+	)
 	if agentResourceError(w, err) {
 		return
 	}
@@ -128,7 +143,13 @@ func (s *Server) updateAgent(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	if req.Name == nil && req.Description == nil && req.Role == nil && req.Branch == nil && req.Provider == nil && req.Model == nil && req.CurrentTask == nil && req.Tools == nil && req.Instructions == nil {
+	noFieldsProvided := req.Name == nil && req.Description == nil && req.Role == nil && req.Branch == nil &&
+		req.Provider == nil &&
+		req.Model == nil &&
+		req.CurrentTask == nil &&
+		req.Tools == nil &&
+		req.Instructions == nil
+	if noFieldsProvided {
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", "at least one agent field must be provided")
 		return
 	}
@@ -172,7 +193,12 @@ func (s *Server) validAgentProviderModel(provider, model string) bool {
 }
 
 func writeAgentProviderModelError(w http.ResponseWriter) {
-	writeError(w, http.StatusUnprocessableEntity, "provider_model_invalid", "model is not supported by the selected provider")
+	writeError(
+		w,
+		http.StatusUnprocessableEntity,
+		"provider_model_invalid",
+		"model is not supported by the selected provider",
+	)
 }
 
 func (s *Server) deleteAgent(w http.ResponseWriter, r *http.Request) {
@@ -180,9 +206,11 @@ func (s *Server) deleteAgent(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.repo.DeleteAgent(r.Context(), mustUUID(accountFrom(r).ID), agentID); agentResourceError(w, err) {
+	err := s.repo.DeleteAgent(r.Context(), mustUUID(accountFrom(r).ID), agentID)
+	if agentResourceError(w, err) {
 		return
-	} else if err != nil {
+	}
+	if err != nil {
 		internalError(s, w, err)
 		return
 	}

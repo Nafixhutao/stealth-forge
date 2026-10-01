@@ -69,9 +69,17 @@ func ValidateName(value string) (string, error) {
 
 func ValidateIdentifier(value string) (string, error) {
 	if !identifierPattern.MatchString(value) {
-		return "", fmt.Errorf("%w: must start with a letter or underscore and contain only letters, numbers, and underscores", ErrInvalidIdentifier)
+		return "", fmt.Errorf(
+			"%w: must start with a letter or underscore and contain only letters, numbers, and underscores",
+			ErrInvalidIdentifier,
+		)
 	}
-	if strings.EqualFold(value, "id") || strings.EqualFold(value, "table_id") || strings.EqualFold(value, "project_id") || strings.EqualFold(value, "created_at") || strings.EqualFold(value, "updated_at") {
+	isID := strings.EqualFold(value, "id")
+	isTableID := strings.EqualFold(value, "table_id")
+	isProjectID := strings.EqualFold(value, "project_id")
+	isCreatedAt := strings.EqualFold(value, "created_at")
+	isUpdatedAt := strings.EqualFold(value, "updated_at")
+	if isID || isTableID || isProjectID || isCreatedAt || isUpdatedAt {
 		return "", fmt.Errorf("%w: reserved system field", ErrInvalidIdentifier)
 	}
 	return value, nil
@@ -121,7 +129,9 @@ func Grants(permissions []string, actor Actor) bool {
 				return true
 			}
 		default:
-			if strings.HasPrefix(permission, "user:") && actor.Authenticated && permission == "user:"+actor.UserID.String() {
+			isUserPermission := strings.HasPrefix(permission, "user:")
+			isOwner := permission == "user:"+actor.UserID.String()
+			if isUserPermission && actor.Authenticated && isOwner {
 				return true
 			}
 		}
@@ -135,7 +145,12 @@ func ValidateColumn(def ColumnDefinition) error {
 	}
 	switch def.Type {
 	case TypeVarchar:
-		if def.VarcharSize == nil || *def.VarcharSize < 1 || *def.VarcharSize > 10000 {
+		if def.VarcharSize == nil {
+			return fmt.Errorf("%w: varchar size must be between 1 and 10000", ErrInvalidColumn)
+		}
+		sizeTooSmall := *def.VarcharSize < 1
+		sizeTooLarge := *def.VarcharSize > 10000
+		if sizeTooSmall || sizeTooLarge {
 			return fmt.Errorf("%w: varchar size must be between 1 and 10000", ErrInvalidColumn)
 		}
 	case TypeText, TypeInteger, TypeDouble, TypeBoolean, TypeDatetime, TypeJSON:
@@ -166,7 +181,10 @@ func ValidateValue(def ColumnDefinition, value any) error {
 		if !ok {
 			return fmt.Errorf("%w: expected string", ErrInvalidValue)
 		}
-		if def.Type == TypeVarchar && def.VarcharSize != nil && utf8.RuneCountInString(text) > *def.VarcharSize {
+		isVarchar := def.Type == TypeVarchar
+		hasSizeLimit := def.VarcharSize != nil
+		exceedsSize := hasSizeLimit && utf8.RuneCountInString(text) > *def.VarcharSize
+		if isVarchar && exceedsSize {
 			return fmt.Errorf("%w: string exceeds varchar size", ErrInvalidValue)
 		}
 	case TypeInteger:
@@ -174,7 +192,9 @@ func ValidateValue(def ColumnDefinition, value any) error {
 			return fmt.Errorf("%w: expected integer", ErrInvalidValue)
 		}
 	case TypeDouble:
-		if number, ok := numberValue(value); !ok || math.IsNaN(number) || math.IsInf(number, 0) {
+		number, ok := numberValue(value)
+		notFinite := math.IsNaN(number) || math.IsInf(number, 0)
+		if !ok || notFinite {
 			return fmt.Errorf("%w: expected finite number", ErrInvalidValue)
 		}
 	case TypeBoolean:
@@ -208,7 +228,7 @@ func NormalizeCreate(data map[string]any, columns []ColumnDefinition) (map[strin
 	}
 	for key := range result {
 		if _, err := ValidateIdentifier(key); err != nil {
-			return nil, fmt.Errorf("%w: %s", ErrUnknownField, key)
+			return nil, fmt.Errorf("%w: %q", ErrUnknownField, key)
 		}
 	}
 	byKey := make(map[string]ColumnDefinition, len(columns))
@@ -225,7 +245,7 @@ func NormalizeCreate(data map[string]any, columns []ColumnDefinition) (map[strin
 		}
 		if value == nil {
 			if column.Required {
-				return nil, fmt.Errorf("%w: %s", ErrMissingRequired, key)
+				return nil, fmt.Errorf("%w: %q", ErrMissingRequired, key)
 			}
 			continue
 		}
@@ -242,7 +262,7 @@ func NormalizeCreate(data map[string]any, columns []ColumnDefinition) (map[strin
 			continue
 		}
 		if column.Required {
-			return nil, fmt.Errorf("%w: %s", ErrMissingRequired, column.Key)
+			return nil, fmt.Errorf("%w: %q", ErrMissingRequired, column.Key)
 		}
 	}
 	return result, nil
@@ -310,7 +330,10 @@ func normalizeWithoutDefaults(data map[string]any, columns []ColumnDefinition) (
 func ParseQueryValue(def ColumnDefinition, raw string) (any, error) {
 	switch def.Type {
 	case TypeVarchar, TypeText, TypeDatetime:
-		if def.Type == TypeVarchar && def.VarcharSize != nil && utf8.RuneCountInString(raw) > *def.VarcharSize {
+		isVarchar := def.Type == TypeVarchar
+		hasSizeLimit := def.VarcharSize != nil
+		exceedsSize := hasSizeLimit && utf8.RuneCountInString(raw) > *def.VarcharSize
+		if isVarchar && exceedsSize {
 			return nil, fmt.Errorf("%w: query value exceeds varchar size", ErrInvalidValue)
 		}
 		if def.Type == TypeDatetime {
@@ -327,7 +350,8 @@ func ParseQueryValue(def ColumnDefinition, raw string) (any, error) {
 		return value, nil
 	case TypeDouble:
 		value, err := strconv.ParseFloat(raw, 64)
-		if err != nil || math.IsNaN(value) || math.IsInf(value, 0) {
+		notFinite := math.IsNaN(value) || math.IsInf(value, 0)
+		if err != nil || notFinite {
 			return nil, fmt.Errorf("%w: expected finite number", ErrInvalidValue)
 		}
 		return value, nil
@@ -382,7 +406,10 @@ func integerValue(value any) (int64, bool) {
 		}
 		return int64(number), true
 	case float64:
-		if math.IsNaN(number) || math.IsInf(number, 0) || math.Trunc(number) != number || number < math.MinInt64 || number > math.MaxInt64 {
+		notFinite := math.IsNaN(number) || math.IsInf(number, 0)
+		notInteger := math.Trunc(number) != number
+		outOfRange := number < math.MinInt64 || number > math.MaxInt64
+		if notFinite || notInteger || outOfRange {
 			return 0, false
 		}
 		return int64(number), true

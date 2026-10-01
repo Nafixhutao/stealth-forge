@@ -16,6 +16,7 @@ import (
 )
 
 const rowProjection = `r.id,r.table_id,r.project_id,r.data,r.read_permissions,r.update_permissions,r.delete_permissions,r.creator_project_user_id,r.created_at,r.updated_at`
+
 const rowProjectionNoAlias = `id,table_id,project_id,data,read_permissions,update_permissions,delete_permissions,creator_project_user_id,created_at,updated_at`
 
 const (
@@ -56,7 +57,11 @@ type DatabaseRowTransactionResult struct {
 // DatabaseTableSchema loads schema metadata and performs the same project and
 // table-read checks used by row reads. When row security is enabled, the
 // operation may still narrow results further using each row's grant.
-func (r *Repository) DatabaseTableSchema(ctx context.Context, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor) (DatabaseTableSchema, error) {
+func (r *Repository) DatabaseTableSchema(
+	ctx context.Context,
+	projectID, databaseID, tableID uuid.UUID,
+	actor DatabaseActor,
+) (DatabaseTableSchema, error) {
 	if actor.IsManagement() {
 		if _, err := r.requireDatabaseRead(ctx, projectID, actor); err != nil {
 			return DatabaseTableSchema{}, err
@@ -76,14 +81,26 @@ func loadTableSchema(ctx context.Context, txOrPool interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 }, projectID, databaseID, tableID uuid.UUID) (DatabaseTableSchema, error) {
-	item, err := scanTable(txOrPool.QueryRow(ctx, `SELECT `+tableProjection()+` FROM database_tables WHERE id=$1 AND database_id=$2 AND project_id=$3`, tableID, databaseID, projectID))
+	item, err := scanTable(
+		txOrPool.QueryRow(
+			ctx,
+			`SELECT `+tableProjection()+` FROM database_tables WHERE id=$1 AND database_id=$2 AND project_id=$3`,
+			tableID,
+			databaseID,
+			projectID,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return DatabaseTableSchema{}, ErrNotFound
 	}
 	if err != nil {
 		return DatabaseTableSchema{}, err
 	}
-	rows, err := txOrPool.Query(ctx, `SELECT `+columnProjection()+` FROM database_columns WHERE table_id=$1 ORDER BY id`, tableID)
+	rows, err := txOrPool.Query(
+		ctx,
+		`SELECT `+columnProjection()+` FROM database_columns WHERE table_id=$1 ORDER BY id`,
+		tableID,
+	)
 	if err != nil {
 		return DatabaseTableSchema{}, err
 	}
@@ -154,7 +171,12 @@ func (r *Repository) fullTextIndexedColumn(ctx context.Context, tableID uuid.UUI
 	return found, nil
 }
 
-func (r *Repository) ListDatabaseRows(ctx context.Context, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor, query RowQuery) ([]domain.DatabaseRow, string, error) {
+func (r *Repository) ListDatabaseRows(
+	ctx context.Context,
+	projectID, databaseID, tableID uuid.UUID,
+	actor DatabaseActor,
+	query RowQuery,
+) ([]domain.DatabaseRow, string, error) {
 	if _, err := r.requireDatabaseRead(ctx, projectID, actor); err != nil && actor.IsManagement() {
 		return nil, "", err
 	}
@@ -193,7 +215,8 @@ func (r *Repository) ListDatabaseRows(ctx context.Context, projectID, databaseID
 	}
 	args := []any{projectID, tableID}
 	where := []string{"r.project_id=$1", "r.table_id=$2"}
-	if actor.IsApplication() && schema.Table.RowSecurity && !tableReadGranted {
+	applicationWithRowSecurity := actor.IsApplication() && schema.Table.RowSecurity
+	if applicationWithRowSecurity && !tableReadGranted {
 		where = append(where, rowPermissionSQL("r.read_permissions", actor, &args))
 	}
 	for _, filter := range query.Filters {
@@ -202,7 +225,15 @@ func (r *Repository) ListDatabaseRows(ctx context.Context, projectID, databaseID
 	}
 	if query.SearchColumn != nil && strings.TrimSpace(query.Search) != "" {
 		args = append(args, strings.TrimSpace(query.Search))
-		where = append(where, fullTextSQLExpression("r", *query.SearchColumn)+" @@ plainto_tsquery('simple', $"+strconv.Itoa(len(args))+")")
+		where = append(
+			where,
+			fullTextSQLExpression(
+				"r",
+				*query.SearchColumn,
+			)+" @@ plainto_tsquery('simple', $"+strconv.Itoa(
+				len(args),
+			)+")",
+		)
 	}
 	orderExpression := "r.id"
 	if query.OrderBy != nil {
@@ -235,7 +266,12 @@ func (r *Repository) ListDatabaseRows(ctx context.Context, projectID, databaseID
 		return nil, "", fmt.Errorf("%w: limit must be between 1 and 100", ErrInvalidQuery)
 	}
 	args = append(args, query.Limit+1)
-	sql := `SELECT ` + rowProjection + ` FROM database_rows r WHERE ` + strings.Join(where, " AND ") + ` ORDER BY ` + orderExpression + ` ` + direction + ` NULLS LAST, r.id ` + direction + ` LIMIT $` + strconv.Itoa(len(args))
+	sql := `SELECT ` + rowProjection + ` FROM database_rows r WHERE ` + strings.Join(
+		where,
+		" AND ",
+	) + ` ORDER BY ` + orderExpression + ` ` + direction + ` NULLS LAST, r.id ` + direction + ` LIMIT $` + strconv.Itoa(
+		len(args),
+	)
 	rows, err := r.pool.Query(ctx, sql, args...)
 	if err != nil {
 		return nil, "", err
@@ -269,7 +305,13 @@ func (r *Repository) ListDatabaseRows(ctx context.Context, projectID, databaseID
 // table and row permission rules as ListDatabaseRows. The callback runs while
 // the PostgreSQL cursor is open, so callers can write an export without first
 // materialising the entire table in memory.
-func (r *Repository) StreamDatabaseRows(ctx context.Context, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor, limit int, emit func(domain.DatabaseRow) error) (int, error) {
+func (r *Repository) StreamDatabaseRows(
+	ctx context.Context,
+	projectID, databaseID, tableID uuid.UUID,
+	actor DatabaseActor,
+	limit int,
+	emit func(domain.DatabaseRow) error,
+) (int, error) {
 	if limit < 1 || limit > DatabaseRowExportMaxLimit {
 		return 0, fmt.Errorf("%w: export limit must be between 1 and %d", ErrInvalidQuery, DatabaseRowExportMaxLimit)
 	}
@@ -293,7 +335,12 @@ func (r *Repository) StreamDatabaseRows(ctx context.Context, projectID, database
 		where = append(where, rowPermissionSQL("r.read_permissions", actor, &args))
 	}
 	args = append(args, limit)
-	query := `SELECT ` + rowProjection + ` FROM database_rows r WHERE ` + strings.Join(where, " AND ") + ` ORDER BY r.id ASC LIMIT $` + strconv.Itoa(len(args))
+	query := `SELECT ` + rowProjection + ` FROM database_rows r WHERE ` + strings.Join(
+		where,
+		" AND ",
+	) + ` ORDER BY r.id ASC LIMIT $` + strconv.Itoa(
+		len(args),
+	)
 	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return 0, err
@@ -316,7 +363,11 @@ func (r *Repository) StreamDatabaseRows(ctx context.Context, projectID, database
 	return count, nil
 }
 
-func (r *Repository) GetDatabaseRow(ctx context.Context, projectID, databaseID, tableID, rowID uuid.UUID, actor DatabaseActor) (domain.DatabaseRow, error) {
+func (r *Repository) GetDatabaseRow(
+	ctx context.Context,
+	projectID, databaseID, tableID, rowID uuid.UUID,
+	actor DatabaseActor,
+) (domain.DatabaseRow, error) {
 	if _, err := r.requireDatabaseRead(ctx, projectID, actor); err != nil && actor.IsManagement() {
 		return domain.DatabaseRow{}, err
 	}
@@ -340,7 +391,12 @@ func (r *Repository) GetDatabaseRow(ctx context.Context, projectID, databaseID, 
 	return item, err
 }
 
-func (r *Repository) CreateDatabaseRow(ctx context.Context, id, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor, input DatabaseRowInput) (domain.DatabaseRow, error) {
+func (r *Repository) CreateDatabaseRow(
+	ctx context.Context,
+	id, projectID, databaseID, tableID uuid.UUID,
+	actor DatabaseActor,
+	input DatabaseRowInput,
+) (domain.DatabaseRow, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.DatabaseRow{}, err
@@ -366,9 +422,18 @@ func (r *Repository) CreateDatabaseRow(ctx context.Context, id, projectID, datab
 	return item, nil
 }
 
-func (r *Repository) CreateDatabaseRows(ctx context.Context, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor, inputs []DatabaseBulkRowInput) ([]domain.DatabaseRow, error) {
+func (r *Repository) CreateDatabaseRows(
+	ctx context.Context,
+	projectID, databaseID, tableID uuid.UUID,
+	actor DatabaseActor,
+	inputs []DatabaseBulkRowInput,
+) ([]domain.DatabaseRow, error) {
 	if len(inputs) == 0 || len(inputs) > DatabaseRowBulkImportMaxRows {
-		return nil, fmt.Errorf("%w: import rows must contain between 1 and %d items", dbcore.ErrInvalidRow, DatabaseRowBulkImportMaxRows)
+		return nil, fmt.Errorf(
+			"%w: import rows must contain between 1 and %d items",
+			dbcore.ErrInvalidRow,
+			DatabaseRowBulkImportMaxRows,
+		)
 	}
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -409,9 +474,18 @@ func (r *Repository) CreateDatabaseRows(ctx context.Context, projectID, database
 // TransactDatabaseRows applies a bounded sequence of creates, updates, and
 // deletes under one database transaction. The database namespace lock also
 // serializes this batch with relationship creation and target-row deletion.
-func (r *Repository) TransactDatabaseRows(ctx context.Context, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor, operations []DatabaseRowTransactionOperation) (DatabaseRowTransactionResult, error) {
+func (r *Repository) TransactDatabaseRows(
+	ctx context.Context,
+	projectID, databaseID, tableID uuid.UUID,
+	actor DatabaseActor,
+	operations []DatabaseRowTransactionOperation,
+) (DatabaseRowTransactionResult, error) {
 	if len(operations) == 0 || len(operations) > DatabaseRowTransactionMaxOps {
-		return DatabaseRowTransactionResult{}, fmt.Errorf("%w: transaction operations must contain between 1 and %d items", dbcore.ErrInvalidRow, DatabaseRowTransactionMaxOps)
+		return DatabaseRowTransactionResult{}, fmt.Errorf(
+			"%w: transaction operations must contain between 1 and %d items",
+			dbcore.ErrInvalidRow,
+			DatabaseRowTransactionMaxOps,
+		)
 	}
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -449,22 +523,37 @@ func (r *Repository) TransactDatabaseRows(ctx context.Context, projectID, databa
 			result.Rows = append(result.Rows, item)
 		case "update":
 			if operation.ID == uuid.Nil {
-				return DatabaseRowTransactionResult{}, fmt.Errorf("%w: update operation requires id", dbcore.ErrInvalidRow)
+				return DatabaseRowTransactionResult{}, fmt.Errorf(
+					"%w: update operation requires id",
+					dbcore.ErrInvalidRow,
+				)
 			}
 			if err := authorizeRowOperationTx(ctx, tx, schema.Table, actor, "update"); err != nil {
 				return DatabaseRowTransactionResult{}, err
 			}
-			item, err := r.updateDatabaseRowTx(ctx, tx, projectID, tableID, operation.ID, actor, schema, DatabaseRowPatch{
-				Data: operation.Data, ReadPermissions: operation.ReadPermissions,
-				UpdatePermissions: operation.UpdatePermissions, DeletePermissions: operation.DeletePermissions,
-			})
+			item, err := r.updateDatabaseRowTx(
+				ctx,
+				tx,
+				projectID,
+				tableID,
+				operation.ID,
+				actor,
+				schema,
+				DatabaseRowPatch{
+					Data: operation.Data, ReadPermissions: operation.ReadPermissions,
+					UpdatePermissions: operation.UpdatePermissions, DeletePermissions: operation.DeletePermissions,
+				},
+			)
 			if err != nil {
 				return DatabaseRowTransactionResult{}, err
 			}
 			result.Rows = append(result.Rows, item)
 		case "delete":
 			if operation.ID == uuid.Nil {
-				return DatabaseRowTransactionResult{}, fmt.Errorf("%w: delete operation requires id", dbcore.ErrInvalidRow)
+				return DatabaseRowTransactionResult{}, fmt.Errorf(
+					"%w: delete operation requires id",
+					dbcore.ErrInvalidRow,
+				)
 			}
 			if err := authorizeRowOperationTx(ctx, tx, schema.Table, actor, "delete"); err != nil {
 				return DatabaseRowTransactionResult{}, err
@@ -474,7 +563,10 @@ func (r *Repository) TransactDatabaseRows(ctx context.Context, projectID, databa
 			}
 			result.DeletedIDs = append(result.DeletedIDs, operation.ID.String())
 		default:
-			return DatabaseRowTransactionResult{}, fmt.Errorf("%w: transaction action must be create, update, or delete", dbcore.ErrInvalidRow)
+			return DatabaseRowTransactionResult{}, fmt.Errorf(
+				"%w: transaction action must be create, update, or delete",
+				dbcore.ErrInvalidRow,
+			)
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -483,7 +575,15 @@ func (r *Repository) TransactDatabaseRows(ctx context.Context, projectID, databa
 	return result, nil
 }
 
-func (r *Repository) createDatabaseRowTx(ctx context.Context, tx pgx.Tx, projectID, tableID uuid.UUID, schema DatabaseTableSchema, id uuid.UUID, actor DatabaseActor, input DatabaseRowInput) (domain.DatabaseRow, error) {
+func (r *Repository) createDatabaseRowTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID, tableID uuid.UUID,
+	schema DatabaseTableSchema,
+	id uuid.UUID,
+	actor DatabaseActor,
+	input DatabaseRowInput,
+) (domain.DatabaseRow, error) {
 	data, err := dbcore.NormalizeCreate(input.Data, columnDefinitions(schema.Columns))
 	if err != nil {
 		return domain.DatabaseRow{}, err
@@ -491,8 +591,12 @@ func (r *Repository) createDatabaseRowTx(ctx context.Context, tx pgx.Tx, project
 	if err := validateDatabaseRowRelationshipsTx(ctx, tx, tableID, data); err != nil {
 		return domain.DatabaseRow{}, err
 	}
-	if actor.Kind == DatabaseAnonymousActor && (input.ReadPermissions == nil || input.UpdatePermissions == nil || input.DeletePermissions == nil) {
-		return domain.DatabaseRow{}, fmt.Errorf("%w: anonymous rows must specify read, update, and delete permissions", dbcore.ErrInvalidPermissions)
+	if actor.Kind == DatabaseAnonymousActor &&
+		(input.ReadPermissions == nil || input.UpdatePermissions == nil || input.DeletePermissions == nil) {
+		return domain.DatabaseRow{}, fmt.Errorf(
+			"%w: anonymous rows must specify read, update, and delete permissions",
+			dbcore.ErrInvalidPermissions,
+		)
 	}
 	readPermissions, err := normalizeRowPermissions(input.ReadPermissions, actor, true)
 	if err != nil {
@@ -514,7 +618,20 @@ func (r *Repository) createDatabaseRowTx(ctx context.Context, tx pgx.Tx, project
 	if actor.Kind == DatabaseApplicationActor {
 		creator = actor.ProjectUserID
 	}
-	item, err := scanRow(tx.QueryRow(ctx, `INSERT INTO database_rows (id,table_id,project_id,data,read_permissions,update_permissions,delete_permissions,creator_project_user_id) VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8) RETURNING `+rowProjectionNoAlias, id, tableID, projectID, dataJSON, readPermissions, updatePermissions, deletePermissions, creator))
+	item, err := scanRow(
+		tx.QueryRow(
+			ctx,
+			`INSERT INTO database_rows (id,table_id,project_id,data,read_permissions,update_permissions,delete_permissions,creator_project_user_id) VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8) RETURNING `+rowProjectionNoAlias,
+			id,
+			tableID,
+			projectID,
+			dataJSON,
+			readPermissions,
+			updatePermissions,
+			deletePermissions,
+			creator,
+		),
+	)
 	if err != nil {
 		return domain.DatabaseRow{}, mapError(err)
 	}
@@ -529,7 +646,12 @@ func (r *Repository) createDatabaseRowTx(ctx context.Context, tx pgx.Tx, project
 	return item, nil
 }
 
-func (r *Repository) UpdateDatabaseRow(ctx context.Context, projectID, databaseID, tableID, rowID uuid.UUID, actor DatabaseActor, input DatabaseRowPatch) (domain.DatabaseRow, error) {
+func (r *Repository) UpdateDatabaseRow(
+	ctx context.Context,
+	projectID, databaseID, tableID, rowID uuid.UUID,
+	actor DatabaseActor,
+	input DatabaseRowPatch,
+) (domain.DatabaseRow, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.DatabaseRow{}, err
@@ -555,7 +677,14 @@ func (r *Repository) UpdateDatabaseRow(ctx context.Context, projectID, databaseI
 	return item, nil
 }
 
-func (r *Repository) updateDatabaseRowTx(ctx context.Context, tx pgx.Tx, projectID, tableID, rowID uuid.UUID, actor DatabaseActor, schema DatabaseTableSchema, input DatabaseRowPatch) (domain.DatabaseRow, error) {
+func (r *Repository) updateDatabaseRowTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID, tableID, rowID uuid.UUID,
+	actor DatabaseActor,
+	schema DatabaseTableSchema,
+	input DatabaseRowPatch,
+) (domain.DatabaseRow, error) {
 	selectSQL := `SELECT ` + rowProjection + ` FROM database_rows r WHERE r.project_id=$1 AND r.table_id=$2 AND r.id=$3`
 	selectArgs := []any{projectID, tableID, rowID}
 	if actor.IsApplication() && schema.Table.RowSecurity && !tablePermission(schema.Table.UpdatePermissions, actor) {
@@ -579,7 +708,8 @@ func (r *Repository) updateDatabaseRowTx(ctx context.Context, tx pgx.Tx, project
 	readPermissions := existing.ReadPermissions
 	updatePermissions := existing.UpdatePermissions
 	deletePermissions := existing.DeletePermissions
-	if actor.IsApplication() && (input.ReadPermissions != nil || input.UpdatePermissions != nil || input.DeletePermissions != nil) {
+	if actor.IsApplication() &&
+		(input.ReadPermissions != nil || input.UpdatePermissions != nil || input.DeletePermissions != nil) {
 		return domain.DatabaseRow{}, ErrForbidden
 	}
 	if input.ReadPermissions != nil {
@@ -607,7 +737,19 @@ func (r *Repository) updateDatabaseRowTx(ctx context.Context, tx pgx.Tx, project
 	if err != nil {
 		return domain.DatabaseRow{}, err
 	}
-	item, err := scanRow(tx.QueryRow(ctx, `UPDATE database_rows SET data=$4::jsonb,read_permissions=$5,update_permissions=$6,delete_permissions=$7,updated_at=now() WHERE project_id=$1 AND table_id=$2 AND id=$3 RETURNING `+rowProjectionNoAlias, projectID, tableID, rowID, dataJSON, readPermissions, updatePermissions, deletePermissions))
+	item, err := scanRow(
+		tx.QueryRow(
+			ctx,
+			`UPDATE database_rows SET data=$4::jsonb,read_permissions=$5,update_permissions=$6,delete_permissions=$7,updated_at=now() WHERE project_id=$1 AND table_id=$2 AND id=$3 RETURNING `+rowProjectionNoAlias,
+			projectID,
+			tableID,
+			rowID,
+			dataJSON,
+			readPermissions,
+			updatePermissions,
+			deletePermissions,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.DatabaseRow{}, ErrNotFound
 	}
@@ -632,7 +774,11 @@ func columnDefinitions(columns []DatabaseColumnSchema) []dbcore.ColumnDefinition
 	return definitions
 }
 
-func (r *Repository) DeleteDatabaseRow(ctx context.Context, projectID, databaseID, tableID, rowID uuid.UUID, actor DatabaseActor) error {
+func (r *Repository) DeleteDatabaseRow(
+	ctx context.Context,
+	projectID, databaseID, tableID, rowID uuid.UUID,
+	actor DatabaseActor,
+) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -654,7 +800,13 @@ func (r *Repository) DeleteDatabaseRow(ctx context.Context, projectID, databaseI
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) deleteDatabaseRowTx(ctx context.Context, tx pgx.Tx, projectID, tableID, rowID uuid.UUID, actor DatabaseActor, schema DatabaseTableSchema) error {
+func (r *Repository) deleteDatabaseRowTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID, tableID, rowID uuid.UUID,
+	actor DatabaseActor,
+	schema DatabaseTableSchema,
+) error {
 	selectSQL := `SELECT ` + rowProjection + ` FROM database_rows r WHERE r.project_id=$1 AND r.table_id=$2 AND r.id=$3`
 	selectArgs := []any{projectID, tableID, rowID}
 	if actor.IsApplication() && schema.Table.RowSecurity && !tablePermission(schema.Table.DeletePermissions, actor) {
@@ -680,7 +832,13 @@ func (r *Repository) deleteDatabaseRowTx(ctx context.Context, tx pgx.Tx, project
 	return nil
 }
 
-func authorizeRowOperationTx(ctx context.Context, tx pgx.Tx, table domain.DatabaseTable, actor DatabaseActor, operation string) error {
+func authorizeRowOperationTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	table domain.DatabaseTable,
+	actor DatabaseActor,
+	operation string,
+) error {
 	switch actor.Kind {
 	case DatabaseConsoleActor:
 		if operation != "read" {
