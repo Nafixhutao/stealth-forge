@@ -3,3 +3,7 @@
 *.test
 .env
 coverage.out
+
+# Local tool caches and throwaway diagnostics.
+/graphify-out/
+/tmp-diag/
