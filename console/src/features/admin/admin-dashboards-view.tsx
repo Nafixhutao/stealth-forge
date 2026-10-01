@@ -396,7 +396,7 @@ function AddPanelDialog({ onAdd }: { onAdd: (panel: Panel) => void }) {
             id="dashboard-panel-type"
             value={type}
             onChange={(event) => setType(event.target.value)}
-            className="min-h-11 w-full rounded-md border border-graphite bg-carbon px-3.5 text-sm text-mist outline-none focus-visible:border-acid-lime/70"
+            className="min-h-11 w-full rounded-md border border-control-border bg-carbon px-3.5 text-sm text-mist outline-none focus-visible:border-acid-lime/70"
           >
             <option value="time_series">Metric time series</option>
             <option value="logs">Recent logs</option>

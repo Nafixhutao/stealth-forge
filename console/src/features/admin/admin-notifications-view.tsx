@@ -248,7 +248,7 @@ function CreateChannelDialog({ onCreated }: { onCreated: () => void }) {
               setBotToken("");
               setChatID("");
             }}
-            className="min-h-11 w-full rounded-md border border-graphite bg-carbon px-3.5 text-sm text-mist outline-none focus-visible:border-acid-lime/70 focus-visible:ring-2 focus-visible:ring-acid-lime/15"
+            className="min-h-11 w-full rounded-md border border-control-border bg-carbon px-3.5 text-sm text-mist outline-none focus-visible:border-acid-lime/70 focus-visible:ring-2 focus-visible:ring-acid-lime/15"
           >
             <option value="webhook">Generic webhook</option>
             <option value="slack">Slack webhook</option>

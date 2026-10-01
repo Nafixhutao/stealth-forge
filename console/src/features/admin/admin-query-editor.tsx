@@ -143,7 +143,7 @@ export function AdminQueryEditor({
   return (
     <div
       ref={containerRef}
-      className={`min-h-[46px] rounded-md border bg-carbon transition-colors focus-within:ring-2 focus-within:ring-acid-lime/15 ${invalid ? "border-coral-red/80" : "border-graphite focus-within:border-acid-lime/70"}`}
+      className={`min-h-[46px] rounded-md border bg-carbon transition-colors focus-within:ring-2 focus-within:ring-acid-lime/15 ${invalid ? "border-coral-red/80" : "border-control-border focus-within:border-acid-lime/70"}`}
     />
   );
 }

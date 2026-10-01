@@ -191,7 +191,7 @@ export function AdminLogsView() {
                       const next = event.target.value;
                       if (next) setDraftQuery(next);
                     }}
-                    className="min-h-11 max-w-[220px] rounded-md border border-graphite bg-carbon px-2 py-1.5 text-xs text-mist focus-visible:border-acid-lime/70 focus-visible:outline-none"
+                    className="min-h-11 max-w-[220px] rounded-md border border-control-border bg-carbon px-2 py-1.5 text-xs text-mist focus-visible:border-acid-lime/70 focus-visible:outline-none"
                   >
                     <option value="">History</option>
                     {queryHistory.map((item) => (

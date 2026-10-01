@@ -1076,7 +1076,7 @@ export function BrowserSetupView() {
                               setCloudflareAccountID(event.target.value);
                               setCloudflareZoneID("");
                             }}
-                            className="min-h-11 w-full rounded-lg border border-stealth-border bg-stealth-panel px-3 text-sm text-white focus-visible:border-cyan-300/60"
+                            className="min-h-11 w-full rounded-lg border border-control-border bg-stealth-panel px-3 text-sm text-white focus-visible:border-cyan-300/60"
                           >
                             <option value="">
                               {accounts.isPending
@@ -1104,7 +1104,7 @@ export function BrowserSetupView() {
                               setCloudflareZoneID(event.target.value)
                             }
                             disabled={!selectedAccount}
-                            className="min-h-11 w-full rounded-lg border border-stealth-border bg-stealth-panel px-3 text-sm text-white focus-visible:border-cyan-300/60 disabled:opacity-50"
+                            className="min-h-11 w-full rounded-lg border border-control-border bg-stealth-panel px-3 text-sm text-white focus-visible:border-cyan-300/60 disabled:opacity-50"
                           >
                             <option value="">
                               {zones.isPending

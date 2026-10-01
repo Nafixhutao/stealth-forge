@@ -190,7 +190,7 @@ export function AdminStatusPageView() {
                           .value as AdminStatusPageComponentStatus,
                       })
                     }
-                    className="min-h-11 rounded-md border border-graphite bg-carbon px-3 text-sm text-mist outline-none focus-visible:border-acid-lime/70"
+                    className="min-h-11 rounded-md border border-control-border bg-carbon px-3 text-sm text-mist outline-none focus-visible:border-acid-lime/70"
                   >
                     <option value="operational">Operational</option>
                     <option value="degraded">Degraded</option>

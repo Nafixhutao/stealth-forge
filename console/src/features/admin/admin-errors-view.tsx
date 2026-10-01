@@ -171,7 +171,7 @@ function ErrorGroupTable({
                           status: event.target.value as ErrorStatus,
                         })
                       }
-                      className="min-h-11 rounded-md border border-graphite bg-carbon px-2 py-1.5 text-xs text-mist focus-visible:border-acid-lime/70 focus-visible:outline-none disabled:opacity-50"
+                      className="min-h-11 rounded-md border border-control-border bg-carbon px-2 py-1.5 text-xs text-mist focus-visible:border-acid-lime/70 focus-visible:outline-none disabled:opacity-50"
                     >
                       <option value="open">Open</option>
                       <option value="acknowledged">Acknowledged</option>
