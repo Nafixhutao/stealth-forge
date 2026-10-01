@@ -192,29 +192,65 @@ PY
 		if [ "$login_status" != 204 ]; then printf 'smoke account login returned HTTP %s\n' "$login_status" >&2; exit 1; fi
 		cookie="$(awk 'BEGIN { s = "" } { d=$1; if (d ~ /^#HttpOnly_/) sub(/^#HttpOnly_/,"",d); else if (d ~ /^#/) next; if (NF>=7) { printf "%s%s=%s",s,$6,$7; s="; " } }' "$cookie_file")"
 		app_url="${api_url%/}/v1/projects/${project_id}/apps/${app_id}"
+		diagnostics_url="${app_url}/diagnostics"
+		boot_epoch="$(date -d "$(uptime -s)" +%s)"
 		printf '%s\n' 'Waiting for the App desired generation, fresh health, and route state to recover.'
 		for attempt in $(seq 1 180); do
 			app_status="$(curl --silent --show-error --max-time 10 --header "Cookie: $cookie" --output "$response_file" --write-out '%{http_code}' "$app_url" 2>/dev/null || true)"
+			app_projection_ready=0
 			if [ "$app_status" = 200 ] && python3 - "$response_file" "$deployment_id" "$generation" "$spec_sha" <<'PY'
 import json
 import sys
 with open(sys.argv[1], encoding="utf-8") as source: app=json.load(source).get("app", {})
 if app.get("runtime_status") != "running" or app.get("desired_generation") != int(sys.argv[3]) or app.get("observed_generation") != int(sys.argv[3]) or app.get("desired_deployment_id") != sys.argv[2] or app.get("workload_spec_sha256") != sys.argv[4] or app.get("health_status") != "healthy" or app.get("route_status") != "active": raise SystemExit(1)
 PY
-			then break; fi
-			if [ "$attempt" = 180 ]; then printf 'App failed to recover after reboot: HTTP %s\n' "$app_status" >&2; exit 1; fi
-			sleep 5
-		done
-		containers="$(docker ps -aq --filter "label=stealth.app_id=${app_id}" --filter 'label=stealth.resource_type=app')"
-		if [ "$(printf '%s\n' "$containers" | sed '/^$/d' | wc -l | tr -d ' ')" != 1 ]; then printf '%s\n' 'host reboot left duplicate or missing App containers' >&2; exit 1; fi
-		runtime_container="$containers"
-		if [ "$(docker inspect --format '{{.State.Running}}' "$runtime_container")" != true ]; then printf '%s\n' 'App container is not running after reboot' >&2; exit 1; fi
-		container_started="$(docker inspect --format '{{.State.StartedAt}}' "$runtime_container")"; boot_epoch="$(date -d "$(uptime -s)" +%s)"
-		python3 - "$container_started" "$boot_epoch" <<'PY'
+			then app_projection_ready=1; fi
+			diagnostics_status=''
+			diagnostics_ready=0
+			if [ "$app_projection_ready" -eq 1 ]; then
+				diagnostics_status="$(curl --silent --show-error --max-time 10 --header "Cookie: $cookie" --output "$response_file" --write-out '%{http_code}' "$diagnostics_url" 2>/dev/null || true)"
+				if [ "$diagnostics_status" = 200 ] && python3 - "$response_file" "$deployment_id" "$generation" "$boot_epoch" <<'PY'
+import json
+import sys
+from datetime import datetime
+with open(sys.argv[1], encoding="utf-8") as source: diagnostics=json.load(source)
+desired=diagnostics.get("desired_deployment") or {}
+applied=diagnostics.get("applied_deployment") or {}
+checked_at=diagnostics.get("health_checked_at")
+if not checked_at: raise SystemExit(1)
+checked_epoch=datetime.fromisoformat(checked_at.replace("Z", "+00:00")).timestamp()
+if diagnostics.get("convergence_status") != "converged" or diagnostics.get("desired_generation") != int(sys.argv[3]) or diagnostics.get("observed_generation") != int(sys.argv[3]) or diagnostics.get("applied_generation") != int(sys.argv[3]) or desired.get("id") != sys.argv[2] or applied.get("id") != sys.argv[2] or diagnostics.get("runtime_status") != "running" or diagnostics.get("health_status") != "healthy" or diagnostics.get("route_status") != "active" or checked_epoch < int(sys.argv[4]): raise SystemExit(1)
+PY
+				then diagnostics_ready=1; fi
+			fi
+			containers="$(docker ps -aq --filter "label=stealth.app_id=${app_id}" --filter 'label=stealth.resource_type=app' 2>/dev/null || true)"
+			container_count="$(printf '%s\n' "$containers" | sed '/^$/d' | wc -l | tr -d ' ')"
+			runtime_ready=0
+			runtime_container=''
+			container_started=''
+			container_running=''
+			if [ "$container_count" = 1 ]; then
+				runtime_container="$containers"
+				container_running="$(docker inspect --format '{{.State.Running}}' "$runtime_container" 2>/dev/null || true)"
+				if [ "$container_running" = true ]; then
+					container_started="$(docker inspect --format '{{.State.StartedAt}}' "$runtime_container" 2>/dev/null || true)"
+					if [ -n "$container_started" ] && python3 - "$container_started" "$boot_epoch" <<'PY'
 from datetime import datetime
 import sys
-if datetime.fromisoformat(sys.argv[1].replace("Z", "+00:00")).timestamp() < int(sys.argv[2]): raise SystemExit("App container start predates the current boot")
+if datetime.fromisoformat(sys.argv[1].replace("Z", "+00:00")).timestamp() < int(sys.argv[2]): raise SystemExit(1)
 PY
+					then runtime_ready=1; fi
+				fi
+			fi
+			if [ "$app_projection_ready" -eq 1 ] && [ "$diagnostics_ready" -eq 1 ] && [ "$runtime_ready" -eq 1 ]; then break; fi
+			if [ "$attempt" = 180 ]; then
+				printf 'App failed to converge after reboot: app_http=%s diagnostics_http=%s managed_containers=%s running=%s started_after_boot=%s\n' \
+					"${app_status:-unavailable}" "${diagnostics_status:-unavailable}" "$container_count" \
+					"${container_running:-unknown}" "$runtime_ready" >&2
+				exit 1
+			fi
+			sleep 5
+		done
 		if ! docker exec "$runtime_container" /buildkit-secret-probe verify-runtime-secret-v2 >/dev/null 2>&1; then
 			printf '%s\n' 'App runtime secret verification failed after reboot' >&2
 			exit 1
