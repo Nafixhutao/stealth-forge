@@ -381,9 +381,9 @@ func detectHostnameConflict(ctx context.Context, client Client, request Provisio
 	if err != nil {
 		return provisioningError(ErrProvider, "DNS lookup", err)
 	}
-	hostname := canonicalDNSName(request.Hostname)
+	hostname := domainname.Canonical(request.Hostname)
 	for _, record := range records {
-		if canonicalDNSName(record.Name) != hostname {
+		if domainname.Canonical(record.Name) != hostname {
 			continue
 		}
 		if strings.ToUpper(strings.TrimSpace(record.Type)) != "CNAME" {
