@@ -115,7 +115,7 @@ function AppEditorForm({
               id="app-enabled"
               value={values.enabled}
               onChange={(event) => update("enabled", event.target.value)}
-              className="flex min-h-11 w-full rounded-md border border-graphite bg-carbon px-3.5 text-sm text-mist outline-none focus-visible:ring-2 focus-visible:ring-acid-lime/40"
+              className="flex min-h-11 w-full rounded-md border border-control-border bg-carbon px-3.5 text-sm text-mist outline-none focus-visible:ring-2 focus-visible:ring-acid-lime/40"
             >
               <option value="true">Enabled</option>
               <option value="false">Disabled</option>
@@ -159,7 +159,7 @@ function AppEditorForm({
                 update("health_protocol", event.target.value);
                 if (event.target.value !== "http") update("health_path", "");
               }}
-              className="flex min-h-11 w-full rounded-md border border-graphite bg-carbon px-3.5 text-sm text-mist outline-none focus-visible:ring-2 focus-visible:ring-acid-lime/40"
+              className="flex min-h-11 w-full rounded-md border border-control-border bg-carbon px-3.5 text-sm text-mist outline-none focus-visible:ring-2 focus-visible:ring-acid-lime/40"
             >
               <option value="">Use default (TCP)</option>
               <option value="tcp">TCP</option>

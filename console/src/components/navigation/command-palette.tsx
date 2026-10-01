@@ -219,7 +219,7 @@ export function CommandPalette() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search the console…"
-            className="h-11 border-transparent bg-void pl-9 text-sm focus:border-acid-lime/40"
+            className="h-11 border-transparent bg-void pl-9 text-sm focus-visible:border-acid-lime/40"
             role="combobox"
             aria-controls="console-command-list"
             aria-expanded="true"

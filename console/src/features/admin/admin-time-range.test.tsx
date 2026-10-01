@@ -199,7 +199,7 @@ describe("admin time range preferences", () => {
     );
     expect(screen.getByLabelText("Refresh")).toHaveClass("min-h-11");
     expect(screen.getByLabelText("Refresh")).toHaveClass(
-      "focus:border-acid-lime",
+      "focus-visible:border-acid-lime",
       "focus-visible:ring-2",
     );
 
@@ -207,12 +207,12 @@ describe("admin time range preferences", () => {
 
     expect(screen.getByLabelText("From (local time)")).toHaveClass(
       "min-h-11",
-      "focus:border-acid-lime",
+      "focus-visible:border-acid-lime",
       "focus-visible:ring-2",
     );
     expect(screen.getByLabelText("To (local time)")).toHaveClass(
       "min-h-11",
-      "focus:border-acid-lime",
+      "focus-visible:border-acid-lime",
       "focus-visible:ring-2",
     );
     expect(screen.getByRole("button", { name: "Apply" })).toHaveClass(

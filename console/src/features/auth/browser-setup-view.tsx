@@ -269,7 +269,7 @@ function StageActions({
       {next ? (
         <Button type="button" onClick={next} disabled={nextDisabled || pending}>
           {pending ? <Loader2 className="size-4 animate-spin" /> : null}
-          {pending ? "Saving" : nextLabel}
+          {pending ? "Saving…" : nextLabel}
           {!pending ? <ArrowRight className="size-4" /> : null}
         </Button>
       ) : null}
@@ -607,7 +607,7 @@ function WelcomeStage({ flow }: { flow: SetupFlow }) {
           <div>
             <p className="text-sm font-medium text-white">System check</p>
             <p className="mt-1 text-xs text-slate-500">
-              Unlock the live dependency checks after verifying the setup code.
+              Live dependency checks run after you verify the setup code.
             </p>
           </div>
           {preflight.isPending ? (
@@ -875,7 +875,7 @@ function GitHubStage({ flow }: { flow: SetupFlow }) {
                 ) : (
                   <ShieldCheck className="size-4" />
                 )}
-                {saveManual.isPending ? "Saving securely" : "Save GitHub App"}
+                {saveManual.isPending ? "Saving securely…" : "Save GitHub App"}
               </Button>
             </form>
           )}
@@ -1086,7 +1086,7 @@ function NetworkingStage({ flow }: { flow: SetupFlow }) {
                       setCloudflareAccountID(event.target.value);
                       setCloudflareZoneID("");
                     }}
-                    className="min-h-11 w-full rounded-lg border border-stealth-border bg-stealth-panel px-3 text-sm text-white focus:border-cyan-300/60"
+                    className="min-h-11 w-full rounded-lg border border-control-border bg-stealth-panel px-3 text-sm text-white focus-visible:border-cyan-300/60"
                   >
                     <option value="">
                       {accounts.isPending
@@ -1114,7 +1114,7 @@ function NetworkingStage({ flow }: { flow: SetupFlow }) {
                       setCloudflareZoneID(event.target.value)
                     }
                     disabled={!selectedAccount}
-                    className="min-h-11 w-full rounded-lg border border-stealth-border bg-stealth-panel px-3 text-sm text-white focus:border-cyan-300/60 disabled:opacity-50"
+                    className="min-h-11 w-full rounded-lg border border-control-border bg-stealth-panel px-3 text-sm text-white focus-visible:border-cyan-300/60 disabled:opacity-50"
                   >
                     <option value="">
                       {zones.isPending

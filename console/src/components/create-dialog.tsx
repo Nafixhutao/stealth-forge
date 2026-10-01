@@ -169,7 +169,7 @@ export function CreateDialog<
                   onChange={(event) =>
                     updateValue(field.name, event.target.value)
                   }
-                  className="flex min-h-11 w-full rounded-md border border-graphite bg-carbon px-3.5 text-sm text-mist outline-none focus-visible:ring-2 focus-visible:ring-acid-lime/40"
+                  className="flex min-h-11 w-full rounded-md border border-control-border bg-carbon px-3.5 text-sm text-mist outline-none focus-visible:ring-2 focus-visible:ring-acid-lime/40"
                 >
                   {(field.optionsForValues?.(values) ?? field.options)?.map(
                     (option) => (

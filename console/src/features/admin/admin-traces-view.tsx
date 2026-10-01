@@ -198,7 +198,7 @@ function TraceDetail({ spans }: { spans: TraceSpan[] }) {
                   title={span.name}
                 >
                   <span className="text-fog">{span.service}</span>
-                  <span className="mx-1 text-ash">/</span>
+                  <span className="mx-1 text-fog">/</span>
                   {span.name}
                 </div>
                 <div className="relative h-6 overflow-hidden rounded border border-graphite bg-void">

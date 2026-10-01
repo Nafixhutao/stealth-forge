@@ -34,7 +34,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDate } from "@/lib/format";
-import { AdminMetricChart } from "./admin-metric-chart";
+import { AdminMetricChartLoader } from "./admin-metric-chart-loader";
 import { AdminShell } from "./admin-shell";
 import { AdminEmptyState } from "./admin-empty-state";
 import { AdminTimeRange, useAdminTimeRange } from "./admin-time-range";
@@ -403,7 +403,7 @@ function AddPanelDialog({ onAdd }: { onAdd: (panel: Panel) => void }) {
             id="dashboard-panel-type"
             value={type}
             onChange={(event) => setType(event.target.value)}
-            className="min-h-11 w-full rounded-md border border-graphite bg-carbon px-3.5 text-sm text-mist outline-none focus:border-acid-lime/70"
+            className="min-h-11 w-full rounded-md border border-control-border bg-carbon px-3.5 text-sm text-mist outline-none focus-visible:border-acid-lime/70"
           >
             <option value="time_series">Metric time series</option>
             <option value="logs">Recent logs</option>
@@ -532,7 +532,7 @@ function MetricPanel({
         />
       ) : null}
       {metrics.data?.items.length ? (
-        <AdminMetricChart items={metrics.data.items} />
+        <AdminMetricChartLoader items={metrics.data.items} />
       ) : null}
       {metrics.data && !metrics.data.items.length ? (
         <p className="py-8 text-center text-sm text-fog">
