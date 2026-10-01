@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { formatDate } from "@/lib/format";
 import { useCursorPagination } from "@/hooks/use-cursor-pagination";
-import { ProjectResourceIntro } from "@/features/resources/collection-shared";
+import { ProjectResourceIntro } from "@/components/project-resource-intro";
 import { pageControls } from "@/lib/pagination";
 import { ResourceId } from "@/components/resource-id";
 import {

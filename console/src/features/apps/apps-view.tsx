@@ -13,7 +13,7 @@ import { DataTable, type DataTableColumnDef } from "@/components/data-table";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/page-header";
-import { ProjectResourceIntro } from "@/features/resources/collection-shared";
+import { ProjectResourceIntro } from "@/components/project-resource-intro";
 import { AppEditorDialog } from "@/features/apps/app-editor-dialog";
 import { createAppPayload, type AppFormValues } from "@/features/apps/app-form";
 import { pageControls } from "@/lib/pagination";

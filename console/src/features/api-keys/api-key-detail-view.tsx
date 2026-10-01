@@ -17,7 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatAPIKeyScope } from "@/features/integrations/integration-values";
 import { getApiKeyStatus } from "@/features/api-keys/api-key-status";
 import { formatDate } from "@/lib/format";
-import { BackLink } from "@/features/resources/detail-shared";
+import { BackLink } from "@/components/back-link";
 
 export function APIKeyDetailView({
   organizationId,
