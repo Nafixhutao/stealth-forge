@@ -45,6 +45,8 @@ import {
   type SetupStep,
 } from "./browser-setup-model";
 
+type SetupFlow = ReturnType<typeof useBrowserSetupFlow>;
+
 function fieldError(id: string, message: string | undefined) {
   return message ? (
     <p id={id} className="text-xs text-rose-300" role="alert">
@@ -360,73 +362,21 @@ function HandoffSubmission({
 }
 
 export function BrowserSetupView() {
+  const flow = useBrowserSetupFlow();
   const {
-    accounts,
     actionError,
     activeStep,
-    authorizeGitHubOwner,
     callbackError,
     callbackNotice,
-    checks,
-    checksPass,
-    cloudflareConnected,
-    cloudflareToken,
-    configForm,
-    createCloudflareTunnel,
-    continueCloudflareSetup,
-    dataReady,
-    databaseMode,
     handoffReady,
     handoffToken,
     installPhase,
     installPublicURL,
     installViewState,
-    isPending,
-    manualForm,
     moveTo,
-    networkMode,
     notice,
-    ownerConfirmed,
-    persistConfig,
-    preflight,
-    providerMode,
-    retryProductionInstall,
-    saveCloudflareToken,
-    saveConfig,
-    saveManual,
-    saveManualGitHub,
-    selectedAccount,
-    selectedZone,
-    connectCloudflareToken,
-    setupCode,
     setupStatus,
-    setupVerified,
-    sseConnected,
-    setActionError,
-    setCloudflareAccountID,
-    setCloudflareToken,
-    setCloudflareZoneID,
-    setProviderMode,
-    setSetupCode,
-    startAuthorization,
-    startManifest,
-    startProductionInstall,
-    state,
-    redisMode,
-    storageMode,
-    storageReady,
-    testDatabase,
-    testDatabaseConnection,
-    testRedis,
-    testRedisConnection,
-    testStorage,
-    testStorageConnection,
-    tunnelReady,
-    verifyCode,
-    verifySetupCode,
-    watchedConfig,
-    zones,
-  } = useBrowserSetupFlow();
+  } = flow;
 
   const currentIndex = setupSteps.findIndex((item) => item.id === activeStep);
   const canOpenStep = (target: SetupStep) => {
@@ -552,1033 +502,1129 @@ export function BrowserSetupView() {
           ) : null}
           <ActionError error={actionError ?? callbackError} />
 
-          {activeStep === "welcome" ? (
-            <>
-              <StageHeader
-                eyebrow="Welcome"
-                title="Set up your Stealth instance"
-                description="The browser handles the reviewed configuration. Your terminal stays responsible for Docker and the temporary setup connection."
-              />
-              <div className="grid gap-4 sm:grid-cols-3">
-                <InfoCard
-                  icon={Terminal}
-                  title="Local control"
-                  description="The setup API is reachable only through your temporary setup URL."
-                />
-                <InfoCard
-                  icon={ShieldCheck}
-                  title="Server-side secrets"
-                  description="Provider credentials stay encrypted and never enter the public state."
-                />
-                <InfoCard
-                  icon={RefreshCw}
-                  title="Resumable"
-                  description="Refresh or reconnect without restarting the installation from scratch."
-                />
-              </div>
-              <div className="mt-7 rounded-xl border border-stealth-border bg-black/10 p-5">
-                <div className="flex items-start gap-3">
-                  <KeyRound className="mt-0.5 size-5 shrink-0 text-cyan-300" />
-                  <div>
-                    <p className="text-sm font-medium text-white">
-                      Verify this setup session
-                    </p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">
-                      Enter the one-time code printed by `stealth install`. It
-                      expires after 15 minutes and is not placed in the URL.
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
-                  <div className="flex-1 space-y-2">
-                    <Label htmlFor="browser-setup-code">Setup code</Label>
-                    <Input
-                      id="browser-setup-code"
-                      value={setupCode}
-                      onChange={(event) =>
-                        setSetupCode(event.target.value.toUpperCase())
-                      }
-                      placeholder="STEALTH-XXXX-XXXX-XXXX"
-                      autoComplete="one-time-code"
-                      spellCheck={false}
-                      translate="no"
-                      disabled={setupVerified}
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    onClick={() => void verifySetupCode()}
-                    disabled={setupVerified || verifyCode.isPending}
-                  >
-                    {verifyCode.isPending ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <ShieldCheck className="size-4" />
-                    )}
-                    {setupVerified ? "Verified" : "Verify code"}
-                  </Button>
-                </div>
-              </div>
-              <div className="mt-7 rounded-xl border border-stealth-border p-5">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-white">
-                      System check
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Live dependency checks run after you verify the setup
-                      code.
-                    </p>
-                  </div>
-                  {preflight.isPending ? (
-                    <Loader2 className="size-5 animate-spin text-cyan-300" />
-                  ) : null}
-                </div>
-                <div className="mt-4 space-y-2">
-                  {checks.length === 0 ? (
-                    <p className="text-sm text-slate-600">
-                      System checks will appear here.
-                    </p>
-                  ) : (
-                    checks.map((check) => (
-                      <div
-                        key={check.name}
-                        className="flex items-start justify-between gap-4 rounded-lg bg-black/10 px-3 py-2.5"
-                      >
-                        <div>
-                          <p className="text-sm text-slate-200">{check.name}</p>
-                          <p className="mt-0.5 text-xs text-slate-600">
-                            {check.detail}
-                          </p>
-                        </div>
-                        <StatusPill
-                          status={
-                            check.status === "pass"
-                              ? "ready"
-                              : check.status === "warn"
-                                ? "warning"
-                                : "error"
-                          }
-                        >
-                          {check.status === "pass"
-                            ? "Ready"
-                            : check.status === "warn"
-                              ? "Review"
-                              : "Blocked"}
-                        </StatusPill>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-              <StageActions
-                next={() => moveTo("instance")}
-                nextLabel="Start configuration"
-                nextDisabled={!setupVerified || !checksPass}
-              />
-            </>
-          ) : null}
+          {activeStep === "welcome" ? <WelcomeStage flow={flow} /> : null}
 
-          {activeStep === "instance" ? (
-            <form
-              onSubmit={configForm.handleSubmit(async (values) => {
-                setActionError(undefined);
-                try {
-                  await persistConfig(values);
-                  moveTo("github");
-                } catch (error) {
-                  setActionError(error);
-                }
-              })}
-            >
-              <StageHeader
-                eyebrow="01 / Instance"
-                title="Name and locate the instance"
-                description="Choose the name shown to operators and the URL the production Console will use."
-              />
-              <div className="space-y-5">
-                <Field
-                  id="instance-name"
-                  label="Instance name"
-                  hint="This label stays inside your installation."
-                  error={configForm.formState.errors.instance_name?.message}
-                >
-                  <Input
-                    id="instance-name"
-                    {...configForm.register("instance_name")}
-                  />
-                </Field>
-                <Field
-                  id="public-url"
-                  label="Public Console URL"
-                  hint="Use the final URL, without a path, query, or fragment."
-                  error={configForm.formState.errors.public_url?.message}
-                >
-                  <Input
-                    id="public-url"
-                    type="url"
-                    placeholder="https://console.example.com"
-                    {...configForm.register("public_url")}
-                  />
-                </Field>
-              </div>
-              <StageActions
-                back={() => moveTo("welcome")}
-                next={() =>
-                  void configForm.handleSubmit(async (values) => {
-                    try {
-                      await persistConfig(values);
-                      moveTo("github");
-                    } catch (error) {
-                      setActionError(error);
-                    }
-                  })()
-                }
-                nextLabel="Save and connect GitHub"
-                pending={isPending}
-              />
-            </form>
-          ) : null}
+          {activeStep === "instance" ? <InstanceStage flow={flow} /> : null}
 
-          {activeStep === "github" ? (
-            <>
-              <StageHeader
-                eyebrow="02 / GitHub"
-                title="Connect the owner identity"
-                description="Connect a GitHub App for installation metadata, then verify the person who will become the first Instance Owner."
-              />
-              {state?.github.connected ? (
-                <div className="flex items-start gap-3 rounded-xl border border-emerald-300/20 bg-emerald-300/[0.06] p-5">
-                  <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-300" />
-                  <div>
-                    <p className="text-sm font-medium text-emerald-100">
-                      GitHub App connected
-                    </p>
-                    <p className="mt-1 text-xs leading-5 text-emerald-200/70">
-                      The App credentials are held by the setup API. The Console
-                      only sees the connection status.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-5 flex gap-1 border-b border-stealth-border">
-                    <button
-                      type="button"
-                      onClick={() => setProviderMode("manifest")}
-                      className={`min-h-11 border-b-2 px-3 text-xs font-medium ${providerMode === "manifest" ? "border-cyan-300 text-cyan-200" : "border-transparent text-slate-500"}`}
-                    >
-                      GitHub Manifest
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setProviderMode("manual")}
-                      className={`min-h-11 border-b-2 px-3 text-xs font-medium ${providerMode === "manual" ? "border-cyan-300 text-cyan-200" : "border-transparent text-slate-500"}`}
-                    >
-                      Manual App
-                    </button>
-                  </div>
-                  {providerMode === "manifest" ? (
-                    <div className="rounded-xl border border-stealth-border p-5">
-                      <div className="flex items-start gap-3">
-                        <GitBranch className="mt-0.5 size-5 shrink-0 text-slate-200" />
-                        <div>
-                          <p className="text-sm font-medium text-white">
-                            Create a private GitHub App
-                          </p>
-                          <p className="mt-1 text-xs leading-5 text-slate-500">
-                            GitHub opens its registration page, then returns the
-                            App credentials and opens a second browser
-                            authorization step for the first owner.
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        className="mt-5"
-                        onClick={() =>
-                          void startManifest
-                            .mutateAsync()
-                            .then((result) => {
-                              if (!result?.manifest_url || !result.manifest) {
-                                throw new Error(
-                                  "GitHub App Manifest data was not returned.",
-                                );
-                              }
-                              submitGitHubManifest(
-                                result.manifest_url,
-                                result.manifest,
-                              );
-                            })
-                            .catch(setActionError)
-                        }
-                        disabled={startManifest.isPending}
-                      >
-                        {startManifest.isPending ? (
-                          <Loader2 className="size-4 animate-spin" />
-                        ) : (
-                          <GitBranch className="size-4" />
-                        )}
-                        {startManifest.isPending
-                          ? "Opening GitHub"
-                          : "Create App and authorize owner"}
-                      </Button>
-                    </div>
-                  ) : (
-                    <form onSubmit={saveManualGitHub} className="space-y-5">
-                      <Field
-                        id="github-client-id"
-                        label="Client ID"
-                        error={manualForm.formState.errors.client_id?.message}
-                      >
-                        <Input
-                          id="github-client-id"
-                          autoComplete="off"
-                          {...manualForm.register("client_id")}
-                        />
-                      </Field>
-                      <Field
-                        id="github-client-secret"
-                        label="Client secret"
-                        error={
-                          manualForm.formState.errors.client_secret?.message
-                        }
-                      >
-                        <Input
-                          id="github-client-secret"
-                          type="password"
-                          autoComplete="new-password"
-                          {...manualForm.register("client_secret")}
-                        />
-                      </Field>
-                      <Field
-                        id="github-private-key"
-                        label="Private key"
-                        hint="Paste the complete PEM value. It is submitted only to the setup API."
-                        error={manualForm.formState.errors.private_key?.message}
-                      >
-                        <Textarea
-                          id="github-private-key"
-                          rows={8}
-                          spellCheck={false}
-                          {...manualForm.register("private_key")}
-                        />
-                      </Field>
-                      <Field
-                        id="github-webhook-secret"
-                        label="Webhook secret"
-                        hint="Optional for first-run setup."
-                      >
-                        <Input
-                          id="github-webhook-secret"
-                          type="password"
-                          autoComplete="new-password"
-                          {...manualForm.register("webhook_secret")}
-                        />
-                      </Field>
-                      <Button type="submit" disabled={saveManual.isPending}>
-                        {saveManual.isPending ? (
-                          <Loader2 className="size-4 animate-spin" />
-                        ) : (
-                          <ShieldCheck className="size-4" />
-                        )}
-                        {saveManual.isPending
-                          ? "Saving securely…"
-                          : "Save GitHub App"}
-                      </Button>
-                    </form>
-                  )}
-                </>
-              )}
-              {state?.github.connected ? (
-                <div className="mt-6 border-t border-stealth-border pt-6">
-                  {ownerConfirmed ? (
-                    <div className="flex items-start gap-3 rounded-xl border border-emerald-300/20 bg-emerald-300/[0.06] p-5">
-                      <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-300" />
-                      <div>
-                        <p className="text-sm font-medium text-emerald-100">
-                          Instance Owner verified
-                        </p>
-                        <p className="mt-1 text-xs leading-5 text-emerald-200/70">
-                          The first-owner bootstrap is sealed. The setup claim
-                          remains scoped to this browser until production
-                          handoff.
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="rounded-xl border border-stealth-border p-5">
-                      <p className="text-sm font-medium text-white">
-                        Authorize the first owner in GitHub
-                      </p>
-                      <p className="mt-1 text-xs leading-5 text-slate-500">
-                        Stealth will open GitHub&apos;s browser authorization
-                        page. After approval, the callback creates the first
-                        Instance Owner. No password or device code is required.
-                      </p>
-                      {state.github.mode === "manual" ? (
-                        <p className="mt-3 rounded-lg border border-amber-300/20 bg-amber-300/[0.06] px-3 py-2.5 text-xs leading-5 text-amber-100">
-                          Manual Apps must have the exact HTTPS callback URL
-                          <code className="mx-1 break-all text-amber-200">
-                            /v1/setup/github/authorize/callback
-                          </code>
-                          registered in GitHub App settings.
-                        </p>
-                      ) : null}
-                      <Button
-                        className="mt-5"
-                        onClick={() => void authorizeGitHubOwner()}
-                        disabled={startAuthorization.isPending}
-                      >
-                        {startAuthorization.isPending ? (
-                          <Loader2 className="size-4 animate-spin" />
-                        ) : (
-                          <GitBranch className="size-4" />
-                        )}
-                        {startAuthorization.isPending
-                          ? "Opening GitHub"
-                          : "Authorize owner in GitHub"}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ) : null}
-              <StageActions
-                back={() => moveTo("instance")}
-                next={() => moveTo("networking")}
-                nextLabel="Continue to networking"
-                nextDisabled={!state?.github.connected || !ownerConfirmed}
-              />
-            </>
-          ) : null}
+          {activeStep === "github" ? <GitHubStage flow={flow} /> : null}
 
-          {activeStep === "networking" ? (
-            <>
-              <StageHeader
-                eyebrow="03 / Networking"
-                title="Choose production ingress"
-                description="Quick Tunnel is only for this setup session. Production uses the reviewed mode below."
-              />
-              <div className="grid gap-3 sm:grid-cols-2">
-                <ChoiceCard
-                  active={networkMode === "cloudflare_tunnel"}
-                  icon={Cloud}
-                  title="Named Cloudflare Tunnel"
-                  description="Recommended. Creates a named tunnel and proxied DNS record for the final hostname."
-                  onClick={() =>
-                    configForm.setValue("network_mode", "cloudflare_tunnel", {
-                      shouldDirty: true,
-                    })
-                  }
-                />
-                <ChoiceCard
-                  active={networkMode === "public_ip"}
-                  icon={Wifi}
-                  title="Public IP"
-                  description="Binds the bundled proxy publicly. Put TLS termination in front of it."
-                  onClick={() =>
-                    configForm.setValue("network_mode", "public_ip", {
-                      shouldDirty: true,
-                    })
-                  }
-                />
-                <ChoiceCard
-                  active={networkMode === "reverse_proxy"}
-                  icon={Network}
-                  title="Existing reverse proxy"
-                  description="Keep proxy binding private and route the configured URL from your own ingress."
-                  onClick={() =>
-                    configForm.setValue("network_mode", "reverse_proxy", {
-                      shouldDirty: true,
-                    })
-                  }
-                />
-                <ChoiceCard
-                  active={networkMode === "local_only"}
-                  icon={ServerCog}
-                  title="Local only"
-                  description="Keep the proxy on loopback for a private operator installation."
-                  onClick={() =>
-                    configForm.setValue("network_mode", "local_only", {
-                      shouldDirty: true,
-                    })
-                  }
-                />
-              </div>
-              {networkMode === "cloudflare_tunnel" ? (
-                <div className="mt-6 space-y-5 rounded-xl border border-stealth-border p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-medium text-white">
-                        Cloudflare connection
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        Verify a scoped API token here. Stealth discovers the
-                        account and domain, then configures the named tunnel and
-                        DNS for you.
-                      </p>
-                    </div>
-                    {cloudflareConnected ? (
-                      <StatusPill status="ready">
-                        <CheckCircle2 className="size-3.5" />
-                        Cloudflare connected
-                      </StatusPill>
-                    ) : null}
-                  </div>
-                  {!cloudflareConnected ? (
-                    <div className="space-y-3">
-                      <Field
-                        id="cloudflare-api-token"
-                        label="API Token"
-                        hint="The token is sent only to the setup API and is never returned to browser state."
-                      >
-                        <div className="flex flex-col gap-2 sm:flex-row">
-                          <Input
-                            id="cloudflare-api-token"
-                            type="password"
-                            placeholder="Scoped Cloudflare API token"
-                            value={cloudflareToken}
-                            onChange={(event) =>
-                              setCloudflareToken(event.target.value)
-                            }
-                            autoComplete="new-password"
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => void connectCloudflareToken()}
-                            disabled={saveCloudflareToken.isPending}
-                            className="sm:min-w-32"
-                          >
-                            {saveCloudflareToken.isPending ? (
-                              <Loader2 className="size-4 animate-spin" />
-                            ) : null}
-                            Verify Token
-                          </Button>
-                        </div>
-                      </Field>
-                      <p className="text-xs leading-5 text-slate-500">
-                        Create a custom token with Account: Cloudflare Tunnel
-                        Edit and Account Settings Read; Zone: Zone Read and DNS
-                        Edit for Console/workload zones, plus SSL and
-                        Certificates Read for workload edge TLS readiness. Scope
-                        it to the account and zones you use. Global API keys are
-                        not accepted.
-                      </p>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <Field id="cloudflare-account" label="Account">
-                          <select
-                            id="cloudflare-account"
-                            value={selectedAccount}
-                            onChange={(event) => {
-                              setCloudflareAccountID(event.target.value);
-                              setCloudflareZoneID("");
-                            }}
-                            className="min-h-11 w-full rounded-lg border border-control-border bg-stealth-panel px-3 text-sm text-white focus-visible:border-cyan-300/60"
-                          >
-                            <option value="">
-                              {accounts.isPending
-                                ? "Discovering accounts…"
-                                : "Select an account"}
-                            </option>
-                            {(accounts.data?.accounts ?? []).map((account) => (
-                              <option key={account.id} value={account.id}>
-                                {account.name}
-                              </option>
-                            ))}
-                          </select>
-                          {accounts.isError ? (
-                            <p className="text-xs leading-5 text-rose-300">
-                              Account discovery failed. Check the token scope
-                              and try again.
-                            </p>
-                          ) : null}
-                        </Field>
-                        <Field id="cloudflare-zone" label="Domain">
-                          <select
-                            id="cloudflare-zone"
-                            value={selectedZone}
-                            onChange={(event) =>
-                              setCloudflareZoneID(event.target.value)
-                            }
-                            disabled={!selectedAccount}
-                            className="min-h-11 w-full rounded-lg border border-control-border bg-stealth-panel px-3 text-sm text-white focus-visible:border-cyan-300/60 disabled:opacity-50"
-                          >
-                            <option value="">
-                              {zones.isPending
-                                ? "Discovering domains…"
-                                : "Select a domain"}
-                            </option>
-                            {(zones.data?.zones ?? []).map((zone) => (
-                              <option key={zone.id} value={zone.id}>
-                                {zone.name}
-                              </option>
-                            ))}
-                          </select>
-                          {zones.isError ? (
-                            <p className="text-xs leading-5 text-rose-300">
-                              Domain discovery failed. Check Zone Read access
-                              for the selected account.
-                            </p>
-                          ) : null}
-                        </Field>
-                      </div>
-                      <Field
-                        id="cloudflare-hostname"
-                        label="Dashboard hostname"
-                        hint="The hostname must be inside the selected zone."
-                      >
-                        <Input
-                          id="cloudflare-hostname"
-                          placeholder="console.example.com"
-                          {...configForm.register("hostname")}
-                        />
-                      </Field>
-                      {tunnelReady ? (
-                        <StatusPill status="ready">
-                          <CheckCircle2 className="size-3.5" />
-                          Tunnel and DNS ready
-                        </StatusPill>
-                      ) : (
-                        <p className="text-xs leading-5 text-slate-500">
-                          Continue provisions the named tunnel, ingress, DNS,
-                          and cloudflared configuration automatically.
-                        </p>
-                      )}
-                    </>
-                  )}
-                </div>
-              ) : (
-                <div className="mt-6 rounded-xl border border-stealth-border bg-black/10 p-5">
-                  <p className="text-sm font-medium text-white">Public URL</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">
-                    {watchedConfig.public_url}
-                  </p>
-                  <p className="mt-3 text-xs leading-5 text-amber-200/80">
-                    You are responsible for TLS termination and firewall policy
-                    for this mode.
-                  </p>
-                </div>
-              )}
-              <StageActions
-                back={() => moveTo("github")}
-                next={() => void continueCloudflareSetup()}
-                nextLabel="Continue"
-                nextDisabled={
-                  networkMode === "cloudflare_tunnel" &&
-                  (!cloudflareConnected ||
-                    !selectedAccount ||
-                    !selectedZone ||
-                    !accounts.data?.accounts?.length ||
-                    !zones.data?.zones?.length ||
-                    accounts.isError ||
-                    zones.isError ||
-                    !watchedConfig.hostname?.trim() ||
-                    createCloudflareTunnel.isPending)
-                }
-                pending={
-                  saveConfig.isPending || createCloudflareTunnel.isPending
-                }
-              />
-            </>
-          ) : null}
+          {activeStep === "networking" ? <NetworkingStage flow={flow} /> : null}
 
-          {activeStep === "data" ? (
-            <>
-              <StageHeader
-                eyebrow="04 / Database & Redis"
-                title="Choose durable dependencies"
-                description="Bundled services are the portable default. External endpoints are never started by the setup Compose project and must pass a live test."
-              />
-              <div className="space-y-7">
-                <DependencySection
-                  icon={Database}
-                  title="PostgreSQL"
-                  mode={databaseMode}
-                  onModeChange={(value) =>
-                    configForm.setValue("database_mode", value, {
-                      shouldDirty: true,
-                    })
-                  }
-                  tested={Boolean(state?.draft.database_tested)}
-                  testing={testDatabase.isPending}
-                  onTest={() => void testDatabaseConnection()}
-                >
-                  <Field
-                    id="database-url"
-                    label="PostgreSQL URL"
-                    hint="The URL is kept server-side and is not returned in setup status."
-                  >
-                    <Input
-                      id="database-url"
-                      type="text"
-                      placeholder="postgresql://user:password@db.example.com/stealth"
-                      autoComplete="off"
-                      {...configForm.register("database_url")}
-                    />
-                  </Field>
-                </DependencySection>
-                <DependencySection
-                  icon={Wifi}
-                  title="Redis"
-                  mode={redisMode}
-                  onModeChange={(value) =>
-                    configForm.setValue("redis_mode", value, {
-                      shouldDirty: true,
-                    })
-                  }
-                  tested={Boolean(state?.draft.redis_tested)}
-                  testing={testRedis.isPending}
-                  onTest={() => void testRedisConnection()}
-                >
-                  <Field
-                    id="redis-url"
-                    label="Redis URL"
-                    hint="Use rediss:// when the provider requires TLS."
-                  >
-                    <Input
-                      id="redis-url"
-                      type="text"
-                      placeholder="rediss://:password@redis.example.com:6379/0"
-                      autoComplete="off"
-                      {...configForm.register("redis_url")}
-                    />
-                  </Field>
-                </DependencySection>
-              </div>
-              <StageActions
-                back={() => moveTo("networking")}
-                next={async () => {
-                  try {
-                    await persistConfig(configForm.getValues());
-                    moveTo("storage");
-                  } catch (error) {
-                    setActionError(error);
-                  }
-                }}
-                nextLabel="Save and configure storage"
-                nextDisabled={!dataReady}
-                pending={saveConfig.isPending}
-              />
-            </>
-          ) : null}
+          {activeStep === "data" ? <DataStage flow={flow} /> : null}
 
-          {activeStep === "storage" ? (
-            <>
-              <StageHeader
-                eyebrow="05 / Storage"
-                title="Choose artifact storage"
-                description="Local storage is persistent on this host. S3-compatible storage is tested before it is written into the final production environment."
-              />
-              <div className="grid gap-3 sm:grid-cols-2">
-                <ChoiceCard
-                  active={storageMode === "local"}
-                  icon={HardDrive}
-                  title="Local volume"
-                  description="Use the persistent stealth_storage volume on this host."
-                  onClick={() =>
-                    configForm.setValue("storage_mode", "local", {
-                      shouldDirty: true,
-                    })
-                  }
-                />
-                <ChoiceCard
-                  active={storageMode === "s3"}
-                  icon={Cloud}
-                  title="S3-compatible"
-                  description="Use an external object store for durable artifacts and files."
-                  onClick={() =>
-                    configForm.setValue("storage_mode", "s3", {
-                      shouldDirty: true,
-                    })
-                  }
-                />
-              </div>
-              {storageMode === "s3" ? (
-                <div className="mt-6 space-y-5 rounded-xl border border-stealth-border p-5">
-                  <div className="grid gap-5 sm:grid-cols-2">
-                    <Field id="storage-endpoint" label="Endpoint">
-                      <Input
-                        id="storage-endpoint"
-                        type="url"
-                        placeholder="https://s3.example.com"
-                        {...configForm.register("storage_s3_endpoint")}
-                      />
-                    </Field>
-                    <Field id="storage-region" label="Region">
-                      <Input
-                        id="storage-region"
-                        placeholder="us-east-1"
-                        {...configForm.register("storage_s3_region")}
-                      />
-                    </Field>
-                    <Field id="storage-bucket" label="Bucket">
-                      <Input
-                        id="storage-bucket"
-                        placeholder="stealth-production"
-                        {...configForm.register("storage_s3_bucket")}
-                      />
-                    </Field>
-                    <Field
-                      id="storage-prefix"
-                      label="Prefix"
-                      hint="Optional path prefix."
-                    >
-                      <Input
-                        id="storage-prefix"
-                        placeholder="stealth"
-                        {...configForm.register("storage_s3_prefix")}
-                      />
-                    </Field>
-                    <Field id="storage-access-key" label="Access key">
-                      <Input
-                        id="storage-access-key"
-                        autoComplete="off"
-                        {...configForm.register("storage_s3_access_key")}
-                      />
-                    </Field>
-                    <Field id="storage-secret-key" label="Secret key">
-                      <Input
-                        id="storage-secret-key"
-                        type="password"
-                        autoComplete="new-password"
-                        {...configForm.register("storage_s3_secret_key")}
-                      />
-                    </Field>
-                  </div>
-                  <div className="flex flex-wrap gap-5 text-sm text-slate-300">
-                    <label className="flex min-h-11 items-center gap-2">
-                      <input
-                        type="checkbox"
-                        className="size-4 accent-cyan-300"
-                        {...configForm.register("storage_s3_use_ssl")}
-                      />{" "}
-                      Use TLS
-                    </label>
-                    <label className="flex min-h-11 items-center gap-2">
-                      <input
-                        type="checkbox"
-                        className="size-4 accent-cyan-300"
-                        {...configForm.register("storage_s3_path_style")}
-                      />{" "}
-                      Force path style
-                    </label>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3 border-t border-stealth-border pt-5">
-                    <Button
-                      type="button"
-                      onClick={() => void testStorageConnection()}
-                      disabled={testStorage.isPending}
-                    >
-                      {testStorage.isPending ? (
-                        <Loader2 className="size-4 animate-spin" />
-                      ) : (
-                        <Wifi className="size-4" />
-                      )}
-                      Test storage
-                    </Button>
-                    {state?.draft.storage_tested ? (
-                      <StatusPill status="ready">Storage tested</StatusPill>
-                    ) : (
-                      <StatusPill status="warning">Test required</StatusPill>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-6 rounded-xl border border-stealth-border bg-black/10 p-5 text-sm leading-6 text-slate-400">
-                  The setup API will verify that the local storage volume is
-                  writable during the system check.
-                </div>
-              )}
-              <StageActions
-                back={() => moveTo("data")}
-                next={async () => {
-                  try {
-                    await persistConfig(configForm.getValues());
-                    moveTo("review");
-                  } catch (error) {
-                    setActionError(error);
-                  }
-                }}
-                nextLabel="Review installation"
-                nextDisabled={!storageReady}
-                pending={saveConfig.isPending}
-              />
-            </>
-          ) : null}
+          {activeStep === "storage" ? <StorageStage flow={flow} /> : null}
 
-          {activeStep === "review" ? (
-            <>
-              <StageHeader
-                eyebrow="06 / Review"
-                title="Review the production handoff"
-                description="This is the final configuration the setup service will validate and persist before the host installer starts the production Compose project."
-              />
-              <dl className="rounded-xl border border-stealth-border px-4">
-                <ReviewRow
-                  label="Instance"
-                  value={
-                    watchedConfig.instance_name ?? defaultConfig.instance_name
-                  }
-                />
-                <ReviewRow
-                  label="Public URL"
-                  value={watchedConfig.public_url ?? defaultConfig.public_url}
-                />
-                <ReviewRow
-                  label="Networking"
-                  value={networkMode.replaceAll("_", " ")}
-                />
-                <ReviewRow
-                  label="GitHub"
-                  value={
-                    state?.github.client_id
-                      ? `Connected (${state.github.client_id})`
-                      : "Not connected"
-                  }
-                />
-                <ReviewRow
-                  label="PostgreSQL"
-                  value={
-                    databaseMode === "bundled"
-                      ? "Bundled"
-                      : "External URL tested"
-                  }
-                />
-                <ReviewRow
-                  label="Redis"
-                  value={
-                    redisMode === "bundled" ? "Bundled" : "External URL tested"
-                  }
-                />
-                <ReviewRow
-                  label="Storage"
-                  value={
-                    storageMode === "local"
-                      ? "Local volume"
-                      : "S3-compatible settings tested"
-                  }
-                />
-                {networkMode === "cloudflare_tunnel" ? (
-                  <ReviewRow
-                    label="Tunnel"
-                    value={watchedConfig.hostname || "Not configured"}
-                  />
-                ) : null}
-              </dl>
-              <div className="mt-6 rounded-xl border border-amber-300/20 bg-amber-300/[0.06] p-4 text-xs leading-5 text-amber-100/80">
-                Installation starts production services and may create
-                provider-side resources. The operation is resumable, but
-                provider side effects are not rolled back automatically.
-              </div>
-              <StageActions
-                back={() => moveTo("storage")}
-                next={() => void startProductionInstall()}
-                nextLabel="Install Stealth"
-                nextDisabled={!ownerConfirmed || !dataReady || !storageReady}
-                pending={isPending}
-              />
-            </>
-          ) : null}
+          {activeStep === "review" ? <ReviewStage flow={flow} /> : null}
 
-          {activeStep === "install" ? (
-            <>
-              <StageHeader
-                eyebrow="07 / Install"
-                title={
-                  installViewState?.phase === "failed"
-                    ? "Installation needs attention"
-                    : "Installing Stealth"
-                }
-                description={
-                  installViewState?.phase === "failed"
-                    ? "The production stack is still repairable. Review the safe error below and retry after correcting the underlying issue."
-                    : installViewState?.phase === "install_requested"
-                      ? "Your configuration was received. The host installer is preparing the installation."
-                      : "The host installer is running the shared install engine. Keep this window open until the production session handoff completes."
-                }
-              />
-              <div className="rounded-xl border border-stealth-border p-5">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-white">
-                      {installViewState?.step ?? "Preparing installation"}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {sseConnected
-                        ? "Live progress connected"
-                        : "Reconnecting to live progress"}
-                    </p>
-                  </div>
-                  {installViewState?.phase === "failed" ? (
-                    <StatusPill status="error">Failed</StatusPill>
-                  ) : (
-                    <StatusPill status="pending">Working</StatusPill>
-                  )}
-                </div>
-                <div className="mt-5 space-y-2">
-                  {installationSteps.map((label) => {
-                    const status = installationStepState(
-                      installViewState?.phase,
-                      installViewState?.step,
-                      label,
-                    );
-                    const done = status === "complete";
-                    const current = status === "current";
-                    const failed = status === "failed";
-                    return (
-                      <div
-                        key={label}
-                        aria-current={current ? "step" : undefined}
-                        className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm ${done ? "bg-cyan-300/[0.06] text-cyan-100" : current ? "bg-white/[0.03] text-slate-200" : failed ? "bg-rose-400/[0.06] text-rose-200" : "text-slate-500"}`}
-                      >
-                        <span
-                          className={`flex size-5 items-center justify-center rounded-full border ${done ? "border-cyan-300/50 text-cyan-300" : current ? "border-cyan-300/50 text-cyan-300" : failed ? "border-rose-300/50 text-rose-300" : "border-stealth-border"}`}
-                        >
-                          {done ? (
-                            <Check className="size-3" />
-                          ) : current ? (
-                            <Loader2 className="size-3 animate-spin" />
-                          ) : failed ? (
-                            <CircleAlert className="size-3" />
-                          ) : null}
-                        </span>
-                        {label}
-                      </div>
-                    );
-                  })}
-                </div>
-                {installViewState?.phase === "failed" &&
-                installViewState.error_message ? (
-                  <p
-                    className="mt-5 rounded-lg border border-rose-300/20 bg-rose-400/[0.08] px-3 py-2.5 text-xs leading-5 text-rose-200"
-                    role="alert"
-                  >
-                    {installViewState.error_message}
-                  </p>
-                ) : null}
-              </div>
-              {installViewState?.phase === "failed" ? (
-                <Button
-                  className="mt-6"
-                  onClick={() => void retryProductionInstall()}
-                  disabled={isPending}
-                >
-                  <RefreshCw className="size-4" /> Retry installation
-                </Button>
-              ) : null}
-              <p className="mt-6 text-xs leading-5 text-slate-600">
-                If the browser disconnects, return to this URL while the
-                temporary setup service is available. The latest state is
-                persisted server-side.
-              </p>
-            </>
-          ) : null}
+          {activeStep === "install" ? <InstallStage flow={flow} /> : null}
         </section>
       </div>
     </SetupShell>
+  );
+}
+
+function WelcomeStage({ flow }: { flow: SetupFlow }) {
+  const {
+    checks,
+    checksPass,
+    moveTo,
+    preflight,
+    setupCode,
+    setupVerified,
+    setSetupCode,
+    verifyCode,
+    verifySetupCode,
+  } = flow;
+  return (
+    <>
+      <StageHeader
+        eyebrow="Welcome"
+        title="Set up your Stealth instance"
+        description="The browser handles the reviewed configuration. Your terminal stays responsible for Docker and the temporary setup connection."
+      />
+      <div className="grid gap-4 sm:grid-cols-3">
+        <InfoCard
+          icon={Terminal}
+          title="Local control"
+          description="The setup API is reachable only through your temporary setup URL."
+        />
+        <InfoCard
+          icon={ShieldCheck}
+          title="Server-side secrets"
+          description="Provider credentials stay encrypted and never enter the public state."
+        />
+        <InfoCard
+          icon={RefreshCw}
+          title="Resumable"
+          description="Refresh or reconnect without restarting the installation from scratch."
+        />
+      </div>
+      <div className="mt-7 rounded-xl border border-stealth-border bg-black/10 p-5">
+        <div className="flex items-start gap-3">
+          <KeyRound className="mt-0.5 size-5 shrink-0 text-cyan-300" />
+          <div>
+            <p className="text-sm font-medium text-white">
+              Verify this setup session
+            </p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Enter the one-time code printed by `stealth install`. It expires
+              after 15 minutes and is not placed in the URL.
+            </p>
+          </div>
+        </div>
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex-1 space-y-2">
+            <Label htmlFor="browser-setup-code">Setup code</Label>
+            <Input
+              id="browser-setup-code"
+              value={setupCode}
+              onChange={(event) =>
+                setSetupCode(event.target.value.toUpperCase())
+              }
+              placeholder="STEALTH-XXXX-XXXX-XXXX"
+              autoComplete="one-time-code"
+              spellCheck={false}
+              translate="no"
+              disabled={setupVerified}
+            />
+          </div>
+          <Button
+            type="button"
+            onClick={() => void verifySetupCode()}
+            disabled={setupVerified || verifyCode.isPending}
+          >
+            {verifyCode.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <ShieldCheck className="size-4" />
+            )}
+            {setupVerified ? "Verified" : "Verify code"}
+          </Button>
+        </div>
+      </div>
+      <div className="mt-7 rounded-xl border border-stealth-border p-5">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-white">System check</p>
+            <p className="mt-1 text-xs text-slate-500">
+              Live dependency checks run after you verify the setup code.
+            </p>
+          </div>
+          {preflight.isPending ? (
+            <Loader2 className="size-5 animate-spin text-cyan-300" />
+          ) : null}
+        </div>
+        <div className="mt-4 space-y-2">
+          {checks.length === 0 ? (
+            <p className="text-sm text-slate-600">
+              System checks will appear here.
+            </p>
+          ) : (
+            checks.map((check) => (
+              <div
+                key={check.name}
+                className="flex items-start justify-between gap-4 rounded-lg bg-black/10 px-3 py-2.5"
+              >
+                <div>
+                  <p className="text-sm text-slate-200">{check.name}</p>
+                  <p className="mt-0.5 text-xs text-slate-600">
+                    {check.detail}
+                  </p>
+                </div>
+                <StatusPill
+                  status={
+                    check.status === "pass"
+                      ? "ready"
+                      : check.status === "warn"
+                        ? "warning"
+                        : "error"
+                  }
+                >
+                  {check.status === "pass"
+                    ? "Ready"
+                    : check.status === "warn"
+                      ? "Review"
+                      : "Blocked"}
+                </StatusPill>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+      <StageActions
+        next={() => moveTo("instance")}
+        nextLabel="Start configuration"
+        nextDisabled={!setupVerified || !checksPass}
+      />
+    </>
+  );
+}
+
+function InstanceStage({ flow }: { flow: SetupFlow }) {
+  const { configForm, isPending, moveTo, persistConfig, setActionError } = flow;
+  return (
+    <form
+      onSubmit={configForm.handleSubmit(async (values) => {
+        setActionError(undefined);
+        try {
+          await persistConfig(values);
+          moveTo("github");
+        } catch (error) {
+          setActionError(error);
+        }
+      })}
+    >
+      <StageHeader
+        eyebrow="01 / Instance"
+        title="Name and locate the instance"
+        description="Choose the name shown to operators and the URL the production Console will use."
+      />
+      <div className="space-y-5">
+        <Field
+          id="instance-name"
+          label="Instance name"
+          hint="This label stays inside your installation."
+          error={configForm.formState.errors.instance_name?.message}
+        >
+          <Input id="instance-name" {...configForm.register("instance_name")} />
+        </Field>
+        <Field
+          id="public-url"
+          label="Public Console URL"
+          hint="Use the final URL, without a path, query, or fragment."
+          error={configForm.formState.errors.public_url?.message}
+        >
+          <Input
+            id="public-url"
+            type="url"
+            placeholder="https://console.example.com"
+            {...configForm.register("public_url")}
+          />
+        </Field>
+      </div>
+      <StageActions
+        back={() => moveTo("welcome")}
+        next={() =>
+          void configForm.handleSubmit(async (values) => {
+            try {
+              await persistConfig(values);
+              moveTo("github");
+            } catch (error) {
+              setActionError(error);
+            }
+          })()
+        }
+        nextLabel="Save and connect GitHub"
+        pending={isPending}
+      />
+    </form>
+  );
+}
+
+function GitHubStage({ flow }: { flow: SetupFlow }) {
+  const {
+    authorizeGitHubOwner,
+    manualForm,
+    moveTo,
+    ownerConfirmed,
+    providerMode,
+    saveManual,
+    saveManualGitHub,
+    setActionError,
+    setProviderMode,
+    startAuthorization,
+    startManifest,
+    state,
+  } = flow;
+  return (
+    <>
+      <StageHeader
+        eyebrow="02 / GitHub"
+        title="Connect the owner identity"
+        description="Connect a GitHub App for installation metadata, then verify the person who will become the first Instance Owner."
+      />
+      {state?.github.connected ? (
+        <div className="flex items-start gap-3 rounded-xl border border-emerald-300/20 bg-emerald-300/[0.06] p-5">
+          <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-300" />
+          <div>
+            <p className="text-sm font-medium text-emerald-100">
+              GitHub App connected
+            </p>
+            <p className="mt-1 text-xs leading-5 text-emerald-200/70">
+              The App credentials are held by the setup API. The Console only
+              sees the connection status.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="mb-5 flex gap-1 border-b border-stealth-border">
+            <button
+              type="button"
+              onClick={() => setProviderMode("manifest")}
+              className={`min-h-11 border-b-2 px-3 text-xs font-medium ${providerMode === "manifest" ? "border-cyan-300 text-cyan-200" : "border-transparent text-slate-500"}`}
+            >
+              GitHub Manifest
+            </button>
+            <button
+              type="button"
+              onClick={() => setProviderMode("manual")}
+              className={`min-h-11 border-b-2 px-3 text-xs font-medium ${providerMode === "manual" ? "border-cyan-300 text-cyan-200" : "border-transparent text-slate-500"}`}
+            >
+              Manual App
+            </button>
+          </div>
+          {providerMode === "manifest" ? (
+            <div className="rounded-xl border border-stealth-border p-5">
+              <div className="flex items-start gap-3">
+                <GitBranch className="mt-0.5 size-5 shrink-0 text-slate-200" />
+                <div>
+                  <p className="text-sm font-medium text-white">
+                    Create a private GitHub App
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    GitHub opens its registration page, then returns the App
+                    credentials and opens a second browser authorization step
+                    for the first owner.
+                  </p>
+                </div>
+              </div>
+              <Button
+                className="mt-5"
+                onClick={() =>
+                  void startManifest
+                    .mutateAsync()
+                    .then((result) => {
+                      if (!result?.manifest_url || !result.manifest) {
+                        throw new Error(
+                          "GitHub App Manifest data was not returned.",
+                        );
+                      }
+                      submitGitHubManifest(
+                        result.manifest_url,
+                        result.manifest,
+                      );
+                    })
+                    .catch(setActionError)
+                }
+                disabled={startManifest.isPending}
+              >
+                {startManifest.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <GitBranch className="size-4" />
+                )}
+                {startManifest.isPending
+                  ? "Opening GitHub"
+                  : "Create App and authorize owner"}
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={saveManualGitHub} className="space-y-5">
+              <Field
+                id="github-client-id"
+                label="Client ID"
+                error={manualForm.formState.errors.client_id?.message}
+              >
+                <Input
+                  id="github-client-id"
+                  autoComplete="off"
+                  {...manualForm.register("client_id")}
+                />
+              </Field>
+              <Field
+                id="github-client-secret"
+                label="Client secret"
+                error={manualForm.formState.errors.client_secret?.message}
+              >
+                <Input
+                  id="github-client-secret"
+                  type="password"
+                  autoComplete="new-password"
+                  {...manualForm.register("client_secret")}
+                />
+              </Field>
+              <Field
+                id="github-private-key"
+                label="Private key"
+                hint="Paste the complete PEM value. It is submitted only to the setup API."
+                error={manualForm.formState.errors.private_key?.message}
+              >
+                <Textarea
+                  id="github-private-key"
+                  rows={8}
+                  spellCheck={false}
+                  {...manualForm.register("private_key")}
+                />
+              </Field>
+              <Field
+                id="github-webhook-secret"
+                label="Webhook secret"
+                hint="Optional for first-run setup."
+              >
+                <Input
+                  id="github-webhook-secret"
+                  type="password"
+                  autoComplete="new-password"
+                  {...manualForm.register("webhook_secret")}
+                />
+              </Field>
+              <Button type="submit" disabled={saveManual.isPending}>
+                {saveManual.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <ShieldCheck className="size-4" />
+                )}
+                {saveManual.isPending ? "Saving securely…" : "Save GitHub App"}
+              </Button>
+            </form>
+          )}
+        </>
+      )}
+      {state?.github.connected ? (
+        <div className="mt-6 border-t border-stealth-border pt-6">
+          {ownerConfirmed ? (
+            <div className="flex items-start gap-3 rounded-xl border border-emerald-300/20 bg-emerald-300/[0.06] p-5">
+              <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-300" />
+              <div>
+                <p className="text-sm font-medium text-emerald-100">
+                  Instance Owner verified
+                </p>
+                <p className="mt-1 text-xs leading-5 text-emerald-200/70">
+                  The first-owner bootstrap is sealed. The setup claim remains
+                  scoped to this browser until production handoff.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-stealth-border p-5">
+              <p className="text-sm font-medium text-white">
+                Authorize the first owner in GitHub
+              </p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Stealth will open GitHub&apos;s browser authorization page.
+                After approval, the callback creates the first Instance Owner.
+                No password or device code is required.
+              </p>
+              {state.github.mode === "manual" ? (
+                <p className="mt-3 rounded-lg border border-amber-300/20 bg-amber-300/[0.06] px-3 py-2.5 text-xs leading-5 text-amber-100">
+                  Manual Apps must have the exact HTTPS callback URL
+                  <code className="mx-1 break-all text-amber-200">
+                    /v1/setup/github/authorize/callback
+                  </code>
+                  registered in GitHub App settings.
+                </p>
+              ) : null}
+              <Button
+                className="mt-5"
+                onClick={() => void authorizeGitHubOwner()}
+                disabled={startAuthorization.isPending}
+              >
+                {startAuthorization.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <GitBranch className="size-4" />
+                )}
+                {startAuthorization.isPending
+                  ? "Opening GitHub"
+                  : "Authorize owner in GitHub"}
+              </Button>
+            </div>
+          )}
+        </div>
+      ) : null}
+      <StageActions
+        back={() => moveTo("instance")}
+        next={() => moveTo("networking")}
+        nextLabel="Continue to networking"
+        nextDisabled={!state?.github.connected || !ownerConfirmed}
+      />
+    </>
+  );
+}
+
+function NetworkingStage({ flow }: { flow: SetupFlow }) {
+  const {
+    accounts,
+    cloudflareConnected,
+    cloudflareToken,
+    configForm,
+    createCloudflareTunnel,
+    continueCloudflareSetup,
+    moveTo,
+    networkMode,
+    saveCloudflareToken,
+    saveConfig,
+    selectedAccount,
+    selectedZone,
+    connectCloudflareToken,
+    setCloudflareAccountID,
+    setCloudflareToken,
+    setCloudflareZoneID,
+    tunnelReady,
+    watchedConfig,
+    zones,
+  } = flow;
+  return (
+    <>
+      <StageHeader
+        eyebrow="03 / Networking"
+        title="Choose production ingress"
+        description="Quick Tunnel is only for this setup session. Production uses the reviewed mode below."
+      />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <ChoiceCard
+          active={networkMode === "cloudflare_tunnel"}
+          icon={Cloud}
+          title="Named Cloudflare Tunnel"
+          description="Recommended. Creates a named tunnel and proxied DNS record for the final hostname."
+          onClick={() =>
+            configForm.setValue("network_mode", "cloudflare_tunnel", {
+              shouldDirty: true,
+            })
+          }
+        />
+        <ChoiceCard
+          active={networkMode === "public_ip"}
+          icon={Wifi}
+          title="Public IP"
+          description="Binds the bundled proxy publicly. Put TLS termination in front of it."
+          onClick={() =>
+            configForm.setValue("network_mode", "public_ip", {
+              shouldDirty: true,
+            })
+          }
+        />
+        <ChoiceCard
+          active={networkMode === "reverse_proxy"}
+          icon={Network}
+          title="Existing reverse proxy"
+          description="Keep proxy binding private and route the configured URL from your own ingress."
+          onClick={() =>
+            configForm.setValue("network_mode", "reverse_proxy", {
+              shouldDirty: true,
+            })
+          }
+        />
+        <ChoiceCard
+          active={networkMode === "local_only"}
+          icon={ServerCog}
+          title="Local only"
+          description="Keep the proxy on loopback for a private operator installation."
+          onClick={() =>
+            configForm.setValue("network_mode", "local_only", {
+              shouldDirty: true,
+            })
+          }
+        />
+      </div>
+      {networkMode === "cloudflare_tunnel" ? (
+        <div className="mt-6 space-y-5 rounded-xl border border-stealth-border p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-white">
+                Cloudflare connection
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Verify a scoped API token here. Stealth discovers the account
+                and domain, then configures the named tunnel and DNS for you.
+              </p>
+            </div>
+            {cloudflareConnected ? (
+              <StatusPill status="ready">
+                <CheckCircle2 className="size-3.5" />
+                Cloudflare connected
+              </StatusPill>
+            ) : null}
+          </div>
+          {!cloudflareConnected ? (
+            <div className="space-y-3">
+              <Field
+                id="cloudflare-api-token"
+                label="API Token"
+                hint="The token is sent only to the setup API and is never returned to browser state."
+              >
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Input
+                    id="cloudflare-api-token"
+                    type="password"
+                    placeholder="Scoped Cloudflare API token"
+                    value={cloudflareToken}
+                    onChange={(event) => setCloudflareToken(event.target.value)}
+                    autoComplete="new-password"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void connectCloudflareToken()}
+                    disabled={saveCloudflareToken.isPending}
+                    className="sm:min-w-32"
+                  >
+                    {saveCloudflareToken.isPending ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : null}
+                    Verify Token
+                  </Button>
+                </div>
+              </Field>
+              <p className="text-xs leading-5 text-slate-500">
+                Create a custom token with Account: Cloudflare Tunnel Edit and
+                Account Settings Read; Zone: Zone Read and DNS Edit for
+                Console/workload zones, plus SSL and Certificates Read for
+                workload edge TLS readiness. Scope it to the account and zones
+                you use. Global API keys are not accepted.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field id="cloudflare-account" label="Account">
+                  <select
+                    id="cloudflare-account"
+                    value={selectedAccount}
+                    onChange={(event) => {
+                      setCloudflareAccountID(event.target.value);
+                      setCloudflareZoneID("");
+                    }}
+                    className="min-h-11 w-full rounded-lg border border-control-border bg-stealth-panel px-3 text-sm text-white focus-visible:border-cyan-300/60"
+                  >
+                    <option value="">
+                      {accounts.isPending
+                        ? "Discovering accounts…"
+                        : "Select an account"}
+                    </option>
+                    {(accounts.data?.accounts ?? []).map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name}
+                      </option>
+                    ))}
+                  </select>
+                  {accounts.isError ? (
+                    <p className="text-xs leading-5 text-rose-300">
+                      Account discovery failed. Check the token scope and try
+                      again.
+                    </p>
+                  ) : null}
+                </Field>
+                <Field id="cloudflare-zone" label="Domain">
+                  <select
+                    id="cloudflare-zone"
+                    value={selectedZone}
+                    onChange={(event) =>
+                      setCloudflareZoneID(event.target.value)
+                    }
+                    disabled={!selectedAccount}
+                    className="min-h-11 w-full rounded-lg border border-control-border bg-stealth-panel px-3 text-sm text-white focus-visible:border-cyan-300/60 disabled:opacity-50"
+                  >
+                    <option value="">
+                      {zones.isPending
+                        ? "Discovering domains…"
+                        : "Select a domain"}
+                    </option>
+                    {(zones.data?.zones ?? []).map((zone) => (
+                      <option key={zone.id} value={zone.id}>
+                        {zone.name}
+                      </option>
+                    ))}
+                  </select>
+                  {zones.isError ? (
+                    <p className="text-xs leading-5 text-rose-300">
+                      Domain discovery failed. Check Zone Read access for the
+                      selected account.
+                    </p>
+                  ) : null}
+                </Field>
+              </div>
+              <Field
+                id="cloudflare-hostname"
+                label="Dashboard hostname"
+                hint="The hostname must be inside the selected zone."
+              >
+                <Input
+                  id="cloudflare-hostname"
+                  placeholder="console.example.com"
+                  {...configForm.register("hostname")}
+                />
+              </Field>
+              {tunnelReady ? (
+                <StatusPill status="ready">
+                  <CheckCircle2 className="size-3.5" />
+                  Tunnel and DNS ready
+                </StatusPill>
+              ) : (
+                <p className="text-xs leading-5 text-slate-500">
+                  Continue provisions the named tunnel, ingress, DNS, and
+                  cloudflared configuration automatically.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="mt-6 rounded-xl border border-stealth-border bg-black/10 p-5">
+          <p className="text-sm font-medium text-white">Public URL</p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            {watchedConfig.public_url}
+          </p>
+          <p className="mt-3 text-xs leading-5 text-amber-200/80">
+            You are responsible for TLS termination and firewall policy for this
+            mode.
+          </p>
+        </div>
+      )}
+      <StageActions
+        back={() => moveTo("github")}
+        next={() => void continueCloudflareSetup()}
+        nextLabel="Continue"
+        nextDisabled={
+          networkMode === "cloudflare_tunnel" &&
+          (!cloudflareConnected ||
+            !selectedAccount ||
+            !selectedZone ||
+            !accounts.data?.accounts?.length ||
+            !zones.data?.zones?.length ||
+            accounts.isError ||
+            zones.isError ||
+            !watchedConfig.hostname?.trim() ||
+            createCloudflareTunnel.isPending)
+        }
+        pending={saveConfig.isPending || createCloudflareTunnel.isPending}
+      />
+    </>
+  );
+}
+
+function DataStage({ flow }: { flow: SetupFlow }) {
+  const {
+    configForm,
+    dataReady,
+    databaseMode,
+    moveTo,
+    persistConfig,
+    saveConfig,
+    setActionError,
+    state,
+    redisMode,
+    testDatabase,
+    testDatabaseConnection,
+    testRedis,
+    testRedisConnection,
+  } = flow;
+  return (
+    <>
+      <StageHeader
+        eyebrow="04 / Database & Redis"
+        title="Choose durable dependencies"
+        description="Bundled services are the portable default. External endpoints are never started by the setup Compose project and must pass a live test."
+      />
+      <div className="space-y-7">
+        <DependencySection
+          icon={Database}
+          title="PostgreSQL"
+          mode={databaseMode}
+          onModeChange={(value) =>
+            configForm.setValue("database_mode", value, {
+              shouldDirty: true,
+            })
+          }
+          tested={Boolean(state?.draft.database_tested)}
+          testing={testDatabase.isPending}
+          onTest={() => void testDatabaseConnection()}
+        >
+          <Field
+            id="database-url"
+            label="PostgreSQL URL"
+            hint="The URL is kept server-side and is not returned in setup status."
+          >
+            <Input
+              id="database-url"
+              type="text"
+              placeholder="postgresql://user:password@db.example.com/stealth"
+              autoComplete="off"
+              {...configForm.register("database_url")}
+            />
+          </Field>
+        </DependencySection>
+        <DependencySection
+          icon={Wifi}
+          title="Redis"
+          mode={redisMode}
+          onModeChange={(value) =>
+            configForm.setValue("redis_mode", value, {
+              shouldDirty: true,
+            })
+          }
+          tested={Boolean(state?.draft.redis_tested)}
+          testing={testRedis.isPending}
+          onTest={() => void testRedisConnection()}
+        >
+          <Field
+            id="redis-url"
+            label="Redis URL"
+            hint="Use rediss:// when the provider requires TLS."
+          >
+            <Input
+              id="redis-url"
+              type="text"
+              placeholder="rediss://:password@redis.example.com:6379/0"
+              autoComplete="off"
+              {...configForm.register("redis_url")}
+            />
+          </Field>
+        </DependencySection>
+      </div>
+      <StageActions
+        back={() => moveTo("networking")}
+        next={async () => {
+          try {
+            await persistConfig(configForm.getValues());
+            moveTo("storage");
+          } catch (error) {
+            setActionError(error);
+          }
+        }}
+        nextLabel="Save and configure storage"
+        nextDisabled={!dataReady}
+        pending={saveConfig.isPending}
+      />
+    </>
+  );
+}
+
+function StorageStage({ flow }: { flow: SetupFlow }) {
+  const {
+    configForm,
+    moveTo,
+    persistConfig,
+    saveConfig,
+    setActionError,
+    state,
+    storageMode,
+    storageReady,
+    testStorage,
+    testStorageConnection,
+  } = flow;
+  return (
+    <>
+      <StageHeader
+        eyebrow="05 / Storage"
+        title="Choose artifact storage"
+        description="Local storage is persistent on this host. S3-compatible storage is tested before it is written into the final production environment."
+      />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <ChoiceCard
+          active={storageMode === "local"}
+          icon={HardDrive}
+          title="Local volume"
+          description="Use the persistent stealth_storage volume on this host."
+          onClick={() =>
+            configForm.setValue("storage_mode", "local", {
+              shouldDirty: true,
+            })
+          }
+        />
+        <ChoiceCard
+          active={storageMode === "s3"}
+          icon={Cloud}
+          title="S3-compatible"
+          description="Use an external object store for durable artifacts and files."
+          onClick={() =>
+            configForm.setValue("storage_mode", "s3", {
+              shouldDirty: true,
+            })
+          }
+        />
+      </div>
+      {storageMode === "s3" ? (
+        <div className="mt-6 space-y-5 rounded-xl border border-stealth-border p-5">
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field id="storage-endpoint" label="Endpoint">
+              <Input
+                id="storage-endpoint"
+                type="url"
+                placeholder="https://s3.example.com"
+                {...configForm.register("storage_s3_endpoint")}
+              />
+            </Field>
+            <Field id="storage-region" label="Region">
+              <Input
+                id="storage-region"
+                placeholder="us-east-1"
+                {...configForm.register("storage_s3_region")}
+              />
+            </Field>
+            <Field id="storage-bucket" label="Bucket">
+              <Input
+                id="storage-bucket"
+                placeholder="stealth-production"
+                {...configForm.register("storage_s3_bucket")}
+              />
+            </Field>
+            <Field
+              id="storage-prefix"
+              label="Prefix"
+              hint="Optional path prefix."
+            >
+              <Input
+                id="storage-prefix"
+                placeholder="stealth"
+                {...configForm.register("storage_s3_prefix")}
+              />
+            </Field>
+            <Field id="storage-access-key" label="Access key">
+              <Input
+                id="storage-access-key"
+                autoComplete="off"
+                {...configForm.register("storage_s3_access_key")}
+              />
+            </Field>
+            <Field id="storage-secret-key" label="Secret key">
+              <Input
+                id="storage-secret-key"
+                type="password"
+                autoComplete="new-password"
+                {...configForm.register("storage_s3_secret_key")}
+              />
+            </Field>
+          </div>
+          <div className="flex flex-wrap gap-5 text-sm text-slate-300">
+            <label className="flex min-h-11 items-center gap-2">
+              <input
+                type="checkbox"
+                className="size-4 accent-cyan-300"
+                {...configForm.register("storage_s3_use_ssl")}
+              />{" "}
+              Use TLS
+            </label>
+            <label className="flex min-h-11 items-center gap-2">
+              <input
+                type="checkbox"
+                className="size-4 accent-cyan-300"
+                {...configForm.register("storage_s3_path_style")}
+              />{" "}
+              Force path style
+            </label>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 border-t border-stealth-border pt-5">
+            <Button
+              type="button"
+              onClick={() => void testStorageConnection()}
+              disabled={testStorage.isPending}
+            >
+              {testStorage.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Wifi className="size-4" />
+              )}
+              Test storage
+            </Button>
+            {state?.draft.storage_tested ? (
+              <StatusPill status="ready">Storage tested</StatusPill>
+            ) : (
+              <StatusPill status="warning">Test required</StatusPill>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="mt-6 rounded-xl border border-stealth-border bg-black/10 p-5 text-sm leading-6 text-slate-400">
+          The setup API will verify that the local storage volume is writable
+          during the system check.
+        </div>
+      )}
+      <StageActions
+        back={() => moveTo("data")}
+        next={async () => {
+          try {
+            await persistConfig(configForm.getValues());
+            moveTo("review");
+          } catch (error) {
+            setActionError(error);
+          }
+        }}
+        nextLabel="Review installation"
+        nextDisabled={!storageReady}
+        pending={saveConfig.isPending}
+      />
+    </>
+  );
+}
+
+function ReviewStage({ flow }: { flow: SetupFlow }) {
+  const {
+    dataReady,
+    databaseMode,
+    isPending,
+    moveTo,
+    networkMode,
+    ownerConfirmed,
+    startProductionInstall,
+    state,
+    redisMode,
+    storageMode,
+    storageReady,
+    watchedConfig,
+  } = flow;
+  return (
+    <>
+      <StageHeader
+        eyebrow="06 / Review"
+        title="Review the production handoff"
+        description="This is the final configuration the setup service will validate and persist before the host installer starts the production Compose project."
+      />
+      <dl className="rounded-xl border border-stealth-border px-4">
+        <ReviewRow
+          label="Instance"
+          value={watchedConfig.instance_name ?? defaultConfig.instance_name}
+        />
+        <ReviewRow
+          label="Public URL"
+          value={watchedConfig.public_url ?? defaultConfig.public_url}
+        />
+        <ReviewRow
+          label="Networking"
+          value={networkMode.replaceAll("_", " ")}
+        />
+        <ReviewRow
+          label="GitHub"
+          value={
+            state?.github.client_id
+              ? `Connected (${state.github.client_id})`
+              : "Not connected"
+          }
+        />
+        <ReviewRow
+          label="PostgreSQL"
+          value={databaseMode === "bundled" ? "Bundled" : "External URL tested"}
+        />
+        <ReviewRow
+          label="Redis"
+          value={redisMode === "bundled" ? "Bundled" : "External URL tested"}
+        />
+        <ReviewRow
+          label="Storage"
+          value={
+            storageMode === "local"
+              ? "Local volume"
+              : "S3-compatible settings tested"
+          }
+        />
+        {networkMode === "cloudflare_tunnel" ? (
+          <ReviewRow
+            label="Tunnel"
+            value={watchedConfig.hostname || "Not configured"}
+          />
+        ) : null}
+      </dl>
+      <div className="mt-6 rounded-xl border border-amber-300/20 bg-amber-300/[0.06] p-4 text-xs leading-5 text-amber-100/80">
+        Installation starts production services and may create provider-side
+        resources. The operation is resumable, but provider side effects are not
+        rolled back automatically.
+      </div>
+      <StageActions
+        back={() => moveTo("storage")}
+        next={() => void startProductionInstall()}
+        nextLabel="Install Stealth"
+        nextDisabled={!ownerConfirmed || !dataReady || !storageReady}
+        pending={isPending}
+      />
+    </>
+  );
+}
+
+function InstallStage({ flow }: { flow: SetupFlow }) {
+  const { installViewState, isPending, retryProductionInstall, sseConnected } =
+    flow;
+  return (
+    <>
+      <StageHeader
+        eyebrow="07 / Install"
+        title={
+          installViewState?.phase === "failed"
+            ? "Installation needs attention"
+            : "Installing Stealth"
+        }
+        description={
+          installViewState?.phase === "failed"
+            ? "The production stack is still repairable. Review the safe error below and retry after correcting the underlying issue."
+            : installViewState?.phase === "install_requested"
+              ? "Your configuration was received. The host installer is preparing the installation."
+              : "The host installer is running the shared install engine. Keep this window open until the production session handoff completes."
+        }
+      />
+      <div className="rounded-xl border border-stealth-border p-5">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-white">
+              {installViewState?.step ?? "Preparing installation"}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              {sseConnected
+                ? "Live progress connected"
+                : "Reconnecting to live progress"}
+            </p>
+          </div>
+          {installViewState?.phase === "failed" ? (
+            <StatusPill status="error">Failed</StatusPill>
+          ) : (
+            <StatusPill status="pending">Working</StatusPill>
+          )}
+        </div>
+        <div className="mt-5 space-y-2">
+          {installationSteps.map((label) => {
+            const status = installationStepState(
+              installViewState?.phase,
+              installViewState?.step,
+              label,
+            );
+            const done = status === "complete";
+            const current = status === "current";
+            const failed = status === "failed";
+            return (
+              <div
+                key={label}
+                aria-current={current ? "step" : undefined}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm ${done ? "bg-cyan-300/[0.06] text-cyan-100" : current ? "bg-white/[0.03] text-slate-200" : failed ? "bg-rose-400/[0.06] text-rose-200" : "text-slate-500"}`}
+              >
+                <span
+                  className={`flex size-5 items-center justify-center rounded-full border ${done ? "border-cyan-300/50 text-cyan-300" : current ? "border-cyan-300/50 text-cyan-300" : failed ? "border-rose-300/50 text-rose-300" : "border-stealth-border"}`}
+                >
+                  {done ? (
+                    <Check className="size-3" />
+                  ) : current ? (
+                    <Loader2 className="size-3 animate-spin" />
+                  ) : failed ? (
+                    <CircleAlert className="size-3" />
+                  ) : null}
+                </span>
+                {label}
+              </div>
+            );
+          })}
+        </div>
+        {installViewState?.phase === "failed" &&
+        installViewState.error_message ? (
+          <p
+            className="mt-5 rounded-lg border border-rose-300/20 bg-rose-400/[0.08] px-3 py-2.5 text-xs leading-5 text-rose-200"
+            role="alert"
+          >
+            {installViewState.error_message}
+          </p>
+        ) : null}
+      </div>
+      {installViewState?.phase === "failed" ? (
+        <Button
+          className="mt-6"
+          onClick={() => void retryProductionInstall()}
+          disabled={isPending}
+        >
+          <RefreshCw className="size-4" /> Retry installation
+        </Button>
+      ) : null}
+      <p className="mt-6 text-xs leading-5 text-slate-600">
+        If the browser disconnects, return to this URL while the temporary setup
+        service is available. The latest state is persisted server-side.
+      </p>
+    </>
   );
 }
 

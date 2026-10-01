@@ -566,7 +566,7 @@ func validateCloudflareConnectionInput(input CloudflareConnectionInput, requireT
 		}
 	}
 	hostname, err := domainname.NormalizeHostname(input.ConsoleHostname)
-	if err != nil || hostname != strings.ToLower(strings.TrimSuffix(strings.TrimSpace(input.ConsoleHostname), ".")) {
+	if err != nil || hostname != domainname.Canonical(input.ConsoleHostname) {
 		return errors.New("Cloudflare Console hostname is invalid")
 	}
 	if requireToken && (strings.TrimSpace(input.APIToken) == "" || len(input.APIToken) > 4096 || strings.ContainsAny(input.APIToken, "\x00\r\n")) {

@@ -71,7 +71,7 @@ func (a *App) executeHostInstallation(ctx context.Context, layout InstallLayout,
 	if state.Phase == setupstate.PhaseHandoff {
 		return a.finishHostHandoff(ctx, layout, values, store, runID)
 	}
-	if state.Phase != setupstate.PhaseInstallRequested && state.Phase != setupstate.PhaseInstalling {
+	if state.Phase != setupstate.PhaseInstallRequested && state.Phase != setupstate.PhaseInstalling && state.Phase != setupstate.PhaseFailed {
 		return fmt.Errorf("setup installation cannot resume from phase %q", state.Phase)
 	}
 	if err := setupconfig.ValidateInstallableSetup(state); err != nil {
@@ -82,7 +82,7 @@ func (a *App) executeHostInstallation(ctx context.Context, layout InstallLayout,
 		if state.InstallRunID != runID {
 			return errors.New("installation run does not own setup state")
 		}
-		if state.Phase == setupstate.PhaseInstallRequested {
+		if state.Phase == setupstate.PhaseInstallRequested || state.Phase == setupstate.PhaseFailed {
 			if err := setupstate.BeginInstallation(state, runID); err != nil {
 				return err
 			}

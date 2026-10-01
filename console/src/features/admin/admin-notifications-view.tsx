@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { FormEvent, ReactNode } from "react";
+import type { FormEvent } from "react";
 import { BellRing, Plus, Trash2 } from "lucide-react";
 import {
   useCreateAdminNotificationChannel,
@@ -29,9 +29,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { formatDate } from "@/lib/format";
 import { AdminShell } from "./admin-shell";
+import { FormField } from "@/components/form-field";
 
 type ChannelRequest =
   components["schemas"]["CreateAdminNotificationChannelRequest"];
@@ -228,7 +228,11 @@ function CreateChannelDialog({ onCreated }: { onCreated: () => void }) {
         </DialogDescription>
       </DialogHeader>
       <form className="space-y-4" onSubmit={submit}>
-        <Field label="Name" htmlFor="notification-name">
+        <FormField
+          className="space-y-2"
+          label="Name"
+          htmlFor="notification-name"
+        >
           <Input
             id="notification-name"
             value={name}
@@ -236,8 +240,12 @@ function CreateChannelDialog({ onCreated }: { onCreated: () => void }) {
             placeholder="On-call webhook"
             required
           />
-        </Field>
-        <Field label="Provider" htmlFor="notification-kind">
+        </FormField>
+        <FormField
+          className="space-y-2"
+          label="Provider"
+          htmlFor="notification-kind"
+        >
           <select
             id="notification-kind"
             value={kind}
@@ -256,9 +264,13 @@ function CreateChannelDialog({ onCreated }: { onCreated: () => void }) {
             <option value="email">Email</option>
             <option value="telegram">Telegram</option>
           </select>
-        </Field>
+        </FormField>
         {kind === CreateAdminNotificationChannelRequestKind.email ? (
-          <Field label="Recipient" htmlFor="notification-recipient">
+          <FormField
+            className="space-y-2"
+            label="Recipient"
+            htmlFor="notification-recipient"
+          >
             <Input
               id="notification-recipient"
               type="email"
@@ -267,11 +279,15 @@ function CreateChannelDialog({ onCreated }: { onCreated: () => void }) {
               placeholder="owner@example.com"
               required
             />
-          </Field>
+          </FormField>
         ) : null}
         {kind === CreateAdminNotificationChannelRequestKind.telegram ? (
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Bot token" htmlFor="notification-token">
+            <FormField
+              className="space-y-2"
+              label="Bot token"
+              htmlFor="notification-token"
+            >
               <Input
                 id="notification-token"
                 type="password"
@@ -280,20 +296,28 @@ function CreateChannelDialog({ onCreated }: { onCreated: () => void }) {
                 autoComplete="new-password"
                 required
               />
-            </Field>
-            <Field label="Chat ID" htmlFor="notification-chat-id">
+            </FormField>
+            <FormField
+              className="space-y-2"
+              label="Chat ID"
+              htmlFor="notification-chat-id"
+            >
               <Input
                 id="notification-chat-id"
                 value={chatID}
                 onChange={(event) => setChatID(event.target.value)}
                 required
               />
-            </Field>
+            </FormField>
           </div>
         ) : null}
         {kind !== CreateAdminNotificationChannelRequestKind.email &&
         kind !== CreateAdminNotificationChannelRequestKind.telegram ? (
-          <Field label="HTTPS webhook URL" htmlFor="notification-endpoint">
+          <FormField
+            className="space-y-2"
+            label="HTTPS webhook URL"
+            htmlFor="notification-endpoint"
+          >
             <Input
               id="notification-endpoint"
               type="url"
@@ -302,7 +326,7 @@ function CreateChannelDialog({ onCreated }: { onCreated: () => void }) {
               placeholder="https://hooks.example.test/…"
               required
             />
-          </Field>
+          </FormField>
         ) : null}
         {mutation.error ? (
           <p className="text-sm text-coral-red" role="alert">
@@ -321,22 +345,5 @@ function CreateChannelDialog({ onCreated }: { onCreated: () => void }) {
         </DialogFooter>
       </form>
     </DialogContent>
-  );
-}
-
-function Field({
-  label,
-  htmlFor,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor={htmlFor}>{label}</Label>
-      {children}
-    </div>
   );
 }

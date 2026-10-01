@@ -204,6 +204,26 @@ func TestProvisionRejectsExistingNonCNAMEAtDashboardHostname(t *testing.T) {
 	if !errors.Is(err, ErrConflict) || client.createRecordCall != 0 {
 		t.Fatalf("existing non-CNAME result = %v, create calls = %d", err, client.createRecordCall)
 	}
+	// The hostname conflict is detected before the provider tunnel exists so a
+	// failed attempt cannot leave an orphan tunnel behind.
+	if client.createTunnelCall != 0 {
+		t.Fatalf("orphan tunnel created before hostname conflict: %d", client.createTunnelCall)
+	}
+}
+
+func TestProvisionRejectsExistingCNAMEWithoutCreatingOrphanTunnel(t *testing.T) {
+	store := newProvisioningStore(t)
+	client := &provisioningClient{
+		zones:   []Zone{{ID: "zone-1", Name: "example.test"}},
+		records: []DNSRecord{{ID: "record-b", Type: "CNAME", Name: "app.example.test", Content: "11111111-2222-3333-4444-555555555555.cfargotunnel.com", Proxied: true}},
+	}
+	_, err := Provision(context.Background(), store, client, ProvisionRequest{AccountID: "account-1", ZoneID: "zone-1", Hostname: "app.example.test", Name: "stealth-test"})
+	if !errors.Is(err, ErrConflict) {
+		t.Fatalf("existing CNAME result = %v, want conflict", err)
+	}
+	if client.createTunnelCall != 0 {
+		t.Fatalf("orphan tunnel created before CNAME conflict: %d", client.createTunnelCall)
+	}
 }
 
 func TestProvisionRejectsCloudflareBindingSelectorChanges(t *testing.T) {

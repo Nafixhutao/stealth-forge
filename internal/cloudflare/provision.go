@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Stealth-deplover/stealth/internal/domainname"
 	"github.com/Stealth-deplover/stealth/internal/setupstate"
 	"github.com/google/uuid"
 )
@@ -150,6 +151,13 @@ func Provision(ctx context.Context, store setupstate.Store, client Client, reque
 			}
 		}
 		if tunnelID == "" {
+			// Refuse before creating a provider tunnel when the hostname is
+			// already bound. A brand-new tunnel can never match an existing DNS
+			// record, so creating it first would leave an orphan tunnel behind
+			// when reconciliation later fails.
+			if err := detectHostnameConflict(ctx, client, normalized); err != nil {
+				return setupstate.State{}, err
+			}
 			tunnel, createErr := client.CreateTunnel(ctx, normalized.AccountID, tunnelName)
 			if createErr != nil {
 				return setupstate.State{}, provisioningError(ErrProvider, "tunnel create", createErr)
@@ -363,18 +371,41 @@ func matchingTunnels(tunnels []Tunnel, name string) []Tunnel {
 	return matches
 }
 
-func reconcileDNSRecord(ctx context.Context, client Client, zoneID string, desired DNSRecord, records []DNSRecord) (string, error) {
-	hostname := canonicalDNSName(desired.Name)
-	target := canonicalDNSName(desired.Content)
-	var matching DNSRecord
+// detectHostnameConflict fails a first-time provisioning attempt when the
+// requested hostname already has any DNS record. A tunnel created in this call
+// cannot be the target of an existing record, so reconciliation would fail
+// after the provider tunnel already existed. Checking first keeps provisioning
+// free of orphan tunnels and surfaces the operator action directly.
+func detectHostnameConflict(ctx context.Context, client Client, request ProvisionRequest) error {
+	records, err := client.ListDNSRecords(ctx, request.ZoneID, request.Hostname)
+	if err != nil {
+		return provisioningError(ErrProvider, "DNS lookup", err)
+	}
+	hostname := canonicalDNSName(request.Hostname)
 	for _, record := range records {
 		if canonicalDNSName(record.Name) != hostname {
 			continue
 		}
 		if strings.ToUpper(strings.TrimSpace(record.Type)) != "CNAME" {
+			return provisioningError(ErrConflict, "DNS lookup", errors.New("the requested hostname already has a non-CNAME DNS record"))
+		}
+		return provisioningError(ErrConflict, "DNS lookup", errors.New("the requested hostname already has a CNAME record"))
+	}
+	return nil
+}
+
+func reconcileDNSRecord(ctx context.Context, client Client, zoneID string, desired DNSRecord, records []DNSRecord) (string, error) {
+	hostname := domainname.Canonical(desired.Name)
+	target := domainname.Canonical(desired.Content)
+	var matching DNSRecord
+	for _, record := range records {
+		if domainname.Canonical(record.Name) != hostname {
+			continue
+		}
+		if strings.ToUpper(strings.TrimSpace(record.Type)) != "CNAME" {
 			return "", provisioningError(ErrConflict, "DNS lookup", errors.New("the requested hostname already has a non-CNAME DNS record"))
 		}
-		if canonicalDNSName(record.Content) != target {
+		if domainname.Canonical(record.Content) != target {
 			return "", provisioningError(ErrConflict, "DNS lookup", errors.New("the requested hostname already has a different CNAME record"))
 		}
 		if matching.ID != "" {
@@ -396,10 +427,6 @@ func reconcileDNSRecord(ctx context.Context, client Client, zoneID string, desir
 		return "", provisioningError(ErrProvider, "DNS configure", err)
 	}
 	return strings.TrimSpace(matching.ID), nil
-}
-
-func canonicalDNSName(value string) string {
-	return strings.ToLower(strings.TrimSuffix(strings.TrimSpace(value), "."))
 }
 
 func zoneContainsHostname(zones []Zone, zoneID, hostname string) bool {

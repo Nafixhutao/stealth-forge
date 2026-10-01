@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { FormEvent, ReactNode } from "react";
+import type { FormEvent } from "react";
 import { BellRing, Plus, Trash2 } from "lucide-react";
 import { useCreateAdminAlert, useDeleteAdminAlert } from "@/api/mutations";
 import {
@@ -30,10 +30,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { formatDate } from "@/lib/format";
 import { AdminShell } from "./admin-shell";
 import { AdminTimeRange, useAdminTimeRange } from "./admin-time-range";
+import { FormField } from "@/components/form-field";
 
 type CreateAlertRequest = components["schemas"]["CreateAdminAlertRuleRequest"];
 
@@ -388,7 +388,7 @@ function CreateAlertDialog({
         </DialogDescription>
       </DialogHeader>
       <form className="space-y-4" onSubmit={submit}>
-        <Field label="Name" htmlFor="alert-name">
+        <FormField label="Name" htmlFor="alert-name">
           <Input
             id="alert-name"
             required
@@ -396,8 +396,8 @@ function CreateAlertDialog({
             onChange={(event) => setName(event.target.value)}
             placeholder="Public API unavailable"
           />
-        </Field>
-        <Field label="Rule type" htmlFor="alert-kind">
+        </FormField>
+        <FormField label="Rule type" htmlFor="alert-kind">
           <select
             id="alert-kind"
             value={kind}
@@ -434,9 +434,9 @@ function CreateAlertDialog({
               Certificate expiry
             </option>
           </select>
-        </Field>
+        </FormField>
         {requiresMonitor ? (
-          <Field label="Monitor" htmlFor="alert-monitor">
+          <FormField label="Monitor" htmlFor="alert-monitor">
             <select
               id="alert-monitor"
               required
@@ -460,10 +460,10 @@ function CreateAlertDialog({
                     : "Create a monitor first."}
               </p>
             ) : null}
-          </Field>
+          </FormField>
         ) : null}
         {kind === CreateAdminAlertRuleRequestKind.certificate_expiry ? (
-          <Field label="Alert when days remain below" htmlFor="alert-days">
+          <FormField label="Alert when days remain below" htmlFor="alert-days">
             <Input
               id="alert-days"
               type="number"
@@ -475,13 +475,13 @@ function CreateAlertDialog({
               }
               required
             />
-          </Field>
+          </FormField>
         ) : null}
         {!requiresMonitor ? (
           <div className="space-y-4 rounded-md border border-graphite bg-void/40 p-3">
             {kind === CreateAdminAlertRuleRequestKind.metric_threshold ? (
               <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_160px]">
-                <Field
+                <FormField
                   label="Metric name"
                   htmlFor="alert-metric"
                   hint="Exact OTel metric name from the instance."
@@ -492,8 +492,8 @@ function CreateAlertDialog({
                     value={metric}
                     onChange={(event) => setMetric(event.target.value)}
                   />
-                </Field>
-                <Field label="Aggregation" htmlFor="alert-aggregation">
+                </FormField>
+                <FormField label="Aggregation" htmlFor="alert-aggregation">
                   <select
                     id="alert-aggregation"
                     value={aggregation}
@@ -506,11 +506,11 @@ function CreateAlertDialog({
                     <option value="min">Minimum</option>
                     <option value="sum">Sum</option>
                   </select>
-                </Field>
+                </FormField>
               </div>
             ) : null}
             {kind === CreateAdminAlertRuleRequestKind.disk_pressure ? (
-              <Field
+              <FormField
                 label="Metric name"
                 htmlFor="alert-disk-metric"
                 hint="Defaults to system.filesystem.utilization."
@@ -520,11 +520,11 @@ function CreateAlertDialog({
                   value={metric}
                   onChange={(event) => setMetric(event.target.value)}
                 />
-              </Field>
+              </FormField>
             ) : null}
             {kind === CreateAdminAlertRuleRequestKind.log_match ? (
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Search text" htmlFor="alert-search">
+                <FormField label="Search text" htmlFor="alert-search">
                   <Input
                     id="alert-search"
                     required
@@ -532,21 +532,21 @@ function CreateAlertDialog({
                     onChange={(event) => setSearch(event.target.value)}
                     placeholder="database unavailable"
                   />
-                </Field>
-                <Field label="Level" htmlFor="alert-level">
+                </FormField>
+                <FormField label="Level" htmlFor="alert-level">
                   <Input
                     id="alert-level"
                     value={level}
                     onChange={(event) => setLevel(event.target.value)}
                     placeholder="ERROR"
                   />
-                </Field>
+                </FormField>
               </div>
             ) : null}
             {kind === CreateAdminAlertRuleRequestKind.service_health ||
             kind === CreateAdminAlertRuleRequestKind.error_rate ||
             kind === CreateAdminAlertRuleRequestKind.latency ? (
-              <Field
+              <FormField
                 label={
                   kind === CreateAdminAlertRuleRequestKind.service_health
                     ? "Service"
@@ -563,10 +563,10 @@ function CreateAlertDialog({
                   onChange={(event) => setService(event.target.value)}
                   placeholder="stealth-api"
                 />
-              </Field>
+              </FormField>
             ) : null}
             {kind === CreateAdminAlertRuleRequestKind.latency ? (
-              <Field label="Percentile" htmlFor="alert-percentile">
+              <FormField label="Percentile" htmlFor="alert-percentile">
                 <select
                   id="alert-percentile"
                   value={percentile}
@@ -577,10 +577,10 @@ function CreateAlertDialog({
                   <option value="p95">p95</option>
                   <option value="p99">p99</option>
                 </select>
-              </Field>
+              </FormField>
             ) : null}
             <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Operator" htmlFor="alert-operator">
+              <FormField label="Operator" htmlFor="alert-operator">
                 <select
                   id="alert-operator"
                   value={operator}
@@ -592,8 +592,8 @@ function CreateAlertDialog({
                   <option value="lt">Less than</option>
                   <option value="lte">At most</option>
                 </select>
-              </Field>
-              <Field
+              </FormField>
+              <FormField
                 label={
                   kind === CreateAdminAlertRuleRequestKind.latency
                     ? "Threshold (ms)"
@@ -609,8 +609,8 @@ function CreateAlertDialog({
                   onChange={(event) => setThreshold(Number(event.target.value))}
                   required
                 />
-              </Field>
-              <Field label="Window (seconds)" htmlFor="alert-window">
+              </FormField>
+              <FormField label="Window (seconds)" htmlFor="alert-window">
                 <Input
                   id="alert-window"
                   type="number"
@@ -622,7 +622,7 @@ function CreateAlertDialog({
                   }
                   required
                 />
-              </Field>
+              </FormField>
             </div>
             <p className="text-[11px] leading-5 text-fog">
               Error-rate and health thresholds use a fraction from 0 to 1.
@@ -632,7 +632,7 @@ function CreateAlertDialog({
           </div>
         ) : null}
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Severity" htmlFor="alert-severity">
+          <FormField label="Severity" htmlFor="alert-severity">
             <select
               id="alert-severity"
               value={severity}
@@ -647,8 +647,8 @@ function CreateAlertDialog({
               <option value="warning">Warning</option>
               <option value="critical">Critical</option>
             </select>
-          </Field>
-          <Field label="For (seconds)" htmlFor="alert-for">
+          </FormField>
+          <FormField label="For (seconds)" htmlFor="alert-for">
             <Input
               id="alert-for"
               type="number"
@@ -657,7 +657,7 @@ function CreateAlertDialog({
               value={forSeconds}
               onChange={(event) => setForSeconds(Number(event.target.value))}
             />
-          </Field>
+          </FormField>
         </div>
         {mutation.error ? (
           <p className="text-sm text-coral-red" role="alert">
@@ -706,24 +706,4 @@ function alertKindLabel(kind: CreateAlertRequest["kind"]) {
     default:
       return "monitor failure";
   }
-}
-
-function Field({
-  label,
-  htmlFor,
-  hint,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  hint?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={htmlFor}>{label}</Label>
-      {children}
-      {hint ? <p className="text-[11px] leading-5 text-fog">{hint}</p> : null}
-    </div>
-  );
 }

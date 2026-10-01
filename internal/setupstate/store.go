@@ -319,6 +319,18 @@ func BeginInstallation(state *State, runID string) error {
 	switch state.Phase {
 	case PhaseInstallRequested:
 		state.Phase = PhaseInstalling
+		state.ErrorCode = ""
+		state.ErrorMessage = ""
+		state.Step = ""
+		return nil
+	case PhaseFailed:
+		// A failed host installation is resumable. Re-claiming the same run
+		// lets the documented `stealth install --repair` path re-run the engine
+		// instead of only re-displaying the previous failure.
+		state.Phase = PhaseInstalling
+		state.ErrorCode = ""
+		state.ErrorMessage = ""
+		state.Step = ""
 		return nil
 	case PhaseInstalling:
 		return nil
@@ -682,7 +694,7 @@ func migrateState(state *State, legacy legacyState) error {
 	state.SetSetupCredentials(credentials)
 	if state.Cloudflare.Binding.IsZero() {
 		binding := cloudflareBindingFromLegacyDraft(legacy.Draft)
-		binding.Hostname = canonicalHostname(state.Draft.Hostname)
+		binding.Hostname = domainname.Canonical(state.Draft.Hostname)
 		if binding.HasIntent() {
 			state.Cloudflare.Binding = binding
 		}

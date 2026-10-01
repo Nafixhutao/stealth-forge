@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { errorMessage } from "@/components/feedback/error-state";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { StealthApp } from "@/api/types";
 import { appFormValues, type AppFormValues } from "@/features/apps/app-form";
+import { FormField } from "@/components/form-field";
 
 export function AppEditorDialog({
   open,
@@ -88,10 +89,11 @@ function AppEditorForm({
       </DialogHeader>
       <form onSubmit={submit} className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field
+          <FormField
+            className="space-y-2"
             label="Name"
             htmlFor="app-name"
-            help="Lowercase project resource slug."
+            hint="Lowercase project resource slug."
           >
             <Input
               id="app-name"
@@ -103,8 +105,12 @@ function AppEditorForm({
               onChange={(event) => update("name", event.target.value)}
               placeholder="backend"
             />
-          </Field>
-          <Field label="Desired state" htmlFor="app-enabled">
+          </FormField>
+          <FormField
+            className="space-y-2"
+            label="Desired state"
+            htmlFor="app-enabled"
+          >
             <select
               id="app-enabled"
               value={values.enabled}
@@ -114,7 +120,7 @@ function AppEditorForm({
               <option value="true">Enabled</option>
               <option value="false">Disabled</option>
             </select>
-          </Field>
+          </FormField>
           <NumberField
             label="Internal HTTP port"
             field="port"
@@ -123,12 +129,13 @@ function AppEditorForm({
             min={1}
             max={65535}
             placeholder="8080"
-            help="Future App routing targets this in-container port. No host port is opened."
+            hint="Future App routing targets this in-container port. No host port is opened."
           />
-          <Field
+          <FormField
+            className="space-y-2"
             label="Working directory"
             htmlFor="app-working-directory"
-            help="Absolute POSIX path inside the container."
+            hint="Absolute POSIX path inside the container."
           >
             <Input
               id="app-working-directory"
@@ -139,8 +146,12 @@ function AppEditorForm({
               placeholder="/srv/app"
               autoComplete="off"
             />
-          </Field>
-          <Field label="Health protocol" htmlFor="app-health-protocol">
+          </FormField>
+          <FormField
+            className="space-y-2"
+            label="Health protocol"
+            htmlFor="app-health-protocol"
+          >
             <select
               id="app-health-protocol"
               value={values.health_protocol}
@@ -154,12 +165,13 @@ function AppEditorForm({
               <option value="tcp">TCP</option>
               <option value="http">HTTP</option>
             </select>
-          </Field>
+          </FormField>
           {values.health_protocol === "http" ? (
-            <Field
+            <FormField
+              className="space-y-2"
               label="Health path"
               htmlFor="app-health-path"
-              help="Local path on the App’s internal port, such as /healthz."
+              hint="Local path on the App’s internal port, such as /healthz."
             >
               <Input
                 id="app-health-path"
@@ -170,14 +182,15 @@ function AppEditorForm({
                 placeholder="/healthz"
                 autoComplete="off"
               />
-            </Field>
+            </FormField>
           ) : null}
         </div>
 
-        <Field
+        <FormField
+          className="space-y-2"
           label="Command arguments"
           htmlFor="app-command-arguments"
-          help="One nonblank line per exec argument. Whitespace and quotes are passed literally; no shell parsing or expansion is performed. Leave empty to use the image default command."
+          hint="One nonblank line per exec argument. Whitespace and quotes are passed literally; no shell parsing or expansion is performed. Leave empty to use the image default command."
         >
           <Textarea
             id="app-command-arguments"
@@ -190,7 +203,7 @@ function AppEditorForm({
             spellCheck={false}
             className="font-mono text-xs"
           />
-        </Field>
+        </FormField>
 
         <div>
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-fog">
@@ -273,27 +286,6 @@ function AppEditorForm({
     </>
   );
 }
-
-function Field({
-  label,
-  htmlFor,
-  help,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  help?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor={htmlFor}>{label}</Label>
-      {children}
-      {help ? <p className="text-[11px] leading-5 text-fog">{help}</p> : null}
-    </div>
-  );
-}
-
 function NumberField({
   label,
   field,
@@ -302,7 +294,7 @@ function NumberField({
   min,
   max,
   placeholder,
-  help,
+  hint,
 }: {
   label: string;
   field:
@@ -316,11 +308,11 @@ function NumberField({
   min: number;
   max: number;
   placeholder: string;
-  help?: string;
+  hint?: string;
 }) {
   const id = `app-${field}`;
   return (
-    <Field label={label} htmlFor={id} help={help}>
+    <FormField className="space-y-2" label={label} htmlFor={id} hint={hint}>
       <Input
         id={id}
         type="number"
@@ -332,6 +324,6 @@ function NumberField({
         onChange={(event) => update(field, event.target.value)}
         placeholder={placeholder}
       />
-    </Field>
+    </FormField>
   );
 }

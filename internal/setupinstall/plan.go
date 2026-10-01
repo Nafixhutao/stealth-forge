@@ -65,7 +65,13 @@ func BuildPlan(state setupstate.State, installRoot string) (installengine.Plan, 
 	}
 	cloudflareEnabled := state.Draft.NetworkMode == "cloudflare_tunnel"
 	if cloudflareEnabled {
-		if err := installengine.WritePrivateFile(filepath.Join(layout.Root, "state", "cloudflare-tunnel-token"), state.Secret("cloudflare_tunnel_token")+"\n"); err != nil {
+		// The cloudflared image runs as an unprivileged uid, so the token file
+		// must be readable beyond its owner. The install root is mode 0700 and
+		// the state directory is operator-private, so group/other read does not
+		// widen the effective exposure. Writing it 0600 makes cloudflared
+		// restart-loop with "permission denied" and the install health check
+		// never converges.
+		if err := installengine.WriteAtomic(filepath.Join(layout.Root, "state", "cloudflare-tunnel-token"), []byte(state.Secret("cloudflare_tunnel_token")+"\n"), 0o644); err != nil {
 			return installengine.Plan{}, err
 		}
 		updates["CLOUDFLARE_TUNNEL_TOKEN_FILE"] = "./state/cloudflare-tunnel-token"

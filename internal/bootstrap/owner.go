@@ -68,11 +68,7 @@ func (c OwnerCreator) CreateGitHubInstanceOwner(ctx context.Context, authorizati
 		if err != nil {
 			return OwnerResult{}, err
 		}
-		handoffExpiresAt := now.Add(CodeLifetime)
-		if handoffExpiresAt.After(input.SessionExpiresAt) {
-			handoffExpiresAt = input.SessionExpiresAt
-		}
-		if err := c.Handoff.Save(ctx, handoffToken, token, handoffExpiresAt); err != nil {
+		if err := c.Handoff.Save(ctx, handoffToken, token, input.SessionExpiresAt); err != nil {
 			return OwnerResult{}, err
 		}
 	}

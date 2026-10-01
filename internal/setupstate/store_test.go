@@ -137,6 +137,34 @@ func TestInstallationRequestPhaseIsDurableAndSingleOwner(t *testing.T) {
 	}
 }
 
+// TestFailedInstallationCanBeResumedByTheSameRun covers the documented
+// `stealth install --repair` recovery: a failed host run must be re-claimable
+// instead of only re-displaying the previous failure.
+func TestFailedInstallationCanBeResumedByTheSameRun(t *testing.T) {
+	state := NewState()
+	if err := RequestInstallation(&state, "run-1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := BeginInstallation(&state, "run-1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := FailInstallation(&state, "run-1", "install_failed", "boom"); err != nil {
+		t.Fatal(err)
+	}
+	if state.Phase != PhaseFailed {
+		t.Fatalf("phase = %q, want failed", state.Phase)
+	}
+	if err := BeginInstallation(&state, "run-1"); err != nil {
+		t.Fatalf("failed run was not resumable: %v", err)
+	}
+	if state.Phase != PhaseInstalling || state.ErrorCode != "" || state.ErrorMessage != "" {
+		t.Fatalf("resumed state = %#v", state)
+	}
+	if err := BeginInstallation(&state, "run-2"); err == nil {
+		t.Fatal("a different run claimed a failed installation")
+	}
+}
+
 func TestInstallationPhasesRequireRunIdentifier(t *testing.T) {
 	for _, phase := range []string{PhaseInstallRequested, PhaseInstalling, PhaseHandoff} {
 		state := NewState()

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import type { ReactNode } from "react";
 import { ExternalLink, Globe2, Plus, Save, Trash2 } from "lucide-react";
 import { useAdminStatusPage, useAdminIncidents } from "@/api/queries";
 import { useUpdateAdminStatusPage } from "@/api/mutations";
@@ -15,10 +14,10 @@ import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDate } from "@/lib/format";
 import { AdminShell } from "./admin-shell";
+import { FormField } from "@/components/form-field";
 
 type StatusRequest = components["schemas"]["UpdateAdminStatusPageRequest"];
 type StatusComponent = components["schemas"]["AdminStatusPageComponent"];
@@ -109,7 +108,7 @@ export function AdminStatusPageView() {
             <CardTitle>Public configuration</CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
-            <Field label="Page name" htmlFor="status-name">
+            <FormField label="Page name" htmlFor="status-name">
               <Input
                 id="status-name"
                 value={form.name}
@@ -117,8 +116,8 @@ export function AdminStatusPageView() {
                   setForm({ ...form, name: event.target.value })
                 }
               />
-            </Field>
-            <Field label="Description" htmlFor="status-description">
+            </FormField>
+            <FormField label="Description" htmlFor="status-description">
               <Textarea
                 id="status-description"
                 value={form.description ?? ""}
@@ -126,7 +125,7 @@ export function AdminStatusPageView() {
                   setForm({ ...form, description: event.target.value })
                 }
               />
-            </Field>
+            </FormField>
             <label className="flex items-start gap-3 rounded-md border border-graphite bg-void/40 p-3">
               <input
                 type="checkbox"
@@ -296,22 +295,5 @@ export function AdminStatusPageView() {
         <code className="font-mono text-mist">/v1/status-page</code>
       </div>
     </AdminShell>
-  );
-}
-
-function Field({
-  label,
-  htmlFor,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={htmlFor}>{label}</Label>
-      {children}
-    </div>
   );
 }
