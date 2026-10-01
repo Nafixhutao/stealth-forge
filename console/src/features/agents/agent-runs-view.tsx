@@ -34,7 +34,7 @@ import {
 import { AgentRunStatusBadge } from "@/features/agents/agent-run-status-badge";
 import { formatDate, formatDuration } from "@/lib/format";
 import { pageControls } from "@/lib/pagination";
-import { BackLink } from "@/features/resources/detail-shared";
+import { BackLink } from "@/components/back-link";
 
 export function AgentRunsView({
   organizationId,

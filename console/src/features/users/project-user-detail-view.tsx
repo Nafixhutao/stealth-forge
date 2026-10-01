@@ -20,7 +20,7 @@ import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate } from "@/lib/format";
-import { BackLink } from "@/features/resources/detail-shared";
+import { BackLink } from "@/components/back-link";
 
 export function ProjectUserDetailView({
   organizationId,

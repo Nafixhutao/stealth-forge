@@ -16,7 +16,7 @@ import { PageHeader } from "@/components/page-header";
 import { ResourceId } from "@/components/resource-id";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate } from "@/lib/format";
-import { BackLink } from "@/features/resources/detail-shared";
+import { BackLink } from "@/components/back-link";
 import { TableRowCreateDialog, TableRowsPanel } from "./table-rows-panel";
 import { TableRowDetail } from "./table-row-detail";
 import { TableSchemaPanel } from "./table-schema-panel";

@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { formatDate } from "@/lib/format";
 import { AdminShell } from "./admin-shell";
-import { AdminMetricChart } from "./admin-metric-chart";
+import { AdminMetricChartLoader } from "./admin-metric-chart-loader";
 import { AdminTimeRange, useAdminTimeRange } from "./admin-time-range";
 
 export function AdminMetricsView() {
@@ -77,7 +77,7 @@ export function AdminMetricsView() {
         <div className="space-y-4">
           <Card>
             <CardContent className="p-4">
-              <AdminMetricChart items={metrics.data.items} />
+              <AdminMetricChartLoader items={metrics.data.items} />
             </CardContent>
           </Card>
           <Card className="overflow-hidden">

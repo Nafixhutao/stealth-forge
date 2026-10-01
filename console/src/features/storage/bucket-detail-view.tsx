@@ -15,7 +15,7 @@ import { PageHeader } from "@/components/page-header";
 import { ResourceId } from "@/components/resource-id";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatBytes, formatDate } from "@/lib/format";
-import { BackLink } from "@/features/resources/detail-shared";
+import { BackLink } from "@/components/back-link";
 import { BucketObjectBrowser } from "./bucket-object-browser";
 import { BucketObjectDetail } from "./bucket-object-detail";
 import { BucketSettingsPanel } from "./bucket-settings-panel";

@@ -431,11 +431,11 @@ esac
 
 cleanup
 temporary_dir=""
-if [ -n "${STEALTH_BOOTSTRAP_GROUP_CONTEXT:-}" ]; then
-	export STEALTH_INSTALL_BINARY="${bin_dir}/stealth"
-	exec sg docker -c 'exec "$STEALTH_INSTALL_BINARY" install'
-fi
 if [ -t 1 ] && [ -t 2 ]; then
+	if [ -n "${STEALTH_BOOTSTRAP_GROUP_CONTEXT:-}" ]; then
+		export STEALTH_INSTALL_BINARY="${bin_dir}/stealth"
+		exec sg docker -c 'exec "$STEALTH_INSTALL_BINARY" install'
+	fi
 	exec "${bin_dir}/stealth" install
 fi
-exec "${bin_dir}/stealth" install --wait
+fail 'interactive setup requires a TTY; run the installed CLI from a terminal with `stealth install`'

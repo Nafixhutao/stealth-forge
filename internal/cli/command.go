@@ -5,16 +5,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 )
 
-func (execCommandRunner) Run(
-	ctx context.Context,
-	dir string,
-	stdout, stderr io.Writer,
-	name string,
-	args ...string,
-) error {
+func (execCommandRunner) Run(ctx context.Context, dir string, stdout, stderr io.Writer, name string, args ...string) error {
 	command := exec.CommandContext(ctx, name, args...)
 	command.Dir = dir
 	command.Stdout = stdout
@@ -22,14 +17,16 @@ func (execCommandRunner) Run(
 	return command.Run()
 }
 
-func (execCommandRunner) RunInput(
-	ctx context.Context,
-	dir string,
-	stdin io.Reader,
-	stdout, stderr io.Writer,
-	name string,
-	args ...string,
-) error {
+func (execCommandRunner) RunWithEnv(ctx context.Context, dir string, env []string, stdout, stderr io.Writer, name string, args ...string) error {
+	command := exec.CommandContext(ctx, name, args...)
+	command.Dir = dir
+	command.Env = append(os.Environ(), env...)
+	command.Stdout = stdout
+	command.Stderr = stderr
+	return command.Run()
+}
+
+func (execCommandRunner) RunInput(ctx context.Context, dir string, stdin io.Reader, stdout, stderr io.Writer, name string, args ...string) error {
 	command := exec.CommandContext(ctx, name, args...)
 	command.Dir = dir
 	command.Stdin = stdin

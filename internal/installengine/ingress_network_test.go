@@ -174,6 +174,10 @@ func (r ingressNetworkTestRunner) Run(context.Context, string, io.Writer, io.Wri
 	return nil
 }
 
+func (r ingressNetworkTestRunner) RunWithEnv(context.Context, string, []string, io.Writer, io.Writer, string, ...string) error {
+	return nil
+}
+
 func (r ingressNetworkTestRunner) Output(_ context.Context, _ string, _ string, args ...string) ([]byte, error) {
 	if len(args) >= 2 && args[0] == "network" && args[1] == "ls" {
 		ids := make([]string, len(r.networks))

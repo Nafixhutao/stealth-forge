@@ -13,5 +13,7 @@ export * from "./queries/api-keys";
 export * from "./queries/webhooks";
 export * from "./queries/agents";
 export * from "./queries/messaging";
+export * from "./queries/admin-telemetry";
+export * from "./queries/admin-control";
 export * from "./queries/observability";
 export * from "./queries/settings";

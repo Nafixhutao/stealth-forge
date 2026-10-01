@@ -27,13 +27,7 @@ type setupHandoffStatusPayload struct {
 // executeHostInstallation is the only host-side owner of a browser-requested
 // production installation. It deliberately receives the durable run ID from
 // setup state and rechecks it after taking the installation lock.
-func (a *App) executeHostInstallation(
-	ctx context.Context,
-	layout InstallLayout,
-	values map[string]string,
-	store setupstate.Store,
-	runID string,
-) error {
+func (a *App) executeHostInstallation(ctx context.Context, layout InstallLayout, values map[string]string, store setupstate.Store, runID string) error {
 	if a == nil || a.runner == nil {
 		return errors.New("CLI command runner is not configured")
 	}
@@ -77,8 +71,7 @@ func (a *App) executeHostInstallation(
 	if state.Phase == setupstate.PhaseHandoff {
 		return a.finishHostHandoff(ctx, layout, values, store, runID)
 	}
-	if state.Phase != setupstate.PhaseInstallRequested && state.Phase != setupstate.PhaseInstalling &&
-		state.Phase != setupstate.PhaseFailed {
+	if state.Phase != setupstate.PhaseInstallRequested && state.Phase != setupstate.PhaseInstalling && state.Phase != setupstate.PhaseFailed {
 		return fmt.Errorf("setup installation cannot resume from phase %q", state.Phase)
 	}
 	if err := setupconfig.ValidateInstallableSetup(state); err != nil {
@@ -93,11 +86,7 @@ func (a *App) executeHostInstallation(
 			if err := setupstate.BeginInstallation(state, runID); err != nil {
 				return err
 			}
-			return setupstate.UpdateInstallationProgress(
-				state,
-				runID,
-				installengine.StepNames[installengine.StepConfiguration],
-			)
+			return setupstate.UpdateInstallationProgress(state, runID, installengine.StepNames[installengine.StepConfiguration])
 		}
 		if state.Phase != setupstate.PhaseInstalling {
 			return errors.New("setup installation is no longer startable")
@@ -209,18 +198,13 @@ func safeHostInstallError(err error) string {
 	return message
 }
 
-func (a *App) waitForHostCloudflareTunnelHealth(
-	ctx context.Context,
-	values map[string]string,
-	store setupProgressSource,
-) error {
+func (a *App) waitForHostCloudflareTunnelHealth(ctx context.Context, values map[string]string, store setupProgressSource) error {
 	state, err := store.Load(ctx)
 	if err != nil {
 		return errors.New("Cloudflare Tunnel health could not be verified")
 	}
 	binding := state.EffectiveCloudflareBinding()
-	if err := state.Cloudflare.Binding.ValidateDraft(state.Draft); err != nil || binding.AccountID == "" ||
-		binding.TunnelID == "" {
+	if err := state.Cloudflare.Binding.ValidateDraft(state.Draft); err != nil || binding.AccountID == "" || binding.TunnelID == "" {
 		return errors.New("Cloudflare Tunnel state is inconsistent")
 	}
 	token := state.Secret("cloudflare_access_token")
@@ -254,13 +238,7 @@ func (a *App) waitForHostCloudflareTunnelHealth(
 	return errors.New("Cloudflare Tunnel did not become healthy")
 }
 
-func (a *App) finishHostHandoff(
-	ctx context.Context,
-	layout InstallLayout,
-	values map[string]string,
-	store setupstate.Store,
-	runID string,
-) error {
+func (a *App) finishHostHandoff(ctx context.Context, layout InstallLayout, values map[string]string, store setupstate.Store, runID string) error {
 	key, err := bootstrapCLIKey(values)
 	if err != nil {
 		return a.failHostInstallation(ctx, store, runID, "handoff_failed", err)
@@ -319,23 +297,7 @@ func (a *App) cleanupSetupServices(ctx context.Context, layout InstallLayout) er
 	if layout.SetupComposeFile == "" {
 		return nil
 	}
-	return a.runner.Run(
-		ctx,
-		layout.Root,
-		io.Discard,
-		io.Discard,
-		"docker",
-		"compose",
-		"--env-file",
-		layout.EnvFile,
-		"-f",
-		layout.SetupComposeFile,
-		"rm",
-		"-sf",
-		"setup",
-		"setup-console",
-		"setup-proxy",
-	)
+	return a.runner.Run(ctx, layout.Root, io.Discard, io.Discard, "docker", "compose", "--env-file", layout.EnvFile, "-f", layout.SetupComposeFile, "rm", "-sf", "setup", "setup-console", "setup-proxy")
 }
 
 func (a *App) waitForSetupHandoff(ctx context.Context, values map[string]string, key []byte) error {

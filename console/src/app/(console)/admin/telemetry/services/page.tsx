@@ -1,5 +1,5 @@
-import { AdminServiceMapView } from "@/features/admin/admin-service-map-view";
+import { AdminServiceMapLoader } from "@/features/admin/admin-service-map-loader";
 
 export default function AdminServiceMapPage() {
-  return <AdminServiceMapView />;
+  return <AdminServiceMapLoader />;
 }

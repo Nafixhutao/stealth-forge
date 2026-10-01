@@ -30,7 +30,7 @@ import { useCursorPagination } from "@/hooks/use-cursor-pagination";
 import { formatDate, formatRelative } from "@/lib/format";
 import { pageControls } from "@/lib/pagination";
 import { webhookDeliveryStatusLabel } from "@/features/integrations/integration-values";
-import { BackLink } from "@/features/resources/detail-shared";
+import { BackLink } from "@/components/back-link";
 import {
   webhookFields,
   webhookUpdatePayload,

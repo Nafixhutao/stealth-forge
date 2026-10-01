@@ -3,9 +3,16 @@ set -eu
 
 compose_file=${STEALTH_SETUP_COMPOSE_FILE_FOR_TEST:-compose.setup.yaml}
 dockerfile=${STEALTH_DOCKERFILE_FOR_TEST:-Dockerfile}
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 
 if [ ! -f "$compose_file" ]; then
 	printf 'setup security check: missing %s\n' "$compose_file" >&2
+	exit 1
+fi
+
+proxy_config=$repo_root/console/deploy/nginx.conf
+if ! grep -Fq "form-action 'self' https://github.com;" "$proxy_config"; then
+	printf 'setup security check: Content-Security-Policy does not allow the GitHub App Manifest form target\n' >&2
 	exit 1
 fi
 

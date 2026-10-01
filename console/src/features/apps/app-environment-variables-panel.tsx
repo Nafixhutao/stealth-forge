@@ -108,7 +108,7 @@ export function AppEnvironmentVariablesPanel({
       header: "Description",
       cell: ({ row }) => (
         <span className="text-xs text-fog">
-          {row.original.description || "—"}
+          {row.original.description || "Not set"}
         </span>
       ),
     },

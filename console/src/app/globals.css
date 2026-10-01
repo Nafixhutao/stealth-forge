@@ -37,6 +37,10 @@
   --color-iris-violet: #6366f1;
   --color-lavender: #8b5cf6;
 
+  /* Control boundaries must stay legible against the dark surfaces (WCAG 1.4.11,
+     3:1). graphite is a decorative border tone and is too dark for a control edge. */
+  --color-control-border: #6f747c;
+
   /* Named aliases retain the existing component API while moving it to the system. */
   --color-stealth-bg: #08090a;
   --color-stealth-panel: #0f1011;

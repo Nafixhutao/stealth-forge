@@ -1,9 +1,10 @@
 import {
+  adminInvalidationKeysFor,
   invalidationKeysFor,
+  type AdminCacheChange,
   type CacheChange,
   type CacheQueryKey,
 } from "@/api/cache-coherence";
-import { queryKeys } from "@/api/query-keys";
 
 export type RealtimeNotification = {
   type?: string;
@@ -394,50 +395,48 @@ export function realtimeInvalidationKeys(
   return realtimeCacheChanges(projectId, event).flatMap(invalidationKeysFor);
 }
 
-export function adminRealtimeInvalidationKeys(
+/**
+ * Translates an Admin wire notification into the shared Admin cache change. The
+ * key policy lives in cache-coherence; this module only parses the wire so both
+ * realtime adapters cannot drift into different invalidation policies.
+ */
+export function adminRealtimeCacheChange(
   event: RealtimeNotification,
-): CacheQueryKey[] {
+): AdminCacheChange {
   const type = stringValue(event.type) ?? stringValue(event.event) ?? "";
   const resource = resourceId(event);
-  const keys: CacheQueryKey[] = [["admin", "audit-events"]];
-  const add = (key: CacheQueryKey) => {
-    if (
-      !keys.some(
-        (candidate) => JSON.stringify(candidate) === JSON.stringify(key),
-      )
-    ) {
-      keys.push(key);
-    }
-  };
 
   if (type.startsWith("admin.monitor.")) {
-    add(queryKeys.adminMonitors);
-    if (resource) add(queryKeys.adminMonitor(resource));
-  } else if (type.startsWith("admin.alert.")) {
-    add(queryKeys.adminAlerts);
-    add(queryKeys.adminAlertEvents);
-    if (resource) add(queryKeys.adminAlert(resource));
-  } else if (
+    return { kind: "admin-monitor", resourceId: resource };
+  }
+  if (type.startsWith("admin.alert.")) {
+    return { kind: "admin-alert", resourceId: resource };
+  }
+  if (
     type.startsWith("admin.notification_channel.") ||
     type.startsWith("admin.notification.delivery.")
   ) {
-    add(queryKeys.adminNotifications);
-  } else if (type.startsWith("admin.incident.")) {
-    add(queryKeys.adminIncidents);
-    if (resource) add(queryKeys.adminIncident(resource));
-  } else if (type.startsWith("admin.dashboard.")) {
-    add(queryKeys.adminDashboards);
-    if (resource) add(queryKeys.adminDashboard(resource));
-  } else if (type.startsWith("admin.status_page.")) {
-    add(queryKeys.adminStatusPage);
-  } else if (type.startsWith("admin.error_group.")) {
-    add(["admin", "telemetry", "errors"]);
-  } else {
-    // Unknown Admin events still invalidate the bounded control-room overview
-    // without forcing every telemetry query to refetch.
-    add(queryKeys.adminOverview);
+    return { kind: "admin-notification" };
   }
-  return keys;
+  if (type.startsWith("admin.incident.")) {
+    return { kind: "admin-incident", resourceId: resource };
+  }
+  if (type.startsWith("admin.dashboard.")) {
+    return { kind: "admin-dashboard", resourceId: resource };
+  }
+  if (type.startsWith("admin.status_page.")) {
+    return { kind: "admin-status-page" };
+  }
+  if (type.startsWith("admin.error_group.")) {
+    return { kind: "admin-error-group" };
+  }
+  return { kind: "admin-overview" };
+}
+
+export function adminRealtimeInvalidationKeys(
+  event: RealtimeNotification,
+): CacheQueryKey[] {
+  return adminInvalidationKeysFor(adminRealtimeCacheChange(event));
 }
 
 export function eventTypesForProjectStream() {

@@ -33,17 +33,19 @@ function completionSource(context: CompletionContext): CompletionResult | null {
   };
 }
 
+export type AdminQueryEditorProps = {
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit?: () => void;
+  invalid?: boolean;
+};
+
 export function AdminQueryEditor({
   value,
   onChange,
   onSubmit,
   invalid = false,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  onSubmit?: () => void;
-  invalid?: boolean;
-}) {
+}: AdminQueryEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const valueRef = useRef(value);
@@ -141,7 +143,7 @@ export function AdminQueryEditor({
   return (
     <div
       ref={containerRef}
-      className={`min-h-[46px] rounded-md border bg-carbon transition-colors focus-within:ring-2 focus-within:ring-acid-lime/15 ${invalid ? "border-coral-red/80" : "border-graphite focus-within:border-acid-lime/70"}`}
+      className={`min-h-[46px] rounded-md border bg-carbon transition-colors focus-within:ring-2 focus-within:ring-acid-lime/15 ${invalid ? "border-coral-red/80" : "border-control-border focus-within:border-acid-lime/70"}`}
     />
   );
 }

@@ -12,5 +12,9 @@ if ! grep -Fq 'raw.githubusercontent.com/${GITHUB_REPOSITORY}/${RELEASE_VERSION}
 	printf '%s\n' 'release installer smoke test is not pinned to RELEASE_VERSION' >&2
 	exit 1
 fi
+if ! grep -Fq 'STEALTH_INSTALL_ROOT=${GITHUB_WORKSPACE}' "$workflow"; then
+	printf '%s\n' 'release production smoke configuration does not set STEALTH_INSTALL_ROOT' >&2
+	exit 1
+fi
 
-printf '%s\n' 'release workflow bootstrap revision test passed'
+printf '%s\n' 'release workflow configuration tests passed'

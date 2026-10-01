@@ -29,7 +29,7 @@ import {
   isDeploymentInProgress,
 } from "@/lib/deployment-state";
 import { pageControls } from "@/lib/pagination";
-import { BackLink } from "@/features/resources/detail-shared";
+import { BackLink } from "@/components/back-link";
 
 export function SiteDetailView({
   organizationId,

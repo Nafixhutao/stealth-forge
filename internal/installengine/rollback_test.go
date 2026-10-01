@@ -32,6 +32,13 @@ func (r *rollbackTestRunner) Run(_ context.Context, _ string, _, _ io.Writer, na
 	return nil
 }
 
+func (r *rollbackTestRunner) RunWithEnv(_ context.Context, _ string, env []string, _, _ io.Writer, name string, args ...string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.calls = append(r.calls, recordedCommand{name: name, args: append([]string(nil), args...), env: append([]string(nil), env...)})
+	return nil
+}
+
 func (r *rollbackTestRunner) Output(_ context.Context, _ string, name string, args ...string) ([]byte, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

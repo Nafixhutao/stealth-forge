@@ -42,6 +42,10 @@ func (r *setupRunner) Run(_ context.Context, _ string, _, _ io.Writer, name stri
 	return r.runErr
 }
 
+func (r *setupRunner) RunWithEnv(ctx context.Context, dir string, _ []string, stdout, stderr io.Writer, name string, args ...string) error {
+	return r.Run(ctx, dir, stdout, stderr, name, args...)
+}
+
 func (r *setupRunner) Output(_ context.Context, _ string, name string, args ...string) ([]byte, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

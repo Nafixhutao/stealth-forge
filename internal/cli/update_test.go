@@ -33,6 +33,10 @@ func (runner updateTestRunner) Run(context.Context, string, io.Writer, io.Writer
 	return runner.err
 }
 
+func (runner updateTestRunner) RunWithEnv(ctx context.Context, dir string, _ []string, stdout, stderr io.Writer, name string, args ...string) error {
+	return runner.Run(ctx, dir, stdout, stderr, name, args...)
+}
+
 func (runner updateTestRunner) Output(ctx context.Context, _ string, _ string, args ...string) ([]byte, error) {
 	if runner.before != nil {
 		runner.before()
@@ -116,11 +120,9 @@ func newUpdateTestServer(t *testing.T, archive []byte, checksums string) *update
 
 func newUpdateTestApp(t *testing.T, state *updateTestServer, current, target string) (*App, *bytes.Buffer, *bytes.Buffer) {
 	t.Helper()
-	// The update path reads the platform version from the install layout, which
-	// defaults to $HOME/.stealth. Isolate it to a temp directory so these tests
-	// do not pick up a real installation on the host, which would surface as a
-	// spurious "refusing platform downgrade" failure.
-	t.Setenv("STEALTH_INSTALL_DIR", t.TempDir())
+	// Keep release comparisons isolated from a real installation in the test
+	// runner's home directory.
+	t.Setenv("STEALTH_INSTALL_DIR", filepath.Join(t.TempDir(), "stealth-install"))
 	var output bytes.Buffer
 	var errorsOutput bytes.Buffer
 	app := NewApp(strings.NewReader(""), &output, &errorsOutput)

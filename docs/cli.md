@@ -21,6 +21,11 @@ Engine or the Docker Compose plugin is missing, bootstrap can install the
 prerequisites on supported Ubuntu and Debian releases before it installs the
 CLI.
 
+The setup handoff needs an interactive terminal. When bootstrap reaches that
+handoff without a TTY, it leaves the verified CLI installed and stops with
+instructions to run `stealth install` from a terminal. It does not wait
+indefinitely for browser setup that cannot be started from that process.
+
 Automatic package installation is supported on Ubuntu 22.04, 24.04, and 26.04,
 and Debian 12 and 13, on amd64 and arm64. It uses Docker's signed APT
 repository and installs Docker Engine, the CLI, containerd, Buildx, and the
