@@ -142,12 +142,27 @@ func (s *Server) createCloudflareTunnel(w http.ResponseWriter, r *http.Request) 
 		case errors.Is(err, cloudflare.ErrState):
 			writeError(w, http.StatusConflict, "setup_state_conflict", "Cloudflare setup state could not be saved")
 		case errors.Is(err, cloudflare.ErrProvider):
-			if provisioningErr != nil && strings.HasPrefix(strings.ToLower(provisioningErr.Stage), "dns") {
-				writeError(w, http.StatusBadGateway, "cloudflare_dns_failed", "Cloudflare could not configure the DNS record")
-			} else if provisioningErr != nil && provisioningErr.Stage == "zones" {
-				writeError(w, http.StatusBadGateway, "cloudflare_unavailable", "Cloudflare zones could not be verified")
-			} else {
-				writeError(w, http.StatusBadGateway, "cloudflare_tunnel_failed", "Cloudflare could not provision the named tunnel")
+			stage := ""
+			if provisioningErr != nil {
+				stage = strings.ToLower(strings.TrimSpace(provisioningErr.Stage))
+			}
+			// The provider error carries the underlying Cloudflare status and
+			// message. Log it (the client already redacts the API token) so an
+			// operator can distinguish a missing token scope from a transient
+			// provider failure, which the public response intentionally
+			// summarizes.
+			s.logger.Warn("Cloudflare provisioning provider operation failed",
+				"request_id", w.Header().Get(requestIDHeader),
+				"stage", stage,
+				"error", err,
+			)
+			switch {
+			case strings.HasPrefix(stage, "dns"):
+				writeError(w, http.StatusBadGateway, "cloudflare_dns_failed", cloudflareDNSFailureMessage(err))
+			case stage == "zones":
+				writeError(w, http.StatusBadGateway, "cloudflare_unavailable", "Cloudflare zones could not be verified. Confirm the token grants Zone:Zone:Read for the selected account.")
+			default:
+				writeError(w, http.StatusBadGateway, "cloudflare_tunnel_failed", "Cloudflare could not provision the named tunnel. Confirm the token grants Account:Cloudflare Tunnel:Edit for the selected account.")
 			}
 		default:
 			internalError(s, w, err)
@@ -188,6 +203,22 @@ func cloudflareTunnelConflictMessage(err error) string {
 		}
 	}
 	return "the saved Cloudflare tunnel conflicts with the requested account, zone, hostname, or provider resource"
+}
+
+// cloudflareDNSFailureMessage explains a failed Console DNS provisioning step.
+// A rejected DNS write almost always means the scoped API token lacks
+// Zone:DNS:Edit for the selected zone, which token verification cannot detect
+// because account discovery needs no zone permission. Naming that scope turns an
+// otherwise opaque 502 into a fixable instruction.
+func cloudflareDNSFailureMessage(err error) string {
+	switch {
+	case errors.Is(err, cloudflare.ErrUnauthorized):
+		return "Cloudflare rejected the DNS request. Grant Zone:DNS:Edit for the Console and workload zones, then retry this step."
+	case errors.Is(err, cloudflare.ErrResourceNotFound):
+		return "Cloudflare could not find the selected zone or DNS record. Re-select the domain and retry this step."
+	default:
+		return "Cloudflare could not configure the DNS record. Confirm the token grants Zone:DNS:Edit for the Console zone, then retry this step."
+	}
 }
 
 func (s *Server) cloudflareTunnelStatus(w http.ResponseWriter, r *http.Request) {

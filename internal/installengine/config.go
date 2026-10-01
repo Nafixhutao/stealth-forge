@@ -247,9 +247,3 @@ var releaseManagedImageNames = map[string]string{
 	"OTEL_DOCKER_COLLECTOR_IMAGE":          "stealth-otel-collector",
 	"OTEL_DOCKER_LOGS_COLLECTOR_IMAGE":     "stealth-otel-docker-logs",
 }
-
-// MigrateReleaseConfig advances release-owned defaults while preserving
-// operator-selected values. Image values are updated only when they still
-// equal the canonical image for the installed release; custom registries,
-// digests, and custom tags are treated as operator overrides. Secret values
-// are never regenerated unless a required secret key is absent.
