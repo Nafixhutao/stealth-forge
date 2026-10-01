@@ -72,6 +72,14 @@ func NormalizeHostname(raw string) (string, error) {
 	return canonical, nil
 }
 
+// Canonical returns a best-effort canonical hostname form: trimmed, lowercased,
+// and without a trailing dot. It performs no validation, so callers that must
+// reject invalid input should use NormalizeHostname instead. It exists so the
+// control plane has one implementation of this normalization.
+func Canonical(raw string) string {
+	return strings.ToLower(strings.TrimSuffix(strings.TrimSpace(raw), "."))
+}
+
 func looksLikeIPv4(value string) bool {
 	parts := strings.Split(value, ".")
 	if len(parts) != 4 {

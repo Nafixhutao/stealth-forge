@@ -808,7 +808,7 @@ func sameIngress(left, right []IngressRule) bool {
 		return false
 	}
 	for i := range left {
-		if canonicalDNSName(left[i].Hostname) != canonicalDNSName(right[i].Hostname) || left[i].Service != right[i].Service {
+		if domainname.Canonical(left[i].Hostname) != domainname.Canonical(right[i].Hostname) || left[i].Service != right[i].Service {
 			return false
 		}
 	}
@@ -818,7 +818,7 @@ func sameIngress(left, right []IngressRule) bool {
 func hasConsoleRouteAndCatchAll(rules []IngressRule, consoleHostname string) bool {
 	hasConsole, hasCatchAll := false, false
 	for _, rule := range rules {
-		if canonicalDNSName(rule.Hostname) == canonicalDNSName(consoleHostname) && (rule.Service == "http://proxy:80" || rule.Service == "http://traefik:8080") {
+		if domainname.Canonical(rule.Hostname) == domainname.Canonical(consoleHostname) && (rule.Service == "http://proxy:80" || rule.Service == "http://traefik:8080") {
 			hasConsole = true
 		}
 		if rule.Hostname == "" && rule.Service == "http_status:404" {
@@ -830,7 +830,7 @@ func hasConsoleRouteAndCatchAll(rules []IngressRule, consoleHostname string) boo
 
 func ensureWildcardDNS(ctx context.Context, client Client, zoneID, hostname, target, oldZoneID, oldHostname, storedRecordID string) (DNSRecord, bool, error) {
 	var changed bool
-	if storedRecordID != "" && oldZoneID == zoneID && canonicalDNSName(oldHostname) == canonicalDNSName(hostname) {
+	if storedRecordID != "" && oldZoneID == zoneID && domainname.Canonical(oldHostname) == domainname.Canonical(hostname) {
 		stored, err := client.GetDNSRecord(ctx, zoneID, storedRecordID)
 		if err == nil {
 			if stored.ID != storedRecordID || !exactOwnedWildcard(stored, hostname, target) {
@@ -885,16 +885,16 @@ func ensureWildcardDNS(ctx context.Context, client Client, zoneID, hostname, tar
 }
 
 func findMatchingDNS(records []DNSRecord, hostname, target string) (DNSRecord, error) {
-	hostname, target = canonicalDNSName(hostname), canonicalDNSName(target)
+	hostname, target = domainname.Canonical(hostname), domainname.Canonical(target)
 	var matching DNSRecord
 	for _, record := range records {
-		if canonicalDNSName(record.Name) != hostname {
+		if domainname.Canonical(record.Name) != hostname {
 			continue
 		}
 		if strings.ToUpper(strings.TrimSpace(record.Type)) != "CNAME" {
 			return DNSRecord{}, fmt.Errorf("%w: %s already has an incompatible record type", ErrRoutingConflict, hostname)
 		}
-		if canonicalDNSName(record.Content) != target {
+		if domainname.Canonical(record.Content) != target {
 			return DNSRecord{}, fmt.Errorf("%w: %s already points to another CNAME target", ErrRoutingConflict, hostname)
 		}
 		if strings.TrimSpace(record.ID) == "" {
@@ -909,7 +909,7 @@ func findMatchingDNS(records []DNSRecord, hostname, target string) (DNSRecord, e
 }
 
 func exactOwnedWildcard(record DNSRecord, hostname, target string) bool {
-	return strings.TrimSpace(record.ID) != "" && strings.EqualFold(strings.TrimSpace(record.Type), "CNAME") && canonicalDNSName(record.Name) == canonicalDNSName(hostname) && canonicalDNSName(record.Content) == canonicalDNSName(target)
+	return strings.TrimSpace(record.ID) != "" && strings.EqualFold(strings.TrimSpace(record.Type), "CNAME") && domainname.Canonical(record.Name) == domainname.Canonical(hostname) && domainname.Canonical(record.Content) == domainname.Canonical(target)
 }
 
 func (r *Reconciler) cleanupRetiring(ctx context.Context, client Client) (bool, error) {
@@ -946,7 +946,7 @@ func (r *Reconciler) cleanupRetiring(ctx context.Context, client Client) (bool, 
 }
 
 func longestContainingZone(zones []Zone, hostname string) (Zone, error) {
-	hostname = canonicalDNSName(hostname)
+	hostname = domainname.Canonical(hostname)
 	var matches []Zone
 	longest := 0
 	for _, zone := range zones {
@@ -973,8 +973,8 @@ func longestContainingZone(zones []Zone, hostname string) (Zone, error) {
 }
 
 func zoneContainsName(zoneName, hostname string) bool {
-	zoneName = canonicalDNSName(zoneName)
-	hostname = canonicalDNSName(hostname)
+	zoneName = domainname.Canonical(zoneName)
+	hostname = domainname.Canonical(hostname)
 	return zoneName != "" && (hostname == zoneName || strings.HasSuffix(hostname, "."+zoneName))
 }
 

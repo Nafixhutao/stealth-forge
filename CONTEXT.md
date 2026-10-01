@@ -60,7 +60,10 @@ server verifies the scoped token, discovers accounts and zones, provisions the
 named tunnel and DNS, and the shared installer starts and verifies the
 production cloudflared service before Quick Tunnel cleanup. The browser setup
 view owns stage rendering and delegates lifecycle transitions to that flow
-module. Cloudflare OAuth remains an explicit inactive experimental seam and is
+module. The top-level view stays a small orchestrator; each wizard stage
+(welcome, instance, GitHub, networking, data, storage, review, install) is a
+separate component that receives the flow and renders only its own controls.
+Cloudflare OAuth remains an explicit inactive experimental seam and is
 not a browser connection path.
 
 ## Console log stream
