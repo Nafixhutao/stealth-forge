@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -168,20 +169,11 @@ func appRuntimePurgePeerMatches(item appRuntimePurgeInspect) bool {
 	case labels["stealth.resource_type"] == "app_runtime_worker" && labels["com.docker.compose.service"] == "worker":
 		return socketMount
 	case labels["stealth.resource_type"] == "app_runtime_ingress" && labels["com.docker.compose.service"] == "traefik":
-		return !socketMount && item.HostConfig.ReadonlyRootfs && containsString(item.HostConfig.CapDrop, "ALL") &&
-			containsString(item.HostConfig.SecurityOpt, "no-new-privileges:true")
+		return !socketMount && item.HostConfig.ReadonlyRootfs && slices.Contains(item.HostConfig.CapDrop, "ALL") &&
+			slices.Contains(item.HostConfig.SecurityOpt, "no-new-privileges:true")
 	default:
 		return false
 	}
-}
-
-func containsString(values []string, expected string) bool {
-	for _, value := range values {
-		if value == expected {
-			return true
-		}
-	}
-	return false
 }
 
 func (a *App) inspectAppRuntimeContainer(ctx context.Context, id, runtimeNetwork string) (appRuntimePurgeContainer, error) {

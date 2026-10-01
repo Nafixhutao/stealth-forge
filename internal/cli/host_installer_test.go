@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -174,7 +175,7 @@ func TestHostInstallerOwnsRequestAndCompletesHandoff(t *testing.T) {
 	if len(runner.calls) != 17 {
 		t.Fatalf("host Docker calls = %#v, want preflight, staged Compose validation, seven state inits, production steps, and setup cleanup", runner.calls)
 	}
-	if got := runner.command(1).args; !containsString(got, "config") || !containsString(got, "--quiet") || !containsString(got, "--project-directory") || !strings.Contains(strings.Join(got, " "), filepath.Join(fixture.layout.StateDir, ".stealth-managed-assets-")) {
+	if got := runner.command(1).args; !slices.Contains(got, "config") || !slices.Contains(got, "--quiet") || !slices.Contains(got, "--project-directory") || !strings.Contains(strings.Join(got, " "), filepath.Join(fixture.layout.StateDir, ".stealth-managed-assets-")) {
 		t.Fatalf("staged Compose validation command = %#v", got)
 	}
 	if got := runner.command(2).args; len(got) < 6 {
