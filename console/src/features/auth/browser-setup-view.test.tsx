@@ -78,7 +78,8 @@ describe("Cloudflare provisioning errors", () => {
     "cloudflare_tunnel_failed",
     "cloudflare_unavailable",
   ])("surfaces the API message for %s", (code) => {
-    const message = "Confirm the token grants Zone:DNS:Edit for the Console zone.";
+    const message =
+      "Confirm the token grants Zone:DNS:Edit for the Console zone.";
     expect(safeError(new ApiError(message, 502, code))).toBe(message);
   });
 
