@@ -6,7 +6,6 @@ package repository
 
 import (
 	"errors"
-	"fmt"
 	"github.com/Stealth-deplover/stealth/internal/domain"
 	"github.com/google/uuid"
 	"strings"
@@ -178,8 +177,4 @@ func safeAppRuntimeError(value string) string {
 		return ""
 	}
 	return value
-}
-
-func appRuntimeDebugIdentity(job AppRuntimeJob) string {
-	return fmt.Sprintf("project_id=%s app_id=%s generation=%d", job.App.ProjectID, job.App.ID, job.App.DesiredGeneration)
 }

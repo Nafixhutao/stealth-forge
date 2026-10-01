@@ -57,10 +57,6 @@ func (a *App) systemChecks(ctx context.Context, installRoot string) []SystemChec
 	return checks
 }
 
-func installerPlatformChecks(goos, goarch string) []SystemCheck {
-	return preflight.PlatformChecks(goos, goarch)
-}
-
 func checksPass(checks []SystemCheck) bool {
 	return preflight.ChecksPass(checks)
 }
@@ -77,20 +73,12 @@ func dockerSocketGID(path string) (uint32, error) {
 	return preflight.DockerSocketGID(path)
 }
 
-func freeBytes(path string) (uint64, error) {
-	return preflight.FreeBytes(path)
-}
-
 func portAvailable(port string) bool {
 	listener, err := net.Listen("tcp", "127.0.0.1:"+port)
 	if err != nil {
 		return false
 	}
 	return listener.Close() == nil
-}
-
-func formatBytes(value uint64) string {
-	return preflight.FormatBytes(value)
 }
 
 func (a *App) hasInteractiveTerminal() bool {

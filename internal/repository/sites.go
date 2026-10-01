@@ -294,7 +294,7 @@ func (r *Repository) CreateSite(ctx context.Context, id, projectID uuid.UUID, ac
 		if claim.RowsAffected() == 0 {
 			continue
 		}
-		item, err = scanSite(tx.QueryRow(ctx, `INSERT INTO project_sites (id,project_id,name,platform_label,framework,enabled,status,artifact_quota_bytes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (platform_label) DO NOTHING RETURNING `+siteMutationProjection, id, projectID, input.Name, platformLabel, input.Framework, input.Enabled, input.Status, input.ArtifactQuotaBytes))
+		_, err = scanSite(tx.QueryRow(ctx, `INSERT INTO project_sites (id,project_id,name,platform_label,framework,enabled,status,artifact_quota_bytes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (platform_label) DO NOTHING RETURNING `+siteMutationProjection, id, projectID, input.Name, platformLabel, input.Framework, input.Enabled, input.Status, input.ArtifactQuotaBytes))
 		if errors.Is(err, pgx.ErrNoRows) {
 			if _, claimErr := tx.Exec(ctx, `DELETE FROM platform_hostname_claims WHERE label=$1 AND resource_type='site' AND resource_id=$2`, platformLabel, id); claimErr != nil {
 				return domain.Site{}, claimErr
@@ -365,14 +365,14 @@ func (r *Repository) UpdateSite(ctx context.Context, projectID, siteID uuid.UUID
 	if framework != "static" || (status != "active" && status != "disabled") || (status == "active") != enabled || quota <= 0 || quota < existing.ArtifactUsedBytes+existing.ArtifactReservedBytes {
 		return domain.Site{}, ErrInvalidSiteSettings
 	}
-	item, err := scanSite(tx.QueryRow(ctx, `UPDATE project_sites SET name=$3,framework=$4,enabled=$5,status=$6,artifact_quota_bytes=$7,updated_at=now() WHERE project_id=$1 AND id=$2 RETURNING `+siteMutationProjection, projectID, siteID, name, framework, enabled, status, quota))
+	_, err = scanSite(tx.QueryRow(ctx, `UPDATE project_sites SET name=$3,framework=$4,enabled=$5,status=$6,artifact_quota_bytes=$7,updated_at=now() WHERE project_id=$1 AND id=$2 RETURNING `+siteMutationProjection, projectID, siteID, name, framework, enabled, status, quota))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Site{}, ErrNotFound
 	}
 	if err != nil {
 		return domain.Site{}, mapError(err)
 	}
-	item, err = r.siteByID(ctx, tx, projectID, siteID, false)
+	item, err := r.siteByID(ctx, tx, projectID, siteID, false)
 	if err != nil {
 		return domain.Site{}, err
 	}

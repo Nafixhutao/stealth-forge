@@ -371,7 +371,7 @@ func advanceAppEnvironmentGenerationTx(ctx context.Context, tx pgx.Tx, projectID
 	if app.DesiredGeneration == math.MaxInt64 {
 		return ErrInvalidAppSettings
 	}
-	status := app.RuntimeStatus
+	var status string
 	if !app.Enabled || app.DesiredDeploymentID != nil {
 		status = "pending"
 	} else {

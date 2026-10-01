@@ -433,5 +433,5 @@ func constrainWidth(value string, width int) string {
 	if width < 40 {
 		return value
 	}
-	return contentStyle.Copy().Width(width - 4).Render(value)
+	return contentStyle.Width(width - 4).Render(value)
 }

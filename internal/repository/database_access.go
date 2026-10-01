@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -12,7 +11,6 @@ import (
 	"github.com/Stealth-deplover/stealth/internal/domain"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func normalizeTablePermissions(input DatabaseTableInput) ([4][]string, error) {
@@ -230,14 +228,6 @@ func buildDatabaseRowEventMetadata(actor DatabaseActor, table domain.DatabaseTab
 		"row_read_permissions":   append([]string(nil), rowReadPermissions...),
 	}
 	return metadata
-}
-
-func mapDatabaseConstraintError(err error) error {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-		return ErrConflict
-	}
-	return err
 }
 
 // Keep these references in this file so future schema adapters cannot forget

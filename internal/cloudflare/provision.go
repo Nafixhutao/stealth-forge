@@ -189,7 +189,7 @@ func Provision(ctx context.Context, store setupstate.Store, client Client, reque
 		if tunnelToken == "" {
 			return setupstate.State{}, provisioningError(ErrProvider, "tunnel token", errors.New("Cloudflare returned an empty tunnel token"))
 		}
-		state, err = saveTunnelToken(ctx, store, tunnelToken)
+		_, err = saveTunnelToken(ctx, store, tunnelToken)
 		if err != nil {
 			return setupstate.State{}, err
 		}

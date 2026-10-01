@@ -209,11 +209,10 @@ func activateFunctionDeploymentTx(ctx context.Context, tx pgx.Tx, projectID, fun
 			return domain.FunctionDeployment{}, err
 		}
 	}
-	updated, _, err := (&Repository{pool: nil}).functionDeploymentByIDTx(ctx, tx, projectID, functionID, deploymentID, true)
-	if err != nil {
+	if _, _, err := (&Repository{pool: nil}).functionDeploymentByIDTx(ctx, tx, projectID, functionID, deploymentID, true); err != nil {
 		return domain.FunctionDeployment{}, err
 	}
-	updated, err = scanFunctionDeploymentPublic(tx.QueryRow(ctx, `UPDATE function_deployments SET status='active',activated_at=COALESCE(activated_at,now()),updated_at=now() WHERE project_id=$1 AND function_id=$2 AND id=$3 RETURNING `+functionDeploymentProjection, projectID, functionID, deploymentID))
+	updated, err := scanFunctionDeploymentPublic(tx.QueryRow(ctx, `UPDATE function_deployments SET status='active',activated_at=COALESCE(activated_at,now()),updated_at=now() WHERE project_id=$1 AND function_id=$2 AND id=$3 RETURNING `+functionDeploymentProjection, projectID, functionID, deploymentID))
 	if err != nil {
 		return domain.FunctionDeployment{}, err
 	}

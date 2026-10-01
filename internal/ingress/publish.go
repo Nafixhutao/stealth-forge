@@ -11,11 +11,6 @@ import (
 	"strings"
 )
 
-func reloadSentinel(contents []byte) []byte {
-	digest := sha256.Sum256(contents)
-	return []byte("# Stealth platform route snapshot\n# sha256: " + hex.EncodeToString(digest[:]) + "\n")
-}
-
 func routeSetReloadSentinel(siteContents, appContents []byte) []byte {
 	hasher := sha256.New()
 	_, _ = hasher.Write([]byte(GeneratedFilename + "\x00"))
@@ -45,30 +40,6 @@ func publishSnapshotFile(path string, contents []byte) (bool, error) {
 		return false, err
 	}
 	return true, nil
-}
-
-func publishSnapshot(outputFile string, contents []byte, reloadFile string, reloadContents []byte) (changed, reloadChanged bool, err error) {
-	current, currentErr := readManagedFile(outputFile)
-	if currentErr != nil && !errors.Is(currentErr, os.ErrNotExist) {
-		return false, false, currentErr
-	}
-	if !bytes.Equal(current, contents) || errors.Is(currentErr, os.ErrNotExist) {
-		if err := publishAtomic(outputFile, contents, 0o644); err != nil {
-			return false, false, err
-		}
-		changed = true
-	}
-	currentReload, reloadErr := readManagedFile(reloadFile)
-	if reloadErr != nil && !errors.Is(reloadErr, os.ErrNotExist) {
-		return changed, false, reloadErr
-	}
-	if !bytes.Equal(currentReload, reloadContents) || errors.Is(reloadErr, os.ErrNotExist) {
-		if err := publishAtomic(reloadFile, reloadContents, 0o644); err != nil {
-			return changed, false, err
-		}
-		reloadChanged = true
-	}
-	return changed || reloadChanged, reloadChanged, nil
 }
 
 func readManagedFile(path string) ([]byte, error) {

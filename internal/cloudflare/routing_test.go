@@ -128,7 +128,6 @@ type routingFakeClient struct {
 	configureCount      int
 	deleteCount         int
 	dnsCalls            int
-	listRetiringError   error
 	events              []string
 	onConfigure         func()
 }

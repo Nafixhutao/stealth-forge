@@ -123,10 +123,9 @@ func (r *Repository) UpdateStorageFile(ctx context.Context, projectID, bucketID,
 			if err := requireStorageBucketPermission(bucket, actor, "update"); err != nil {
 				return domain.StorageFile{}, err
 			}
-		} else if !storageBucketPermission(bucket, actor, "update") {
-			// The row predicate below supplies the file-level grant when the
-			// bucket update grant did not already authorize the operation.
 		}
+		// The row predicate below supplies the file-level grant when the
+		// bucket update grant did not already authorize the operation.
 		if patch.ReadPermissions != nil || patch.UpdatePermissions != nil || patch.DeletePermissions != nil {
 			return domain.StorageFile{}, ErrForbidden
 		}

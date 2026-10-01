@@ -82,10 +82,6 @@ func readEnvFile(path string) (map[string]string, error) {
 	return installengine.ReadEnvFile(path)
 }
 
-func validEnvKey(value string) bool {
-	return installengine.ValidEnvKey(value)
-}
-
 func hasRequiredConfig(values map[string]string) bool {
 	for _, key := range []string{
 		"STEALTH_API_IMAGE",

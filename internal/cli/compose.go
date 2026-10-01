@@ -73,10 +73,6 @@ func (a *App) composeArgs(layout InstallLayout, args ...string) []string {
 	return append(result, args...)
 }
 
-func (a *App) runCompose(ctx context.Context, layout InstallLayout, args ...string) error {
-	return a.runCommandCaptured(ctx, layout.Root, "docker", a.composeArgs(layout, args...)...)
-}
-
 func (a *App) composeStatuses(ctx context.Context, layout InstallLayout, includeStopped ...bool) (map[string]ServiceStatus, error) {
 	args := []string{"ps"}
 	if len(includeStopped) > 0 && includeStopped[0] {
@@ -232,15 +228,6 @@ func (a *App) waitForInstallation(ctx context.Context, plan InstallPlan) error {
 func (a *App) installStep(ctx context.Context, plan InstallPlan, step int) error {
 	return a.installEngine().RunStep(ctx, plan, installengine.Step(step))
 }
-
-const (
-	installStepConfiguration = int(installengine.StepConfiguration)
-	installStepPull          = int(installengine.StepPull)
-	installStepDependencies  = int(installengine.StepDependencies)
-	installStepMigration     = int(installengine.StepMigration)
-	installStepServices      = int(installengine.StepServices)
-	installStepVerify        = int(installengine.StepVerify)
-)
 
 var installStepNames = installengine.StepNames
 
