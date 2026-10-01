@@ -43,14 +43,14 @@ export function AdminLogVolumeChart({ items }: AdminLogVolumeChartProps) {
       },
       xAxis: {
         type: "time",
-        axisLabel: { color: "#62666d", fontSize: 10 },
+        axisLabel: { color: "#8a8f98", fontSize: 10 },
         axisLine: { lineStyle: { color: "#23252a" } },
         splitLine: { show: false },
       },
       yAxis: {
         type: "value",
         minInterval: 1,
-        axisLabel: { color: "#62666d", fontSize: 10 },
+        axisLabel: { color: "#8a8f98", fontSize: 10 },
         axisLine: { show: false },
         splitLine: { lineStyle: { color: "#23252a" } },
       },
