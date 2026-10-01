@@ -34,7 +34,7 @@ import { AppDiagnosticsPanel } from "@/features/apps/app-diagnostics-panel";
 import { AppDeploymentsPanel } from "@/features/apps/app-deployments-panel";
 import { AppDeploymentDetailPanel } from "@/features/apps/app-deployment-detail-panel";
 import { updateAppPayload, type AppFormValues } from "@/features/apps/app-form";
-import { BackLink } from "@/features/resources/detail-shared";
+import { BackLink } from "@/components/back-link";
 import { useCursorPagination } from "@/hooks/use-cursor-pagination";
 
 export function AppDetailView({
