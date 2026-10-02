@@ -156,10 +156,24 @@ func (r *Repository) CreateFunctionDeployment(ctx context.Context, id, projectID
 			return domain.FunctionDeployment{}, ErrFunctionDisabled
 		}
 		// The build is asynchronous, so activation is deferred until the
-		// immutable artifact exists. Mark the deployment as the requested
-		// active target without superseding the deployment that is currently
-		// serving; completeFunctionDeploymentBuild moves the pointer only on a
-		// successful build and FailFunctionDeploymentBuild clears the request.
+		// immutable artifact exists: mark this deployment as the requested
+		// active target without moving the function pointer yet.
+		//
+		// Only the newest request may win. Demote any older deployment that is
+		// still awaiting activation (status='active' but not the serving
+		// pointer); otherwise two activate requests building on separate
+		// workers would both stay eligible, and the older build finishing last
+		// would roll the pointer back to it.
+		if _, err := tx.Exec(ctx, `
+			UPDATE function_deployments SET status='ready',updated_at=now()
+			WHERE project_id=$1 AND function_id=$2 AND status='active'
+			  AND id<>$3
+			  AND id IS DISTINCT FROM (
+			    SELECT active_deployment_id FROM project_functions WHERE project_id=$1 AND id=$2
+			  )`,
+			projectID, functionID, id); err != nil {
+			return domain.FunctionDeployment{}, err
+		}
 		item, err = scanFunctionDeploymentPublic(tx.QueryRow(ctx, `UPDATE function_deployments SET status='active',updated_at=now() WHERE project_id=$1 AND function_id=$2 AND id=$3 RETURNING `+functionDeploymentProjection, projectID, functionID, id))
 		if err != nil {
 			return domain.FunctionDeployment{}, err

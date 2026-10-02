@@ -24,7 +24,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   useCanvasDatabases,
@@ -236,19 +236,23 @@ export function ServicesCanvasView({
   const [nodes, setNodes, onNodesChange] =
     useNodesState<ResourceNode>(initialNodes);
   const [edges, , onEdgesChange] = useEdgesState([]);
-  // Seed the canvas only when the set of resource IDs changes (first load or a
-  // resource added/removed). Re-seeding on every initialNodes recomputation
-  // (for example a window-focus refetch) discards unsaved dragged positions.
-  const nodeSignature = useMemo(
-    () => initialNodes.map((node) => node.id).join("|"),
-    [initialNodes],
-  );
-  const seededSignature = useRef<string | null>(null);
+  // Merge refreshed resource data into the canvas while preserving the user's
+  // local node positions. Replacing the whole graph on every refetch would
+  // discard unsaved drags; skipping the update whenever the resource IDs are
+  // unchanged would leave stale labels and statuses after a realtime
+  // invalidation or an edit refetch, so merge instead.
   useEffect(() => {
-    if (seededSignature.current === nodeSignature) return;
-    seededSignature.current = nodeSignature;
-    setNodes(initialNodes);
-  }, [initialNodes, nodeSignature, setNodes]);
+    setNodes((current) => {
+      if (current.length === 0) return initialNodes;
+      const positions = new Map(
+        current.map((node) => [node.id, node.position]),
+      );
+      return initialNodes.map((node) => {
+        const position = positions.get(node.id);
+        return position ? { ...node, position } : node;
+      });
+    });
+  }, [initialNodes, setNodes]);
   const saveLayout = () => {
     save.mutate(
       {
