@@ -86,7 +86,7 @@ func (r *Repository) DeleteFunctionDeploymentWithArtifacts(ctx context.Context, 
 	if _, err := tx.Exec(ctx, `UPDATE project_functions SET artifact_used_bytes=GREATEST(0,artifact_used_bytes-$3),updated_at=now() WHERE project_id=$1 AND id=$2`, projectID, functionID, item.SizeBytes+buildStorage.BuildSizeBytes); err != nil {
 		return nil, err
 	}
-	if err := r.auditFunction(ctx, tx, projectID, actor, "function_deployment.delete", "function_deployment", deploymentID, map[string]any{"version": item.Version, "size_bytes": item.SizeBytes}); err != nil {
+	if err := r.auditFunction(ctx, tx, projectID, actor, "function_deployment.delete", "function_deployment", deploymentID, map[string]any{"function_id": functionID.String(), "version": item.Version, "size_bytes": item.SizeBytes}); err != nil {
 		return nil, err
 	}
 	for _, artifactPath := range []string{path, buildStorage.BuildPath} {

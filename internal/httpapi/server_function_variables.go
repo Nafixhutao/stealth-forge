@@ -100,7 +100,7 @@ func (s *Server) updateFunctionVariable(w http.ResponseWriter, r *http.Request) 
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	patch := repository.FunctionVariablePatch{Key: req.Key, Value: req.Value, Cipher: s.functionCipher}
+	patch := repository.FunctionVariablePatch{Key: req.Key, Value: req.Value, Description: req.Description, Cipher: s.functionCipher}
 	patch.SetValue = req.Value != nil
 	if req.Description != nil {
 		patch.SetDescription = true

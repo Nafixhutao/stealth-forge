@@ -93,9 +93,10 @@ func (r *Repository) GetFunctionDeployment(ctx context.Context, projectID, funct
 // CreateFunctionDeployment reserves per-function quota and assigns a
 // monotonically increasing version while holding the function row lock. The
 // upload is already atomically published by the caller after recording a
-// durable cleanup reservation. `Activate` is handled in the same transaction
-// so the new active pointer cannot be observed before its metadata and quota
-// reservation commit.
+// durable cleanup reservation. A requested activation is recorded as the
+// deployment's intended active state, but the function's active pointer is
+// moved only after the asynchronous build succeeds so a failed build cannot
+// strand the function on a non-executable deployment.
 func (r *Repository) CreateFunctionDeployment(ctx context.Context, id, projectID, functionID uuid.UUID, actor FunctionActor, input FunctionDeploymentInput) (domain.FunctionDeployment, error) {
 	if input.SizeBytes < 0 {
 		return domain.FunctionDeployment{}, ErrFunctionArtifactTooLarge
@@ -154,7 +155,12 @@ func (r *Repository) CreateFunctionDeployment(ctx context.Context, id, projectID
 		if function.Status != "active" {
 			return domain.FunctionDeployment{}, ErrFunctionDisabled
 		}
-		item, err = activateFunctionDeploymentTx(ctx, tx, projectID, functionID, id, actor, item)
+		// The build is asynchronous, so activation is deferred until the
+		// immutable artifact exists. Mark the deployment as the requested
+		// active target without superseding the deployment that is currently
+		// serving; completeFunctionDeploymentBuild moves the pointer only on a
+		// successful build and FailFunctionDeploymentBuild clears the request.
+		item, err = scanFunctionDeploymentPublic(tx.QueryRow(ctx, `UPDATE function_deployments SET status='active',updated_at=now() WHERE project_id=$1 AND function_id=$2 AND id=$3 RETURNING `+functionDeploymentProjection, projectID, functionID, id))
 		if err != nil {
 			return domain.FunctionDeployment{}, err
 		}
@@ -201,7 +207,9 @@ func activateFunctionDeploymentTx(ctx context.Context, tx pgx.Tx, projectID, fun
 	if locked.Status == "active" && current != nil && *current == deploymentID {
 		return locked, nil
 	}
-	if locked.Status != "ready" {
+	// "active" without the function pointer is a deferred activation request
+	// recorded at upload time; explicit activation is allowed to fulfill it.
+	if locked.Status != "ready" && locked.Status != "active" {
 		return domain.FunctionDeployment{}, ErrInvalidFunctionTransition
 	}
 	if current != nil && *current != deploymentID {

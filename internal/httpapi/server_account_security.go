@@ -19,8 +19,12 @@ func (s *Server) updateAccountPassword(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	accountID := uuid.MustParse(accountFrom(r).ID)
-	_, currentHash, err := s.repo.AccountPassword(r.Context(), accountFrom(r).Email)
+	account := accountFrom(r)
+	if !s.allowAccountAuth(w, r, "password_change", account.Email) {
+		return
+	}
+	accountID := uuid.MustParse(account.ID)
+	_, currentHash, err := s.repo.AccountPassword(r.Context(), account.Email)
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusUnauthorized, "invalid_credentials", "current password is invalid")
 		return

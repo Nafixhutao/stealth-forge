@@ -61,9 +61,19 @@ func setupHandoffToken(r *http.Request) (string, bool) {
 		}
 		return strings.TrimSpace(request.Token), true
 	}
-	if strings.HasPrefix(contentType, "application/x-www-form-urlencoded") ||
-		strings.HasPrefix(contentType, "multipart/form-data") {
+	if strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
 		if err := r.ParseForm(); err != nil {
+			return "", false
+		}
+		return strings.TrimSpace(r.FormValue("token")), true
+	}
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		// ParseForm does not read multipart bodies, and FormValue will not call
+		// ParseMultipartForm once r.Form is populated, so parse explicitly.
+		if err := r.ParseMultipartForm(1 << 20); err != nil {
+			return "", false
+		}
+		if r.MultipartForm == nil {
 			return "", false
 		}
 		return strings.TrimSpace(r.FormValue("token")), true

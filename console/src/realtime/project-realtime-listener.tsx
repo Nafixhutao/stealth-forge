@@ -17,11 +17,11 @@ export function ProjectRealtimeListener({
 
   useEffect(() => {
     if (!projectId || typeof EventSource === "undefined") return;
-    const events = eventTypesForProjectStream().join(",");
+    // The server treats an absent `events` filter as "all events" and rejects
+    // more than 64 names, so never send the full subscription list. Individual
+    // listeners below still narrow which notifications become cache changes.
     const source = new EventSource(
-      apiUrl(
-        `/v1/projects/${encodeURIComponent(projectId)}/realtime?events=${encodeURIComponent(events)}`,
-      ),
+      apiUrl(`/v1/projects/${encodeURIComponent(projectId)}/realtime`),
       { withCredentials: true },
     );
     const listeners = eventTypesForProjectStream().map((eventType) => {

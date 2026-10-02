@@ -46,9 +46,10 @@ func transitionAdminAlert(
 			return adminAlertTransition{State: "firing", EventState: "firing"}
 		}
 	}
-	if current == "pending" || current == "firing" {
+	if current == "firing" {
 		return adminAlertTransition{State: "resolved", EventState: "resolved"}
 	}
+	// A pending alert never fired, so clearing it is not a resolution event.
 	return adminAlertTransition{State: "normal"}
 }
 

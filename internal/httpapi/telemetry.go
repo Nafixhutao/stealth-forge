@@ -85,6 +85,36 @@ func (s *Server) requestLog(next http.Handler) http.Handler {
 	})
 }
 
+// traceAccountHolder lets the outer telemetry recorder observe the account
+// resolved by a downstream authentication middleware. The holder pointer is
+// installed before the tracing middleware runs, then mutated in place because
+// the recorder only receives the original request context.
+type traceAccountHolder struct {
+	account *domain.Account
+}
+
+type traceAccountHolderKeyType struct{}
+
+var traceAccountHolderKey traceAccountHolderKeyType
+
+// captureTraceAccount installs the mutable account holder before the tracing
+// middleware so recordHTTPTrace can read the authenticated account.
+func (s *Server) captureTraceAccount(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), traceAccountHolderKey, &traceAccountHolder{})
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func recordTraceAccount(ctx context.Context, account domain.Account) {
+	holder, ok := ctx.Value(traceAccountHolderKey).(*traceAccountHolder)
+	if !ok {
+		return
+	}
+	accountCopy := account
+	holder.account = &accountCopy
+}
+
 // recordHTTPTrace stores a tenant-scoped root request index after the
 // response has been selected. Full nested spans stay in the private OTLP
 // backend; a persistence failure is observable but never changes the caller's
@@ -119,7 +149,11 @@ func (s *Server) recordHTTPTrace(requestContext context.Context, observation obs
 		}
 		projectID = &parsed
 	}
-	if account, ok := requestContext.Value(accountContextKey).(domain.Account); ok {
+	if holder, ok := requestContext.Value(traceAccountHolderKey).(*traceAccountHolder); ok && holder.account != nil {
+		if parsed, err := repository.ParseUUID(holder.account.ID); err == nil {
+			accountID = &parsed
+		}
+	} else if account, ok := requestContext.Value(accountContextKey).(domain.Account); ok {
 		parsed, err := repository.ParseUUID(account.ID)
 		if err == nil {
 			accountID = &parsed

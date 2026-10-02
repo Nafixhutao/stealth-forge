@@ -174,6 +174,9 @@ func (c Config) ValidateFunctions() error {
 	if len(c.FunctionsSecretKey) != 32 {
 		return fmt.Errorf("FUNCTIONS_SECRET_KEY must be configured as base64-encoded 32 bytes")
 	}
+	if filepath.Clean(c.FunctionsRunnerStagingRoot) == string(filepath.Separator) {
+		return fmt.Errorf("function runner staging root must not be the filesystem root")
+	}
 	if c.FunctionsMaxArtifactSize <= 0 || c.FunctionsDefaultQuotaBytes <= 0 ||
 		c.FunctionsMaxArtifactSize > c.FunctionsDefaultQuotaBytes {
 		return fmt.Errorf("function artifact size and quota settings are invalid")

@@ -139,6 +139,9 @@ func (r *Repository) BuildDatabaseBackup(ctx context.Context, projectID, databas
 	if err != nil {
 		return DatabaseBackupSnapshot{}, nil, err
 	}
+	// The rows cursor must be released before the transaction is rolled back on
+	// any early return, otherwise pgx cannot cleanly return the connection.
+	defer relationships.Close()
 	for relationships.Next() {
 		if len(snapshot.Relationships) >= DatabaseBackupMaxRelations {
 			return DatabaseBackupSnapshot{}, nil, ErrBackupTooLarge
@@ -150,10 +153,8 @@ func (r *Repository) BuildDatabaseBackup(ctx context.Context, projectID, databas
 		snapshot.Relationships = append(snapshot.Relationships, item)
 	}
 	if err := relationships.Err(); err != nil {
-		relationships.Close()
 		return DatabaseBackupSnapshot{}, nil, err
 	}
-	relationships.Close()
 	payload, err := json.Marshal(snapshot)
 	if err != nil {
 		return DatabaseBackupSnapshot{}, nil, err

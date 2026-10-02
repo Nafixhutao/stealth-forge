@@ -242,10 +242,11 @@ func (s *Server) listAppDeployments(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	limit, rawCursor, ok := page(w, r)
+	limit, ok := pageLimit(w, r)
 	if !ok {
 		return
 	}
+	rawCursor := strings.TrimSpace(r.URL.Query().Get("cursor"))
 	var cursor *int64
 	if rawCursor != "" {
 		version, err := strconv.ParseInt(rawCursor, 10, 64)

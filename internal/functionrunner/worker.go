@@ -20,12 +20,13 @@ import (
 )
 
 const (
-	defaultWorkerPoll     = 500 * time.Millisecond
-	defaultLeaseAge       = 20 * time.Minute
-	defaultBuildTimeout   = 15 * time.Minute
-	defaultStagingRoot    = "/var/lib/stealth/runner-staging"
-	defaultSourceDirMode  = 0o700
-	maxFailureMessageSize = 4000
+	defaultWorkerPoll         = 500 * time.Millisecond
+	defaultLeaseAge           = 20 * time.Minute
+	defaultBuildTimeout       = 15 * time.Minute
+	defaultStagingRoot        = "/var/lib/stealth/runner-staging"
+	defaultSourceDirMode      = 0o700
+	maxFailureMessageSize     = 4000
+	staleStagingSweepInterval = 5 * time.Minute
 )
 
 // RuntimeExecutor is intentionally narrower than DockerExecutor. Tests can
@@ -123,9 +124,18 @@ func (w *Worker) Run(ctx context.Context) error {
 	}
 	ticker := time.NewTicker(poll)
 	defer ticker.Stop()
+	lastStagingSweep := time.Time{}
 	for {
 		if metrics := w.Metrics; metrics != nil {
 			metrics.Polls.Inc()
+		}
+		if lastStagingSweep.IsZero() || time.Since(lastStagingSweep) >= staleStagingSweepInterval {
+			if removed, err := w.cleanStaleStaging(2 * leaseAge); err != nil {
+				w.Logger.Warn("stale function staging cleanup failed", "error", err)
+			} else if removed > 0 {
+				w.Logger.Info("removed stale function staging directories", "count", removed)
+			}
+			lastStagingSweep = time.Now()
 		}
 		if requeued, err := w.BuildStore.RequeueStaleFunctionDeployments(ctx, leaseAge); err != nil &&
 			!errors.Is(err, context.Canceled) {
@@ -199,6 +209,62 @@ func validWorkerID(value string) bool {
 		return false
 	}
 	return true
+}
+
+// cleanStaleStaging removes private Function and Site workspaces left by a
+// process that exited before its deferred cleanup ran. Only UUID-named
+// directories older than maxAge are removed, and every candidate is verified
+// to remain inside root before deletion.
+func (w *Worker) cleanStaleStaging(maxAge time.Duration) (int, error) {
+	if w == nil || w.StagingRoot == "" {
+		return 0, errors.New("function staging cleanup is not configured")
+	}
+	total := 0
+	for _, subdirectory := range []string{"jobs", "builds", "build-validation"} {
+		removed, err := sweepStaleStagingRoot(filepath.Join(w.StagingRoot, subdirectory), maxAge)
+		if err != nil {
+			return total, err
+		}
+		total += removed
+	}
+	return total, nil
+}
+
+func sweepStaleStagingRoot(root string, maxAge time.Duration) (int, error) {
+	if root == "" || maxAge <= 0 {
+		return 0, errors.New("function staging cleanup is not configured")
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	cutoff := time.Now().Add(-maxAge)
+	removed := 0
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		id, err := uuid.Parse(entry.Name())
+		if err != nil || id == uuid.Nil || id.Version() != uuid.Version(7) || id.String() != entry.Name() {
+			continue
+		}
+		path := filepath.Join(root, entry.Name())
+		info, err := os.Lstat(path)
+		if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.ModTime().After(cutoff) {
+			continue
+		}
+		if err := ensureWithin(root, path); err != nil {
+			continue
+		}
+		if err := os.RemoveAll(path); err != nil {
+			return removed, err
+		}
+		removed++
+	}
+	return removed, nil
 }
 
 func redactFailure(message string, secrets []string) string {

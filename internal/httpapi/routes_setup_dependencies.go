@@ -34,6 +34,16 @@ func (s *Server) testSetupDatabase(w http.ResponseWriter, r *http.Request) {
 			databaseURL = s.config.DatabaseURL
 		}
 	}
+	// Validate against the saved draft before opening any connection so a
+	// caller cannot use this endpoint to probe arbitrary database hosts.
+	if setupstate.InstallationLocked(state) {
+		writeError(w, http.StatusConflict, "setup_state_conflict", "installation is already in progress or complete")
+		return
+	}
+	if state.Draft.DatabaseMode != "external" || credentials.DatabaseURL != databaseURL {
+		writeError(w, http.StatusConflict, "setup_state_conflict", "test the saved external PostgreSQL URL before installing")
+		return
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 	if err := pingDatabase(ctx, databaseURL); err != nil {
@@ -74,6 +84,16 @@ func (s *Server) testSetupRedis(w http.ResponseWriter, r *http.Request) {
 			redisURL = s.config.RedisURL
 		}
 	}
+	// Validate against the saved draft before opening any connection so a
+	// caller cannot use this endpoint to probe arbitrary Redis hosts.
+	if setupstate.InstallationLocked(state) {
+		writeError(w, http.StatusConflict, "setup_state_conflict", "installation is already in progress or complete")
+		return
+	}
+	if state.Draft.RedisMode != "external" || credentials.RedisURL != redisURL {
+		writeError(w, http.StatusConflict, "setup_state_conflict", "test the saved external Redis URL before installing")
+		return
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 	if err := pingRedis(ctx, redisURL); err != nil {
@@ -106,6 +126,12 @@ func (s *Server) testSetupStorage(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
+	// Validate against the saved draft before any network or filesystem test
+	// so a caller cannot use this endpoint to probe arbitrary storage hosts.
+	if err := validateSetupStorageTest(state, request); err != nil {
+		writeError(w, http.StatusConflict, "setup_state_conflict", err.Error())
+		return
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 	if err := s.pingSetupStorage(ctx, state, request); err != nil {
@@ -113,29 +139,8 @@ func (s *Server) testSetupStorage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := s.setupState.Update(r.Context(), func(state *setupstate.State) error {
-		if setupstate.InstallationLocked(*state) {
-			return errors.New("installation is already in progress or complete")
-		}
-		if state.Draft.StorageMode != "s3" {
-			state.Draft.StorageTested = true
-			return nil
-		}
-		credentials := state.SetupCredentials()
-		endpoint := valueOr(request.Endpoint, state.Draft.StorageS3Endpoint)
-		region := valueOr(request.Region, state.Draft.StorageS3Region)
-		bucket := valueOr(request.Bucket, state.Draft.StorageS3Bucket)
-		accessKey := valueOr(request.AccessKey, credentials.StorageS3AccessKey)
-		secretKey := valueOr(request.SecretKey, credentials.StorageS3SecretKey)
-		useSSL := state.Draft.StorageS3UseSSL
-		if request.UseSSL != nil {
-			useSSL = *request.UseSSL
-		}
-		pathStyle := state.Draft.StorageS3PathStyle
-		if request.PathStyle != nil {
-			pathStyle = *request.PathStyle
-		}
-		if endpoint != state.Draft.StorageS3Endpoint || region != state.Draft.StorageS3Region || bucket != state.Draft.StorageS3Bucket || accessKey != credentials.StorageS3AccessKey || secretKey != credentials.StorageS3SecretKey || useSSL != state.Draft.StorageS3UseSSL || pathStyle != state.Draft.StorageS3PathStyle {
-			return errors.New("test the saved S3-compatible storage settings before installing")
+		if err := validateSetupStorageTest(*state, request); err != nil {
+			return err
 		}
 		state.Draft.StorageTested = true
 		return nil
@@ -144,6 +149,36 @@ func (s *Server) testSetupStorage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// validateSetupStorageTest mirrors the checks the state update repeats so the
+// connection test only runs against settings that already match the saved
+// draft.
+func validateSetupStorageTest(state setupstate.State, request setupTestRequest) error {
+	if setupstate.InstallationLocked(state) {
+		return errors.New("installation is already in progress or complete")
+	}
+	if state.Draft.StorageMode != "s3" {
+		return nil
+	}
+	credentials := state.SetupCredentials()
+	endpoint := valueOr(request.Endpoint, state.Draft.StorageS3Endpoint)
+	region := valueOr(request.Region, state.Draft.StorageS3Region)
+	bucket := valueOr(request.Bucket, state.Draft.StorageS3Bucket)
+	accessKey := valueOr(request.AccessKey, credentials.StorageS3AccessKey)
+	secretKey := valueOr(request.SecretKey, credentials.StorageS3SecretKey)
+	useSSL := state.Draft.StorageS3UseSSL
+	if request.UseSSL != nil {
+		useSSL = *request.UseSSL
+	}
+	pathStyle := state.Draft.StorageS3PathStyle
+	if request.PathStyle != nil {
+		pathStyle = *request.PathStyle
+	}
+	if endpoint != state.Draft.StorageS3Endpoint || region != state.Draft.StorageS3Region || bucket != state.Draft.StorageS3Bucket || accessKey != credentials.StorageS3AccessKey || secretKey != credentials.StorageS3SecretKey || useSSL != state.Draft.StorageS3UseSSL || pathStyle != state.Draft.StorageS3PathStyle {
+		return errors.New("test the saved S3-compatible storage settings before installing")
+	}
+	return nil
 }
 func (s *Server) pingSetupStorage(ctx context.Context, state setupstate.State, request setupTestRequest) error {
 	if state.Draft.StorageMode != "s3" {

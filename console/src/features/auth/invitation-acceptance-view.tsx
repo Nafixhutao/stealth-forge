@@ -116,7 +116,9 @@ export function InvitationAcceptanceView() {
           className="mt-6 w-full"
           disabled={accept.isPending}
           onClick={async () => {
-            const result = await accept.mutateAsync(credential);
+            const result = await accept
+              .mutateAsync(credential)
+              .catch(() => undefined);
             if (result?.membership) setMembership(result.membership);
           }}
         >

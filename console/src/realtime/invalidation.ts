@@ -175,26 +175,22 @@ export function realtimeCacheChanges(
   }
 
   if (type.startsWith("function_deployment.")) {
-    const functionId = stringValue(data.function_id);
-    if (!functionId) return [];
     return [
       {
         kind: "function-deployment",
         projectId,
-        functionId,
+        functionId: stringValue(data.function_id),
         deploymentId: resourceId(event),
       },
     ];
   }
 
   if (type.startsWith("site_deployment.")) {
-    const siteId = stringValue(data.site_id);
-    if (!siteId) return [];
     return [
       {
         kind: "site-deployment",
         projectId,
-        siteId,
+        siteId: stringValue(data.site_id),
         deploymentId: resourceId(event),
       },
     ];

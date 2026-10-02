@@ -278,9 +278,18 @@ func (s *FileStore) save(value handoff) error {
 }
 
 func (s *FileStore) lock() (func(), error) {
-	lockFile, err := os.OpenFile(s.path+".lock", os.O_CREATE|os.O_RDWR, lockFileMode)
+	lockFile, err := os.OpenFile(s.path+".lock", os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, lockFileMode)
 	if err != nil {
 		return nil, fmt.Errorf("open setup handoff lock: %w", err)
+	}
+	info, err := lockFile.Stat()
+	if err != nil {
+		_ = lockFile.Close()
+		return nil, fmt.Errorf("inspect setup handoff lock: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		_ = lockFile.Close()
+		return nil, fmt.Errorf("setup handoff lock is not a regular file")
 	}
 	if err := syscall.Flock(int(lockFile.Fd()), syscall.LOCK_EX); err != nil {
 		_ = lockFile.Close()

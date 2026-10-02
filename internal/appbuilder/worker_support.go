@@ -93,6 +93,8 @@ func (w *progressWriter) Write(data []byte) (int, error) {
 		}
 		if len(w.buffer) < 16<<10 {
 			w.buffer = append(w.buffer, char)
+		} else {
+			w.truncated = true
 		}
 	}
 	return written, nil

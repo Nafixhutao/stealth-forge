@@ -435,12 +435,16 @@ func (s *Server) configuredAuthBase() *url.URL {
 		base = "http://localhost:4173"
 	}
 	parsed, err := url.Parse(base)
-	schemeInvalid := parsed.Scheme != "http" && parsed.Scheme != "https"
-	hostMissing := parsed.Host == "" || parsed.Hostname() == ""
-	hasCredentialsOrQuery := parsed.User != nil || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != ""
-	hasControlChars := strings.IndexFunc(base, unicode.IsControl) >= 0
-	if err != nil || schemeInvalid || hostMissing || hasCredentialsOrQuery || hasControlChars {
+	if err != nil {
 		parsed = &url.URL{Scheme: "http", Host: "localhost:4173"}
+	} else {
+		schemeInvalid := parsed.Scheme != "http" && parsed.Scheme != "https"
+		hostMissing := parsed.Host == "" || parsed.Hostname() == ""
+		hasCredentialsOrQuery := parsed.User != nil || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != ""
+		hasControlChars := strings.IndexFunc(base, unicode.IsControl) >= 0
+		if schemeInvalid || hostMissing || hasCredentialsOrQuery || hasControlChars {
+			parsed = &url.URL{Scheme: "http", Host: "localhost:4173"}
+		}
 	}
 	parsed.Path = strings.TrimRight(parsed.Path, "/")
 	parsed.RawPath = ""
@@ -479,10 +483,13 @@ func (s *Server) authLinkFor(
 		return "", errors.New("url must be a trusted HTTP(S) auth route without whitespace or control characters")
 	}
 	parsed, err := url.Parse(redirect)
+	if err != nil {
+		return "", errors.New("url must be a trusted auth route without credentials, queries, or fragments")
+	}
 	hasCredentials := parsed.User != nil
 	hasQueryOrFragment := parsed.Fragment != "" || parsed.RawFragment != "" || parsed.RawQuery != "" ||
 		parsed.ForceQuery
-	if err != nil || hasCredentials || hasQueryOrFragment {
+	if hasCredentials || hasQueryOrFragment {
 		return "", errors.New("url must be a trusted auth route without credentials, queries, or fragments")
 	}
 

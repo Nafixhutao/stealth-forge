@@ -8,6 +8,7 @@ package dockermetricsproxy
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -185,16 +186,32 @@ func (h *handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	copyHeaders(writer.Header(), response.Header)
-	writer.WriteHeader(response.StatusCode)
-	if request.Method != http.MethodHead {
-		isEventEndpoint := kind == endpointEvents
-		isSuccess := response.StatusCode >= http.StatusOK && response.StatusCode < http.StatusMultipleChoices
-		if isEventEndpoint && isSuccess {
+	isSuccess := response.StatusCode >= http.StatusOK && response.StatusCode < http.StatusMultipleChoices
+	if request.Method == http.MethodHead {
+		writer.WriteHeader(response.StatusCode)
+		return
+	}
+	if isSuccess && (kind == endpointEvents || kind == endpointStats) {
+		// Events and streamed stats are long-lived newline-delimited JSON
+		// streams. Forward complete objects through a bounded scanner so a
+		// response can never be truncated mid-object.
+		writer.WriteHeader(response.StatusCode)
+		if kind == endpointEvents {
 			copyEventStream(writer, response.Body)
 		} else {
-			_, _ = io.CopyN(writer, response.Body, maxJSONResponse)
+			copyBoundedLines(writer, response.Body)
 		}
+		return
 	}
+	// Buffer every other body so a response larger than the proxy limit is
+	// rejected instead of silently truncated.
+	body, readErr := io.ReadAll(io.LimitReader(response.Body, maxJSONResponse+1))
+	if readErr != nil || len(body) > maxJSONResponse {
+		http.Error(writer, "Docker response is too large", http.StatusBadGateway)
+		return
+	}
+	writer.WriteHeader(response.StatusCode)
+	_, _ = writer.Write(body)
 }
 
 func copyEventStream(writer http.ResponseWriter, reader io.Reader) {
@@ -218,6 +235,36 @@ func copyEventStream(writer http.ResponseWriter, reader io.Reader) {
 			flusher.Flush()
 		}
 	}
+}
+
+// copyBoundedLines forwards newline-delimited JSON objects without altering
+// their bytes. A single object larger than the proxy limit ends the stream
+// instead of being truncated mid-object.
+func copyBoundedLines(writer http.ResponseWriter, reader io.Reader) {
+	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, 32<<10), maxJSONResponse)
+	scanner.Split(splitLinesKeepEnd)
+	flusher, canFlush := writer.(http.Flusher)
+	for scanner.Scan() {
+		if _, err := writer.Write(scanner.Bytes()); err != nil {
+			return
+		}
+		if canFlush {
+			flusher.Flush()
+		}
+	}
+}
+
+// splitLinesKeepEnd splits on newlines but keeps the delimiter in the token so
+// streamed responses are forwarded byte-for-byte.
+func splitLinesKeepEnd(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	if index := bytes.IndexByte(data, '\n'); index >= 0 {
+		return index + 1, data[:index+1], nil
+	}
+	if atEOF && len(data) > 0 {
+		return len(data), data, nil
+	}
+	return 0, nil, nil
 }
 
 // Docker event Actor.Attributes can contain arbitrary container labels. The

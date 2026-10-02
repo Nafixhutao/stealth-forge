@@ -209,7 +209,8 @@ func TestEnsureNetworkRejectsForeignNameWithoutMutation(t *testing.T) {
 func TestEnsureNetworkCreatesOnlyTheLabeledPrivateBridge(t *testing.T) {
 	network := NetworkInspect{
 		Name: "stealth_app_runtime", Driver: "bridge", Scope: "local",
-		Labels: map[string]string{"stealth.managed": "true", "stealth.resource_type": "app_runtime_network", "stealth.runtime_schema": "v1"},
+		Labels:  map[string]string{"stealth.managed": "true", "stealth.resource_type": "app_runtime_network", "stealth.runtime_schema": "v1"},
+		Options: map[string]string{"com.docker.network.bridge.enable_icc": "false"},
 	}
 	runner := &scriptedRuntimeRunner{
 		results: []CommandResult{{}, {}, {Stdout: mustJSON([]NetworkInspect{network})}},
@@ -224,7 +225,7 @@ func TestEnsureNetworkCreatesOnlyTheLabeledPrivateBridge(t *testing.T) {
 	}
 	want := [][]string{
 		{"network", "inspect", "stealth_app_runtime"},
-		{"network", "create", "--driver", "bridge", "--label", "stealth.managed=true", "--label", "stealth.resource_type=app_runtime_network", "--label", "stealth.runtime_schema=v1", "stealth_app_runtime"},
+		{"network", "create", "--driver", "bridge", "--opt", "com.docker.network.bridge.enable_icc=false", "--label", "stealth.managed=true", "--label", "stealth.resource_type=app_runtime_network", "--label", "stealth.runtime_schema=v1", "stealth_app_runtime"},
 		{"network", "inspect", "stealth_app_runtime"},
 	}
 	if len(runner.calls) != len(want) {

@@ -82,6 +82,7 @@ func (s *Server) requireProjectStorageActor(next http.Handler) http.Handler {
 				return
 			}
 			ctx := context.WithValue(r.Context(), accountContextKey, account)
+			recordTraceAccount(ctx, account)
 			ctx = context.WithValue(ctx, sessionContextKey, sessionID)
 			ctx = context.WithValue(ctx, projectStorageActorContextKey, repository.StorageActor{Kind: repository.StorageConsoleActor, AccountID: mustUUID(account.ID)})
 			next.ServeHTTP(w, r.WithContext(ctx))

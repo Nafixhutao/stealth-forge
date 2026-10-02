@@ -31,6 +31,26 @@ describe("cache coherence", () => {
     ]);
   });
 
+  it("invalidates every deployment list when the parent function id is missing", () => {
+    expect(
+      invalidationKeysFor({
+        kind: "function-deployment",
+        projectId: "project-1",
+        deploymentId: "deployment-1",
+      }),
+    ).toEqual([["function-deployments", "project-1"]]);
+  });
+
+  it("invalidates every deployment list when the parent site id is missing", () => {
+    expect(
+      invalidationKeysFor({
+        kind: "site-deployment",
+        projectId: "project-1",
+        deploymentId: "deployment-1",
+      }),
+    ).toEqual([["site-deployments", "project-1"]]);
+  });
+
   it("maps App desired-state changes to the list and detail queries", () => {
     expect(
       invalidationKeysFor({

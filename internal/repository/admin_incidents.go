@@ -169,7 +169,13 @@ func (r *Repository) UpdateAdminIncident(ctx context.Context, accountID, id uuid
 	}
 	var resolvedAt any
 	if status == "resolved" {
-		resolvedAt = time.Now().UTC()
+		// Only stamp the resolution time on the transition into resolved so
+		// later edits do not keep moving resolved_at forward.
+		if item.ResolvedAt != nil {
+			resolvedAt = *item.ResolvedAt
+		} else {
+			resolvedAt = time.Now().UTC()
+		}
 	}
 	_, err = tx.Exec(ctx, `UPDATE admin_incidents SET title=$2,severity=$3,status=$4,services=$5,resolved_at=$6,updated_at=now() WHERE id=$1`, id, title, severity, status, services, resolvedAt)
 	if err != nil {

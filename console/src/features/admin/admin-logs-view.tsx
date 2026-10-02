@@ -57,17 +57,28 @@ export function AdminLogTailStatus({
 export function AdminLogsView() {
   const timeRange = useAdminTimeRange();
   const searchParams = useSearchParams();
+  const traceIDParam = searchParams.get("trace_id") ?? "";
   const initialQuery = useMemo(
     () =>
       formatAdminLogQuery({
-        trace_id: searchParams.get("trace_id") ?? "",
+        trace_id: traceIDParam,
       }),
-    [searchParams],
+    [traceIDParam],
   );
   const [draftQuery, setDraftQuery] = useState(initialQuery);
   const [activeQuery, setActiveQuery] = useState(initialQuery);
   const [queryHistory, setQueryHistory] = useState(readLogQueryHistory);
   const [tailEnabled, setTailEnabled] = useState(false);
+  // The route can be reused with a different trace_id (for example when
+  // following a "View linked logs" link) without remounting this view. Adjust
+  // the applied query during render when the URL-derived query changes (the
+  // React-recommended alternative to syncing state from an effect).
+  const [syncedInitialQuery, setSyncedInitialQuery] = useState(initialQuery);
+  if (initialQuery !== syncedInitialQuery) {
+    setSyncedInitialQuery(initialQuery);
+    setDraftQuery(initialQuery);
+    setActiveQuery(initialQuery);
+  }
   const draftParse = useMemo(
     () => parseAdminLogQuery(draftQuery),
     [draftQuery],

@@ -148,18 +148,31 @@ func main() {
 			Redis:          redisClient,
 		},
 	)
+	// signalContext is canceled on SIGINT/SIGTERM and backs each server's
+	// BaseContext, so long-lived streaming handlers observe shutdown through
+	// r.Context().Done() instead of blocking Shutdown until its deadline.
+	signalContext, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	baseContext, cancelBaseContext := context.WithCancel(signalContext)
+	defer cancelBaseContext()
+	// The control-plane servers intentionally omit WriteTimeout: the realtime,
+	// admin telemetry, setup and export handlers stream for the lifetime of a
+	// client connection, and an absolute write deadline would forcibly close
+	// those streams after 5 minutes. Non-streaming servers below keep a
+	// deadline.
 	server := &http.Server{
 		Addr:              cfg.HTTPAddress,
 		Handler:           handler,
+		BaseContext:       func(net.Listener) context.Context { return baseContext },
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       5 * time.Minute,
-		WriteTimeout:      5 * time.Minute,
 		IdleTimeout:       60 * time.Second,
 		MaxHeaderBytes:    1 << 20,
 	}
 	platformSiteServer := &http.Server{
 		Addr:              cfg.PlatformSiteAddress,
 		Handler:           platformSiteHandler,
+		BaseContext:       func(net.Listener) context.Context { return baseContext },
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       5 * time.Minute,
 		WriteTimeout:      5 * time.Minute,
@@ -190,15 +203,16 @@ func main() {
 		tlsServer = &http.Server{
 			Addr:              cfg.ACMETLSAddress,
 			Handler:           handler,
+			BaseContext:       func(net.Listener) context.Context { return baseContext },
 			ReadHeaderTimeout: 5 * time.Second,
 			ReadTimeout:       5 * time.Minute,
-			WriteTimeout:      5 * time.Minute,
 			IdleTimeout:       60 * time.Second,
 			MaxHeaderBytes:    1 << 20,
 		}
 		challengeServer = &http.Server{
 			Addr:              cfg.ACMEHTTPChallengeAddress,
 			Handler:           certificateManager.HTTPHandler(nil),
+			BaseContext:       func(net.Listener) context.Context { return baseContext },
 			ReadHeaderTimeout: 5 * time.Second,
 			ReadTimeout:       2 * time.Minute,
 			WriteTimeout:      2 * time.Minute,
@@ -238,8 +252,6 @@ func main() {
 			errCh <- serverResult{name: "acme-challenge", err: challengeServer.Serve(challengeListener)}
 		}()
 	}
-	signalContext, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 	select {
 	case <-signalContext.Done():
 		logger.Info("shutdown signal received")
@@ -249,6 +261,9 @@ func main() {
 		}
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer shutdownCancel()
+		// Cancel the BaseContext first so long-lived streams unblock and
+		// Shutdown can drain instead of waiting for its deadline.
+		cancelBaseContext()
 		for _, runningServer := range servers {
 			if shutdownErr := runningServer.Shutdown(shutdownCtx); shutdownErr != nil {
 				logger.Error("shutdown error", "server", runningServer.Addr, "error", shutdownErr)
@@ -261,11 +276,18 @@ func main() {
 	}
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer shutdownCancel()
+	// Cancel the BaseContext first so long-lived streams unblock and Shutdown
+	// can drain instead of waiting for its deadline.
+	cancelBaseContext()
+	shutdownFailed := false
 	for _, runningServer := range servers {
 		if err := runningServer.Shutdown(shutdownCtx); err != nil {
 			logger.Error("shutdown error", "server", runningServer.Addr, "error", err)
-			os.Exit(1)
+			shutdownFailed = true
 		}
+	}
+	if shutdownFailed {
+		os.Exit(1)
 	}
 }
 

@@ -78,7 +78,7 @@ func (r *Repository) GetMessagingTopic(ctx context.Context, projectID, topicID u
 	if _, err := r.requireMessagingRead(ctx, projectID, actor); err != nil {
 		return domain.MessagingTopic{}, err
 	}
-	item, err := scanMessagingTopic(r.pool.QueryRow(ctx, `SELECT `+messagingTopicProjection+` FROM project_messaging_topics t WHERE t.project_id=$1 AND t.id=$2`, projectID, topicID))
+	item, err := scanMessagingTopic(r.pool.QueryRow(ctx, `SELECT `+messagingTopicListProjection+` FROM project_messaging_topics t WHERE t.project_id=$1 AND t.id=$2`, projectID, topicID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.MessagingTopic{}, ErrNotFound
 	}
@@ -131,7 +131,7 @@ func (r *Repository) UpdateMessagingTopic(ctx context.Context, projectID, topicI
 		enabled = *patch.Enabled
 	}
 	if len(changed) == 0 {
-		item, scanErr := scanMessagingTopic(tx.QueryRow(ctx, `SELECT `+messagingTopicProjection+` FROM project_messaging_topics t WHERE t.project_id=$1 AND t.id=$2`, projectID, topicID))
+		item, scanErr := scanMessagingTopic(tx.QueryRow(ctx, `SELECT `+messagingTopicListProjection+` FROM project_messaging_topics t WHERE t.project_id=$1 AND t.id=$2`, projectID, topicID))
 		if scanErr != nil {
 			return domain.MessagingTopic{}, scanErr
 		}

@@ -14,7 +14,7 @@ import type { SiteDeployment } from "@/api/types";
 import { DataTable, type DataTableColumnDef } from "@/components/data-table";
 import { useCursorPagination } from "@/hooks/use-cursor-pagination";
 import { EmptyState } from "@/components/empty-state";
-import { ErrorState } from "@/components/feedback/error-state";
+import { ErrorState, errorMessage } from "@/components/feedback/error-state";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { createLogSource, LogViewer } from "@/components/log-viewer";
 import { PageHeader } from "@/components/page-header";
@@ -67,7 +67,7 @@ export function SiteDetailView({
           }
           toast.success("Site deployment uploaded");
         },
-        onError: () => toast.error("Could not upload site deployment"),
+        onError: (error) => toast.error(errorMessage(error)),
       },
     );
   };

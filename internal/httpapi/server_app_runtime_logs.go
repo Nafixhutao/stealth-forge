@@ -105,9 +105,6 @@ func (s *Server) listAppRuntimeLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response := domain.AppRuntimeLogsResponse{Logs: make([]domain.AppRuntimeLog, 0, len(result.Items))}
-	if rawCursor != "" {
-		response.NextCursor = rawCursor
-	}
 	for _, item := range result.Items {
 		identity := telemetry.EncodeLogCursor(telemetry.LogCursor{Timestamp: item.Timestamp, EventID: item.EventID})
 		response.Logs = append(response.Logs, domain.AppRuntimeLog{

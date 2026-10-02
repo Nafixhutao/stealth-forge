@@ -63,14 +63,9 @@ func writeError(w http.ResponseWriter, status int, code, message string) {
 	writeJSON(w, status, errorEnvelope{Error: apiError{Code: code, Message: message}})
 }
 func page(w http.ResponseWriter, r *http.Request) (int, string, bool) {
-	limit := 20
-	if value := r.URL.Query().Get("limit"); value != "" {
-		parsed, err := strconv.Atoi(value)
-		if err != nil || parsed < 1 || parsed > 100 {
-			writeError(w, http.StatusBadRequest, "validation_error", "limit must be an integer between 1 and 100")
-			return 0, "", false
-		}
-		limit = parsed
+	limit, ok := pageLimit(w, r)
+	if !ok {
+		return 0, "", false
 	}
 	cursor := r.URL.Query().Get("cursor")
 	if cursor != "" {
@@ -80,6 +75,18 @@ func page(w http.ResponseWriter, r *http.Request) (int, string, bool) {
 		}
 	}
 	return limit, cursor, true
+}
+func pageLimit(w http.ResponseWriter, r *http.Request) (int, bool) {
+	limit := 20
+	if value := r.URL.Query().Get("limit"); value != "" {
+		parsed, err := strconv.Atoi(value)
+		if err != nil || parsed < 1 || parsed > 100 {
+			writeError(w, http.StatusBadRequest, "validation_error", "limit must be an integer between 1 and 100")
+			return 0, false
+		}
+		limit = parsed
+	}
+	return limit, true
 }
 func paginationOf(limit int, next string) pagination {
 	if next == "" {

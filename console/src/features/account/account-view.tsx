@@ -11,7 +11,7 @@ import {
   useSendAccountVerification,
   useUpdateAccountPassword,
 } from "@/api/mutations";
-import { ErrorState } from "@/components/feedback/error-state";
+import { ErrorState, errorMessage } from "@/components/feedback/error-state";
 import { EmptyState } from "@/components/empty-state";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { PageHeader } from "@/components/page-header";
@@ -63,10 +63,14 @@ export function AccountView() {
 
   const submitPassword = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    await updatePassword.mutateAsync(passwords);
-    setPasswords({ current_password: "", password: "" });
-    toast.success("Password updated; other sessions were revoked");
-    await sessions.refetch();
+    try {
+      await updatePassword.mutateAsync(passwords);
+      setPasswords({ current_password: "", password: "" });
+      toast.success("Password updated; other sessions were revoked");
+      await sessions.refetch();
+    } catch {
+      // Rendered from updatePassword.error below.
+    }
   };
 
   return (
@@ -209,6 +213,14 @@ export function AccountView() {
                   The Go API keeps the current session and revokes all other
                   Console sessions after a successful change.
                 </p>
+                {updatePassword.error ? (
+                  <p
+                    role="alert"
+                    className="rounded-lg border border-rose-300/20 bg-rose-400/10 px-3 py-2 text-xs leading-5 text-rose-200"
+                  >
+                    {errorMessage(updatePassword.error)}
+                  </p>
+                ) : null}
                 <Button type="submit" disabled={updatePassword.isPending}>
                   {updatePassword.isPending ? "Updating…" : "Update password"}
                 </Button>

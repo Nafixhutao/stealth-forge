@@ -67,7 +67,7 @@ function ConsoleShellContent({
         </LoadingState>
       </div>
     );
-  if (account.error)
+  if (account.error && !account.data)
     return (
       <main className="mx-auto flex min-h-screen max-w-2xl items-center px-6">
         <ErrorState

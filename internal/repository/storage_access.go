@@ -49,11 +49,17 @@ func (r *Repository) requireStorageRead(ctx context.Context, projectID uuid.UUID
 		if !apikey.HasScope(actor.APIKeyScopes, "storage.read") {
 			return false, ErrForbidden
 		}
-		var exists bool
-		if err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM projects WHERE id=$1)`, projectID).Scan(&exists); err != nil {
+		var active bool
+		if err := r.pool.QueryRow(ctx, `SELECT EXISTS(
+			SELECT 1 FROM project_api_keys
+			WHERE id=$1 AND project_id=$2
+			  AND revoked_at IS NULL
+			  AND (expires_at IS NULL OR expires_at>now())
+			  AND 'storage.read' = ANY(scopes)
+		)`, actor.APIKeyID, projectID).Scan(&active); err != nil {
 			return false, err
 		}
-		if !exists {
+		if !active {
 			return false, ErrNotFound
 		}
 		return apikey.HasScope(actor.APIKeyScopes, "storage.write"), nil

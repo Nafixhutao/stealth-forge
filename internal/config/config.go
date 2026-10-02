@@ -245,8 +245,9 @@ func Load() (Config, error) {
 	tlsSettings.apply(&config)
 	setupSettings.apply(&config)
 	config.FunctionsRunnerStagingRoot, err = filepath.Abs(config.FunctionsRunnerStagingRoot)
-	if err != nil || strings.TrimSpace(config.FunctionsRunnerStagingRoot) == "" {
-		return Config{}, fmt.Errorf("FUNCTIONS_RUNNER_STAGING_ROOT must be a valid filesystem path")
+	if err != nil || strings.TrimSpace(config.FunctionsRunnerStagingRoot) == "" ||
+		filepath.Clean(config.FunctionsRunnerStagingRoot) == string(filepath.Separator) {
+		return Config{}, fmt.Errorf("FUNCTIONS_RUNNER_STAGING_ROOT must be a valid non-root filesystem path")
 	}
 	config.AppsBuildStagingRoot, err = filepath.Abs(config.AppsBuildStagingRoot)
 	if err != nil || strings.TrimSpace(config.AppsBuildStagingRoot) == "" {

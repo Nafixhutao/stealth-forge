@@ -86,10 +86,13 @@ func (s *Server) updateInstanceDomainSettings(w http.ResponseWriter, r *http.Req
 func (s *Server) instanceHostname() (string, error) {
 	raw := strings.TrimSpace(s.config.PublicAppURL)
 	parsed, err := url.Parse(raw)
+	if err != nil {
+		return "", errors.New("PUBLIC_APP_URL is invalid for instance domain settings")
+	}
 	schemeInvalid := parsed.Scheme != "http" && parsed.Scheme != "https"
 	hostMissing := parsed.Host == "" || parsed.Hostname() == ""
 	hasCredentialsOrQuery := parsed.User != nil || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != ""
-	if err != nil || schemeInvalid || hostMissing || hasCredentialsOrQuery {
+	if schemeInvalid || hostMissing || hasCredentialsOrQuery {
 		return "", errors.New("PUBLIC_APP_URL is invalid for instance domain settings")
 	}
 	hostname := parsed.Hostname()

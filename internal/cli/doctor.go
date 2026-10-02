@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -207,10 +208,10 @@ func (a *App) runDoctorCommand(args []string) int {
 
 	if configuredCloudflareTunnel(config) {
 		tokenPath := configuredCloudflareTokenPath(layout, config)
-		tokenOK := safeRegularFile(tokenPath) && fileIsPrivate(tokenPath)
-		tokenDetail := "tunnel token file is private and available"
+		tokenOK := cloudflareTokenFileReadable(tokenPath)
+		tokenDetail := "tunnel token file is readable by cloudflared and not group/other writable"
 		if !tokenOK {
-			tokenDetail = "tunnel token file must exist with mode 0600"
+			tokenDetail = "tunnel token file must be a regular file readable by cloudflared and not group/other writable"
 		}
 		check("Cloudflare credentials", tokenOK, tokenDetail)
 		networkCtx, networkCancel := context.WithTimeout(ctx, 5*time.Second)
@@ -429,6 +430,20 @@ func configuredCloudflareTokenPath(layout InstallLayout, config map[string]strin
 		return filepath.Clean(path)
 	}
 	return filepath.Join(layout.Root, filepath.Clean(path))
+}
+
+// cloudflareTokenFileReadable verifies the contract of the Cloudflare tunnel
+// token file. The cloudflared container runs as an unprivileged uid that does
+// not own the host-written file, so it must remain other-readable, and it must
+// never be group/other writable. Lstat rejects symlinks so the check cannot be
+// redirected to an unrelated file.
+func cloudflareTokenFileReadable(path string) bool {
+	info, err := os.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return false
+	}
+	perm := info.Mode().Perm()
+	return perm&0o022 == 0 && perm&0o004 != 0
 }
 
 func safeVolumeName(name string) bool {

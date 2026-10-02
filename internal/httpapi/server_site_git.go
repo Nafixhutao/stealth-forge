@@ -24,6 +24,9 @@ func (s *Server) createGitSiteDeployment(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusServiceUnavailable, "not_ready", "Git deployment storage is not ready")
 		return
 	}
+	if !s.authorizeSiteDeploymentWrite(w, r, projectID, siteID) {
+		return
+	}
 	var req siteGitDeploymentRequest
 	if !decodeJSON(w, r, &req) {
 		return

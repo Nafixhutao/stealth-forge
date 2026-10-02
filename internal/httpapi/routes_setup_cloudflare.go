@@ -251,13 +251,15 @@ func (s *Server) cloudflareTunnelStatus(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadGateway, "cloudflare_unavailable", "Cloudflare tunnel status is unavailable")
 		return
 	}
-	_, _ = s.setupState.Update(r.Context(), func(state *setupstate.State) error {
+	if _, err := s.setupState.Update(r.Context(), func(state *setupstate.State) error {
 		if setupstate.InstallationLocked(*state) {
 			return nil
 		}
 		state.Cloudflare.TokenValid = true
 		return nil
-	})
+	}); err != nil {
+		s.logger.Warn("cloudflare tunnel status state update failed", "error", err)
+	}
 	writeJSON(w, http.StatusOK, setupCloudflareStatusResponse{TunnelID: binding.TunnelID, Status: status.Status, Healthy: cloudflare.StatusIsHealthy(status), Connections: status.Connections})
 }
 

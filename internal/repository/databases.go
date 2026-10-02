@@ -133,14 +133,15 @@ func DecodeRowCursor(value string) (RowCursor, error) {
 	if value == "" {
 		return RowCursor{}, nil
 	}
+	// The default id cursor remains a raw UUID for easy interoperability, but
+	// a canonical UUID is also valid base64url text. Check for the raw UUID
+	// form first so those cursors are never misdecoded as encoded garbage.
+	if id, uuidErr := uuid.Parse(value); uuidErr == nil {
+		return RowCursor{ID: id}, nil
+	}
 	data, err := base64.RawURLEncoding.DecodeString(value)
 	if err != nil {
-		// The default id cursor remains a UUID for easy interoperability.
-		id, uuidErr := uuid.Parse(value)
-		if uuidErr != nil {
-			return RowCursor{}, fmt.Errorf("%w: cursor must be a UUID or encoded row cursor", ErrInvalidQuery)
-		}
-		return RowCursor{ID: id}, nil
+		return RowCursor{}, fmt.Errorf("%w: cursor must be a UUID or encoded row cursor", ErrInvalidQuery)
 	}
 	var cursor RowCursor
 	decoder := json.NewDecoder(strings.NewReader(string(data)))

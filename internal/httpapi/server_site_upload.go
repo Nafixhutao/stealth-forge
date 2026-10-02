@@ -28,6 +28,9 @@ func (s *Server) uploadSiteDeployment(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "not_ready", "site artifact storage is not ready")
 		return
 	}
+	if !s.authorizeSiteDeploymentWrite(w, r, projectID, siteID) {
+		return
+	}
 	mediaType, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || mediaType != "multipart/form-data" || params["boundary"] == "" {
 		writeError(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "Content-Type must be multipart/form-data")

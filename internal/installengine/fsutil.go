@@ -48,13 +48,13 @@ func syncDirectory(path string) error {
 // its duplicate file/configuration implementation while preserving its
 // existing tests and operator behavior.
 func FileExists(path string) bool {
-	info, err := os.Stat(path)
+	info, err := os.Lstat(path)
 	return err == nil && info.Mode().IsRegular() && info.Mode()&os.ModeSymlink == 0
 }
 
 func FileIsPrivate(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0o077 == 0
+	info, err := os.Lstat(path)
+	return err == nil && info.Mode().IsRegular() && info.Mode()&os.ModeSymlink == 0 && info.Mode().Perm()&0o077 == 0
 }
 
 func WritePrivateFile(path, contents string) error {

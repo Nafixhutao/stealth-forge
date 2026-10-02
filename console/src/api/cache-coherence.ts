@@ -39,7 +39,7 @@ export type CacheChange =
   | {
       kind: "function-deployment";
       projectId: string;
-      functionId: string;
+      functionId?: string;
       deploymentId?: string;
     }
   | {
@@ -60,7 +60,7 @@ export type CacheChange =
   | {
       kind: "site-deployment";
       projectId: string;
-      siteId: string;
+      siteId?: string;
       deploymentId?: string;
       includeScope?: boolean;
     }
@@ -213,23 +213,29 @@ export function invalidationKeysFor(change: CacheChange): CacheQueryKey[] {
       return keys;
 
     case "function-deployment":
-      addCacheKey(
-        keys,
-        queryKeys.function(change.projectId, change.functionId),
-      );
-      addCacheKey(
-        keys,
-        queryKeys.functionDeployments(change.projectId, change.functionId),
-      );
-      if (change.deploymentId) {
+      if (change.functionId) {
         addCacheKey(
           keys,
-          queryKeys.functionDeployment(
-            change.projectId,
-            change.functionId,
-            change.deploymentId,
-          ),
+          queryKeys.function(change.projectId, change.functionId),
         );
+        addCacheKey(
+          keys,
+          queryKeys.functionDeployments(change.projectId, change.functionId),
+        );
+        if (change.deploymentId) {
+          addCacheKey(
+            keys,
+            queryKeys.functionDeployment(
+              change.projectId,
+              change.functionId,
+              change.deploymentId,
+            ),
+          );
+        }
+      } else {
+        // Without the parent function id we cannot target one list, so
+        // invalidate every deployment list in the project via key prefix.
+        addCacheKey(keys, ["function-deployments", change.projectId]);
       }
       return keys;
 
@@ -306,26 +312,32 @@ export function invalidationKeysFor(change: CacheChange): CacheQueryKey[] {
       return keys;
 
     case "site-deployment":
-      addCacheKey(keys, queryKeys.site(change.projectId, change.siteId));
-      addCacheKey(
-        keys,
-        queryKeys.siteDeployments(change.projectId, change.siteId),
-      );
-      if (change.deploymentId) {
+      if (change.siteId) {
+        addCacheKey(keys, queryKeys.site(change.projectId, change.siteId));
         addCacheKey(
           keys,
-          queryKeys.siteDeployment(
-            change.projectId,
-            change.siteId,
-            change.deploymentId,
-          ),
+          queryKeys.siteDeployments(change.projectId, change.siteId),
         );
-      }
-      if (change.includeScope || !change.deploymentId) {
-        addCacheKey(
-          keys,
-          queryKeys.siteDeploymentScope(change.projectId, change.siteId),
-        );
+        if (change.deploymentId) {
+          addCacheKey(
+            keys,
+            queryKeys.siteDeployment(
+              change.projectId,
+              change.siteId,
+              change.deploymentId,
+            ),
+          );
+        }
+        if (change.includeScope || !change.deploymentId) {
+          addCacheKey(
+            keys,
+            queryKeys.siteDeploymentScope(change.projectId, change.siteId),
+          );
+        }
+      } else {
+        // Without the parent site id we cannot target one list, so invalidate
+        // every deployment list in the project via key prefix.
+        addCacheKey(keys, ["site-deployments", change.projectId]);
       }
       return keys;
 

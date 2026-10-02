@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/Stealth-deplover/stealth/internal/repository"
 )
@@ -16,7 +18,14 @@ const (
 	runtimeEnvironmentDirectory    = "/dev/shm"
 	runtimeEnvironmentFileOverhead = repository.AppEnvironmentVariableMaxCount * (120 + 2)
 	runtimeEnvironmentFileLimit    = repository.AppEnvironmentVariableMaxTotalValueBytes + runtimeEnvironmentFileOverhead
+	// runtimeEnvironmentStaleAfter bounds how long a plaintext environment file
+	// may outlive the worker that created it before startup cleanup removes it.
+	runtimeEnvironmentStaleAfter = time.Hour
 )
+
+// runtimeEnvironmentSweepOnce ensures the stale-file sweep runs at most once
+// per process, before the first new environment file is created.
+var runtimeEnvironmentSweepOnce sync.Once
 
 // writeRuntimeEnvironmentFile creates a short-lived Docker --env-file in the
 // worker container's memory-backed shared-memory directory. The caller must
@@ -52,6 +61,10 @@ func writeRuntimeEnvironmentFile(values []RuntimeEnvironmentVariable) (string, f
 	if info, err := os.Stat(runtimeEnvironmentDirectory); err != nil || !info.IsDir() {
 		return "", nil, ErrContainerCreate
 	}
+	// Reap plaintext files left by a worker killed before its deferred cleanup
+	// ran. This process-wide sweep runs once, before the first new file is
+	// created, and only removes files older than the stale threshold.
+	runtimeEnvironmentSweepOnce.Do(func() { _, _ = CleanStaleRuntimeEnvironmentFiles() })
 	file, err := os.CreateTemp(runtimeEnvironmentDirectory, ".stealth-app-env-*")
 	if err != nil {
 		return "", nil, ErrContainerCreate
@@ -85,10 +98,47 @@ func validRuntimeEnvironmentFilePath(path string) bool {
 		strings.HasPrefix(path, runtimeEnvironmentDirectory+"/.stealth-app-env-")
 }
 
+// CleanStaleRuntimeEnvironmentFiles removes plaintext environment files left
+// behind when a worker process was killed before its deferred cleanup ran.
+// Only regular files under the runtime environment directory whose names match
+// the runtime environment prefix and that are older than the stale threshold
+// are removed.
+func CleanStaleRuntimeEnvironmentFiles() (int, error) {
+	entries, err := os.ReadDir(runtimeEnvironmentDirectory)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	cutoff := time.Now().Add(-runtimeEnvironmentStaleAfter)
+	removed := 0
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		path := filepath.Join(runtimeEnvironmentDirectory, entry.Name())
+		if !validRuntimeEnvironmentFilePath(path) {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil || !info.Mode().IsRegular() || info.ModTime().After(cutoff) {
+			continue
+		}
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return removed, err
+		}
+		removed++
+	}
+	return removed, nil
+}
+
 func wipeAndRemoveRuntimeEnvironmentFile(path string) error {
 	if !validRuntimeEnvironmentFilePath(path) {
 		return ErrContainerCreate
 	}
+	// Best-effort removal so a wipe failure cannot leave plaintext on disk.
+	defer func() { _ = os.Remove(path) }()
 	file, err := os.OpenFile(path, os.O_WRONLY, 0)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return ErrContainerCreate

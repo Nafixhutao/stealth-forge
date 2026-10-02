@@ -4,9 +4,34 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/Stealth-deplover/stealth/internal/apikey"
 	"github.com/Stealth-deplover/stealth/internal/repository"
 	"github.com/google/uuid"
 )
+
+// authorizeSiteDeploymentWrite verifies a caller may write to the target
+// project/site before an upload stages or commits an artifact. API-key actors
+// were already bound to projectID by requireProjectManagement, so only the
+// write scope remains; console actors must resolve an owner/admin role and the
+// site must exist in the project.
+func (s *Server) authorizeSiteDeploymentWrite(w http.ResponseWriter, r *http.Request, projectID, siteID uuid.UUID) bool {
+	actor := siteActorFrom(r)
+	if actor.Kind == repository.SiteAPIKeyActor {
+		if !apikey.HasScope(actor.APIKeyScopes, "sites.write") {
+			writeError(w, http.StatusForbidden, "forbidden", "you do not have permission to manage Sites")
+			return false
+		}
+		return true
+	}
+	if _, err := s.repo.GetSite(r.Context(), projectID, siteID, actor); err != nil {
+		if siteResourceError(w, err) {
+			return false
+		}
+		internalError(s, w, err)
+		return false
+	}
+	return true
+}
 
 func sitePathIDs(w http.ResponseWriter, r *http.Request) (uuid.UUID, uuid.UUID, bool) {
 	projectID, ok := pathUUID(w, r, "projectID")

@@ -61,6 +61,7 @@ func (s *Server) transactDatabaseRows(w http.ResponseWriter, r *http.Request) {
 		var data map[string]any
 		if len(operation.Data) > 0 && string(operation.Data) != "null" {
 			decoder := json.NewDecoder(bytes.NewReader(operation.Data))
+			decoder.UseNumber()
 			if err := decoder.Decode(&data); err != nil || data == nil {
 				writeError(
 					w,
