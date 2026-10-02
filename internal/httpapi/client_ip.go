@@ -137,7 +137,7 @@ func parseForwardedElement(raw string) (net.IP, bool) {
 		return nil, false
 	}
 	var clientIP net.IP
-	foundFor := false
+	var foundFor bool
 	for _, parameter := range parameters {
 		key, value, found := strings.Cut(parameter, "=")
 		key = strings.ToLower(strings.TrimSpace(key))
@@ -225,9 +225,9 @@ func splitForwardedList(raw string, delimiter byte) ([]string, bool) {
 		return nil, false
 	}
 	parts := make([]string, 0, 4)
-	start := 0
-	quoted := false
-	escaped := false
+	var start int
+	var quoted bool
+	var escaped bool
 	for index := 0; index < len(raw); index++ {
 		character := raw[index]
 		if quoted {

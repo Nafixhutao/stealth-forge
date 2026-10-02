@@ -48,7 +48,12 @@ func (s *Server) transactDatabaseRows(w http.ResponseWriter, r *http.Request) {
 		if operation.ID != "" {
 			parsed, err := repository.ParseUUID(operation.ID)
 			if err != nil {
-				writeError(w, http.StatusUnprocessableEntity, "validation_error", "transaction operation id must be a UUID")
+				writeError(
+					w,
+					http.StatusUnprocessableEntity,
+					"validation_error",
+					"transaction operation id must be a UUID",
+				)
 				return
 			}
 			id = parsed
@@ -57,19 +62,34 @@ func (s *Server) transactDatabaseRows(w http.ResponseWriter, r *http.Request) {
 		if len(operation.Data) > 0 && string(operation.Data) != "null" {
 			decoder := json.NewDecoder(bytes.NewReader(operation.Data))
 			if err := decoder.Decode(&data); err != nil || data == nil {
-				writeError(w, http.StatusUnprocessableEntity, "validation_error", "transaction operation data must be an object")
+				writeError(
+					w,
+					http.StatusUnprocessableEntity,
+					"validation_error",
+					"transaction operation data must be an object",
+				)
 				return
 			}
 			// decodeJSON already rejects trailing values for the envelope; this
 			// guard keeps each raw operation equally strict.
 			if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-				writeError(w, http.StatusUnprocessableEntity, "validation_error", "transaction operation data must contain one JSON value")
+				writeError(
+					w,
+					http.StatusUnprocessableEntity,
+					"validation_error",
+					"transaction operation data must contain one JSON value",
+				)
 				return
 			}
 		}
 		if operation.Action == "update" || operation.Action == "delete" {
 			if operation.ID == "" {
-				writeError(w, http.StatusUnprocessableEntity, "validation_error", "update and delete operations require id")
+				writeError(
+					w,
+					http.StatusUnprocessableEntity,
+					"validation_error",
+					"update and delete operations require id",
+				)
 				return
 			}
 		}
@@ -78,7 +98,12 @@ func (s *Server) transactDatabaseRows(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if operation.Action != "create" && operation.Action != "update" && operation.Action != "delete" {
-			writeError(w, http.StatusUnprocessableEntity, "validation_error", "operation "+strconv.Itoa(index)+" action must be create, update, or delete")
+			writeError(
+				w,
+				http.StatusUnprocessableEntity,
+				"validation_error",
+				"operation "+strconv.Itoa(index)+" action must be create, update, or delete",
+			)
 			return
 		}
 		operations = append(operations, repository.DatabaseRowTransactionOperation{
@@ -87,7 +112,14 @@ func (s *Server) transactDatabaseRows(w http.ResponseWriter, r *http.Request) {
 			DeletePermissions: operation.DeletePermissions,
 		})
 	}
-	result, err := s.repo.TransactDatabaseRows(r.Context(), projectID, databaseID, tableID, databaseActorFrom(r), operations)
+	result, err := s.repo.TransactDatabaseRows(
+		r.Context(),
+		projectID,
+		databaseID,
+		tableID,
+		databaseActorFrom(r),
+		operations,
+	)
 	if databaseResourceError(w, err) {
 		return
 	}
@@ -95,5 +127,13 @@ func (s *Server) transactDatabaseRows(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"rows": result.Rows, "deleted_ids": result.DeletedIDs, "count": len(result.Rows) + len(result.DeletedIDs)})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{
+			"rows":        result.Rows,
+			"deleted_ids": result.DeletedIDs,
+			"count":       len(result.Rows) + len(result.DeletedIDs),
+		},
+	)
 }

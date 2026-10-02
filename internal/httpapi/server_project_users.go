@@ -49,7 +49,11 @@ func (s *Server) listProjectUsers(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"users": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"users": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 type projectUserRequest struct {
@@ -92,9 +96,11 @@ func (s *Server) createProjectUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		if err := s.repo.AuthorizeProjectUserWrite(r.Context(), projectID, uuid.Must(uuid.Parse(accountFrom(r).ID))); projectResourceError(w, err) {
+		err := s.repo.AuthorizeProjectUserWrite(r.Context(), projectID, uuid.Must(uuid.Parse(accountFrom(r).ID)))
+		if projectResourceError(w, err) {
 			return
-		} else if err != nil {
+		}
+		if err != nil {
 			internalError(s, w, err)
 			return
 		}
@@ -106,7 +112,15 @@ func (s *Server) createProjectUser(w http.ResponseWriter, r *http.Request) {
 	}
 	var item domain.ApplicationUser
 	if actor.kind == apiKeyProjectActor {
-		item, err = s.repo.CreateProjectUserByAPIKey(r.Context(), uuid.Must(uuid.NewV7()), projectID, actor.apiKeyID, email, passwordHash, name)
+		item, err = s.repo.CreateProjectUserByAPIKey(
+			r.Context(),
+			uuid.Must(uuid.NewV7()),
+			projectID,
+			actor.apiKeyID,
+			email,
+			passwordHash,
+			name,
+		)
 	} else {
 		item, err = s.repo.CreateProjectUser(r.Context(), uuid.Must(uuid.NewV7()), projectID, uuid.Must(uuid.Parse(accountFrom(r).ID)), email, passwordHash, name)
 	}
@@ -114,7 +128,12 @@ func (s *Server) createProjectUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if errors.Is(err, repository.ErrConflict) {
-		writeError(w, http.StatusConflict, "conflict", "an application user with this email already exists in the project")
+		writeError(
+			w,
+			http.StatusConflict,
+			"conflict",
+			"an application user with this email already exists in the project",
+		)
 		return
 	}
 	if err != nil {

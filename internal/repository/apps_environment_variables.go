@@ -61,7 +61,17 @@ type appEnvironmentVariableScanner interface{ Scan(...any) error }
 
 func scanAppEnvironmentVariable(row appEnvironmentVariableScanner) (domain.AppEnvironmentVariable, error) {
 	var item domain.AppEnvironmentVariable
-	return item, row.Scan(&item.ID, &item.AppID, &item.ProjectID, &item.Key, &item.IsSecret, &item.HasValue, &item.Description, &item.CreatedAt, &item.UpdatedAt)
+	return item, row.Scan(
+		&item.ID,
+		&item.AppID,
+		&item.ProjectID,
+		&item.Key,
+		&item.IsSecret,
+		&item.HasValue,
+		&item.Description,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 }
 
 func validAppEnvironmentVariableInput(key string, value *string, description *string) bool {
@@ -71,10 +81,17 @@ func validAppEnvironmentVariableInput(key string, value *string, description *st
 	if value != nil && (len(*value) > AppEnvironmentVariableMaxValueBytes || strings.ContainsAny(*value, "\x00\r\n")) {
 		return false
 	}
-	return description == nil || (len(*description) <= AppEnvironmentVariableMaxDescriptionBytes && !strings.ContainsRune(*description, '\x00'))
+	return description == nil ||
+		(len(*description) <= AppEnvironmentVariableMaxDescriptionBytes && !strings.ContainsRune(*description, '\x00'))
 }
 
-func (r *Repository) ListAppEnvironmentVariables(ctx context.Context, projectID, appID uuid.UUID, actor AppActor, limit int, cursor *uuid.UUID) ([]domain.AppEnvironmentVariable, string, bool, error) {
+func (r *Repository) ListAppEnvironmentVariables(
+	ctx context.Context,
+	projectID, appID uuid.UUID,
+	actor AppActor,
+	limit int,
+	cursor *uuid.UUID,
+) ([]domain.AppEnvironmentVariable, string, bool, error) {
 	canManage, err := r.requireAppRead(ctx, projectID, actor)
 	if err != nil {
 		return nil, "", false, err
@@ -109,8 +126,14 @@ func (r *Repository) ListAppEnvironmentVariables(ctx context.Context, projectID,
 	return items, next, canManage, nil
 }
 
-func (r *Repository) CreateAppEnvironmentVariable(ctx context.Context, id, projectID, appID uuid.UUID, actor AppActor, input AppEnvironmentVariableInput) (domain.AppEnvironmentVariable, error) {
-	if id == uuid.Nil || projectID == uuid.Nil || appID == uuid.Nil || !validAppEnvironmentVariableInput(input.Key, input.Value, input.Description) {
+func (r *Repository) CreateAppEnvironmentVariable(
+	ctx context.Context,
+	id, projectID, appID uuid.UUID,
+	actor AppActor,
+	input AppEnvironmentVariableInput,
+) (domain.AppEnvironmentVariable, error) {
+	if id == uuid.Nil || projectID == uuid.Nil || appID == uuid.Nil ||
+		!validAppEnvironmentVariableInput(input.Key, input.Value, input.Description) {
 		return domain.AppEnvironmentVariable{}, ErrInvalidAppEnvironmentVariable
 	}
 	if input.Value != nil && input.Cipher == nil {
@@ -154,10 +177,20 @@ func (r *Repository) CreateAppEnvironmentVariable(ctx context.Context, id, proje
 			return domain.AppEnvironmentVariable{}, ErrAppEnvironmentTotalSizeLimit
 		}
 	}
-	item, err := scanAppEnvironmentVariable(tx.QueryRow(ctx, `
+	item, err := scanAppEnvironmentVariable(tx.QueryRow(
+		ctx,
+		`
 		INSERT INTO app_environment_variables (id,app_id,project_id,key,is_secret,value_ciphertext,value_plaintext_bytes,description)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING `+appEnvironmentVariableProjection,
-		id, appID, projectID, input.Key, input.IsSecret, ciphertext, configuredPlaintextBytes(input.Value), input.Description))
+		id,
+		appID,
+		projectID,
+		input.Key,
+		input.IsSecret,
+		ciphertext,
+		configuredPlaintextBytes(input.Value),
+		input.Description,
+	))
 	if err != nil {
 		return domain.AppEnvironmentVariable{}, mapError(err)
 	}
@@ -182,7 +215,12 @@ func (r *Repository) CreateAppEnvironmentVariable(ctx context.Context, id, proje
 	return item, nil
 }
 
-func (r *Repository) UpdateAppEnvironmentVariable(ctx context.Context, projectID, appID, variableID uuid.UUID, actor AppActor, patch AppEnvironmentVariablePatch) (domain.AppEnvironmentVariable, error) {
+func (r *Repository) UpdateAppEnvironmentVariable(
+	ctx context.Context,
+	projectID, appID, variableID uuid.UUID,
+	actor AppActor,
+	patch AppEnvironmentVariablePatch,
+) (domain.AppEnvironmentVariable, error) {
 	if patch.ClearValue && patch.Value != nil {
 		return domain.AppEnvironmentVariable{}, ErrInvalidAppEnvironmentVariable
 	}
@@ -205,8 +243,9 @@ func (r *Repository) UpdateAppEnvironmentVariable(ctx context.Context, projectID
 	var oldCiphertext []byte
 	var oldValueBytes int64
 	err = tx.QueryRow(ctx, `SELECT `+appEnvironmentVariableProjection+`,value_ciphertext,value_plaintext_bytes FROM app_environment_variables
-		WHERE project_id=$1 AND app_id=$2 AND id=$3 FOR UPDATE`, projectID, appID, variableID).Scan(
-		&existing.ID, &existing.AppID, &existing.ProjectID, &existing.Key, &existing.IsSecret, &existing.HasValue, &existing.Description, &existing.CreatedAt, &existing.UpdatedAt, &oldCiphertext, &oldValueBytes)
+		WHERE project_id=$1 AND app_id=$2 AND id=$3 FOR UPDATE`, projectID, appID, variableID).
+		Scan(
+			&existing.ID, &existing.AppID, &existing.ProjectID, &existing.Key, &existing.IsSecret, &existing.HasValue, &existing.Description, &existing.CreatedAt, &existing.UpdatedAt, &oldCiphertext, &oldValueBytes)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.AppEnvironmentVariable{}, ErrNotFound
 	}
@@ -269,7 +308,8 @@ func (r *Repository) UpdateAppEnvironmentVariable(ctx context.Context, projectID
 	if err != nil {
 		return domain.AppEnvironmentVariable{}, mapError(err)
 	}
-	runtimeChanged := patch.Value != nil || (patch.ClearValue && existing.HasValue) || (key != existing.Key && existing.HasValue)
+	runtimeChanged := patch.Value != nil || (patch.ClearValue && existing.HasValue) ||
+		(key != existing.Key && existing.HasValue)
 	if runtimeChanged {
 		if err := advanceAppEnvironmentGenerationTx(ctx, tx, projectID, appID, app); err != nil {
 			return domain.AppEnvironmentVariable{}, err
@@ -317,7 +357,11 @@ func appEnvironmentConfiguredValueBytesTx(ctx context.Context, tx pgx.Tx, projec
 	return total, err
 }
 
-func (r *Repository) DeleteAppEnvironmentVariable(ctx context.Context, projectID, appID, variableID uuid.UUID, actor AppActor) error {
+func (r *Repository) DeleteAppEnvironmentVariable(
+	ctx context.Context,
+	projectID, appID, variableID uuid.UUID,
+	actor AppActor,
+) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -360,14 +404,23 @@ func (r *Repository) DeleteAppEnvironmentVariable(ctx context.Context, projectID
 	return tx.Commit(ctx)
 }
 
-func appEnvironmentAuditMetadata(item domain.AppEnvironmentVariable, changedFields []string, runtimeChanged bool) map[string]any {
+func appEnvironmentAuditMetadata(
+	item domain.AppEnvironmentVariable,
+	changedFields []string,
+	runtimeChanged bool,
+) map[string]any {
 	return map[string]any{
 		"variable_id": item.ID, "key": item.Key, "is_secret": item.IsSecret,
 		"has_value": item.HasValue, "changed_fields": changedFields, "runtime_changed": runtimeChanged,
 	}
 }
 
-func advanceAppEnvironmentGenerationTx(ctx context.Context, tx pgx.Tx, projectID, appID uuid.UUID, app domain.App) error {
+func advanceAppEnvironmentGenerationTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID, appID uuid.UUID,
+	app domain.App,
+) error {
 	if app.DesiredGeneration == math.MaxInt64 {
 		return ErrInvalidAppSettings
 	}
@@ -389,10 +442,16 @@ func advanceAppEnvironmentGenerationTx(ctx context.Context, tx pgx.Tx, projectID
 
 // ListAppRuntimeEnvironment returns only current leased job ciphertext. The
 // worker decrypts values just before creating the replacement container.
-func (r *Repository) ListAppRuntimeEnvironment(ctx context.Context, job AppRuntimeJob) ([]AppRuntimeEnvironmentCiphertext, error) {
+func (r *Repository) ListAppRuntimeEnvironment(
+	ctx context.Context,
+	job AppRuntimeJob,
+) ([]AppRuntimeEnvironmentCiphertext, error) {
 	appID, appErr := uuid.Parse(job.App.ID)
 	projectID, projectErr := uuid.Parse(job.App.ProjectID)
-	if r == nil || r.pool == nil || appErr != nil || projectErr != nil || appID == uuid.Nil || projectID == uuid.Nil || job.LeaseToken == uuid.Nil || job.WorkerID == "" || job.App.DesiredDeploymentID == nil {
+	if r == nil || r.pool == nil || appErr != nil || projectErr != nil || appID == uuid.Nil || projectID == uuid.Nil ||
+		job.LeaseToken == uuid.Nil ||
+		job.WorkerID == "" ||
+		job.App.DesiredDeploymentID == nil {
 		return nil, ErrInvalidAppRuntimeJob
 	}
 	// Check the lease and read the values in one statement so an environment

@@ -34,7 +34,8 @@ type RuntimeImageCacheEntry struct {
 }
 
 func ParseRuntimeImageReference(reference string) (uuid.UUID, bool) {
-	if len(reference) > 255 || !strings.HasPrefix(reference, runtimeImageRepositoryPrefix) || strings.Count(reference, ":") != 1 {
+	if len(reference) > 255 || !strings.HasPrefix(reference, runtimeImageRepositoryPrefix) ||
+		strings.Count(reference, ":") != 1 {
 		return uuid.Nil, false
 	}
 	parts := strings.SplitN(strings.TrimPrefix(reference, runtimeImageRepositoryPrefix), ":", 2)
@@ -42,7 +43,8 @@ func ParseRuntimeImageReference(reference string) (uuid.UUID, bool) {
 		return uuid.Nil, false
 	}
 	deploymentID, err := uuid.Parse(parts[0])
-	if err != nil || deploymentID == uuid.Nil || deploymentID.Version() != uuid.Version(7) || deploymentID.String() != parts[0] {
+	if err != nil || deploymentID == uuid.Nil || deploymentID.Version() != uuid.Version(7) ||
+		deploymentID.String() != parts[0] {
 		return uuid.Nil, false
 	}
 	return deploymentID, true
@@ -73,7 +75,12 @@ func (m *Moby) ListRuntimeImageCache(ctx context.Context) ([]RuntimeImageCacheEn
 	byReference := make(map[string]RuntimeImageCacheEntry, len(listedReferences))
 	for start := 0; start < len(imageIDs); start += runtimeImageInspectBatchSize {
 		end := min(start+runtimeImageInspectBatchSize, len(imageIDs))
-		args := []string{"image", "inspect", "--format", `{{printf "%s\t%s\t%v\t%s" .Id .Created .Size (join .RepoTags ",")}}`}
+		args := []string{
+			"image",
+			"inspect",
+			"--format",
+			`{{printf "%s\t%s\t%v\t%s" .Id .Created .Size (join .RepoTags ",")}}`,
+		}
 		args = append(args, imageIDs[start:end]...)
 		result, err := m.runAction(ctx, args, nil)
 		if err != nil {
@@ -87,8 +94,13 @@ func (m *Moby) ListRuntimeImageCache(ctx context.Context) ([]RuntimeImageCacheEn
 			return nil, fmt.Errorf("%w: %w", errRuntimeImageCacheInspection, err)
 		}
 		for _, entry := range batchEntries {
-			if previous, exists := byReference[entry.Reference]; exists && !sameRuntimeImageCacheEntry(previous, entry) {
-				return nil, fmt.Errorf("%w: %w", errRuntimeImageCacheInspection, runtimeImageCacheInspectionFailure("runtime image tag points to conflicting image metadata"))
+			if previous, exists := byReference[entry.Reference]; exists &&
+				!sameRuntimeImageCacheEntry(previous, entry) {
+				return nil, fmt.Errorf(
+					"%w: %w",
+					errRuntimeImageCacheInspection,
+					runtimeImageCacheInspectionFailure("runtime image tag points to conflicting image metadata"),
+				)
 			}
 			byReference[entry.Reference] = entry
 		}
@@ -96,7 +108,11 @@ func (m *Moby) ListRuntimeImageCache(ctx context.Context) ([]RuntimeImageCacheEn
 	for reference, expectedImageID := range listedReferences {
 		entry, ok := byReference[reference]
 		if !ok || entry.ImageID != expectedImageID {
-			return nil, fmt.Errorf("%w: %w", errRuntimeImageCacheInspection, runtimeImageCacheInspectionFailure("listed runtime image tag missing from inspection"))
+			return nil, fmt.Errorf(
+				"%w: %w",
+				errRuntimeImageCacheInspection,
+				runtimeImageCacheInspectionFailure("listed runtime image tag missing from inspection"),
+			)
 		}
 	}
 	entries := make([]RuntimeImageCacheEntry, 0, len(byReference))
@@ -186,7 +202,7 @@ func parseRuntimeImageInspect(output []byte, references []string) ([]RuntimeImag
 		}
 		entries = append(entries, entry)
 	}
-	var extraReferences []string
+	extraReferences := []string{}
 	for reference := range byReference {
 		if _, requested := listed[reference]; !requested {
 			extraReferences = append(extraReferences, reference)
@@ -233,7 +249,9 @@ func parseRuntimeImageInspectBatch(output []byte, imageIDs []string) ([]RuntimeI
 	return entries, nil
 }
 
-func parseRuntimeImageInspectRows(output []byte) (map[string]RuntimeImageCacheEntry, map[string]runtimeImageInspectRow, int, error) {
+func parseRuntimeImageInspectRows(
+	output []byte,
+) (map[string]RuntimeImageCacheEntry, map[string]runtimeImageInspectRow, int, error) {
 	rows := strings.Split(strings.TrimSuffix(string(output), "\n"), "\n")
 	if len(rows) == 0 || (len(rows) == 1 && rows[0] == "") {
 		return nil, nil, 0, runtimeImageCacheInspectionFailure("runtime image inspect returned no rows")
@@ -268,7 +286,8 @@ func parseRuntimeImageInspectRows(output []byte) (map[string]RuntimeImageCacheEn
 		}
 		row := runtimeImageInspectRow{imageID: fields[0], created: createdAt, size: sizeBytes, tags: tags}
 		if previous, exists := byImageID[row.imageID]; exists {
-			if previous.size != row.size || !previous.created.Equal(row.created) || !sameImageTags(previous.tags, row.tags) {
+			if previous.size != row.size || !previous.created.Equal(row.created) ||
+				!sameImageTags(previous.tags, row.tags) {
 				return nil, nil, 0, runtimeImageCacheInspectionFailure("duplicate runtime image metadata disagrees")
 			}
 		} else {
@@ -286,7 +305,9 @@ func parseRuntimeImageInspectRows(output []byte) (map[string]RuntimeImageCacheEn
 			if strings.HasPrefix(tag, runtimeImageRepositoryPrefix) {
 				deploymentID, valid := ParseRuntimeImageReference(tag)
 				if !valid {
-					return nil, nil, 0, runtimeImageCacheInspectionFailure("runtime image tag ownership verification failed")
+					return nil, nil, 0, runtimeImageCacheInspectionFailure(
+						"runtime image tag ownership verification failed",
+					)
 				}
 				entry := RuntimeImageCacheEntry{
 					DeploymentID: deploymentID,
@@ -296,7 +317,9 @@ func parseRuntimeImageInspectRows(output []byte) (map[string]RuntimeImageCacheEn
 					CreatedAt:    row.created,
 				}
 				if previous, exists := byReference[tag]; exists && !sameRuntimeImageCacheEntry(previous, entry) {
-					return nil, nil, 0, runtimeImageCacheInspectionFailure("runtime image tag points to conflicting image metadata")
+					return nil, nil, 0, runtimeImageCacheInspectionFailure(
+						"runtime image tag points to conflicting image metadata",
+					)
 				}
 				byReference[tag] = entry
 			}
@@ -307,7 +330,8 @@ func parseRuntimeImageInspectRows(output []byte) (map[string]RuntimeImageCacheEn
 
 func sameRuntimeImageCacheEntry(left, right RuntimeImageCacheEntry) bool {
 	return left.DeploymentID == right.DeploymentID && left.Reference == right.Reference && left.ImageID == right.ImageID &&
-		left.SizeBytes == right.SizeBytes && left.CreatedAt.Equal(right.CreatedAt)
+		left.SizeBytes == right.SizeBytes &&
+		left.CreatedAt.Equal(right.CreatedAt)
 }
 
 func sortRuntimeImageCacheEntries(entries []RuntimeImageCacheEntry) {
@@ -366,7 +390,7 @@ func (m *Moby) RemoveRuntimeImageTag(ctx context.Context, entry RuntimeImageCach
 	if len(fields) != 2 || fields[0] != entry.ImageID {
 		return ErrImageVerification
 	}
-	foundReference := false
+	var foundReference bool
 	for _, reference := range strings.Split(fields[1], ",") {
 		if strings.HasPrefix(reference, runtimeImageRepositoryPrefix) {
 			if _, ok := ParseRuntimeImageReference(reference); !ok {

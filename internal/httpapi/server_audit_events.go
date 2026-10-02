@@ -17,7 +17,13 @@ func (s *Server) listAuditEvents(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	items, next, err := s.repo.ListAuditEvents(r.Context(), organizationID, uuid.Must(uuid.Parse(accountFrom(r).ID)), limit, cursor)
+	items, next, err := s.repo.ListAuditEvents(
+		r.Context(),
+		organizationID,
+		uuid.Must(uuid.Parse(accountFrom(r).ID)),
+		limit,
+		cursor,
+	)
 	if errors.Is(err, repository.ErrForbidden) {
 		writeError(w, http.StatusForbidden, "forbidden", "you do not have access to this organization")
 		return
@@ -38,7 +44,13 @@ func (s *Server) listProjectAuditEvents(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	items, next, err := s.repo.ListProjectAuditEvents(r.Context(), projectID, uuid.Must(uuid.Parse(accountFrom(r).ID)), limit, cursor)
+	items, next, err := s.repo.ListProjectAuditEvents(
+		r.Context(),
+		projectID,
+		uuid.Must(uuid.Parse(accountFrom(r).ID)),
+		limit,
+		cursor,
+	)
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "not_found", "project was not found")
 		return

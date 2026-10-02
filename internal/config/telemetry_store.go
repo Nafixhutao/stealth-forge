@@ -43,8 +43,19 @@ func loadTelemetryStoreSettings() (telemetryStoreSettings, error) {
 	collectorHealthURL := strings.TrimSpace(os.Getenv("OTEL_COLLECTOR_HEALTH_URL"))
 	if collectorHealthURL != "" {
 		parsed, err := url.Parse(collectorHealthURL)
-		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
-			return telemetryStoreSettings{}, fmt.Errorf("OTEL_COLLECTOR_HEALTH_URL must be an absolute HTTP(S) URL without credentials, query, or fragment")
+		if err != nil {
+			return telemetryStoreSettings{}, fmt.Errorf(
+				"OTEL_COLLECTOR_HEALTH_URL must be an absolute HTTP(S) URL without credentials, query, or fragment",
+			)
+		}
+		validScheme := parsed.Scheme == "http" || parsed.Scheme == "https"
+		hasHost := parsed.Host != ""
+		hasNoUserInfo := parsed.User == nil
+		hasNoQueryOrFragment := parsed.RawQuery == "" && parsed.Fragment == ""
+		if !validScheme || !hasHost || !hasNoUserInfo || !hasNoQueryOrFragment {
+			return telemetryStoreSettings{}, fmt.Errorf(
+				"OTEL_COLLECTOR_HEALTH_URL must be an absolute HTTP(S) URL without credentials, query, or fragment",
+			)
 		}
 	}
 
@@ -154,7 +165,8 @@ func isSQLIdentifier(value string) bool {
 		return false
 	}
 	for index, character := range value {
-		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || character == '_' || (index > 0 && character >= '0' && character <= '9') {
+		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || character == '_' ||
+			(index > 0 && character >= '0' && character <= '9') {
 			continue
 		}
 		return false

@@ -16,7 +16,13 @@ func (s *Server) listOrganizationTraces(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	items, next, err := s.repo.ListOrganizationHTTPTraces(r.Context(), organizationID, mustUUID(accountFrom(r).ID), limit, cursor)
+	items, next, err := s.repo.ListOrganizationHTTPTraces(
+		r.Context(),
+		organizationID,
+		mustUUID(accountFrom(r).ID),
+		limit,
+		cursor,
+	)
 	if organizationTraceError(w, err) {
 		return
 	}

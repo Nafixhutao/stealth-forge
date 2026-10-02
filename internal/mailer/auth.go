@@ -87,11 +87,21 @@ func validateAuthMessage(message AuthMessage) error {
 // future caller cannot put a control character, fragment, credential, or
 // non-HTTP URL into an authentication message.
 func NewAuthLink(raw string) (AuthLink, error) {
-	if raw == "" || len(raw) > 2048 || strings.IndexFunc(raw, unicode.IsControl) >= 0 {
+	linkMissing := raw == ""
+	linkTooLong := len(raw) > 2048
+	linkHasControl := strings.IndexFunc(raw, unicode.IsControl) >= 0
+	if linkMissing || linkTooLong || linkHasControl {
 		return AuthLink{}, errors.New("auth link must be a non-empty URL without control characters")
 	}
 	parsed, err := url.Parse(raw)
-	if err != nil || parsed.Scheme != "https" && parsed.Scheme != "http" || parsed.Host == "" || parsed.Hostname() == "" || parsed.User != nil || parsed.Fragment != "" {
+	if err != nil {
+		return AuthLink{}, errors.New("auth link must be an absolute HTTP(S) URL without credentials or a fragment")
+	}
+	schemeInvalid := parsed.Scheme != "https" && parsed.Scheme != "http"
+	hostMissing := parsed.Host == "" || parsed.Hostname() == ""
+	hasCredentials := parsed.User != nil
+	hasFragment := parsed.Fragment != ""
+	if schemeInvalid || hostMissing || hasCredentials || hasFragment {
 		return AuthLink{}, errors.New("auth link must be an absolute HTTP(S) URL without credentials or a fragment")
 	}
 	return AuthLink{value: parsed.String()}, nil

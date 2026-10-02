@@ -10,7 +10,7 @@ import (
 	"github.com/Stealth-deplover/stealth/internal/domainname"
 )
 
-func ValidateState(state State) error {
+func validateState(state State) error {
 	if state.Version != 0 && state.Version != stateVersion {
 		return fmt.Errorf("unsupported setup state version")
 	}

@@ -12,14 +12,18 @@ import (
 
 func (r *Repository) ProjectRegistrationEnabled(ctx context.Context, projectID uuid.UUID) (bool, error) {
 	var enabled bool
-	err := r.pool.QueryRow(ctx, `SELECT registration_enabled FROM project_auth_settings WHERE project_id=$1`, projectID).Scan(&enabled)
+	err := r.pool.QueryRow(ctx, `SELECT registration_enabled FROM project_auth_settings WHERE project_id=$1`, projectID).
+		Scan(&enabled)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, ErrNotFound
 	}
 	return enabled, err
 }
 
-func (r *Repository) ProjectAuthSettings(ctx context.Context, projectID, accountID uuid.UUID) (domain.ProjectAuthSettings, bool, error) {
+func (r *Repository) ProjectAuthSettings(
+	ctx context.Context,
+	projectID, accountID uuid.UUID,
+) (domain.ProjectAuthSettings, bool, error) {
 	role, err := r.projectRole(ctx, projectID, accountID)
 	if err != nil {
 		return domain.ProjectAuthSettings{}, false, err
@@ -38,7 +42,12 @@ func (r *Repository) ProjectAuthSettings(ctx context.Context, projectID, account
 	return item, role == "owner" || role == "admin", err
 }
 
-func (r *Repository) UpdateProjectAuthSettings(ctx context.Context, projectID, accountID uuid.UUID, registrationEnabled *bool, corsOrigins *[]string) (domain.ProjectAuthSettings, error) {
+func (r *Repository) UpdateProjectAuthSettings(
+	ctx context.Context,
+	projectID, accountID uuid.UUID,
+	registrationEnabled *bool,
+	corsOrigins *[]string,
+) (domain.ProjectAuthSettings, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.ProjectAuthSettings{}, err
@@ -88,7 +97,10 @@ func (r *Repository) UpdateProjectAuthSettings(ctx context.Context, projectID, a
 		metadata := map[string]any{
 			"project_id":           projectID.String(),
 			"registration_enabled": map[string]bool{"from": previousRegistration, "to": nextRegistration},
-			"cors_origins":         map[string][]string{"from": previousOrigins, "to": append([]string{}, nextOrigins...)},
+			"cors_origins": map[string][]string{
+				"from": previousOrigins,
+				"to":   append([]string{}, nextOrigins...),
+			},
 		}
 		if err := writeAuditMetadata(ctx, tx, orgID, accountID, "project_auth.settings_update", "project", projectID, metadata); err != nil {
 			return domain.ProjectAuthSettings{}, err

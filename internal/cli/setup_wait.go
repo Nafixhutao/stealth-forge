@@ -44,15 +44,15 @@ func setupInstallationPending(state setupstate.State) bool {
 
 func (a *App) waitForSetupAPI(ctx context.Context, endpoint string) error {
 	var lastErr error
-	for attempt := 0; attempt < positiveAttempts(a.pollAttempts); attempt++ {
+	for attempt := range positiveAttempts(a.pollAttempts) {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if _, err := a.bootstrapStatus(ctx, endpoint); err == nil {
+		_, err := a.bootstrapStatus(ctx, endpoint)
+		if err == nil {
 			return nil
-		} else {
-			lastErr = err
 		}
+		lastErr = err
 		if attempt+1 < positiveAttempts(a.pollAttempts) {
 			if err := waitSetupPoll(ctx, setupWaitInterval(a)); err != nil {
 				return err
@@ -75,7 +75,12 @@ func (a *App) shouldWaitForSetup() bool {
 // orchestrateBrowserSetup acquires the single-orchestrator lock and then
 // observes the shared setup state until the installation reaches a terminal
 // phase.
-func (a *App) orchestrateBrowserSetup(ctx context.Context, layout InstallLayout, values map[string]string, containerName string) int {
+func (a *App) orchestrateBrowserSetup(
+	ctx context.Context,
+	layout InstallLayout,
+	values map[string]string,
+	containerName string,
+) int {
 	lock, err := installengine.AcquireProcessLock(layout.StateDir, setupCoordinationLockName, "setup orchestration")
 	if err != nil {
 		fmt.Fprintf(a.errOut, "%v\n", err)
@@ -86,15 +91,24 @@ func (a *App) orchestrateBrowserSetup(ctx context.Context, layout InstallLayout,
 	return a.orchestrateBrowserSetupLocked(ctx, layout, values, containerName)
 }
 
-func (a *App) orchestrateBrowserSetupLocked(ctx context.Context, layout InstallLayout, values map[string]string, containerName string) int {
+func (a *App) orchestrateBrowserSetupLocked(
+	ctx context.Context,
+	layout InstallLayout,
+	values map[string]string,
+	containerName string,
+) int {
 	store, err := a.setupStateStore(values)
 	if err != nil {
 		fmt.Fprintf(a.errOut, "could not read browser setup state: %v\n", err)
 		return 1
 	}
-	result := a.observeBrowserSetupWithInstaller(ctx, store, func(installContext context.Context, state setupstate.State) error {
-		return a.executeHostInstallation(installContext, layout, values, store, state.InstallRunID)
-	})
+	result := a.observeBrowserSetupWithInstaller(
+		ctx,
+		store,
+		func(installContext context.Context, state setupstate.State) error {
+			return a.executeHostInstallation(installContext, layout, values, store, state.InstallRunID)
+		},
+	)
 	if !result.cancelled {
 		return result.exitCode
 	}
@@ -108,7 +122,10 @@ func (a *App) orchestrateBrowserSetupLocked(ctx context.Context, layout InstallL
 	cleanupCancel()
 	if cleanupErr != nil {
 		fmt.Fprintf(a.errOut, "temporary setup cleanup could not be completed: %v\n", cleanupErr)
-		fmt.Fprintln(a.errOut, "The setup state was left unchanged; run `stealth install --repair --wait` to recover it.")
+		fmt.Fprintln(
+			a.errOut,
+			"The setup state was left unchanged; run `stealth install --repair --wait` to recover it.",
+		)
 		return 1
 	}
 	fmt.Fprintln(a.out, "Temporary setup resources cleaned up.")
@@ -126,17 +143,21 @@ func (a *App) observeBrowserSetup(ctx context.Context, source setupProgressSourc
 // The hook runs synchronously under the host coordination process; progress is
 // persisted by the installer so a browser reconnect never depends on this
 // process-local loop or an in-memory event buffer.
-func (a *App) observeBrowserSetupWithInstaller(ctx context.Context, source setupProgressSource, installer func(context.Context, setupstate.State) error) setupObservationResult {
+func (a *App) observeBrowserSetupWithInstaller(
+	ctx context.Context,
+	source setupProgressSource,
+	installer func(context.Context, setupstate.State) error,
+) setupObservationResult {
 	fmt.Fprintln(a.out)
 	fmt.Fprintln(a.out, "Waiting for browser setup to complete...")
 	fmt.Fprintln(a.errOut, "Complete the wizard in your browser. Press Ctrl+C to stop waiting.")
 
 	interval := setupWaitInterval(a)
-	requested := false
-	expiredNotice := false
-	lastStep := ""
-	lastPhase := ""
-	stateReadErrorShown := false
+	var requested bool
+	var expiredNotice bool
+	var lastStep string
+	var lastPhase string
+	var stateReadErrorShown bool
 	for {
 		state, err := source.Load(ctx)
 		if err == nil {
@@ -184,9 +205,13 @@ func (a *App) observeBrowserSetupWithInstaller(ctx context.Context, source setup
 					fmt.Fprintf(a.out, "  → %s\n", step)
 				}
 			}
-			if !requested && !expiredNotice && !state.SetupExpiresAt.IsZero() && time.Now().UTC().After(state.SetupExpiresAt) {
+			if !requested && !expiredNotice && !state.SetupExpiresAt.IsZero() &&
+				time.Now().UTC().After(state.SetupExpiresAt) {
 				expiredNotice = true
-				fmt.Fprintln(a.errOut, "The setup session expired. Run `stealth setup` from another terminal to print a new code.")
+				fmt.Fprintln(
+					a.errOut,
+					"The setup session expired. Run `stealth setup` from another terminal to print a new code.",
+				)
 			}
 			switch state.Phase {
 			case setupstate.PhaseComplete:
@@ -205,7 +230,11 @@ func (a *App) observeBrowserSetupWithInstaller(ctx context.Context, source setup
 					fmt.Fprintln(a.errOut, message)
 				}
 				fmt.Fprintln(a.errOut, "Run `stealth install --repair` to resume, or `stealth doctor` for diagnostics.")
-				return setupObservationResult{exitCode: 1, installRequested: requested || setupstate.InstallationRequested(state), lastObservedPhase: state.Phase}
+				return setupObservationResult{
+					exitCode:          1,
+					installRequested:  requested || setupstate.InstallationRequested(state),
+					lastObservedPhase: state.Phase,
+				}
 			}
 		} else if !stateReadErrorShown {
 			stateReadErrorShown = true
@@ -220,7 +249,12 @@ func (a *App) observeBrowserSetupWithInstaller(ctx context.Context, source setup
 				lastPhase = latest.Phase
 				requested = requested || setupstate.InstallationRequested(latest)
 			}
-			return setupObservationResult{exitCode: 0, cancelled: true, installRequested: requested, lastObservedPhase: lastPhase}
+			return setupObservationResult{
+				exitCode:          0,
+				cancelled:         true,
+				installRequested:  requested,
+				lastObservedPhase: lastPhase,
+			}
 		case <-time.After(interval):
 		}
 	}
@@ -237,11 +271,18 @@ func reloadSetupObservationState(ctx context.Context, source setupProgressSource
 	return source.Load(loadContext)
 }
 
-func (a *App) hostInstallerFailureResult(state setupstate.State, requested bool, installerErr, reloadErr error) setupObservationResult {
+func (a *App) hostInstallerFailureResult(
+	state setupstate.State,
+	requested bool,
+	installerErr, reloadErr error,
+) setupObservationResult {
 	if errors.Is(installerErr, installengine.ErrOperationInProgress) {
 		fmt.Fprintln(a.errOut, "Another host installer already owns this installation run.")
 		fmt.Fprintln(a.errOut, "No second installation was started; the setup state was preserved.")
-		fmt.Fprintln(a.errOut, "Wait for the owning process to finish. If it stops unexpectedly, run `stealth install --repair --wait`.")
+		fmt.Fprintln(
+			a.errOut,
+			"Wait for the owning process to finish. If it stops unexpectedly, run `stealth install --repair --wait`.",
+		)
 	} else {
 		fmt.Fprintln(a.errOut, "Host installation failed before a terminal failure state was persisted.")
 		if reloadErr != nil {
@@ -273,7 +314,12 @@ func setupWaitInterval(a *App) time.Duration {
 // cleanupUnrequestedSetup removes only the temporary setup services and the
 // exact Quick Tunnel recorded by the setup state. It re-reads state after
 // cancellation so a request that raced with Ctrl+C is never rolled back.
-func (a *App) cleanupUnrequestedSetup(ctx context.Context, layout InstallLayout, source setupProgressSource, fallbackTunnel string) error {
+func (a *App) cleanupUnrequestedSetup(
+	ctx context.Context,
+	layout InstallLayout,
+	source setupProgressSource,
+	fallbackTunnel string,
+) error {
 	if a == nil || a.runner == nil {
 		return errors.New("CLI command runner is not configured")
 	}
@@ -294,7 +340,26 @@ func (a *App) cleanupUnrequestedSetup(ctx context.Context, layout InstallLayout,
 		cleanupErr = errors.Join(cleanupErr, a.closeQuickTunnel(ctx, layout, tunnelName))
 	}
 	if layout.SetupComposeFile != "" {
-		cleanupErr = errors.Join(cleanupErr, a.runner.Run(ctx, layout.Root, io.Discard, io.Discard, "docker", "compose", "--env-file", layout.EnvFile, "-f", layout.SetupComposeFile, "rm", "-sf", "setup", "setup-console", "setup-proxy"))
+		cleanupErr = errors.Join(
+			cleanupErr,
+			a.runner.Run(
+				ctx,
+				layout.Root,
+				io.Discard,
+				io.Discard,
+				"docker",
+				"compose",
+				"--env-file",
+				layout.EnvFile,
+				"-f",
+				layout.SetupComposeFile,
+				"rm",
+				"-sf",
+				"setup",
+				"setup-console",
+				"setup-proxy",
+			),
+		)
 	}
 	return cleanupErr
 }

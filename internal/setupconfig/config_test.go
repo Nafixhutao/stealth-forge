@@ -179,10 +179,10 @@ func TestCredentialValidators(t *testing.T) {
 			}
 		})
 	}
-	if !ValidS3Settings("https://s3.example.test", "us-east-1", "stealth", "access", "secret") {
+	if !validS3Settings("https://s3.example.test", "us-east-1", "stealth", "access", "secret") {
 		t.Fatal("valid S3 settings were rejected")
 	}
-	if ValidS3Settings("https://s3.example.test/path", "us-east-1", "stealth", "access", "secret") {
+	if validS3Settings("https://s3.example.test/path", "us-east-1", "stealth", "access", "secret") {
 		t.Fatal("S3 endpoint path was accepted")
 	}
 }

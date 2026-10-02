@@ -107,7 +107,7 @@ func WriteDockerArchive(reader io.ReadSeeker, info ImageInfo, output io.Writer) 
 			written, copyErr := io.CopyN(io.MultiWriter(outputTar, hasher), input, header.Size)
 			actualDigest := hex.EncodeToString(hasher.Sum(nil))
 			if copyErr != nil || written != header.Size || actualDigest != digest {
-				return fmt.Errorf("%w: blob checksum mismatch for %s (got %s)", ErrInvalidArchive, digest, actualDigest)
+				return fmt.Errorf("%w: blob checksum mismatch for %q (got %q)", ErrInvalidArchive, digest, actualDigest)
 			}
 			blobs[digest] = header.Size
 			continue

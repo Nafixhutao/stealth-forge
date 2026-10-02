@@ -28,7 +28,10 @@ type AdminErrorGroupState struct {
 	UpdatedAt          time.Time
 }
 
-func (r *Repository) ListAdminErrorGroupStatuses(ctx context.Context, fingerprints []string) (map[string]string, error) {
+func (r *Repository) ListAdminErrorGroupStatuses(
+	ctx context.Context,
+	fingerprints []string,
+) (map[string]string, error) {
 	if r == nil || r.pool == nil {
 		return nil, ErrInvalidAdminErrorGroup
 	}
@@ -70,13 +73,19 @@ func (r *Repository) ListAdminErrorGroupStatuses(ctx context.Context, fingerprin
 	return result, rows.Err()
 }
 
-func (r *Repository) UpdateAdminErrorGroupStatus(ctx context.Context, accountID uuid.UUID, fingerprint, status string) (AdminErrorGroupState, error) {
+func (r *Repository) UpdateAdminErrorGroupStatus(
+	ctx context.Context,
+	accountID uuid.UUID,
+	fingerprint, status string,
+) (AdminErrorGroupState, error) {
 	normalizedFingerprint, err := normalizeAdminErrorFingerprint(fingerprint)
 	if err != nil {
 		return AdminErrorGroupState{}, err
 	}
 	status = strings.ToLower(strings.TrimSpace(status))
-	if status != "open" && status != "acknowledged" && status != "resolved" && status != "ignored" {
+	switch status {
+	case "open", "acknowledged", "resolved", "ignored":
+	default:
 		return AdminErrorGroupState{}, fmt.Errorf("%w: unsupported status", ErrInvalidAdminErrorGroup)
 	}
 	if r == nil || r.pool == nil || accountID == uuid.Nil {

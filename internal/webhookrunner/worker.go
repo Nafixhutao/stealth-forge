@@ -122,7 +122,8 @@ func (w *Worker) Run(ctx context.Context) error {
 			w.pruneExpiredEvents(ctx)
 		default:
 		}
-		if _, err := w.Store.RequeueStaleWebhookDeliveries(ctx, leaseAge); err != nil && !errors.Is(err, context.Canceled) {
+		if _, err := w.Store.RequeueStaleWebhookDeliveries(ctx, leaseAge); err != nil &&
+			!errors.Is(err, context.Canceled) {
 			w.Logger.Error("requeue stale webhook deliveries failed", "error", err)
 		}
 		if _, err := w.Store.ExpireWebhookDeliveries(ctx); err != nil && !errors.Is(err, context.Canceled) {
@@ -153,23 +154,49 @@ func (w *Worker) pruneExpiredEvents(ctx context.Context) {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return
 		}
-		w.Logger.Error("realtime event pruning failed", "component", "realtime_pruner", "deleted_count", deleted, "batches", batches, "duration", time.Since(started), "error", err)
+		w.Logger.Error(
+			"realtime event pruning failed",
+			"component",
+			"realtime_pruner",
+			"deleted_count",
+			deleted,
+			"batches",
+			batches,
+			"duration",
+			time.Since(started),
+			"error",
+			err,
+		)
 		return
 	}
 	if deleted > 0 {
-		w.Logger.Info("realtime event pruning completed", "component", "realtime_pruner", "deleted_count", deleted, "batches", batches, "duration", time.Since(started))
+		w.Logger.Info(
+			"realtime event pruning completed",
+			"component",
+			"realtime_pruner",
+			"deleted_count",
+			deleted,
+			"batches",
+			batches,
+			"duration",
+			time.Since(started),
+		)
 	}
 }
 
 // runRealtimePruneCycle drains expired rows in bounded batches. A full batch
 // means there may be more work, but maxBatches is always a hard upper bound;
 // cancellation and the first partial batch stop the cycle immediately.
-func runRealtimePruneCycle(ctx context.Context, pruner expiredEventPruner, batchSize, maxBatches int) (int64, int, error) {
+func runRealtimePruneCycle(
+	ctx context.Context,
+	pruner expiredEventPruner,
+	batchSize, maxBatches int,
+) (int64, int, error) {
 	if pruner == nil || batchSize < 1 || maxBatches < 1 {
 		return 0, 0, errors.New("invalid realtime prune cycle")
 	}
 	var totalDeleted int64
-	completedBatches := 0
+	var completedBatches int
 	for completedBatches < maxBatches {
 		if err := ctx.Err(); err != nil {
 			return totalDeleted, completedBatches, err
@@ -201,8 +228,21 @@ func (w *Worker) RunOnce(ctx context.Context) (processed bool, runErr error) {
 		return false, err
 	}
 	defer func() {
-		if runErr != nil && !errors.Is(runErr, context.Canceled) && !errors.Is(runErr, context.DeadlineExceeded) && w.Logger != nil {
-			w.Logger.Error("webhook delivery failed", "delivery_id", job.DeliveryID, "webhook_id", job.WebhookID, "event_id", job.EventID, "project_id", job.ProjectID, "error", runErr)
+		if runErr != nil && !errors.Is(runErr, context.Canceled) && !errors.Is(runErr, context.DeadlineExceeded) &&
+			w.Logger != nil {
+			w.Logger.Error(
+				"webhook delivery failed",
+				"delivery_id",
+				job.DeliveryID,
+				"webhook_id",
+				job.WebhookID,
+				"event_id",
+				job.EventID,
+				"project_id",
+				job.ProjectID,
+				"error",
+				runErr,
+			)
 		}
 	}()
 	maxAttempts := w.MaxAttempts
@@ -210,12 +250,28 @@ func (w *Worker) RunOnce(ctx context.Context) (processed bool, runErr error) {
 		maxAttempts = defaultMaxAttempts
 	}
 	if job.AttemptCount > maxAttempts {
-		finishErr := w.Store.FinishWebhookDelivery(ctx, job.DeliveryID, w.WorkerID, false, nil, "maximum delivery attempts exceeded", nil)
+		finishErr := w.Store.FinishWebhookDelivery(
+			ctx,
+			job.DeliveryID,
+			w.WorkerID,
+			false,
+			nil,
+			"maximum delivery attempts exceeded",
+			nil,
+		)
 		return true, finishErr
 	}
 	secret, err := w.Cipher.Decrypt(job.SecretCiphertext)
 	if err != nil || len(secret) == 0 {
-		finishErr := w.Store.FinishWebhookDelivery(ctx, job.DeliveryID, w.WorkerID, false, nil, "webhook secret could not be decrypted", nil)
+		finishErr := w.Store.FinishWebhookDelivery(
+			ctx,
+			job.DeliveryID,
+			w.WorkerID,
+			false,
+			nil,
+			"webhook secret could not be decrypted",
+			nil,
+		)
 		if finishErr != nil {
 			return true, finishErr
 		}
@@ -230,9 +286,22 @@ func (w *Worker) RunOnce(ctx context.Context) (processed bool, runErr error) {
 	}
 	deliveryCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	request, err := http.NewRequestWithContext(deliveryCtx, http.MethodPost, job.URL, strings.NewReader(string(job.EventPayload)))
+	request, err := http.NewRequestWithContext(
+		deliveryCtx,
+		http.MethodPost,
+		job.URL,
+		strings.NewReader(string(job.EventPayload)),
+	)
 	if err != nil {
-		finishErr := w.Store.FinishWebhookDelivery(ctx, job.DeliveryID, w.WorkerID, false, nil, "webhook URL could not be prepared", nil)
+		finishErr := w.Store.FinishWebhookDelivery(
+			ctx,
+			job.DeliveryID,
+			w.WorkerID,
+			false,
+			nil,
+			"webhook URL could not be prepared",
+			nil,
+		)
 		return true, finishErr
 	}
 	timestamp := strconv.FormatInt(time.Now().UTC().Unix(), 10)
@@ -261,7 +330,15 @@ func (w *Worker) RunOnce(ctx context.Context) (processed bool, runErr error) {
 		if job.AttemptCount >= maxAttempts {
 			retryAt = time.Time{}
 		}
-		finishErr := w.Store.FinishWebhookDelivery(ctx, job.DeliveryID, w.WorkerID, false, nil, safeError(err), nullableTime(retryAt))
+		finishErr := w.Store.FinishWebhookDelivery(
+			ctx,
+			job.DeliveryID,
+			w.WorkerID,
+			false,
+			nil,
+			safeError(err),
+			nullableTime(retryAt),
+		)
 		return true, finishErr
 	}
 	defer response.Body.Close()
@@ -270,7 +347,7 @@ func (w *Worker) RunOnce(ctx context.Context) (processed bool, runErr error) {
 	if statusCode >= 200 && statusCode <= 299 {
 		return true, w.Store.FinishWebhookDelivery(ctx, job.DeliveryID, w.WorkerID, true, &statusCode, "", nil)
 	}
-	errorText := fmt.Sprintf("remote endpoint returned HTTP %d", statusCode)
+	errorText := "remote endpoint returned HTTP " + strconv.Itoa(statusCode)
 	if text := strings.TrimSpace(string(body)); text != "" {
 		if len(text) > maxResponseBytes {
 			text = text[:maxResponseBytes]
@@ -279,7 +356,15 @@ func (w *Worker) RunOnce(ctx context.Context) (processed bool, runErr error) {
 	}
 	if retryableStatus(statusCode) && job.AttemptCount < maxAttempts {
 		retryAt := w.retryAt(job.AttemptCount, parseRetryAfter(response.Header.Get("Retry-After")))
-		return true, w.Store.FinishWebhookDelivery(ctx, job.DeliveryID, w.WorkerID, false, &statusCode, errorText, nullableTime(retryAt))
+		return true, w.Store.FinishWebhookDelivery(
+			ctx,
+			job.DeliveryID,
+			w.WorkerID,
+			false,
+			&statusCode,
+			errorText,
+			nullableTime(retryAt),
+		)
 	}
 	return true, w.Store.FinishWebhookDelivery(ctx, job.DeliveryID, w.WorkerID, false, &statusCode, errorText, nil)
 }
@@ -306,7 +391,9 @@ func (w *Worker) retryAt(attempt int, retryAfter time.Duration) time.Time {
 }
 
 func retryableStatus(status int) bool {
-	return status == http.StatusRequestTimeout || status == http.StatusTooEarly || status == http.StatusTooManyRequests || status >= 500
+	return status == http.StatusRequestTimeout || status == http.StatusTooEarly ||
+		status == http.StatusTooManyRequests ||
+		status >= 500
 }
 
 func parseRetryAfter(value string) time.Duration {
@@ -343,7 +430,8 @@ func validWorkerID(value string) bool {
 		return false
 	}
 	for index, char := range value {
-		if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') || (index > 0 && (char == '-' || char == '_' || char == '.')) {
+		if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') ||
+			(index > 0 && (char == '-' || char == '_' || char == '.')) {
 			continue
 		}
 		return false
@@ -418,5 +506,8 @@ func blockedAddress(address netip.Addr) bool {
 	if !address.IsValid() {
 		return true
 	}
-	return address.IsPrivate() || address.IsLoopback() || address.IsLinkLocalUnicast() || address.IsLinkLocalMulticast() || address.IsMulticast() || address.IsUnspecified()
+	return address.IsPrivate() || address.IsLoopback() || address.IsLinkLocalUnicast() ||
+		address.IsLinkLocalMulticast() ||
+		address.IsMulticast() ||
+		address.IsUnspecified()
 }

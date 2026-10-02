@@ -43,7 +43,13 @@ type RealtimePublishJob struct {
 // not required for an event to be retained. Application actors only receive
 // permission-filtered database row events; management actors may inspect the
 // complete project stream.
-func (r *Repository) ListRealtimeEvents(ctx context.Context, projectID uuid.UUID, actor DatabaseActor, after *uuid.UUID, limit int) ([]domain.RealtimeEvent, *uuid.UUID, error) {
+func (r *Repository) ListRealtimeEvents(
+	ctx context.Context,
+	projectID uuid.UUID,
+	actor DatabaseActor,
+	after *uuid.UUID,
+	limit int,
+) ([]domain.RealtimeEvent, *uuid.UUID, error) {
 	if limit < 1 || limit > maxRealtimeBatch {
 		return nil, nil, fmt.Errorf("%w: limit must be between 1 and %d", ErrInvalidRealtime, maxRealtimeBatch)
 	}
@@ -75,7 +81,19 @@ func (r *Repository) ListRealtimeEvents(ctx context.Context, projectID uuid.UUID
 		}
 		lastID := id
 		nextCursor = &lastID
-		event, err := decodeRealtimeEventWithMetadata(id, eventProjectID, organizationID, eventName, targetType, targetID, version, correlationID, payload, occurredAt, createdAt)
+		event, err := decodeRealtimeEventWithMetadata(
+			id,
+			eventProjectID,
+			organizationID,
+			eventName,
+			targetType,
+			targetID,
+			version,
+			correlationID,
+			payload,
+			occurredAt,
+			createdAt,
+		)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -96,7 +114,12 @@ func (r *Repository) ListRealtimeEvents(ctx context.Context, projectID uuid.UUID
 // only while its event is retained; an expired or unknown cursor safely resets
 // to the current tail so reconnects do not unexpectedly replay the retention
 // window. All lookups are scoped to the authorized project.
-func (r *Repository) ResolveRealtimeStartCursor(ctx context.Context, projectID uuid.UUID, actor DatabaseActor, requested *uuid.UUID) (*uuid.UUID, error) {
+func (r *Repository) ResolveRealtimeStartCursor(
+	ctx context.Context,
+	projectID uuid.UUID,
+	actor DatabaseActor,
+	requested *uuid.UUID,
+) (*uuid.UUID, error) {
 	if projectID == uuid.Nil || (requested != nil && *requested == uuid.Nil) {
 		return nil, ErrInvalidRealtime
 	}
@@ -135,7 +158,11 @@ func (r *Repository) ResolveRealtimeStartCursor(ctx context.Context, projectID u
 
 // ClaimNextRealtimeEvent leases one pending outbox event. SKIP LOCKED keeps
 // multiple publisher workers safe while the lease makes a crash recoverable.
-func (r *Repository) ClaimNextRealtimeEvent(ctx context.Context, workerID string, leaseAge time.Duration) (RealtimePublishJob, error) {
+func (r *Repository) ClaimNextRealtimeEvent(
+	ctx context.Context,
+	workerID string,
+	leaseAge time.Duration,
+) (RealtimePublishJob, error) {
 	return r.claimNextRealtimeEvent(ctx, workerID, leaseAge, nil)
 }
 
@@ -143,14 +170,24 @@ func (r *Repository) ClaimNextRealtimeEvent(ctx context.Context, workerID string
 // one project. It is useful for project-scoped operational work and keeps
 // integration assertions deterministic when a shared database contains other
 // pending tenants.
-func (r *Repository) ClaimNextRealtimeEventForProject(ctx context.Context, projectID uuid.UUID, workerID string, leaseAge time.Duration) (RealtimePublishJob, error) {
+func (r *Repository) ClaimNextRealtimeEventForProject(
+	ctx context.Context,
+	projectID uuid.UUID,
+	workerID string,
+	leaseAge time.Duration,
+) (RealtimePublishJob, error) {
 	if projectID == uuid.Nil {
 		return RealtimePublishJob{}, ErrInvalidRealtime
 	}
 	return r.claimNextRealtimeEvent(ctx, workerID, leaseAge, &projectID)
 }
 
-func (r *Repository) claimNextRealtimeEvent(ctx context.Context, workerID string, leaseAge time.Duration, projectID *uuid.UUID) (RealtimePublishJob, error) {
+func (r *Repository) claimNextRealtimeEvent(
+	ctx context.Context,
+	workerID string,
+	leaseAge time.Duration,
+	projectID *uuid.UUID,
+) (RealtimePublishJob, error) {
 	if !validFunctionWorkerID(workerID) || leaseAge <= 0 {
 		return RealtimePublishJob{}, ErrInvalidRealtime
 	}
@@ -210,7 +247,14 @@ func (r *Repository) RequeueStaleRealtimeEvents(ctx context.Context, leaseAge ti
 // FinishRealtimeEvent acknowledges or schedules a bounded retry for a leased
 // event. A successful Redis publish followed by a worker crash can produce a
 // duplicate notification, so consumers must remain idempotent.
-func (r *Repository) FinishRealtimeEvent(ctx context.Context, eventID uuid.UUID, workerID string, success bool, retryAt *time.Time, lastError string) error {
+func (r *Repository) FinishRealtimeEvent(
+	ctx context.Context,
+	eventID uuid.UUID,
+	workerID string,
+	success bool,
+	retryAt *time.Time,
+	lastError string,
+) error {
 	if eventID == uuid.Nil || !validFunctionWorkerID(workerID) {
 		return ErrInvalidRealtime
 	}
@@ -221,16 +265,23 @@ func (r *Repository) FinishRealtimeEvent(ctx context.Context, eventID uuid.UUID,
 	defer tx.Rollback(ctx)
 	var status, owner string
 	var attempts int
-	if err := tx.QueryRow(ctx, `SELECT publish_status,COALESCE(publish_worker_id,''),publish_attempts FROM webhook_events WHERE id=$1 FOR UPDATE`, eventID).Scan(&status, &owner, &attempts); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT publish_status,COALESCE(publish_worker_id,''),publish_attempts FROM webhook_events WHERE id=$1 FOR UPDATE`, eventID).
+		Scan(&status, &owner, &attempts)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNoRealtimeEvent
-	} else if err != nil {
+	}
+	if err != nil {
 		return err
 	}
 	if status != "pending" || owner != workerID {
 		return ErrNoRealtimeEvent
 	}
 	if success {
-		_, err = tx.Exec(ctx, `UPDATE webhook_events SET publish_status='published',published_at=now(),publish_leased_at=NULL,publish_worker_id=NULL,last_publish_error=NULL WHERE id=$1`, eventID)
+		_, err = tx.Exec(
+			ctx,
+			`UPDATE webhook_events SET publish_status='published',published_at=now(),publish_leased_at=NULL,publish_worker_id=NULL,last_publish_error=NULL WHERE id=$1`,
+			eventID,
+		)
 	} else if retryAt != nil && attempts < maxRealtimePublishAttempts {
 		errValue := truncateRealtimeError(lastError)
 		_, err = tx.Exec(ctx, `UPDATE webhook_events SET available_at=$2,publish_leased_at=NULL,publish_worker_id=NULL,last_publish_error=$3 WHERE id=$1`, eventID, retryAt.UTC(), errValue)
@@ -321,11 +372,37 @@ func requireActiveProjectAPIKey(ctx context.Context, querier interface {
 	return nil
 }
 
-func decodeRealtimeEvent(id, projectID uuid.UUID, eventName, targetType string, targetID *uuid.UUID, payload []byte, createdAt time.Time) (domain.RealtimeEvent, error) {
-	return decodeRealtimeEventWithMetadata(id, projectID, uuid.Nil, eventName, targetType, targetID, 1, nil, payload, createdAt, createdAt)
+func decodeRealtimeEvent(
+	id, projectID uuid.UUID,
+	eventName, targetType string,
+	targetID *uuid.UUID,
+	payload []byte,
+	createdAt time.Time,
+) (domain.RealtimeEvent, error) {
+	return decodeRealtimeEventWithMetadata(
+		id,
+		projectID,
+		uuid.Nil,
+		eventName,
+		targetType,
+		targetID,
+		1,
+		nil,
+		payload,
+		createdAt,
+		createdAt,
+	)
 }
 
-func decodeRealtimeEventWithMetadata(id, projectID, organizationID uuid.UUID, eventName, targetType string, targetID *uuid.UUID, version int, correlationID *string, payload []byte, occurredAt, createdAt time.Time) (domain.RealtimeEvent, error) {
+func decodeRealtimeEventWithMetadata(
+	id, projectID, organizationID uuid.UUID,
+	eventName, targetType string,
+	targetID *uuid.UUID,
+	version int,
+	correlationID *string,
+	payload []byte,
+	occurredAt, createdAt time.Time,
+) (domain.RealtimeEvent, error) {
 	var envelope struct {
 		ID             string  `json:"id"`
 		Event          string  `json:"event"`
@@ -346,7 +423,8 @@ func decodeRealtimeEventWithMetadata(id, projectID, organizationID uuid.UUID, ev
 	if err := json.Unmarshal(payload, &envelope); err != nil {
 		return domain.RealtimeEvent{}, fmt.Errorf("decode realtime event %s: %w", id, err)
 	}
-	if envelope.ID != id.String() || envelope.ProjectID != projectID.String() || envelope.Event != eventName || envelope.Target.Type != targetType {
+	if envelope.ID != id.String() || envelope.ProjectID != projectID.String() || envelope.Event != eventName ||
+		envelope.Target.Type != targetType {
 		return domain.RealtimeEvent{}, fmt.Errorf("%w: event envelope does not match its row", ErrInvalidRealtime)
 	}
 	if envelope.Type != "" && envelope.Type != eventName {
@@ -358,7 +436,8 @@ func decodeRealtimeEventWithMetadata(id, projectID, organizationID uuid.UUID, ev
 	if envelope.Version != version {
 		return domain.RealtimeEvent{}, fmt.Errorf("%w: event version does not match its row", ErrInvalidRealtime)
 	}
-	if envelope.OrganizationID != "" && organizationID != uuid.Nil && envelope.OrganizationID != organizationID.String() {
+	if envelope.OrganizationID != "" && organizationID != uuid.Nil &&
+		envelope.OrganizationID != organizationID.String() {
 		return domain.RealtimeEvent{}, fmt.Errorf("%w: organization does not match its row", ErrInvalidRealtime)
 	}
 	data := envelope.Payload
@@ -373,7 +452,8 @@ func decodeRealtimeEventWithMetadata(id, projectID, organizationID uuid.UUID, ev
 		value := targetID.String()
 		targetValue = &value
 	}
-	if (envelope.Target.ID == nil) != (targetValue == nil) || (envelope.Target.ID != nil && *envelope.Target.ID != *targetValue) {
+	if (envelope.Target.ID == nil) != (targetValue == nil) ||
+		(envelope.Target.ID != nil && *envelope.Target.ID != *targetValue) {
 		return domain.RealtimeEvent{}, fmt.Errorf("%w: event target does not match its row", ErrInvalidRealtime)
 	}
 	resolvedCorrelation := ""
@@ -444,7 +524,8 @@ func realtimeApplicationEventVisible(event domain.RealtimeEvent, actor DatabaseA
 	if !rowSecurity {
 		return dbcore.Grants(tablePermissions, dbcore.Actor{Authenticated: true, UserID: actor.ProjectUserID})
 	}
-	return dbcore.Grants(rowPermissions, dbcore.Actor{Authenticated: true, UserID: actor.ProjectUserID}) || dbcore.Grants(tablePermissions, dbcore.Actor{Authenticated: true, UserID: actor.ProjectUserID})
+	return dbcore.Grants(rowPermissions, dbcore.Actor{Authenticated: true, UserID: actor.ProjectUserID}) ||
+		dbcore.Grants(tablePermissions, dbcore.Actor{Authenticated: true, UserID: actor.ProjectUserID})
 }
 
 func stringSlice(value any) ([]string, bool) {

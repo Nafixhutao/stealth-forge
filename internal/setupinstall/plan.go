@@ -43,7 +43,10 @@ func BuildPlan(state setupstate.State, installRoot string) (installengine.Plan, 
 		"COOKIE_SECURE":        strconv.FormatBool(strings.HasPrefix(state.Draft.PublicURL, "https://")),
 	}
 	if strings.TrimSpace(base["STEALTH_TELEMETRY_DOCKER_PROXY_IMAGE"]) == "" {
-		updates["STEALTH_TELEMETRY_DOCKER_PROXY_IMAGE"] = installengine.ImageName("stealth-telemetry-docker-proxy", BaseVersion(base))
+		updates["STEALTH_TELEMETRY_DOCKER_PROXY_IMAGE"] = installengine.ImageName(
+			"stealth-telemetry-docker-proxy",
+			BaseVersion(base),
+		)
 	}
 	if state.Draft.NetworkMode == "public_ip" {
 		updates["PROXY_HTTP_BIND"] = "0.0.0.0"

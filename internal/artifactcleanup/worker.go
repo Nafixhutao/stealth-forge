@@ -49,8 +49,15 @@ type Worker struct {
 	Logger       *slog.Logger
 }
 
-func New(store repository.ArtifactCleanupPersistence, cleaners Stores, workerID string, logger *slog.Logger) (*Worker, error) {
-	if store == nil || strings.TrimSpace(workerID) == "" || len(workerID) > 128 || !validWorkerID(workerID) {
+func New(
+	store repository.ArtifactCleanupPersistence,
+	cleaners Stores,
+	workerID string,
+	logger *slog.Logger,
+) (*Worker, error) {
+	storeUnavailable := store == nil
+	workerIDInvalid := strings.TrimSpace(workerID) == "" || len(workerID) > 128 || !validWorkerID(workerID)
+	if storeUnavailable || workerIDInvalid {
 		return nil, errors.New("invalid artifact cleanup worker dependencies")
 	}
 	if logger == nil {
@@ -67,7 +74,12 @@ func New(store repository.ArtifactCleanupPersistence, cleaners Stores, workerID 
 }
 
 func (w *Worker) Run(ctx context.Context) error {
-	if w == nil || w.Store == nil || !validWorkerID(w.WorkerID) {
+	if w == nil {
+		return errors.New("artifact cleanup worker is not configured")
+	}
+	storeUnavailable := w.Store == nil
+	workerIDInvalid := !validWorkerID(w.WorkerID)
+	if storeUnavailable || workerIDInvalid {
 		return errors.New("artifact cleanup worker is not configured")
 	}
 	poll := w.PollInterval
@@ -106,7 +118,12 @@ func (w *Worker) Run(ctx context.Context) error {
 // is persisted with a bounded exponential backoff, so a transient failure is
 // retryable without turning the worker into a busy loop.
 func (w *Worker) RunOnce(ctx context.Context) (processed bool, runErr error) {
-	if w == nil || w.Store == nil || !validWorkerID(w.WorkerID) {
+	if w == nil {
+		return false, errors.New("artifact cleanup worker is not configured")
+	}
+	storeUnavailable := w.Store == nil
+	workerIDInvalid := !validWorkerID(w.WorkerID)
+	if storeUnavailable || workerIDInvalid {
 		return false, errors.New("artifact cleanup worker is not configured")
 	}
 	job, err := w.Store.ClaimNextArtifactCleanup(ctx, w.WorkerID, w.leaseAge())
@@ -214,7 +231,11 @@ func validWorkerID(value string) bool {
 		return false
 	}
 	for _, character := range value {
-		if (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '.' || character == '_' || character == '-' {
+		isUpper := character >= 'A' && character <= 'Z'
+		isLower := character >= 'a' && character <= 'z'
+		isDigit := character >= '0' && character <= '9'
+		isAllowedSymbol := character == '.' || character == '_' || character == '-'
+		if isUpper || isLower || isDigit || isAllowedSymbol {
 			continue
 		}
 		return false
@@ -250,7 +271,19 @@ func (w *Worker) logError(message string, err error) {
 
 func (w *Worker) logJobError(job repository.ArtifactCleanupJob, err error) {
 	if w.Logger != nil {
-		w.Logger.Error("artifact cleanup job failed", "job_id", job.ID, "project_id", job.ProjectID, "store_kind", job.StoreKind, "attempt", job.Attempts, "error", safeError(err))
+		w.Logger.Error(
+			"artifact cleanup job failed",
+			"job_id",
+			job.ID,
+			"project_id",
+			job.ProjectID,
+			"store_kind",
+			job.StoreKind,
+			"attempt",
+			job.Attempts,
+			"error",
+			safeError(err),
+		)
 	}
 }
 

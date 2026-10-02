@@ -37,7 +37,12 @@ type healthProbeDialer interface {
 	DialContext(context.Context, string, string) (net.Conn, error)
 }
 
-func runNormalizedHealthProbe(parent context.Context, address string, spec workloadspec.Spec, dialer healthProbeDialer) error {
+func runNormalizedHealthProbe(
+	parent context.Context,
+	address string,
+	spec workloadspec.Spec,
+	dialer healthProbeDialer,
+) error {
 	timeout := time.Duration(spec.HealthCheck.TimeoutSeconds) * time.Second
 	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()

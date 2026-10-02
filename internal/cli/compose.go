@@ -29,7 +29,9 @@ func (status ServiceStatus) Healthy() bool {
 		state := strings.ToLower(strings.TrimSpace(status.State))
 		return state == "" || state == "running"
 	}
-	return status.Service == "migrate" && (strings.EqualFold(status.State, "exited") || strings.EqualFold(status.State, "completed")) && status.Exit == 0
+	return status.Service == "migrate" &&
+		(strings.EqualFold(status.State, "exited") || strings.EqualFold(status.State, "completed")) &&
+		status.Exit == 0
 }
 
 func (status ServiceStatus) Running() bool {
@@ -40,7 +42,9 @@ func (status ServiceStatus) Running() bool {
 }
 
 func (status ServiceStatus) Display() string {
-	if status.Service == "migrate" && (strings.EqualFold(status.State, "exited") || strings.EqualFold(status.State, "completed")) && status.Exit == 0 {
+	if status.Service == "migrate" &&
+		(strings.EqualFold(status.State, "exited") || strings.EqualFold(status.State, "completed")) &&
+		status.Exit == 0 {
 		return "completed"
 	}
 	if state := strings.TrimSpace(status.State); state != "" && !strings.EqualFold(state, "running") {
@@ -77,7 +81,11 @@ func (a *App) runCompose(ctx context.Context, layout InstallLayout, args ...stri
 	return a.runCommandCaptured(ctx, layout.Root, "docker", a.composeArgs(layout, args...)...)
 }
 
-func (a *App) composeStatuses(ctx context.Context, layout InstallLayout, includeStopped ...bool) (map[string]ServiceStatus, error) {
+func (a *App) composeStatuses(
+	ctx context.Context,
+	layout InstallLayout,
+	includeStopped ...bool,
+) (map[string]ServiceStatus, error) {
 	args := []string{"ps"}
 	if len(includeStopped) > 0 && includeStopped[0] {
 		args = append(args, "--all")
@@ -96,7 +104,7 @@ func parseComposeStatuses(contents []byte) (map[string]ServiceStatus, error) {
 	if len(trimmed) == 0 {
 		return statuses, nil
 	}
-	var entries []composeStatusJSON
+	entries := []composeStatusJSON{}
 	if trimmed[0] == '[' {
 		if err := json.Unmarshal(trimmed, &entries); err != nil {
 			return nil, fmt.Errorf("parse Compose status: %w", err)

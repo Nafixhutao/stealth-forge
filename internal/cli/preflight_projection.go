@@ -22,7 +22,10 @@ func projectHostPreflight(checks []SystemCheck) []setupstate.HostPreflightCheck 
 		if len(detail) > 240 {
 			detail = detail[:240]
 		}
-		projected = append(projected, setupstate.HostPreflightCheck{Name: name, Detail: detail, OK: check.OK, Required: check.Required})
+		projected = append(
+			projected,
+			setupstate.HostPreflightCheck{Name: name, Detail: detail, OK: check.OK, Required: check.Required},
+		)
 	}
 	return projected
 }

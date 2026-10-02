@@ -13,12 +13,14 @@ func (s *Server) registerOrganizationRoutes(r chi.Router) {
 	r.With(s.requireSession).Delete("/organizations/{organizationID}/memberships/{accountID}", s.removeMembership)
 	r.With(s.requireSession).Get("/organizations/{organizationID}/invitations", s.listOrganizationInvitations)
 	r.With(s.requireSession).Post("/organizations/{organizationID}/invitations", s.createOrganizationInvitation)
-	r.With(s.requireSession).Delete("/organizations/{organizationID}/invitations/{invitationID}", s.revokeOrganizationInvitation)
+	r.With(s.requireSession).
+		Delete("/organizations/{organizationID}/invitations/{invitationID}", s.revokeOrganizationInvitation)
 	r.With(s.requireSession).Post("/organization-invitations/accept", s.acceptOrganizationInvitation)
 	r.With(s.requireSession).Get("/organizations/{organizationID}/incidents", s.listOrganizationIncidents)
 	r.With(s.requireSession).Post("/organizations/{organizationID}/incidents", s.createOrganizationIncident)
 	r.With(s.requireSession).Get("/organizations/{organizationID}/incidents/{incidentID}", s.getOrganizationIncident)
-	r.With(s.requireSession).Patch("/organizations/{organizationID}/incidents/{incidentID}", s.updateOrganizationIncident)
+	r.With(s.requireSession).
+		Patch("/organizations/{organizationID}/incidents/{incidentID}", s.updateOrganizationIncident)
 	r.With(s.requireSession).Get("/organizations/{organizationID}/traces", s.listOrganizationTraces)
 	r.With(s.requireSession).Get("/organizations/{organizationID}/audit-events", s.listAuditEvents)
 }

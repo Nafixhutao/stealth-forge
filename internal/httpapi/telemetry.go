@@ -23,7 +23,15 @@ func (s *Server) recoverer(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if recovered := recover(); recovered != nil {
-				s.logger.Error("panic recovered", "request_id", requestIDFrom(r.Context()), "path", r.URL.Path, "panic", fmt.Sprint(recovered))
+				s.logger.Error(
+					"panic recovered",
+					"request_id",
+					requestIDFrom(r.Context()),
+					"path",
+					r.URL.Path,
+					"panic",
+					fmt.Sprint(recovered),
+				)
 				writeError(w, 500, "internal_error", "internal server error")
 			}
 		}()
@@ -47,10 +55,31 @@ func (s *Server) requestLog(next http.Handler) http.Handler {
 			s.metrics.RequestDuration.WithLabelValues(r.Method, route).Observe(duration.Seconds())
 			s.metrics.ResponseBytes.WithLabelValues(r.Method, route, status).Add(float64(recorder.BytesWritten()))
 		}
-		logArgs := []any{"request_id", requestIDFrom(r.Context()), "method", r.Method, "path", r.URL.Path, "route", route, "status", recorder.Status(), "bytes", recorder.BytesWritten(), "duration", duration.String()}
+		logArgs := []any{
+			"request_id",
+			requestIDFrom(r.Context()),
+			"method",
+			r.Method,
+			"path",
+			r.URL.Path,
+			"route",
+			route,
+			"status",
+			recorder.Status(),
+			"bytes",
+			recorder.BytesWritten(),
+			"duration",
+			duration.String(),
+		}
 		spanContext := trace.SpanContextFromContext(r.Context())
 		if spanContext.IsValid() {
-			logArgs = append(logArgs, "trace_id", spanContext.TraceID().String(), "span_id", spanContext.SpanID().String())
+			logArgs = append(
+				logArgs,
+				"trace_id",
+				spanContext.TraceID().String(),
+				"span_id",
+				spanContext.SpanID().String(),
+			)
 		}
 		s.logger.Info("request", logArgs...)
 	})
@@ -65,7 +94,10 @@ func (s *Server) recordHTTPTrace(requestContext context.Context, observation obs
 	// trace index. Apart from avoiding noisy rows, this prevents an outsider
 	// from manufacturing organization-scoped observations through a guessed
 	// route identifier.
-	if s.repo == nil || observation.TraceID == "" || observation.Status == http.StatusUnauthorized || observation.Status == http.StatusForbidden {
+	repoMissing := s.repo == nil
+	traceIDMissing := observation.TraceID == ""
+	authFailure := observation.Status == http.StatusUnauthorized || observation.Status == http.StatusForbidden
+	if repoMissing || traceIDMissing || authFailure {
 		return
 	}
 	routeContext := chi.RouteContext(requestContext)
@@ -109,7 +141,15 @@ func (s *Server) recordHTTPTrace(requestContext context.Context, observation obs
 		Status: observation.Status, Duration: observation.Duration, ResponseBytes: observation.ResponseBytes,
 		StartedAt: observation.StartedAt, FinishedAt: observation.FinishedAt,
 	}); err != nil {
-		s.logger.Warn("trace index write failed", "request_id", requestIDFrom(requestContext), "error", err, "route", observation.Route)
+		s.logger.Warn(
+			"trace index write failed",
+			"request_id",
+			requestIDFrom(requestContext),
+			"error",
+			err,
+			"route",
+			observation.Route,
+		)
 	}
 }
 

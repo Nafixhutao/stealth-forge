@@ -61,7 +61,15 @@ func main() {
 		logger.Error("App environment encryption configuration error", "error", err)
 		os.Exit(1)
 	}
-	logger.Info("starting API", "version", buildinfo.Version, "commit", buildinfo.Commit, "build_time", buildinfo.BuildTime)
+	logger.Info(
+		"starting API",
+		"version",
+		buildinfo.Version,
+		"commit",
+		buildinfo.Commit,
+		"build_time",
+		buildinfo.BuildTime,
+	)
 	telemetryShutdown, err := observability.Setup(context.Background(), observability.TracerConfig{
 		Endpoint:    cfg.TelemetryOTLPEndpoint,
 		ServiceName: firstNonEmpty(cfg.TelemetryServiceName, "stealth-api"),
@@ -99,7 +107,14 @@ func main() {
 		logger.Error("webhook secret configuration error", "error", err)
 		os.Exit(1)
 	}
-	repo := repository.NewWithDependencies(pool, repository.Dependencies{WebhookCipher: webhookCipher, AdminCipher: webhookCipher, CloudflareCipher: webhookCipher})
+	repo := repository.NewWithDependencies(
+		pool,
+		repository.Dependencies{
+			WebhookCipher:    webhookCipher,
+			AdminCipher:      webhookCipher,
+			CloudflareCipher: webhookCipher,
+		},
+	)
 	telemetryStore, telemetryErr := telemetry.New(telemetry.Config{
 		Address:          cfg.TelemetryClickHouseAddr,
 		Database:         cfg.TelemetryClickHouseDatabase,
@@ -122,9 +137,35 @@ func main() {
 			logger.Warn("telemetry schema registry unavailable", "error", err)
 		}
 	}
-	handler, platformSiteHandler := httpapi.NewWithDependenciesAndPlatformSiteHandler(cfg, repo, logger, httpapi.Dependencies{AuthLimiter: ratelimit.NewRedisLimiter(redisClient), RealtimeBroker: realtime.NewBroker(redisClient), TelemetryStore: telemetryStore, Redis: redisClient})
-	server := &http.Server{Addr: cfg.HTTPAddress, Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 5 * time.Minute, WriteTimeout: 5 * time.Minute, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 1 << 20}
-	platformSiteServer := &http.Server{Addr: cfg.PlatformSiteAddress, Handler: platformSiteHandler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 5 * time.Minute, WriteTimeout: 5 * time.Minute, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 1 << 20}
+	handler, platformSiteHandler := httpapi.NewWithDependenciesAndPlatformSiteHandler(
+		cfg,
+		repo,
+		logger,
+		httpapi.Dependencies{
+			AuthLimiter:    ratelimit.NewRedisLimiter(redisClient),
+			RealtimeBroker: realtime.NewBroker(redisClient),
+			TelemetryStore: telemetryStore,
+			Redis:          redisClient,
+		},
+	)
+	server := &http.Server{
+		Addr:              cfg.HTTPAddress,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       5 * time.Minute,
+		WriteTimeout:      5 * time.Minute,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 20,
+	}
+	platformSiteServer := &http.Server{
+		Addr:              cfg.PlatformSiteAddress,
+		Handler:           platformSiteHandler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       5 * time.Minute,
+		WriteTimeout:      5 * time.Minute,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 20,
+	}
 	servers := []*http.Server{server, platformSiteServer}
 	var tlsServer, challengeServer *http.Server
 	var tlsListener, challengeListener net.Listener
@@ -146,8 +187,24 @@ func main() {
 			logger.Error("ACME configuration error", "error", managerErr)
 			os.Exit(1)
 		}
-		tlsServer = &http.Server{Addr: cfg.ACMETLSAddress, Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 5 * time.Minute, WriteTimeout: 5 * time.Minute, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 1 << 20}
-		challengeServer = &http.Server{Addr: cfg.ACMEHTTPChallengeAddress, Handler: certificateManager.HTTPHandler(nil), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 2 * time.Minute, WriteTimeout: 2 * time.Minute, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 1 << 20}
+		tlsServer = &http.Server{
+			Addr:              cfg.ACMETLSAddress,
+			Handler:           handler,
+			ReadHeaderTimeout: 5 * time.Second,
+			ReadTimeout:       5 * time.Minute,
+			WriteTimeout:      5 * time.Minute,
+			IdleTimeout:       60 * time.Second,
+			MaxHeaderBytes:    1 << 20,
+		}
+		challengeServer = &http.Server{
+			Addr:              cfg.ACMEHTTPChallengeAddress,
+			Handler:           certificateManager.HTTPHandler(nil),
+			ReadHeaderTimeout: 5 * time.Second,
+			ReadTimeout:       2 * time.Minute,
+			WriteTimeout:      2 * time.Minute,
+			IdleTimeout:       30 * time.Second,
+			MaxHeaderBytes:    1 << 20,
+		}
 		var listenErr error
 		tlsListener, listenErr = net.Listen("tcp", cfg.ACMETLSAddress)
 		if listenErr != nil {

@@ -37,15 +37,18 @@ func (s *Server) ready(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "not_ready", "storage is not ready")
 		return
 	}
-	if !s.functionsReady || s.functions == nil || s.functionCipher == nil {
+	functionsNotReady := !s.functionsReady || s.functions == nil || s.functionCipher == nil
+	if functionsNotReady {
 		writeError(w, http.StatusServiceUnavailable, "not_ready", "function services are not ready")
 		return
 	}
-	if !s.sitesReady || s.sites == nil || s.siteArchives == nil {
+	sitesNotReady := !s.sitesReady || s.sites == nil || s.siteArchives == nil
+	if sitesNotReady {
 		writeError(w, http.StatusServiceUnavailable, "not_ready", "site services are not ready")
 		return
 	}
-	if !s.appsReady || s.apps == nil || s.apps.Sources == nil || s.apps.Images == nil {
+	appsNotReady := !s.appsReady || s.apps == nil || s.apps.Sources == nil || s.apps.Images == nil
+	if appsNotReady {
 		writeError(w, http.StatusServiceUnavailable, "not_ready", "App services are not ready")
 		return
 	}

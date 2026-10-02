@@ -66,7 +66,8 @@ func projectOrganizationIDValue(ctx context.Context, tx pgx.Tx, projectID uuid.U
 }
 func (r *Repository) requireMembership(ctx context.Context, org, account uuid.UUID) error {
 	var exists bool
-	err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM organization_memberships WHERE organization_id=$1 AND account_id=$2)`, org, account).Scan(&exists)
+	err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM organization_memberships WHERE organization_id=$1 AND account_id=$2)`, org, account).
+		Scan(&exists)
 	if err != nil {
 		return err
 	}
@@ -77,7 +78,8 @@ func (r *Repository) requireMembership(ctx context.Context, org, account uuid.UU
 }
 func requireRoleTx(ctx context.Context, tx pgx.Tx, org, account uuid.UUID, allowed ...string) error {
 	var role string
-	err := tx.QueryRow(ctx, `SELECT role FROM organization_memberships WHERE organization_id=$1 AND account_id=$2 FOR SHARE`, org, account).Scan(&role)
+	err := tx.QueryRow(ctx, `SELECT role FROM organization_memberships WHERE organization_id=$1 AND account_id=$2 FOR SHARE`, org, account).
+		Scan(&role)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrForbidden
 	}
@@ -91,11 +93,25 @@ func requireRoleTx(ctx context.Context, tx pgx.Tx, org, account uuid.UUID, allow
 	}
 	return ErrForbidden
 }
-func writeAudit(ctx context.Context, tx pgx.Tx, org, actor uuid.UUID, action, targetType string, target uuid.UUID) error {
+
+func writeAudit(
+	ctx context.Context,
+	tx pgx.Tx,
+	org, actor uuid.UUID,
+	action, targetType string,
+	target uuid.UUID,
+) error {
 	return writeAuditMetadata(ctx, tx, org, actor, action, targetType, target, map[string]string{})
 }
 
-func writeAuditMetadata(ctx context.Context, tx pgx.Tx, org, actor uuid.UUID, action, targetType string, target uuid.UUID, value any) error {
+func writeAuditMetadata(
+	ctx context.Context,
+	tx pgx.Tx,
+	org, actor uuid.UUID,
+	action, targetType string,
+	target uuid.UUID,
+	value any,
+) error {
 	var orgID, actorID any
 	if org != uuid.Nil {
 		orgID = org
@@ -107,7 +123,17 @@ func writeAuditMetadata(ctx context.Context, tx pgx.Tx, org, actor uuid.UUID, ac
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO audit_events (id,organization_id,actor_account_id,action,target_type,target_id,metadata) VALUES ($1,$2,$3,$4,$5,$6,$7)`, uuid.Must(uuid.NewV7()), orgID, actorID, action, targetType, target, metadata)
+	_, err = tx.Exec(
+		ctx,
+		`INSERT INTO audit_events (id,organization_id,actor_account_id,action,target_type,target_id,metadata) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+		uuid.Must(uuid.NewV7()),
+		orgID,
+		actorID,
+		action,
+		targetType,
+		target,
+		metadata,
+	)
 	return err
 }
 func mapError(err error) error {

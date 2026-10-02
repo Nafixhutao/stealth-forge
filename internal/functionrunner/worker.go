@@ -32,7 +32,12 @@ const (
 // provide a deterministic fake while production uses Docker with the
 // restrictions in docker.go.
 type RuntimeExecutor interface {
-	Execute(context.Context, repository.FunctionExecutionJob, string, []repository.FunctionRuntimeVariable) (ExecutionResult, error)
+	Execute(
+		context.Context,
+		repository.FunctionExecutionJob,
+		string,
+		[]repository.FunctionRuntimeVariable,
+	) (ExecutionResult, error)
 }
 
 // BuildExecutor is implemented by the production Docker executor. Keeping it
@@ -59,7 +64,14 @@ type Worker struct {
 	Metrics        *observability.WorkerMetrics
 }
 
-func NewWorker(persistence repository.FunctionWorkerStore, store *functionstore.Store, cipher *functionsecret.Cipher, executor RuntimeExecutor, workerID, stagingRoot string, logger *slog.Logger) (*Worker, error) {
+func NewWorker(
+	persistence repository.FunctionWorkerStore,
+	store *functionstore.Store,
+	cipher *functionsecret.Cipher,
+	executor RuntimeExecutor,
+	workerID, stagingRoot string,
+	logger *slog.Logger,
+) (*Worker, error) {
 	if persistence == nil || store == nil || cipher == nil || executor == nil || !validWorkerID(workerID) {
 		return nil, fmt.Errorf("invalid function worker dependencies")
 	}
@@ -77,7 +89,22 @@ func NewWorker(persistence repository.FunctionWorkerStore, store *functionstore.
 		logger = slog.Default()
 	}
 	builder, _ := executor.(BuildExecutor)
-	return &Worker{BuildStore: persistence, ExecutionStore: persistence, Store: store, Cipher: cipher, Executor: executor, Builder: builder, WorkerID: workerID, StagingRoot: filepath.Clean(stagingRoot), ArchiveLimit: ArchiveLimits{}, PollInterval: defaultWorkerPoll, LeaseAge: defaultLeaseAge, BuildTimeout: defaultBuildTimeout, Logger: logger, Metrics: observability.NewWorkerMetrics()}, nil
+	return &Worker{
+		BuildStore:     persistence,
+		ExecutionStore: persistence,
+		Store:          store,
+		Cipher:         cipher,
+		Executor:       executor,
+		Builder:        builder,
+		WorkerID:       workerID,
+		StagingRoot:    filepath.Clean(stagingRoot),
+		ArchiveLimit:   ArchiveLimits{},
+		PollInterval:   defaultWorkerPoll,
+		LeaseAge:       defaultLeaseAge,
+		BuildTimeout:   defaultBuildTimeout,
+		Logger:         logger,
+		Metrics:        observability.NewWorkerMetrics(),
+	}, nil
 }
 
 // Run polls until ctx is cancelled. RequeueStaleFunctionExecutions is called
@@ -100,7 +127,8 @@ func (w *Worker) Run(ctx context.Context) error {
 		if metrics := w.Metrics; metrics != nil {
 			metrics.Polls.Inc()
 		}
-		if requeued, err := w.BuildStore.RequeueStaleFunctionDeployments(ctx, leaseAge); err != nil && !errors.Is(err, context.Canceled) {
+		if requeued, err := w.BuildStore.RequeueStaleFunctionDeployments(ctx, leaseAge); err != nil &&
+			!errors.Is(err, context.Canceled) {
 			if metrics := w.Metrics; metrics != nil {
 				metrics.Errors.WithLabelValues("requeue_build").Inc()
 			}
@@ -110,7 +138,8 @@ func (w *Worker) Run(ctx context.Context) error {
 				metrics.BuildRequeued.Add(float64(requeued))
 			}
 		}
-		if requeued, err := w.ExecutionStore.RequeueStaleFunctionExecutions(ctx, leaseAge); err != nil && !errors.Is(err, context.Canceled) {
+		if requeued, err := w.ExecutionStore.RequeueStaleFunctionExecutions(ctx, leaseAge); err != nil &&
+			!errors.Is(err, context.Canceled) {
 			if metrics := w.Metrics; metrics != nil {
 				metrics.Errors.WithLabelValues("requeue").Inc()
 			}
@@ -160,7 +189,11 @@ func validWorkerID(value string) bool {
 		return false
 	}
 	for _, character := range value {
-		if (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '.' || character == '_' || character == '-' {
+		if (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') ||
+			(character >= '0' && character <= '9') ||
+			character == '.' ||
+			character == '_' ||
+			character == '-' {
 			continue
 		}
 		return false

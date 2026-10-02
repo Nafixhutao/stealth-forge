@@ -156,7 +156,8 @@ func Validate(reader io.Reader, expectedDigest string, maxBytes int64) error {
 			}
 			continue
 		}
-		if header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA || header.Size < 0 {
+		isRegularFile := header.Typeflag == tar.TypeReg || header.Typeflag == tar.TypeRegA
+		if !isRegularFile || header.Size < 0 {
 			return fmt.Errorf("%w: links and special files are not allowed", ErrInvalidArchive)
 		}
 		fileCount++
@@ -185,7 +186,9 @@ func Validate(reader io.Reader, expectedDigest string, maxBytes int64) error {
 				return ErrInvalidArchive
 			}
 			data, err := io.ReadAll(io.LimitReader(archive, header.Size+1))
-			if err != nil || int64(len(data)) != header.Size || json.Unmarshal(data, &imageIndex) != nil || imageIndex.SchemaVersion != 2 || len(imageIndex.Manifests) == 0 {
+			if err != nil || int64(len(data)) != header.Size || json.Unmarshal(data, &imageIndex) != nil ||
+				imageIndex.SchemaVersion != 2 ||
+				len(imageIndex.Manifests) == 0 {
 				return ErrInvalidArchive
 			}
 			indexSeen = true
@@ -216,7 +219,10 @@ func Validate(reader io.Reader, expectedDigest string, maxBytes int64) error {
 			}
 		}
 	}
-	if _, err := io.Copy(io.Discard, limited); err != nil || limited.N == 0 || !layoutSeen || !indexSeen || total > maxBytes {
+	_, copyErr := io.Copy(io.Discard, limited)
+	copyIncomplete := copyErr != nil || limited.N == 0
+	layoutIncomplete := !layoutSeen || !indexSeen || total > maxBytes
+	if copyIncomplete || layoutIncomplete {
 		return fmt.Errorf("%w: OCI layout is incomplete", ErrInvalidArchive)
 	}
 	archiveSize := maxBytes + 1 - limited.N
@@ -226,11 +232,13 @@ func Validate(reader io.Reader, expectedDigest string, maxBytes int64) error {
 	foundExpected := false
 	var expectedMediaType string
 	for _, item := range imageIndex.Manifests {
-		if !validDigest(item.Digest) || item.Size <= 0 || blobs[strings.TrimPrefix(item.Digest, "sha256:")] != item.Size {
+		if !validDigest(item.Digest) || item.Size <= 0 ||
+			blobs[strings.TrimPrefix(item.Digest, "sha256:")] != item.Size {
 			return fmt.Errorf("%w: index descriptor is missing its blob", ErrInvalidArchive)
 		}
 		if item.Digest == expectedDigest {
-			if item.MediaType != "application/vnd.oci.image.manifest.v1+json" && item.MediaType != "application/vnd.docker.distribution.manifest.v2+json" {
+			if item.MediaType != "application/vnd.oci.image.manifest.v1+json" &&
+				item.MediaType != "application/vnd.docker.distribution.manifest.v2+json" {
 				return fmt.Errorf("%w: selected descriptor is not an image manifest", ErrInvalidArchive)
 			}
 			foundExpected = true
@@ -241,7 +249,8 @@ func Validate(reader io.Reader, expectedDigest string, maxBytes int64) error {
 		return fmt.Errorf("%w: BuildKit digest is absent from OCI index", ErrInvalidArchive)
 	}
 	var image imageManifest
-	if len(expectedManifest) == 0 || json.Unmarshal(expectedManifest, &image) != nil || image.SchemaVersion != 2 || image.MediaType != expectedMediaType {
+	if len(expectedManifest) == 0 || json.Unmarshal(expectedManifest, &image) != nil || image.SchemaVersion != 2 ||
+		image.MediaType != expectedMediaType {
 		return fmt.Errorf("%w: image manifest is invalid", ErrInvalidArchive)
 	}
 	configSize, configExists := blobs[strings.TrimPrefix(image.Config.Digest, "sha256:")]
@@ -280,15 +289,20 @@ func Inspect(reader io.ReadSeeker, expectedDigest string, maxBytes int64) (Image
 		return ImageInfo{}, ErrInvalidArchive
 	}
 	var manifest imageManifest
-	if err := json.Unmarshal(manifestBytes, &manifest); err != nil || !validDigest(manifest.Config.Digest) || manifest.Config.Size <= 0 || manifest.Config.Size > maxIndexBytes {
+	if err := json.Unmarshal(manifestBytes, &manifest); err != nil || !validDigest(manifest.Config.Digest) ||
+		manifest.Config.Size <= 0 ||
+		manifest.Config.Size > maxIndexBytes {
 		return ImageInfo{}, ErrInvalidArchive
 	}
 	configBytes, err := readBlob(reader, manifest.Config.Digest, maxIndexBytes, maxBytes)
-	if err != nil || int64(len(configBytes)) != manifest.Config.Size || archiveDigestBytes(configBytes) != manifest.Config.Digest {
+	if err != nil || int64(len(configBytes)) != manifest.Config.Size ||
+		archiveDigestBytes(configBytes) != manifest.Config.Digest {
 		return ImageInfo{}, ErrInvalidArchive
 	}
 	var config imageConfig
-	if json.Unmarshal(configBytes, &config) != nil || config.OS == "" || config.Architecture == "" || config.RootFS.Type != "layers" || len(config.RootFS.DiffIDs) != len(manifest.Layers) {
+	if json.Unmarshal(configBytes, &config) != nil || config.OS == "" || config.Architecture == "" ||
+		config.RootFS.Type != "layers" ||
+		len(config.RootFS.DiffIDs) != len(manifest.Layers) {
 		return ImageInfo{}, ErrInvalidArchive
 	}
 	for _, digest := range config.RootFS.DiffIDs {
@@ -351,7 +365,8 @@ func readBlob(reader io.ReadSeeker, digest string, maxMetadataBytes, maxArchiveB
 		if name != wanted {
 			continue
 		}
-		if (header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA) || header.Size <= 0 || header.Size > maxMetadataBytes {
+		if (header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA) || header.Size <= 0 ||
+			header.Size > maxMetadataBytes {
 			return nil, ErrInvalidArchive
 		}
 		data, err := io.ReadAll(io.LimitReader(archive, header.Size+1))

@@ -52,7 +52,9 @@ func loadAppBuildSettings() (appBuildSettings, error) {
 		return appBuildSettings{}, err
 	}
 	if settings.defaultArtifactQuotaBytes < settings.maxSourceArchiveBytes {
-		return appBuildSettings{}, fmt.Errorf("APPS_DEFAULT_ARTIFACT_QUOTA_BYTES must be at least APPS_MAX_SOURCE_ARCHIVE_BYTES")
+		return appBuildSettings{}, fmt.Errorf(
+			"APPS_DEFAULT_ARTIFACT_QUOTA_BYTES must be at least APPS_MAX_SOURCE_ARCHIVE_BYTES",
+		)
 	}
 	settings.maxSourceFiles, err = strconv.Atoi(value("APPS_MAX_SOURCE_FILES", "8192"))
 	if err != nil || settings.maxSourceFiles < 1 || settings.maxSourceFiles > 1000000 {
@@ -64,7 +66,9 @@ func loadAppBuildSettings() (appBuildSettings, error) {
 	}
 	settings.buildLeaseAge, err = time.ParseDuration(value("APPS_BUILD_LEASE_AGE", "25m"))
 	if err != nil || settings.buildLeaseAge < settings.buildTimeout || settings.buildLeaseAge > 48*time.Hour {
-		return appBuildSettings{}, fmt.Errorf("APPS_BUILD_LEASE_AGE must be at least APPS_BUILD_TIMEOUT and no longer than 48h")
+		return appBuildSettings{}, fmt.Errorf(
+			"APPS_BUILD_LEASE_AGE must be at least APPS_BUILD_TIMEOUT and no longer than 48h",
+		)
 	}
 	settings.buildPollInterval, err = time.ParseDuration(value("APPS_BUILD_POLL_INTERVAL", "500ms"))
 	if err != nil || settings.buildPollInterval < 100*time.Millisecond || settings.buildPollInterval > time.Minute {
@@ -114,7 +118,8 @@ func loadAppBuildSettings() (appBuildSettings, error) {
 		return appBuildSettings{}, fmt.Errorf("APPS_RUNTIME_ACTION_TIMEOUT must be between 5s and 2m")
 	}
 	settings.runtimeImageImportTimeout, err = time.ParseDuration(value("APPS_RUNTIME_IMAGE_IMPORT_TIMEOUT", "10m"))
-	if err != nil || settings.runtimeImageImportTimeout < time.Minute || settings.runtimeImageImportTimeout > 30*time.Minute {
+	if err != nil || settings.runtimeImageImportTimeout < time.Minute ||
+		settings.runtimeImageImportTimeout > 30*time.Minute {
 		return appBuildSettings{}, fmt.Errorf("APPS_RUNTIME_IMAGE_IMPORT_TIMEOUT must be between 1m and 30m")
 	}
 	if settings.runtimeImageCacheMaxBytes, err = boundedAppBytes("APPS_RUNTIME_IMAGE_CACHE_MAX_BYTES", "20GiB", 1<<20, 1<<40); err != nil {
@@ -124,10 +129,13 @@ func loadAppBuildSettings() (appBuildSettings, error) {
 		return appBuildSettings{}, err
 	}
 	if settings.runtimeImageCacheTargetBytes >= settings.runtimeImageCacheMaxBytes {
-		return appBuildSettings{}, fmt.Errorf("APPS_RUNTIME_IMAGE_CACHE_TARGET_BYTES must be less than APPS_RUNTIME_IMAGE_CACHE_MAX_BYTES")
+		return appBuildSettings{}, fmt.Errorf(
+			"APPS_RUNTIME_IMAGE_CACHE_TARGET_BYTES must be less than APPS_RUNTIME_IMAGE_CACHE_MAX_BYTES",
+		)
 	}
 	settings.runtimeImageGCSweepInterval, err = time.ParseDuration(value("APPS_RUNTIME_IMAGE_GC_INTERVAL", "15m"))
-	if err != nil || settings.runtimeImageGCSweepInterval < time.Minute || settings.runtimeImageGCSweepInterval > 24*time.Hour {
+	if err != nil || settings.runtimeImageGCSweepInterval < time.Minute ||
+		settings.runtimeImageGCSweepInterval > 24*time.Hour {
 		return appBuildSettings{}, fmt.Errorf("APPS_RUNTIME_IMAGE_GC_INTERVAL must be between 1m and 24h")
 	}
 	return settings, nil
@@ -143,7 +151,9 @@ func boundedAppBytes(name, fallback string, minimum, maximum int64) (int64, erro
 
 func validBuildkitAddress(value string) bool {
 	parsed, err := url.Parse(value)
-	if err != nil || parsed.Scheme != "tcp" || parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Host == "" {
+	if err != nil || parsed.Scheme != "tcp" || parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" ||
+		parsed.Fragment != "" ||
+		parsed.Host == "" {
 		return false
 	}
 	host, port, err := net.SplitHostPort(parsed.Host)
@@ -192,5 +202,6 @@ func defaultBuildKitPath(key string) string {
 }
 
 func validBuildKitPath(path string) bool {
-	return path != "" && filepath.IsAbs(path) && filepath.Clean(path) == path && path != string(filepath.Separator) && !strings.ContainsAny(path, "\x00\r\n")
+	return path != "" && filepath.IsAbs(path) && filepath.Clean(path) == path && path != string(filepath.Separator) &&
+		!strings.ContainsAny(path, "\x00\r\n")
 }

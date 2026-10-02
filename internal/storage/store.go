@@ -47,7 +47,15 @@ type ReadSeekCloser interface {
 // permissions; the store only publishes and retrieves opaque blob paths.
 type BlobStore interface {
 	Ping(context.Context) error
-	BeginUploadWithLimit(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, io.Reader, string, int64) (PreparedFile, error)
+	BeginUploadWithLimit(
+		context.Context,
+		uuid.UUID,
+		uuid.UUID,
+		uuid.UUID,
+		io.Reader,
+		string,
+		int64,
+	) (PreparedFile, error)
 	Commit(context.Context, *PreparedFile) error
 	Cleanup(*PreparedFile)
 	RemoveRelative(context.Context, string) error
@@ -105,7 +113,11 @@ func (s *Store) Ping(context.Context) error {
 // path. It rejects separators, control characters, dot-segments, and header
 // injection characters. Unicode letters/spaces are allowed.
 func ValidateFilename(name string) error {
-	if name == "" || len([]byte(name)) > maxFilenameBytes || strings.TrimSpace(name) != name || name == "." || name == ".." {
+	nameMissing := name == ""
+	nameTooLong := len([]byte(name)) > maxFilenameBytes
+	namePadded := strings.TrimSpace(name) != name
+	dotSegment := name == "." || name == ".."
+	if nameMissing || nameTooLong || namePadded || dotSegment {
 		return ErrInvalidFilename
 	}
 	for _, r := range name {
@@ -134,14 +146,25 @@ func NormalizeContentType(value string) (string, error) {
 // BeginUpload streams src to a same-directory temporary file, enforcing the
 // byte limit and hashing while writing. The destination is not visible until
 // Commit performs an atomic rename.
-func (s *Store) BeginUpload(ctx context.Context, projectID, bucketID, fileID uuid.UUID, src io.Reader, declaredType string) (PreparedFile, error) {
+func (s *Store) BeginUpload(
+	ctx context.Context,
+	projectID, bucketID, fileID uuid.UUID,
+	src io.Reader,
+	declaredType string,
+) (PreparedFile, error) {
 	return s.BeginUploadWithLimit(ctx, projectID, bucketID, fileID, src, declaredType, s.maxSize)
 }
 
 // BeginUploadWithLimit is the bucket-aware variant. The configured global
 // limit remains a hard ceiling even when a caller supplies a larger bucket
 // value.
-func (s *Store) BeginUploadWithLimit(ctx context.Context, projectID, bucketID, fileID uuid.UUID, src io.Reader, declaredType string, maxSize int64) (PreparedFile, error) {
+func (s *Store) BeginUploadWithLimit(
+	ctx context.Context,
+	projectID, bucketID, fileID uuid.UUID,
+	src io.Reader,
+	declaredType string,
+	maxSize int64,
+) (PreparedFile, error) {
 	if projectID == uuid.Nil || bucketID == uuid.Nil || fileID == uuid.Nil {
 		return PreparedFile{}, ErrInvalidPath
 	}
@@ -219,16 +242,22 @@ func (s *Store) Commit(ctx context.Context, file *PreparedFile) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if file == nil || file.TempPath == "" || file.RelativePath == "" || file.committed {
+	if file == nil {
+		return ErrInvalidPath
+	}
+	pathMissing := file.TempPath == "" || file.RelativePath == ""
+	if pathMissing || file.committed {
 		return ErrInvalidPath
 	}
 	destination, err := s.resolveRelative(file.RelativePath)
 	if err != nil {
 		return err
 	}
-	if _, err := os.Lstat(destination); err == nil {
+	_, err = os.Lstat(destination)
+	if err == nil {
 		return fmt.Errorf("storage destination already exists: %w", os.ErrExist)
-	} else if !errors.Is(err, os.ErrNotExist) {
+	}
+	if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	if err := os.Rename(file.TempPath, destination); err != nil {
@@ -272,7 +301,8 @@ func (s *Store) RemoveProject(ctx context.Context, projectID uuid.UUID) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if s == nil || projectID == uuid.Nil || projectID.Version() != uuid.Version(7) {
+	projectIDInvalid := projectID == uuid.Nil || projectID.Version() != uuid.Version(7)
+	if s == nil || projectIDInvalid {
 		return ErrInvalidPath
 	}
 	path, err := s.resolveRelative(projectID.String())
@@ -321,12 +351,16 @@ func (s *Store) OpenRelative(ctx context.Context, relative string) (ReadSeekClos
 
 func (s *Store) resolveRelative(relative string) (string, error) {
 	relative = filepath.Clean(filepath.FromSlash(relative))
-	if relative == "." || filepath.IsAbs(relative) || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+	dotSegment := relative == "."
+	absolutePath := filepath.IsAbs(relative)
+	parentSegment := relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator))
+	if dotSegment || absolutePath || parentSegment {
 		return "", ErrInvalidPath
 	}
 	full := filepath.Join(s.root, relative)
 	base, err := filepath.Rel(s.root, full)
-	if err != nil || base != relative || base == ".." || strings.HasPrefix(base, ".."+string(filepath.Separator)) {
+	baseEscapes := base != relative || base == ".." || strings.HasPrefix(base, ".."+string(filepath.Separator))
+	if err != nil || baseEscapes {
 		return "", ErrInvalidPath
 	}
 	return full, nil

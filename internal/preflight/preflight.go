@@ -162,7 +162,10 @@ func ResourceChecks(ctx context.Context, probes Probes, diskPath string) []Check
 	probes = probes.normalized()
 	checks := make([]Check, 0, 3)
 	cpuCount := probes.CPUCount()
-	checks = append(checks, Check{Name: "CPU", Detail: fmt.Sprintf("%d logical CPUs available", cpuCount), OK: cpuCount >= RecommendedCPUs})
+	checks = append(
+		checks,
+		Check{Name: "CPU", Detail: fmt.Sprintf("%d logical CPUs available", cpuCount), OK: cpuCount >= RecommendedCPUs},
+	)
 	if err := ctx.Err(); err != nil {
 		checks = append(checks, Check{Name: "Memory", Detail: "check cancelled", Required: false})
 		checks = append(checks, Check{Name: "Disk space", Detail: "check cancelled", Required: false})
@@ -212,7 +215,10 @@ func DockerChecks(ctx context.Context, probes Probes, includeCompose, includeSoc
 	}
 	if includeCompose {
 		if version, err := probes.ComposeVersion(ctx); err != nil {
-			checks = append(checks, Check{Name: "Docker Compose", Detail: "Docker Compose is not available", Required: true})
+			checks = append(
+				checks,
+				Check{Name: "Docker Compose", Detail: "Docker Compose is not available", Required: true},
+			)
 		} else {
 			checks = append(checks, Check{Name: "Docker Compose", Detail: version, OK: true, Required: true})
 		}
@@ -262,10 +268,23 @@ func CloudflareChecks(ctx context.Context, probes Probes, hosts []string) []Chec
 			continue
 		}
 		_ = connection.Close()
-		checks = append(checks, Check{Name: "Cloudflare Tunnel", Detail: "Cloudflare Tunnel edge DNS resolves and TCP/7844 is reachable; cloudflared will check QUIC/UDP and HTTP/2/TCP at startup", OK: true})
+		checks = append(
+			checks,
+			Check{
+				Name:   "Cloudflare Tunnel",
+				Detail: "Cloudflare Tunnel edge DNS resolves and TCP/7844 is reachable; cloudflared will check QUIC/UDP and HTTP/2/TCP at startup",
+				OK:     true,
+			},
+		)
 		return checks
 	}
-	checks = append(checks, Check{Name: "Cloudflare Tunnel", Detail: "Cloudflare Tunnel edge resolves, but TCP/7844 is unreachable; allow outbound TCP or UDP 7844"})
+	checks = append(
+		checks,
+		Check{
+			Name:   "Cloudflare Tunnel",
+			Detail: "Cloudflare Tunnel edge resolves, but TCP/7844 is unreachable; allow outbound TCP or UDP 7844",
+		},
+	)
 	return checks
 }
 

@@ -51,7 +51,7 @@ func (a *App) layout() (InstallLayout, error) {
 		return InstallLayout{}, fmt.Errorf("installation directory must be an absolute path: %w", err)
 	}
 	if root == string(filepath.Separator) || root == filepath.Clean(a.homeDir) {
-		return InstallLayout{}, fmt.Errorf("refusing unsafe installation directory %s", root)
+		return InstallLayout{}, fmt.Errorf("refusing unsafe installation directory %q", root)
 	}
 	return newInstallLayout(root), nil
 }
@@ -68,7 +68,8 @@ func installationExists(layout InstallLayout) bool {
 }
 
 func partialInstallationExists(layout InstallLayout) bool {
-	if regularFile(layout.ComposeFile) || regularFile(layout.ProxyFile) || regularFile(layout.TraefikStatic) || regularFile(layout.TraefikCore) {
+	if regularFile(layout.ComposeFile) || regularFile(layout.ProxyFile) || regularFile(layout.TraefikStatic) ||
+		regularFile(layout.TraefikCore) {
 		return true
 	}
 	for _, path := range []string{layout.StateDir, layout.PrivateDir} {

@@ -25,8 +25,11 @@ func loadTransportSettings() (transportSettings, error) {
 		return transportSettings{}, err
 	}
 	metricsToken := strings.TrimSpace(os.Getenv("METRICS_TOKEN"))
-	if len(metricsToken) > 256 || strings.IndexFunc(metricsToken, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) >= 0 {
-		return transportSettings{}, fmt.Errorf("METRICS_TOKEN must be at most 256 characters and contain no whitespace or control characters")
+	if len(metricsToken) > 256 ||
+		strings.IndexFunc(metricsToken, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) >= 0 {
+		return transportSettings{}, fmt.Errorf(
+			"METRICS_TOKEN must be at most 256 characters and contain no whitespace or control characters",
+		)
 	}
 	httpAddress := value("HTTP_ADDR", ":8080")
 	platformSiteAddress := value("PLATFORM_SITE_ADDR", ":8082")
@@ -34,7 +37,9 @@ func loadTransportSettings() (transportSettings, error) {
 		return transportSettings{}, fmt.Errorf("HTTP_ADDR must be a TCP host:port with a port between 1 and 65535")
 	}
 	if !isListenAddress(platformSiteAddress) {
-		return transportSettings{}, fmt.Errorf("PLATFORM_SITE_ADDR must be a TCP host:port with a port between 1 and 65535")
+		return transportSettings{}, fmt.Errorf(
+			"PLATFORM_SITE_ADDR must be a TCP host:port with a port between 1 and 65535",
+		)
 	}
 	if sameListenPort(httpAddress, platformSiteAddress) {
 		return transportSettings{}, fmt.Errorf("PLATFORM_SITE_ADDR must use a different listener port from HTTP_ADDR")

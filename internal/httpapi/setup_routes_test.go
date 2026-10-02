@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -1053,3 +1054,122 @@ func TestSetupRedirectRejectsUnsafeTargets(t *testing.T) {
 }
 
 var _ githubauth.ManifestClient = setupManifestFake{}
+
+// failingDNSCloudflareClient succeeds through tunnel provisioning but fails the
+// Console DNS write, the way Cloudflare does when the scoped token is missing
+// Zone:DNS:Edit for the selected zone.
+type failingDNSCloudflareClient struct {
+	err error
+}
+
+func (*failingDNSCloudflareClient) ListAccounts(context.Context) ([]cloudflare.Account, error) {
+	return nil, nil
+}
+
+func (*failingDNSCloudflareClient) ListZones(context.Context, string) ([]cloudflare.Zone, error) {
+	return []cloudflare.Zone{{ID: "zone-a", Name: "example.test"}}, nil
+}
+
+func (*failingDNSCloudflareClient) ListCertificatePacks(context.Context, string) ([]cloudflare.CertificatePack, error) {
+	return nil, nil
+}
+
+func (*failingDNSCloudflareClient) TotalTLSSettings(context.Context, string) (cloudflare.TotalTLSSettings, error) {
+	return cloudflare.TotalTLSSettings{}, nil
+}
+
+func (*failingDNSCloudflareClient) ListTunnels(context.Context, string, string) ([]cloudflare.Tunnel, error) {
+	return nil, nil
+}
+
+func (*failingDNSCloudflareClient) CreateTunnel(_ context.Context, _, name string) (cloudflare.Tunnel, error) {
+	return cloudflare.Tunnel{ID: "tunnel-a", Name: name}, nil
+}
+
+func (*failingDNSCloudflareClient) ConfigureTunnel(context.Context, string, string, []cloudflare.IngressRule) error {
+	return nil
+}
+
+func (*failingDNSCloudflareClient) TunnelConfiguration(context.Context, string, string) ([]cloudflare.IngressRule, error) {
+	return nil, nil
+}
+
+func (*failingDNSCloudflareClient) ListDNSRecords(context.Context, string, string) ([]cloudflare.DNSRecord, error) {
+	return nil, nil
+}
+
+func (*failingDNSCloudflareClient) GetDNSRecord(context.Context, string, string) (cloudflare.DNSRecord, error) {
+	return cloudflare.DNSRecord{}, cloudflare.ErrResourceNotFound
+}
+
+func (c *failingDNSCloudflareClient) CreateDNSRecord(context.Context, string, cloudflare.DNSRecord) (cloudflare.DNSRecord, error) {
+	return cloudflare.DNSRecord{}, c.err
+}
+
+func (*failingDNSCloudflareClient) UpdateDNSRecord(_ context.Context, _, recordID string, record cloudflare.DNSRecord) (cloudflare.DNSRecord, error) {
+	record.ID = recordID
+	return record, nil
+}
+
+func (*failingDNSCloudflareClient) DeleteDNSRecord(context.Context, string, string) error { return nil }
+
+func (*failingDNSCloudflareClient) TunnelStatus(context.Context, string, string) (cloudflare.TunnelStatus, error) {
+	return cloudflare.TunnelStatus{Status: "healthy"}, nil
+}
+
+func (*failingDNSCloudflareClient) TunnelToken(context.Context, string, string) (string, error) {
+	return "tunnel-token", nil
+}
+
+// TestCreateCloudflareTunnelReportsActionableDNSFailure guards the failure mode
+// where a token with Zone Read but without Zone DNS Edit passes token
+// verification (account discovery needs no zone permission) and then fails
+// opaquely at the DNS step. The response must name the missing scope so an
+// operator can fix the token instead of guessing, without leaking provider
+// detail or the token itself.
+func TestCreateCloudflareTunnelReportsActionableDNSFailure(t *testing.T) {
+	root := t.TempDir()
+	cipher, err := functionsecret.New(bytes.Repeat([]byte{0x67}, functionsecret.KeySize))
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := setupstate.NewFileStore(filepath.Join(root, "state", "setup-state.enc"), cipher)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := setupstate.NewState()
+	state.Cloudflare.Mode = "api_token"
+	state.Cloudflare.Connected = true
+	state.Cloudflare.TokenValid = true
+	state.SetSecret("cloudflare_access_token", "scoped-token")
+	if err := store.Save(context.Background(), state); err != nil {
+		t.Fatal(err)
+	}
+
+	providerErr := fmt.Errorf("%w: Cloudflare request was rejected (HTTP 403): error 10000: Authentication error", cloudflare.ErrUnauthorized)
+	server := &Server{
+		setupState: store,
+		logger:     slog.Default(),
+		cloudflareFactory: func(string) (cloudflare.Client, error) {
+			return &failingDNSCloudflareClient{err: providerErr}, nil
+		},
+	}
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/setup/cloudflare/tunnel", strings.NewReader(`{"account_id":"account-a","zone_id":"zone-a","hostname":"console.example.test"}`))
+	request.Header.Set("Content-Type", "application/json")
+	server.createCloudflareTunnel(recorder, request)
+
+	if recorder.Code != http.StatusBadGateway {
+		t.Fatalf("Cloudflare DNS failure status = %d: %s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, "cloudflare_dns_failed") {
+		t.Fatalf("Cloudflare DNS failure code missing: %s", body)
+	}
+	if !strings.Contains(body, "Zone:DNS:Edit") {
+		t.Fatalf("Cloudflare DNS failure did not name the missing scope: %s", body)
+	}
+	if strings.Contains(body, "scoped-token") || strings.Contains(body, "HTTP 403") {
+		t.Fatalf("Cloudflare DNS failure leaked provider or token detail: %s", body)
+	}
+}

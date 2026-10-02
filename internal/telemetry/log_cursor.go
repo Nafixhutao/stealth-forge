@@ -58,7 +58,8 @@ func DecodeLogCursor(value string) (LogCursor, error) {
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 		return LogCursor{}, ErrInvalidQuery
 	}
-	if payload.Version != logCursorVersion || payload.Timestamp.IsZero() || strings.TrimSpace(payload.EventID) == "" || len(payload.EventID) > 256 {
+	if payload.Version != logCursorVersion || payload.Timestamp.IsZero() || strings.TrimSpace(payload.EventID) == "" ||
+		len(payload.EventID) > 256 {
 		return LogCursor{}, ErrInvalidQuery
 	}
 	return LogCursor{

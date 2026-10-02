@@ -35,14 +35,27 @@ type Worker struct {
 	Logger            *slog.Logger
 }
 
-func NewWorker(store Persistence, cipher *functionsecret.Cipher, workerID string, logger *slog.Logger) (*Worker, error) {
+func NewWorker(
+	store Persistence,
+	cipher *functionsecret.Cipher,
+	workerID string,
+	logger *slog.Logger,
+) (*Worker, error) {
 	if store == nil || cipher == nil || strings.TrimSpace(workerID) == "" {
 		return nil, errors.New("invalid monitoring worker dependencies")
 	}
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Worker{Store: store, Cipher: cipher, WorkerID: workerID, PollInterval: defaultPollInterval, LeaseAge: defaultLeaseAge, AlertPollInterval: defaultAlertPollInterval, Logger: logger}, nil
+	return &Worker{
+		Store:             store,
+		Cipher:            cipher,
+		WorkerID:          workerID,
+		PollInterval:      defaultPollInterval,
+		LeaseAge:          defaultLeaseAge,
+		AlertPollInterval: defaultAlertPollInterval,
+		Logger:            logger,
+	}, nil
 }
 
 func (w *Worker) Run(ctx context.Context) error {
@@ -65,7 +78,9 @@ func (w *Worker) Run(ctx context.Context) error {
 	}
 	nextAlertPoll := time.Time{}
 	for {
-		if _, err := w.Store.RequeueStaleAdminMonitors(ctx, leaseAge); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+		if _, err := w.Store.RequeueStaleAdminMonitors(ctx, leaseAge); err != nil &&
+			!errors.Is(err, context.Canceled) &&
+			!errors.Is(err, context.DeadlineExceeded) {
 			if w.Logger != nil {
 				w.Logger.Error("admin monitor lease recovery failed", "error", safeWorkerError(err))
 			}
@@ -91,7 +106,9 @@ func (w *Worker) Run(ctx context.Context) error {
 			}
 		}
 		if w.TelemetryAlerts != nil && time.Now().After(nextAlertPoll) {
-			if _, alertErr := w.TelemetryAlerts.RunOnce(ctx); alertErr != nil && !errors.Is(alertErr, context.Canceled) && !errors.Is(alertErr, context.DeadlineExceeded) {
+			if _, alertErr := w.TelemetryAlerts.RunOnce(ctx); alertErr != nil &&
+				!errors.Is(alertErr, context.Canceled) &&
+				!errors.Is(alertErr, context.DeadlineExceeded) {
 				if w.Logger != nil {
 					w.Logger.Warn("telemetry alert evaluation failed", "error", safeWorkerError(alertErr))
 				}

@@ -38,13 +38,21 @@ type OAuthToken struct {
 func NewOAuthClient(clientID, clientSecret string, httpClient *http.Client) (*OAuthClient, error) {
 	clientID = strings.TrimSpace(clientID)
 	clientSecret = strings.TrimSpace(clientSecret)
-	if clientID == "" || clientSecret == "" || strings.ContainsAny(clientID+clientSecret, "\x00\r\n") {
+	credentialsMissing := clientID == "" || clientSecret == ""
+	credentialsMalformed := strings.ContainsAny(clientID+clientSecret, "\x00\r\n")
+	if credentialsMissing || credentialsMalformed {
 		return nil, errors.New("Cloudflare OAuth is not configured")
 	}
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 20 * time.Second}
 	}
-	return &OAuthClient{ClientID: clientID, ClientSecret: clientSecret, Authorization: defaultOAuthAuthorizationURL, TokenURL: defaultOAuthTokenURL, HTTPClient: httpClient}, nil
+	return &OAuthClient{
+		ClientID:      clientID,
+		ClientSecret:  clientSecret,
+		Authorization: defaultOAuthAuthorizationURL,
+		TokenURL:      defaultOAuthTokenURL,
+		HTTPClient:    httpClient,
+	}, nil
 }
 
 func (c *OAuthClient) AuthorizationURL(redirectURL, state string, scopes []string) (string, error) {
@@ -70,7 +78,11 @@ func (c *OAuthClient) Exchange(ctx context.Context, code, redirectURL string) (O
 		return OAuthToken{}, errors.New("Cloudflare OAuth is not configured")
 	}
 	code = strings.TrimSpace(code)
-	if code == "" || len(code) > 4096 || strings.ContainsAny(code, "\x00\r\n") || !validRedirectURL(redirectURL) {
+	codeMissing := code == ""
+	codeTooLong := len(code) > 4096
+	codeMalformed := strings.ContainsAny(code, "\x00\r\n")
+	redirectInvalid := !validRedirectURL(redirectURL)
+	if codeMissing || codeTooLong || codeMalformed || redirectInvalid {
 		return OAuthToken{}, errors.New("Cloudflare OAuth callback is invalid")
 	}
 	form := url.Values{}
@@ -106,5 +118,6 @@ func (c *OAuthClient) Exchange(ctx context.Context, code, redirectURL string) (O
 
 func validRedirectURL(raw string) bool {
 	parsed, err := url.Parse(strings.TrimSpace(raw))
-	return err == nil && parsed.Scheme == "https" && parsed.Host != "" && parsed.User == nil && parsed.RawQuery == "" && parsed.Fragment == ""
+	return err == nil && parsed.Scheme == "https" && parsed.Host != "" && parsed.User == nil && parsed.RawQuery == "" &&
+		parsed.Fragment == ""
 }

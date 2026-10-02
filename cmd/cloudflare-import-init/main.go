@@ -34,7 +34,9 @@ func main() {
 	}
 	owner, err := cloudflareimport.OwnerForSourceDirectory(sourceDirectory)
 	if err != nil {
-		logger.Error("Cloudflare import preparation cannot validate the source state directory; worker startup is blocked")
+		logger.Error(
+			"Cloudflare import preparation cannot validate the source state directory; worker startup is blocked",
+		)
 		os.Exit(1)
 	}
 	outcome, err := cloudflareimport.Prepare(context.Background(), sourcePath, destinationPath, cipher, owner)

@@ -42,8 +42,15 @@ type AdminRealtimeEvent struct {
 // same transaction as the state change that caused it. The payload is passed
 // through the shared realtime sanitizer and is never allowed to contain
 // credentials or arbitrary resource data.
-func enqueueAdminRealtimeEventTx(ctx context.Context, tx pgx.Tx, eventName, targetType string, targetID uuid.UUID, payload map[string]any) error {
-	if !strings.HasPrefix(eventName, "admin.") || len(eventName) < 9 || len(eventName) > 160 {
+func enqueueAdminRealtimeEventTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	eventName, targetType string,
+	targetID uuid.UUID,
+	payload map[string]any,
+) error {
+	validEventName := strings.HasPrefix(eventName, "admin.") && len(eventName) >= 9 && len(eventName) <= 160
+	if !validEventName {
 		return ErrInvalidAdminRealtime
 	}
 	if len(targetType) < 3 || len(targetType) > 80 || strings.ContainsAny(targetType, "\x00\r\n") {
@@ -131,8 +138,15 @@ func (r *Repository) ResolveAdminRealtimeStartCursor(ctx context.Context, reques
 // ListAdminRealtimeEvents returns the next bounded batch after a durable
 // delivery sequence. Event UUIDs remain identities only; they are not cursor
 // ordering keys.
-func (r *Repository) ListAdminRealtimeEvents(ctx context.Context, after *int64, limit int) ([]AdminRealtimeEvent, *int64, error) {
-	if r == nil || r.pool == nil || limit < 1 || limit > adminRealtimeMaxBatch || (after != nil && *after <= 0) {
+func (r *Repository) ListAdminRealtimeEvents(
+	ctx context.Context,
+	after *int64,
+	limit int,
+) ([]AdminRealtimeEvent, *int64, error) {
+	invalidRepository := r == nil || r.pool == nil
+	invalidLimit := limit < 1 || limit > adminRealtimeMaxBatch
+	invalidCursor := after != nil && *after <= 0
+	if invalidRepository || invalidLimit || invalidCursor {
 		return nil, nil, ErrInvalidAdminRealtime
 	}
 	var afterValue any

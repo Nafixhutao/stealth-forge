@@ -44,11 +44,25 @@ func (s *Server) setupStateReady() bool {
 	return s != nil && s.config.SetupMode && s.setupState != nil && s.bootstrap != nil && s.functionCipher != nil
 }
 
-func (s *Server) setSetupCookie(w http.ResponseWriter, r *http.Request, sessionID string, codeHash []byte, expiresAt time.Time) error {
-	if s == nil || s.functionCipher == nil || strings.TrimSpace(sessionID) == "" || len(codeHash) != 32 || expiresAt.Before(time.Now().UTC()) {
+func (s *Server) setSetupCookie(
+	w http.ResponseWriter,
+	r *http.Request,
+	sessionID string,
+	codeHash []byte,
+	expiresAt time.Time,
+) error {
+	notReady := s == nil || s.functionCipher == nil
+	sessionIDMissing := strings.TrimSpace(sessionID) == ""
+	codeHashInvalid := len(codeHash) != 32
+	expired := expiresAt.Before(time.Now().UTC())
+	if notReady || sessionIDMissing || codeHashInvalid || expired {
 		return errors.New("setup cookie cannot be created")
 	}
-	payload := setupCookiePayload{SessionID: sessionID, CodeHash: base64.RawURLEncoding.EncodeToString(codeHash), ExpiresAt: expiresAt}
+	payload := setupCookiePayload{
+		SessionID: sessionID,
+		CodeHash:  base64.RawURLEncoding.EncodeToString(codeHash),
+		ExpiresAt: expiresAt,
+	}
 	contents, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("encode setup cookie: %w", err)
@@ -101,7 +115,10 @@ func (s *Server) setupSessionFromRequest(r *http.Request) (setupSession, error) 
 	if err := json.Unmarshal(plaintext, &payload); err != nil {
 		return setupSession{}, errors.New("setup authentication is invalid")
 	}
-	if _, err := repository.ParseUUID(payload.SessionID); err != nil || len(payload.CodeHash) > 128 || payload.ExpiresAt.IsZero() || !payload.ExpiresAt.After(time.Now().UTC()) {
+	_, sessionIDErr := repository.ParseUUID(payload.SessionID)
+	codeHashInvalid := len(payload.CodeHash) > 128
+	expiryInvalid := payload.ExpiresAt.IsZero() || !payload.ExpiresAt.After(time.Now().UTC())
+	if sessionIDErr != nil || codeHashInvalid || expiryInvalid {
 		return setupSession{}, errors.New("setup authentication is expired")
 	}
 	codeHash, err := base64.RawURLEncoding.DecodeString(payload.CodeHash)
@@ -109,7 +126,11 @@ func (s *Server) setupSessionFromRequest(r *http.Request) (setupSession, error) 
 		return setupSession{}, errors.New("setup authentication is invalid")
 	}
 	state, err := s.setupState.Load(r.Context())
-	if err != nil || state.SetupSessionID != payload.SessionID || subtle.ConstantTimeCompare([]byte(state.SetupCodeHash), []byte(payload.CodeHash)) != 1 || state.Phase == setupstate.PhaseComplete {
+	sessionMismatch := state.SetupSessionID != payload.SessionID
+	installationComplete := state.Phase == setupstate.PhaseComplete
+	if err != nil || sessionMismatch ||
+		subtle.ConstantTimeCompare([]byte(state.SetupCodeHash), []byte(payload.CodeHash)) != 1 ||
+		installationComplete {
 		return setupSession{}, errors.New("setup authentication is expired or invalid")
 	}
 	verification, err := s.bootstrap.VerifyBootstrapCode(r.Context(), codeHash)
@@ -195,7 +216,7 @@ func (s *Server) externalOrigin(r *http.Request) string {
 	if s.requestIsHTTPS(r) {
 		scheme = "https"
 	}
-	host := ""
+	var host string
 	if r != nil {
 		host = strings.TrimSpace(r.Host)
 	}
@@ -209,7 +230,8 @@ func (s *Server) externalOrigin(r *http.Request) string {
 	if s.config.SetupMode && s.setupState != nil {
 		if state, err := s.setupState.Load(r.Context()); err == nil {
 			if raw := strings.TrimSpace(state.Secret("quick_tunnel_url")); raw != "" {
-				if parsed, parseErr := url.Parse(raw); parseErr == nil && parsed.Scheme == "https" && strings.EqualFold(parsed.Hostname(), requestHostname(r)) {
+				if parsed, parseErr := url.Parse(raw); parseErr == nil && parsed.Scheme == "https" &&
+					strings.EqualFold(parsed.Hostname(), requestHostname(r)) {
 					scheme = "https"
 				}
 			}
@@ -257,7 +279,9 @@ func validRequestHost(host string) bool {
 			return false
 		}
 		for _, character := range label {
-			if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') || character == '-' {
+			if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+				(character >= '0' && character <= '9') ||
+				character == '-' {
 				continue
 			}
 			return false
@@ -268,17 +292,34 @@ func validRequestHost(host string) bool {
 
 func compareStateHash(expected, supplied string) bool {
 	expectedBytes, expectedErr := base64.RawURLEncoding.DecodeString(strings.TrimSpace(expected))
-	suppliedBytes, suppliedErr := base64.RawURLEncoding.DecodeString(setupstate.HashCallbackState(strings.TrimSpace(supplied)))
+	suppliedBytes, suppliedErr := base64.RawURLEncoding.DecodeString(
+		setupstate.HashCallbackState(strings.TrimSpace(supplied)),
+	)
 	return expectedErr == nil && suppliedErr == nil && subtle.ConstantTimeCompare(expectedBytes, suppliedBytes) == 1
 }
 
 func setupRedirect(path string) string {
-	if path == "" || path[0] != '/' || strings.HasPrefix(path, "//") || strings.HasPrefix(path, "/\\") || strings.ContainsAny(path, "\r\n") {
+	emptyOrRelative := path == "" || path[0] != '/'
+	hasInvalidPrefix := strings.HasPrefix(path, "//") || strings.HasPrefix(path, "/\\")
+	hasLineBreaks := strings.ContainsAny(path, "\r\n")
+	if emptyOrRelative || hasInvalidPrefix || hasLineBreaks {
 		return "/setup"
 	}
 	return path
 }
 
 func (s *Server) clearSetupCookie(w http.ResponseWriter, r *http.Request) {
-	http.SetCookie(w, &http.Cookie{Name: setupCookieName, Value: "", Path: "/", HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode, MaxAge: -1, Expires: time.Unix(1, 0)})
+	http.SetCookie(
+		w,
+		&http.Cookie{
+			Name:     setupCookieName,
+			Value:    "",
+			Path:     "/",
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   -1,
+			Expires:  time.Unix(1, 0),
+		},
+	)
 }

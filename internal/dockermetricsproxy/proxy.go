@@ -187,7 +187,9 @@ func (h *handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	copyHeaders(writer.Header(), response.Header)
 	writer.WriteHeader(response.StatusCode)
 	if request.Method != http.MethodHead {
-		if kind == endpointEvents && response.StatusCode >= http.StatusOK && response.StatusCode < http.StatusMultipleChoices {
+		isEventEndpoint := kind == endpointEvents
+		isSuccess := response.StatusCode >= http.StatusOK && response.StatusCode < http.StatusMultipleChoices
+		if isEventEndpoint && isSuccess {
 			copyEventStream(writer, response.Body)
 		} else {
 			_, _ = io.CopyN(writer, response.Body, maxJSONResponse)
@@ -368,12 +370,30 @@ func allowedEventFilters(query url.Values) bool {
 
 func copyHeaders(destination, source http.Header) {
 	for key, values := range source {
-		if strings.EqualFold(key, "Connection") || strings.EqualFold(key, "Keep-Alive") || strings.EqualFold(key, "Proxy-Authenticate") || strings.EqualFold(key, "Proxy-Authorization") || strings.EqualFold(key, "TE") || strings.EqualFold(key, "Trailer") || strings.EqualFold(key, "Transfer-Encoding") || strings.EqualFold(key, "Upgrade") {
+		if isHopByHopHeader(key) {
 			continue
 		}
 		for _, value := range values {
 			destination.Add(key, value)
 		}
+	}
+}
+
+// isHopByHopHeader reports connection-scoped headers that must not be
+// forwarded through the proxy.
+func isHopByHopHeader(key string) bool {
+	switch {
+	case strings.EqualFold(key, "Connection"),
+		strings.EqualFold(key, "Keep-Alive"),
+		strings.EqualFold(key, "Proxy-Authenticate"),
+		strings.EqualFold(key, "Proxy-Authorization"),
+		strings.EqualFold(key, "TE"),
+		strings.EqualFold(key, "Trailer"),
+		strings.EqualFold(key, "Transfer-Encoding"),
+		strings.EqualFold(key, "Upgrade"):
+		return true
+	default:
+		return false
 	}
 }
 

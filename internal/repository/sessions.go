@@ -8,7 +8,12 @@ import (
 	"github.com/google/uuid"
 )
 
-func (r *Repository) CreateSession(ctx context.Context, sessionID, accountID uuid.UUID, tokenHash []byte, expires time.Time) error {
+func (r *Repository) CreateSession(
+	ctx context.Context,
+	sessionID, accountID uuid.UUID,
+	tokenHash []byte,
+	expires time.Time,
+) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -39,8 +44,16 @@ func (r *Repository) DeleteSession(ctx context.Context, sessionID uuid.UUID, acc
 
 // ListConsoleSessions returns active Console sessions for an account. Only
 // safe metadata is projected; bearer tokens remain write-only secrets.
-func (r *Repository) ListConsoleSessions(ctx context.Context, accountID, currentSessionID uuid.UUID) ([]domain.ConsoleSession, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id,(id=$2),expires_at,created_at FROM sessions WHERE account_id=$1 AND expires_at > now() ORDER BY created_at DESC`, accountID, currentSessionID)
+func (r *Repository) ListConsoleSessions(
+	ctx context.Context,
+	accountID, currentSessionID uuid.UUID,
+) ([]domain.ConsoleSession, error) {
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT id,(id=$2),expires_at,created_at FROM sessions WHERE account_id=$1 AND expires_at > now() ORDER BY created_at DESC`,
+		accountID,
+		currentSessionID,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +98,10 @@ func (r *Repository) RevokeConsoleSession(ctx context.Context, accountID, sessio
 // the one currently being used. Keeping the current session alive lets a user
 // safely sign out old devices without losing the page that performed the
 // action.
-func (r *Repository) RevokeOtherConsoleSessions(ctx context.Context, accountID, currentSessionID uuid.UUID) (int64, error) {
+func (r *Repository) RevokeOtherConsoleSessions(
+	ctx context.Context,
+	accountID, currentSessionID uuid.UUID,
+) (int64, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return 0, err

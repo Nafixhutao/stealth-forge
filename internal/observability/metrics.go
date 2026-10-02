@@ -95,7 +95,18 @@ func NewAPIMetrics() *APIMetrics {
 			Help: "Realtime SSE connections closed because a client could not keep up.",
 		}),
 	}
-	registry.MustRegister(metrics.Requests, metrics.RequestDuration, metrics.ResponseBytes, metrics.InFlight, metrics.RealtimeConnections, metrics.RealtimeActiveConnections, metrics.RealtimeEventsDelivered, metrics.RealtimeSlowDisconnects, prometheus.NewGoCollector(), prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
+	registry.MustRegister(
+		metrics.Requests,
+		metrics.RequestDuration,
+		metrics.ResponseBytes,
+		metrics.InFlight,
+		metrics.RealtimeConnections,
+		metrics.RealtimeActiveConnections,
+		metrics.RealtimeEventsDelivered,
+		metrics.RealtimeSlowDisconnects,
+		prometheus.NewGoCollector(),
+		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
+	)
 	return metrics
 }
 
@@ -426,7 +437,59 @@ func NewWorkerMetrics() *WorkerMetrics {
 			Buckets: []float64{0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5},
 		}),
 	}
-	registry.MustRegister(metrics.Polls, metrics.JobsClaimed, metrics.JobsCompleted, metrics.JobDuration, metrics.Requeued, metrics.Errors, metrics.InFlight, metrics.BuildsClaimed, metrics.BuildsCompleted, metrics.BuildDuration, metrics.BuildRequeued, metrics.BuildInFlight, metrics.AppBuildsClaimed, metrics.AppBuildsCompleted, metrics.AppBuildDuration, metrics.AppBuildRequeued, metrics.AppBuildInFlight, metrics.AppBuildErrors, metrics.AppRuntimePolls, metrics.AppRuntimeJobsClaimed, metrics.AppRuntimeJobsCompleted, metrics.AppRuntimeDuration, metrics.AppRuntimeRequeued, metrics.AppRuntimeErrors, metrics.AppRuntimeInFlight, metrics.AppRuntimeOrphansQueued, metrics.AppRuntimeCleanupCompleted, metrics.AppRuntimeCleanupDuration, metrics.AppRuntimeCleanupInFlight, metrics.AppRuntimeImageCacheBytes, metrics.AppRuntimeImageCacheLimitBytes, metrics.AppRuntimeImageCacheAvailable, metrics.AppRuntimeImageCachePressure, metrics.AppRuntimeImageGCTotal, metrics.AppRuntimeImageGCReclaimedBytes, metrics.AppRuntimeProcessExits, metrics.AgentPolls, metrics.AgentJobsClaimed, metrics.AgentJobsCompleted, metrics.AgentJobDuration, metrics.AgentRequeued, metrics.AgentErrors, metrics.AgentInFlight, metrics.OutboxPublishAttempts, metrics.OutboxPending, metrics.OutboxSkipped, metrics.OutboxPublished, metrics.OutboxFailed, metrics.OutboxPublishDuration, prometheus.NewGoCollector(), prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
+	registry.MustRegister(
+		metrics.Polls,
+		metrics.JobsClaimed,
+		metrics.JobsCompleted,
+		metrics.JobDuration,
+		metrics.Requeued,
+		metrics.Errors,
+		metrics.InFlight,
+		metrics.BuildsClaimed,
+		metrics.BuildsCompleted,
+		metrics.BuildDuration,
+		metrics.BuildRequeued,
+		metrics.BuildInFlight,
+		metrics.AppBuildsClaimed,
+		metrics.AppBuildsCompleted,
+		metrics.AppBuildDuration,
+		metrics.AppBuildRequeued,
+		metrics.AppBuildInFlight,
+		metrics.AppBuildErrors,
+		metrics.AppRuntimePolls,
+		metrics.AppRuntimeJobsClaimed,
+		metrics.AppRuntimeJobsCompleted,
+		metrics.AppRuntimeDuration,
+		metrics.AppRuntimeRequeued,
+		metrics.AppRuntimeErrors,
+		metrics.AppRuntimeInFlight,
+		metrics.AppRuntimeOrphansQueued,
+		metrics.AppRuntimeCleanupCompleted,
+		metrics.AppRuntimeCleanupDuration,
+		metrics.AppRuntimeCleanupInFlight,
+		metrics.AppRuntimeImageCacheBytes,
+		metrics.AppRuntimeImageCacheLimitBytes,
+		metrics.AppRuntimeImageCacheAvailable,
+		metrics.AppRuntimeImageCachePressure,
+		metrics.AppRuntimeImageGCTotal,
+		metrics.AppRuntimeImageGCReclaimedBytes,
+		metrics.AppRuntimeProcessExits,
+		metrics.AgentPolls,
+		metrics.AgentJobsClaimed,
+		metrics.AgentJobsCompleted,
+		metrics.AgentJobDuration,
+		metrics.AgentRequeued,
+		metrics.AgentErrors,
+		metrics.AgentInFlight,
+		metrics.OutboxPublishAttempts,
+		metrics.OutboxPending,
+		metrics.OutboxSkipped,
+		metrics.OutboxPublished,
+		metrics.OutboxFailed,
+		metrics.OutboxPublishDuration,
+		prometheus.NewGoCollector(),
+		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
+	)
 	return metrics
 }
 

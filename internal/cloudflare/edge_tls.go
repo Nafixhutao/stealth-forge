@@ -23,15 +23,31 @@ type edgeTLSObservation struct {
 	Reason string
 }
 
-func inspectWorkloadEdgeTLS(ctx context.Context, client Client, zone Zone, workloadBaseDomain string) (edgeTLSObservation, error) {
+func inspectWorkloadEdgeTLS(
+	ctx context.Context,
+	client Client,
+	zone Zone,
+	workloadBaseDomain string,
+) (edgeTLSObservation, error) {
 	workloadBaseDomain, err := domainname.NormalizeDomain(workloadBaseDomain)
 	if err != nil {
-		return edgeTLSObservation{Status: EdgeTLSError, Reason: "The configured workload domain is invalid for Cloudflare edge certificate inspection."}, errors.New("invalid workload domain for edge TLS inspection")
+		return edgeTLSObservation{
+				Status: EdgeTLSError,
+				Reason: "The configured workload domain is invalid for Cloudflare edge certificate inspection.",
+			}, errors.New(
+				"invalid workload domain for edge TLS inspection",
+			)
 	}
 	workloadWildcard := "*." + workloadBaseDomain
 	packs, err := client.ListCertificatePacks(ctx, zone.ID)
 	if err != nil {
-		return edgeTLSObservation{Status: EdgeTLSError, Reason: "Cloudflare edge certificate inventory could not be inspected. Grant SSL and Certificates Read access for the workload zone and retry."}, fmt.Errorf("inspect Cloudflare workload edge certificates: %w", err)
+		return edgeTLSObservation{
+				Status: EdgeTLSError,
+				Reason: "Cloudflare edge certificate inventory could not be inspected. Grant SSL and Certificates Read access for the workload zone and retry.",
+			}, fmt.Errorf(
+				"inspect Cloudflare workload edge certificates: %w",
+				err,
+			)
 	}
 
 	// Read Total TLS state for operator context, but never treat its enabled bit
@@ -39,7 +55,7 @@ func inspectWorkloadEdgeTLS(ctx context.Context, client Client, zone Zone, workl
 	// certificates for hostnames used with Cloudflare Tunnel.
 	totalTLS, _ := client.TotalTLSSettings(ctx, zone.ID)
 
-	active, pending := false, false
+	var active, pending bool
 	for _, pack := range packs {
 		if strings.EqualFold(strings.TrimSpace(pack.Type), "total_tls") {
 			continue
@@ -54,7 +70,12 @@ func inspectWorkloadEdgeTLS(ctx context.Context, client Client, zone Zone, workl
 			if packStatus == "active" && certificateStatus == "active" {
 				usable, expiryErr := certificateNotExpired(certificate.ExpiresOn, time.Now().UTC())
 				if expiryErr != nil {
-					return edgeTLSObservation{Status: EdgeTLSError, Reason: "Cloudflare returned incomplete certificate validity data; edge TLS coverage could not be proven."}, errors.New("Cloudflare returned invalid edge certificate expiration data")
+					return edgeTLSObservation{
+							Status: EdgeTLSError,
+							Reason: "Cloudflare returned incomplete certificate validity data; edge TLS coverage could not be proven.",
+						}, errors.New(
+							"Cloudflare returned invalid edge certificate expiration data",
+						)
 				}
 				if usable {
 					active = true
@@ -77,13 +98,19 @@ func inspectWorkloadEdgeTLS(ctx context.Context, client Client, zone Zone, workl
 	if pending {
 		return edgeTLSObservation{
 			Status: EdgeTLSPending,
-			Reason: fmt.Sprintf("Cloudflare is still provisioning a production edge certificate for %s.", workloadWildcard),
+			Reason: fmt.Sprintf(
+				"Cloudflare is still provisioning a production edge certificate for %s.",
+				workloadWildcard,
+			),
 		}, nil
 	}
 	if totalTLS.Enabled != nil && *totalTLS.Enabled {
 		return edgeTLSObservation{
 			Status: EdgeTLSActionRequired,
-			Reason: fmt.Sprintf("No active production certificate covers %s. Total TLS does not issue certificates for Cloudflare Tunnel hostnames; configure an active edge certificate with this wildcard coverage or use a dedicated Cloudflare zone whose active certificate covers it.", workloadWildcard),
+			Reason: fmt.Sprintf(
+				"No active production certificate covers %s. Total TLS does not issue certificates for Cloudflare Tunnel hostnames; configure an active edge certificate with this wildcard coverage or use a dedicated Cloudflare zone whose active certificate covers it.",
+				workloadWildcard,
+			),
 		}, nil
 	}
 	zoneDescription := strings.TrimSpace(zone.Type)
@@ -94,7 +121,12 @@ func inspectWorkloadEdgeTLS(ctx context.Context, client Client, zone Zone, workl
 	}
 	return edgeTLSObservation{
 		Status: EdgeTLSActionRequired,
-		Reason: fmt.Sprintf("No active production edge certificate covers %s in the %s zone %s. A certificate for a parent wildcard does not cover this deeper wildcard; configure active certificate coverage for the workload wildcard or use a dedicated Cloudflare zone whose active certificate covers it.", workloadWildcard, zoneDescription, zone.Name),
+		Reason: fmt.Sprintf(
+			"No active production edge certificate covers %s in the %s zone %s. A certificate for a parent wildcard does not cover this deeper wildcard; configure active certificate coverage for the workload wildcard or use a dedicated Cloudflare zone whose active certificate covers it.",
+			workloadWildcard,
+			zoneDescription,
+			zone.Name,
+		),
 	}, nil
 }
 
@@ -167,7 +199,8 @@ func normalizeCertificatePattern(value string) (string, bool) {
 
 func isPendingCertificateStatus(status string) bool {
 	status = strings.ToLower(strings.TrimSpace(status))
-	return status == "pending" || status == "initializing" || status == "authorizing" || status == "issuing" || strings.HasPrefix(status, "pending_")
+	return status == "pending" || status == "initializing" || status == "authorizing" || status == "issuing" ||
+		strings.HasPrefix(status, "pending_")
 }
 
 func certificateNotExpired(expiresOn string, now time.Time) (bool, error) {

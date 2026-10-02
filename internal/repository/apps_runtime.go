@@ -7,10 +7,11 @@ package repository
 import (
 	"errors"
 	"fmt"
-	"github.com/Stealth-deplover/stealth/internal/domain"
-	"github.com/google/uuid"
 	"strings"
 	"time"
+
+	"github.com/Stealth-deplover/stealth/internal/domain"
+	"github.com/google/uuid"
 )
 
 const (
@@ -93,7 +94,8 @@ func validateRuntimeJob(job AppRuntimeJob) error {
 	if err != nil || appID == uuid.Nil {
 		return ErrInvalidAppRuntimeJob
 	}
-	if job.RouteIdentity == uuid.Nil || job.ContainerName != AppRuntimeContainerNameForIncarnation(appID, job.RouteIdentity) {
+	if job.RouteIdentity == uuid.Nil ||
+		job.ContainerName != AppRuntimeContainerNameForIncarnation(appID, job.RouteIdentity) {
 		return ErrInvalidAppRuntimeJob
 	}
 	projectID, err := uuid.Parse(job.App.ProjectID)
@@ -111,7 +113,8 @@ func validateRuntimeJob(job AppRuntimeJob) error {
 
 func runtimeDesiredStateMatches(current, expected domain.App) bool {
 	return current.ID == expected.ID && current.ProjectID == expected.ProjectID && current.Enabled == expected.Enabled &&
-		current.DesiredGeneration == expected.DesiredGeneration && current.WorkloadSpecSHA256 == expected.WorkloadSpecSHA256 &&
+		current.DesiredGeneration == expected.DesiredGeneration &&
+		current.WorkloadSpecSHA256 == expected.WorkloadSpecSHA256 &&
 		optionalStringEqual(current.DesiredDeploymentID, expected.DesiredDeploymentID)
 }
 
@@ -181,5 +184,10 @@ func safeAppRuntimeError(value string) string {
 }
 
 func appRuntimeDebugIdentity(job AppRuntimeJob) string {
-	return fmt.Sprintf("project_id=%s app_id=%s generation=%d", job.App.ProjectID, job.App.ID, job.App.DesiredGeneration)
+	return fmt.Sprintf(
+		"project_id=%s app_id=%s generation=%d",
+		job.App.ProjectID,
+		job.App.ID,
+		job.App.DesiredGeneration,
+	)
 }

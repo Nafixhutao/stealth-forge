@@ -19,11 +19,28 @@ import (
 
 // CreateFunctionExecution is the deployment-pinned enqueue primitive used by
 // internal callers. It only records accepted work; the worker owns execution.
-func (r *Repository) CreateFunctionExecution(ctx context.Context, id, projectID, functionID, deploymentID uuid.UUID, trigger string) (domain.FunctionExecution, error) {
-	return r.CreateFunctionExecutionWithInput(ctx, id, projectID, functionID, deploymentID, trigger, json.RawMessage(`{}`))
+func (r *Repository) CreateFunctionExecution(
+	ctx context.Context,
+	id, projectID, functionID, deploymentID uuid.UUID,
+	trigger string,
+) (domain.FunctionExecution, error) {
+	return r.CreateFunctionExecutionWithInput(
+		ctx,
+		id,
+		projectID,
+		functionID,
+		deploymentID,
+		trigger,
+		json.RawMessage(`{}`),
+	)
 }
 
-func (r *Repository) CreateFunctionExecutionWithInput(ctx context.Context, id, projectID, functionID, deploymentID uuid.UUID, trigger string, input json.RawMessage) (domain.FunctionExecution, error) {
+func (r *Repository) CreateFunctionExecutionWithInput(
+	ctx context.Context,
+	id, projectID, functionID, deploymentID uuid.UUID,
+	trigger string,
+	input json.RawMessage,
+) (domain.FunctionExecution, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.FunctionExecution{}, err
@@ -55,7 +72,18 @@ func (r *Repository) CreateFunctionExecutionWithInput(ctx context.Context, id, p
 	if !validFunctionExecutionTrigger(trigger) {
 		return domain.FunctionExecution{}, ErrInvalidFunctionSettings
 	}
-	execution, err := scanFunctionExecution(tx.QueryRow(ctx, `INSERT INTO function_executions (id,deployment_id,function_id,project_id,trigger,input_json) VALUES ($1,$2,$3,$4,$5,$6) RETURNING `+functionExecutionProjection, id, deploymentID, functionID, projectID, trigger, []byte(input)))
+	execution, err := scanFunctionExecution(
+		tx.QueryRow(
+			ctx,
+			`INSERT INTO function_executions (id,deployment_id,function_id,project_id,trigger,input_json) VALUES ($1,$2,$3,$4,$5,$6) RETURNING `+functionExecutionProjection,
+			id,
+			deploymentID,
+			functionID,
+			projectID,
+			trigger,
+			[]byte(input),
+		),
+	)
 	if err != nil {
 		return domain.FunctionExecution{}, mapError(err)
 	}
@@ -72,7 +100,13 @@ func (r *Repository) CreateFunctionExecutionWithInput(ctx context.Context, id, p
 // It resolves the currently active deployment while holding the function row
 // lock, so a concurrent activation cannot route an invocation to an old
 // deployment. API-key callers must have functions.write.
-func (r *Repository) CreateFunctionExecutionForActor(ctx context.Context, id, projectID, functionID uuid.UUID, actor FunctionActor, trigger string, input json.RawMessage) (domain.FunctionExecution, error) {
+func (r *Repository) CreateFunctionExecutionForActor(
+	ctx context.Context,
+	id, projectID, functionID uuid.UUID,
+	actor FunctionActor,
+	trigger string,
+	input json.RawMessage,
+) (domain.FunctionExecution, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.FunctionExecution{}, err
@@ -108,7 +142,18 @@ func (r *Repository) CreateFunctionExecutionForActor(ctx context.Context, id, pr
 	if len(input) > 65536 || !json.Valid(input) || !validFunctionExecutionTrigger(trigger) {
 		return domain.FunctionExecution{}, ErrInvalidFunctionSettings
 	}
-	execution, err := scanFunctionExecution(tx.QueryRow(ctx, `INSERT INTO function_executions (id,deployment_id,function_id,project_id,trigger,input_json) VALUES ($1,$2,$3,$4,$5,$6) RETURNING `+functionExecutionProjection, id, deploymentID, functionID, projectID, trigger, []byte(input)))
+	execution, err := scanFunctionExecution(
+		tx.QueryRow(
+			ctx,
+			`INSERT INTO function_executions (id,deployment_id,function_id,project_id,trigger,input_json) VALUES ($1,$2,$3,$4,$5,$6) RETURNING `+functionExecutionProjection,
+			id,
+			deploymentID,
+			functionID,
+			projectID,
+			trigger,
+			[]byte(input),
+		),
+	)
 	if err != nil {
 		return domain.FunctionExecution{}, mapError(err)
 	}
@@ -128,7 +173,13 @@ func (r *Repository) CreateFunctionExecutionForActor(ctx context.Context, id, pr
 // function's execute_permissions are evaluated inside the same transaction
 // that resolves the active deployment, preventing a permission or activation
 // race from routing an invocation unexpectedly.
-func (r *Repository) CreateFunctionExecutionForApplication(ctx context.Context, id, projectID, functionID uuid.UUID, projectUserID *uuid.UUID, trigger string, input json.RawMessage) (domain.FunctionExecution, error) {
+func (r *Repository) CreateFunctionExecutionForApplication(
+	ctx context.Context,
+	id, projectID, functionID uuid.UUID,
+	projectUserID *uuid.UUID,
+	trigger string,
+	input json.RawMessage,
+) (domain.FunctionExecution, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.FunctionExecution{}, err
@@ -171,7 +222,18 @@ func (r *Repository) CreateFunctionExecutionForApplication(ctx context.Context, 
 	if len(input) > 65536 || !json.Valid(input) || !validFunctionExecutionTrigger(trigger) {
 		return domain.FunctionExecution{}, ErrInvalidFunctionSettings
 	}
-	execution, err := scanFunctionExecution(tx.QueryRow(ctx, `INSERT INTO function_executions (id,deployment_id,function_id,project_id,trigger,input_json) VALUES ($1,$2,$3,$4,$5,$6) RETURNING `+functionExecutionProjection, id, deploymentID, functionID, projectID, trigger, []byte(input)))
+	execution, err := scanFunctionExecution(
+		tx.QueryRow(
+			ctx,
+			`INSERT INTO function_executions (id,deployment_id,function_id,project_id,trigger,input_json) VALUES ($1,$2,$3,$4,$5,$6) RETURNING `+functionExecutionProjection,
+			id,
+			deploymentID,
+			functionID,
+			projectID,
+			trigger,
+			[]byte(input),
+		),
+	)
 	if err != nil {
 		return domain.FunctionExecution{}, mapError(err)
 	}
@@ -187,32 +249,98 @@ func (r *Repository) CreateFunctionExecutionForApplication(ctx context.Context, 
 	return execution, nil
 }
 
-func (r *Repository) TransitionFunctionExecution(ctx context.Context, projectID, functionID, executionID uuid.UUID, next, errorMessage string) (domain.FunctionExecution, error) {
-	return r.transitionFunctionExecutionResult(ctx, projectID, functionID, executionID, "", next, errorMessage, nil, nil, nil)
+func (r *Repository) TransitionFunctionExecution(
+	ctx context.Context,
+	projectID, functionID, executionID uuid.UUID,
+	next, errorMessage string,
+) (domain.FunctionExecution, error) {
+	return r.transitionFunctionExecutionResult(
+		ctx,
+		projectID,
+		functionID,
+		executionID,
+		"",
+		next,
+		errorMessage,
+		nil,
+		nil,
+		nil,
+	)
 }
 
-func (r *Repository) TransitionFunctionExecutionResult(ctx context.Context, projectID, functionID, executionID uuid.UUID, next, errorMessage string, responseStatus *int, output json.RawMessage, outputContentType *string) (domain.FunctionExecution, error) {
-	return r.transitionFunctionExecutionResult(ctx, projectID, functionID, executionID, "", next, errorMessage, responseStatus, output, outputContentType)
+func (r *Repository) TransitionFunctionExecutionResult(
+	ctx context.Context,
+	projectID, functionID, executionID uuid.UUID,
+	next, errorMessage string,
+	responseStatus *int,
+	output json.RawMessage,
+	outputContentType *string,
+) (domain.FunctionExecution, error) {
+	return r.transitionFunctionExecutionResult(
+		ctx,
+		projectID,
+		functionID,
+		executionID,
+		"",
+		next,
+		errorMessage,
+		responseStatus,
+		output,
+		outputContentType,
+	)
 }
 
 // TransitionFunctionExecutionResultForWorker fences terminal writes to the
 // worker that holds the lease. A stale worker that was requeued cannot publish
 // output over a newer attempt.
-func (r *Repository) TransitionFunctionExecutionResultForWorker(ctx context.Context, projectID, functionID, executionID uuid.UUID, workerID, next, errorMessage string, responseStatus *int, output json.RawMessage, outputContentType *string) (domain.FunctionExecution, error) {
+func (r *Repository) TransitionFunctionExecutionResultForWorker(
+	ctx context.Context,
+	projectID, functionID, executionID uuid.UUID,
+	workerID, next, errorMessage string,
+	responseStatus *int,
+	output json.RawMessage,
+	outputContentType *string,
+) (domain.FunctionExecution, error) {
 	if !validFunctionWorkerID(workerID) {
 		return domain.FunctionExecution{}, ErrInvalidFunctionSettings
 	}
-	return r.transitionFunctionExecutionResult(ctx, projectID, functionID, executionID, workerID, next, errorMessage, responseStatus, output, outputContentType)
+	return r.transitionFunctionExecutionResult(
+		ctx,
+		projectID,
+		functionID,
+		executionID,
+		workerID,
+		next,
+		errorMessage,
+		responseStatus,
+		output,
+		outputContentType,
+	)
 }
 
-func (r *Repository) transitionFunctionExecutionResult(ctx context.Context, projectID, functionID, executionID uuid.UUID, workerID, next, errorMessage string, responseStatus *int, output json.RawMessage, outputContentType *string) (domain.FunctionExecution, error) {
+func (r *Repository) transitionFunctionExecutionResult(
+	ctx context.Context,
+	projectID, functionID, executionID uuid.UUID,
+	workerID, next, errorMessage string,
+	responseStatus *int,
+	output json.RawMessage,
+	outputContentType *string,
+) (domain.FunctionExecution, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.FunctionExecution{}, err
 	}
 	defer tx.Rollback(ctx)
 	var current domain.FunctionExecution
-	current, err = scanFunctionExecution(tx.QueryRow(ctx, `SELECT `+functionExecutionProjection+` FROM function_executions WHERE project_id=$1 AND function_id=$2 AND id=$3 FOR UPDATE`, projectID, functionID, executionID))
+	current, err = scanFunctionExecution(
+		tx.QueryRow(
+			ctx,
+			`SELECT `+functionExecutionProjection+` FROM function_executions WHERE project_id=$1 AND function_id=$2 AND id=$3 FOR UPDATE`,
+			projectID,
+			functionID,
+			executionID,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.FunctionExecution{}, ErrNotFound
 	}
@@ -234,16 +362,52 @@ func (r *Repository) transitionFunctionExecutionResult(ctx context.Context, proj
 	var item domain.FunctionExecution
 	switch next {
 	case "running":
-		item, err = scanFunctionExecution(tx.QueryRow(ctx, `UPDATE function_executions SET status='running',started_at=COALESCE(started_at,now()),updated_at=now() WHERE project_id=$1 AND function_id=$2 AND id=$3 RETURNING `+functionExecutionProjection, projectID, functionID, executionID))
+		item, err = scanFunctionExecution(
+			tx.QueryRow(
+				ctx,
+				`UPDATE function_executions SET status='running',started_at=COALESCE(started_at,now()),updated_at=now() WHERE project_id=$1 AND function_id=$2 AND id=$3 RETURNING `+functionExecutionProjection,
+				projectID,
+				functionID,
+				executionID,
+			),
+		)
 	case "succeeded":
 		if len(output) > 1048576 || (len(output) > 0 && !json.Valid(output)) {
 			return domain.FunctionExecution{}, ErrInvalidFunctionSettings
 		}
-		item, err = scanFunctionExecution(tx.QueryRow(ctx, `UPDATE function_executions SET status='succeeded',finished_at=now(),error_message=NULL,response_status=$4,output_json=$5,output_content_type=$6,claimed_at=NULL,worker_id=NULL,updated_at=now() WHERE project_id=$1 AND function_id=$2 AND id=$3 RETURNING `+functionExecutionProjection, projectID, functionID, executionID, responseStatus, nullableJSON(output), outputContentType))
+		item, err = scanFunctionExecution(
+			tx.QueryRow(
+				ctx,
+				`UPDATE function_executions SET status='succeeded',finished_at=now(),error_message=NULL,response_status=$4,output_json=$5,output_content_type=$6,claimed_at=NULL,worker_id=NULL,updated_at=now() WHERE project_id=$1 AND function_id=$2 AND id=$3 RETURNING `+functionExecutionProjection,
+				projectID,
+				functionID,
+				executionID,
+				responseStatus,
+				nullableJSON(output),
+				outputContentType,
+			),
+		)
 	case "failed":
-		item, err = scanFunctionExecution(tx.QueryRow(ctx, `UPDATE function_executions SET status='failed',finished_at=now(),error_message=$4,claimed_at=NULL,worker_id=NULL,updated_at=now() WHERE project_id=$1 AND function_id=$2 AND id=$3 RETURNING `+functionExecutionProjection, projectID, functionID, executionID, nullableError(errorMessage)))
+		item, err = scanFunctionExecution(
+			tx.QueryRow(
+				ctx,
+				`UPDATE function_executions SET status='failed',finished_at=now(),error_message=$4,claimed_at=NULL,worker_id=NULL,updated_at=now() WHERE project_id=$1 AND function_id=$2 AND id=$3 RETURNING `+functionExecutionProjection,
+				projectID,
+				functionID,
+				executionID,
+				nullableError(errorMessage),
+			),
+		)
 	case "cancelled":
-		item, err = scanFunctionExecution(tx.QueryRow(ctx, `UPDATE function_executions SET status='cancelled',finished_at=now(),claimed_at=NULL,worker_id=NULL,updated_at=now() WHERE project_id=$1 AND function_id=$2 AND id=$3 RETURNING `+functionExecutionProjection, projectID, functionID, executionID))
+		item, err = scanFunctionExecution(
+			tx.QueryRow(
+				ctx,
+				`UPDATE function_executions SET status='cancelled',finished_at=now(),claimed_at=NULL,worker_id=NULL,updated_at=now() WHERE project_id=$1 AND function_id=$2 AND id=$3 RETURNING `+functionExecutionProjection,
+				projectID,
+				functionID,
+				executionID,
+			),
+		)
 	default:
 		return domain.FunctionExecution{}, ErrInvalidFunctionTransition
 	}
@@ -302,7 +466,8 @@ func validFunctionExecutionTrigger(value string) bool {
 		return false
 	}
 	for index, character := range value {
-		alphaNumeric := (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9')
+		alphaNumeric := (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') ||
+			(character >= '0' && character <= '9')
 		if alphaNumeric {
 			continue
 		}
@@ -314,14 +479,27 @@ func validFunctionExecutionTrigger(value string) bool {
 	return true
 }
 
-func (r *Repository) ListFunctionExecutions(ctx context.Context, projectID, functionID uuid.UUID, actor FunctionActor, limit int, cursor *uuid.UUID) ([]domain.FunctionExecution, string, error) {
+func (r *Repository) ListFunctionExecutions(
+	ctx context.Context,
+	projectID, functionID uuid.UUID,
+	actor FunctionActor,
+	limit int,
+	cursor *uuid.UUID,
+) ([]domain.FunctionExecution, string, error) {
 	if _, err := r.requireFunctionRead(ctx, projectID, actor); err != nil {
 		return nil, "", err
 	}
 	if _, err := r.functionByID(ctx, r.pool, projectID, functionID, false); err != nil {
 		return nil, "", err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+functionExecutionProjection+` FROM function_executions WHERE project_id=$1 AND function_id=$2 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $4`, projectID, functionID, cursor, limit+1)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT `+functionExecutionProjection+` FROM function_executions WHERE project_id=$1 AND function_id=$2 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $4`,
+		projectID,
+		functionID,
+		cursor,
+		limit+1,
+	)
 	if err != nil {
 		return nil, "", err
 	}
@@ -345,27 +523,52 @@ func (r *Repository) ListFunctionExecutions(ctx context.Context, projectID, func
 	return items, next, nil
 }
 
-func (r *Repository) GetFunctionExecution(ctx context.Context, projectID, functionID, executionID uuid.UUID, actor FunctionActor) (domain.FunctionExecution, error) {
+func (r *Repository) GetFunctionExecution(
+	ctx context.Context,
+	projectID, functionID, executionID uuid.UUID,
+	actor FunctionActor,
+) (domain.FunctionExecution, error) {
 	if _, err := r.requireFunctionRead(ctx, projectID, actor); err != nil {
 		return domain.FunctionExecution{}, err
 	}
 	if _, err := r.functionByID(ctx, r.pool, projectID, functionID, false); err != nil {
 		return domain.FunctionExecution{}, err
 	}
-	item, err := scanFunctionExecution(r.pool.QueryRow(ctx, `SELECT `+functionExecutionProjection+` FROM function_executions WHERE project_id=$1 AND function_id=$2 AND id=$3`, projectID, functionID, executionID))
+	item, err := scanFunctionExecution(
+		r.pool.QueryRow(
+			ctx,
+			`SELECT `+functionExecutionProjection+` FROM function_executions WHERE project_id=$1 AND function_id=$2 AND id=$3`,
+			projectID,
+			functionID,
+			executionID,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.FunctionExecution{}, ErrNotFound
 	}
 	return item, err
 }
 
-func (r *Repository) AppendFunctionExecutionLog(ctx context.Context, projectID, functionID, executionID, id uuid.UUID, sequence int64, level, message string) (domain.FunctionExecutionLog, error) {
+func (r *Repository) AppendFunctionExecutionLog(
+	ctx context.Context,
+	projectID, functionID, executionID, id uuid.UUID,
+	sequence int64,
+	level, message string,
+) (domain.FunctionExecutionLog, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.FunctionExecutionLog{}, err
 	}
 	defer tx.Rollback(ctx)
-	_, err = scanFunctionExecution(tx.QueryRow(ctx, `SELECT `+functionExecutionProjection+` FROM function_executions WHERE project_id=$1 AND function_id=$2 AND id=$3 FOR UPDATE`, projectID, functionID, executionID))
+	_, err = scanFunctionExecution(
+		tx.QueryRow(
+			ctx,
+			`SELECT `+functionExecutionProjection+` FROM function_executions WHERE project_id=$1 AND function_id=$2 AND id=$3 FOR UPDATE`,
+			projectID,
+			functionID,
+			executionID,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.FunctionExecutionLog{}, ErrNotFound
 	}
@@ -377,7 +580,19 @@ func (r *Repository) AppendFunctionExecutionLog(ctx context.Context, projectID, 
 			return domain.FunctionExecutionLog{}, err
 		}
 	}
-	item, err := scanFunctionExecutionLog(tx.QueryRow(ctx, `INSERT INTO function_execution_logs (id,execution_id,function_id,project_id,sequence,level,message) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING `+functionExecutionLogProjection, id, executionID, functionID, projectID, sequence, level, message))
+	item, err := scanFunctionExecutionLog(
+		tx.QueryRow(
+			ctx,
+			`INSERT INTO function_execution_logs (id,execution_id,function_id,project_id,sequence,level,message) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING `+functionExecutionLogProjection,
+			id,
+			executionID,
+			functionID,
+			projectID,
+			sequence,
+			level,
+			message,
+		),
+	)
 	if err != nil {
 		return domain.FunctionExecutionLog{}, mapError(err)
 	}
@@ -433,7 +648,16 @@ func (r *Repository) ClaimNextFunctionExecution(ctx context.Context, workerID st
 	if deployment.Status != "active" || deployment.BuildStatus != "succeeded" {
 		return FunctionExecutionJob{}, ErrNoExecutionJob
 	}
-	execution, err := scanFunctionExecution(tx.QueryRow(ctx, `UPDATE function_executions SET status='running',started_at=COALESCE(started_at,now()),claimed_at=now(),worker_id=$4,updated_at=now() WHERE id=$1 AND project_id=$2 AND function_id=$3 AND status='accepted' RETURNING `+functionExecutionProjection, executionID, projectID, functionID, workerID))
+	execution, err := scanFunctionExecution(
+		tx.QueryRow(
+			ctx,
+			`UPDATE function_executions SET status='running',started_at=COALESCE(started_at,now()),claimed_at=now(),worker_id=$4,updated_at=now() WHERE id=$1 AND project_id=$2 AND function_id=$3 AND status='accepted' RETURNING `+functionExecutionProjection,
+			executionID,
+			projectID,
+			functionID,
+			workerID,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return FunctionExecutionJob{}, ErrNoExecutionJob
 	}
@@ -442,7 +666,8 @@ func (r *Repository) ClaimNextFunctionExecution(ctx context.Context, workerID st
 	}
 	// The update includes explicit tenant predicates and the identifiers came
 	// from the locked row, so a future query edit cannot silently cross tenants.
-	if execution.ProjectID != projectID.String() || execution.FunctionID != functionID.String() || execution.DeploymentID != deploymentID.String() {
+	if execution.ProjectID != projectID.String() || execution.FunctionID != functionID.String() ||
+		execution.DeploymentID != deploymentID.String() {
 		return FunctionExecutionJob{}, ErrExecutionNotAvailable
 	}
 	function, err = r.functionDeploymentRuntimeConfigTx(ctx, tx, projectID, functionID, deploymentID, function)
@@ -462,7 +687,14 @@ func (r *Repository) ClaimNextFunctionExecution(ctx context.Context, workerID st
 	if err := tx.Commit(ctx); err != nil {
 		return FunctionExecutionJob{}, err
 	}
-	return FunctionExecutionJob{Execution: execution, Function: function, Deployment: deployment, SourcePath: sourcePath, BuildPath: buildStorage.BuildPath, BuildChecksumSHA256: buildStorage.BuildChecksumSHA256}, nil
+	return FunctionExecutionJob{
+		Execution:           execution,
+		Function:            function,
+		Deployment:          deployment,
+		SourcePath:          sourcePath,
+		BuildPath:           buildStorage.BuildPath,
+		BuildChecksumSHA256: buildStorage.BuildChecksumSHA256,
+	}, nil
 }
 
 // RequeueStaleFunctionExecutions returns leases whose worker disappeared.
@@ -472,7 +704,11 @@ func (r *Repository) RequeueStaleFunctionExecutions(ctx context.Context, maxAge 
 	if maxAge <= 0 {
 		return 0, ErrInvalidFunctionSettings
 	}
-	result, err := r.pool.Exec(ctx, `UPDATE function_executions SET status='accepted',started_at=NULL,claimed_at=NULL,worker_id=NULL,updated_at=now() WHERE status='running' AND claimed_at IS NOT NULL AND claimed_at < now() - ($1::double precision * interval '1 second')`, maxAge.Seconds())
+	result, err := r.pool.Exec(
+		ctx,
+		`UPDATE function_executions SET status='accepted',started_at=NULL,claimed_at=NULL,worker_id=NULL,updated_at=now() WHERE status='running' AND claimed_at IS NOT NULL AND claimed_at < now() - ($1::double precision * interval '1 second')`,
+		maxAge.Seconds(),
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -484,7 +720,11 @@ func validFunctionWorkerID(value string) bool {
 		return false
 	}
 	for _, character := range value {
-		if (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '.' || character == '_' || character == '-' {
+		if (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') ||
+			(character >= '0' && character <= '9') ||
+			character == '.' ||
+			character == '_' ||
+			character == '-' {
 			continue
 		}
 		return false
@@ -495,14 +735,23 @@ func validFunctionWorkerID(value string) bool {
 // FunctionRuntimeVariables decrypts values only for the trusted execution
 // worker. It never returns metadata to an API actor and rejects malformed
 // ciphertext rather than starting a process with partial configuration.
-func (r *Repository) FunctionRuntimeVariables(ctx context.Context, projectID, functionID uuid.UUID, cipher *functionsecret.Cipher) ([]FunctionRuntimeVariable, error) {
+func (r *Repository) FunctionRuntimeVariables(
+	ctx context.Context,
+	projectID, functionID uuid.UUID,
+	cipher *functionsecret.Cipher,
+) ([]FunctionRuntimeVariable, error) {
 	if cipher == nil {
 		return nil, ErrFunctionSecretUnavailable
 	}
 	if _, err := r.functionByID(ctx, r.pool, projectID, functionID, false); err != nil {
 		return nil, err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT key,value_ciphertext,is_secret FROM function_variables WHERE project_id=$1 AND function_id=$2 ORDER BY key`, projectID, functionID)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT key,value_ciphertext,is_secret FROM function_variables WHERE project_id=$1 AND function_id=$2 ORDER BY key`,
+		projectID,
+		functionID,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -513,7 +762,11 @@ func (r *Repository) FunctionRuntimeVariables(ctx context.Context, projectID, fu
 // belongs to one immutable deployment. Updating function_variables therefore
 // cannot silently alter a built revision or an invocation already queued for
 // it.
-func (r *Repository) FunctionRuntimeVariablesForDeployment(ctx context.Context, projectID, functionID, deploymentID uuid.UUID, cipher *functionsecret.Cipher) ([]FunctionRuntimeVariable, error) {
+func (r *Repository) FunctionRuntimeVariablesForDeployment(
+	ctx context.Context,
+	projectID, functionID, deploymentID uuid.UUID,
+	cipher *functionsecret.Cipher,
+) ([]FunctionRuntimeVariable, error) {
 	if cipher == nil {
 		return nil, ErrFunctionSecretUnavailable
 	}
@@ -524,14 +777,23 @@ func (r *Repository) FunctionRuntimeVariablesForDeployment(ctx context.Context, 
 	if !exists {
 		return nil, ErrNotFound
 	}
-	rows, err := r.pool.Query(ctx, `SELECT key,value_ciphertext,is_secret FROM function_deployment_variables WHERE project_id=$1 AND function_id=$2 AND deployment_id=$3 ORDER BY key`, projectID, functionID, deploymentID)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT key,value_ciphertext,is_secret FROM function_deployment_variables WHERE project_id=$1 AND function_id=$2 AND deployment_id=$3 ORDER BY key`,
+		projectID,
+		functionID,
+		deploymentID,
+	)
 	if err != nil {
 		return nil, err
 	}
 	return materializeFunctionRuntimeVariables(rows, cipher)
 }
 
-func materializeFunctionRuntimeVariables(rows functionVariableRows, cipher *functionsecret.Cipher) ([]FunctionRuntimeVariable, error) {
+func materializeFunctionRuntimeVariables(
+	rows functionVariableRows,
+	cipher *functionsecret.Cipher,
+) ([]FunctionRuntimeVariable, error) {
 	defer rows.Close()
 	variables := make([]FunctionRuntimeVariable, 0)
 	for rows.Next() {
@@ -556,14 +818,28 @@ func materializeFunctionRuntimeVariables(rows functionVariableRows, cipher *func
 	return variables, nil
 }
 
-func (r *Repository) ListFunctionExecutionLogs(ctx context.Context, projectID, functionID, executionID uuid.UUID, actor FunctionActor, limit int, after int64) ([]domain.FunctionExecutionLog, error) {
+func (r *Repository) ListFunctionExecutionLogs(
+	ctx context.Context,
+	projectID, functionID, executionID uuid.UUID,
+	actor FunctionActor,
+	limit int,
+	after int64,
+) ([]domain.FunctionExecutionLog, error) {
 	if _, err := r.requireFunctionRead(ctx, projectID, actor); err != nil {
 		return nil, err
 	}
 	if _, err := r.functionByID(ctx, r.pool, projectID, functionID, false); err != nil {
 		return nil, err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+functionExecutionLogProjection+` FROM function_execution_logs WHERE project_id=$1 AND function_id=$2 AND execution_id=$3 AND sequence>$4 ORDER BY sequence LIMIT $5`, projectID, functionID, executionID, after, limit)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT `+functionExecutionLogProjection+` FROM function_execution_logs WHERE project_id=$1 AND function_id=$2 AND execution_id=$3 AND sequence>$4 ORDER BY sequence LIMIT $5`,
+		projectID,
+		functionID,
+		executionID,
+		after,
+		limit,
+	)
 	if err != nil {
 		return nil, err
 	}

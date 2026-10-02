@@ -97,7 +97,9 @@ func checkPathComponents(root *os.Root, relative string, finalMustBeDirectory bo
 			return appbuildspec.ErrInvalidBuildSpec
 		}
 		if isFinal {
-			if finalMustBeDirectory && !info.IsDir() || !finalMustBeDirectory && !info.Mode().IsRegular() {
+			isDirectory := finalMustBeDirectory && info.IsDir()
+			isRegularFile := !finalMustBeDirectory && info.Mode().IsRegular()
+			if !isDirectory && !isRegularFile {
 				return appbuildspec.ErrInvalidBuildSpec
 			}
 		}

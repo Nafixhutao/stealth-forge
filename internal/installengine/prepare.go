@@ -101,7 +101,7 @@ func (e *Engine) prepareInstallation(ctx context.Context, plan Plan) (*preparedI
 		if err := rejectReleaseDowngrade(plan.Version, installedVersion); err != nil {
 			return nil, err
 		}
-		migrated, err := MigrateReleaseConfig(values, plan.Version, installedVersion)
+		migrated, err := migrateReleaseConfig(values, plan.Version, installedVersion)
 		if err != nil {
 			return nil, fmt.Errorf("prepare existing configuration migration: %w", err)
 		}

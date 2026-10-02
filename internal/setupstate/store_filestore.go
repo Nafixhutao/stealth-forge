@@ -96,7 +96,7 @@ func LoadEncryptedSnapshot(ctx context.Context, path string, cipher *functionsec
 	if err := migrateState(&state, legacy); err != nil {
 		return State{}, errors.New("encrypted setup state could not be migrated")
 	}
-	if err := ValidateState(state); err != nil {
+	if err := validateState(state); err != nil {
 		return State{}, errors.New("encrypted setup state is invalid")
 	}
 	if state.Secrets == nil {
@@ -151,7 +151,7 @@ func (s *FileStore) Save(ctx context.Context, state State) error {
 	defer lock.Close()
 	state.UpdatedAt = time.Now().UTC()
 	state.Version = stateVersion
-	if err := ValidateState(state); err != nil {
+	if err := validateState(state); err != nil {
 		return err
 	}
 	return s.saveLocked(state)
@@ -183,7 +183,7 @@ func (s *FileStore) Update(ctx context.Context, mutate func(*State) error) (Stat
 	}
 	state.UpdatedAt = time.Now().UTC()
 	state.Version = stateVersion
-	if err := ValidateState(state); err != nil {
+	if err := validateState(state); err != nil {
 		return State{}, err
 	}
 	if err := s.saveLocked(state); err != nil {
@@ -218,7 +218,7 @@ func (s *FileStore) loadLocked(ctx context.Context) (State, error) {
 	if err := migrateState(&state, legacy); err != nil {
 		return State{}, err
 	}
-	if err := ValidateState(state); err != nil {
+	if err := validateState(state); err != nil {
 		return State{}, err
 	}
 	if state.Secrets == nil {

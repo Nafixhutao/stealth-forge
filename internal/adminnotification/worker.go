@@ -33,7 +33,11 @@ const (
 
 type Persistence interface {
 	RequeueStaleAdminNotificationDeliveries(context.Context, time.Duration) (int64, error)
-	ClaimNextAdminNotificationDelivery(context.Context, string, time.Duration) (repository.AdminNotificationDeliveryJob, error)
+	ClaimNextAdminNotificationDelivery(
+		context.Context,
+		string,
+		time.Duration,
+	) (repository.AdminNotificationDeliveryJob, error)
 	FinishAdminNotificationDelivery(context.Context, uuid.UUID, string, bool, string, *time.Time) error
 }
 
@@ -50,7 +54,13 @@ type Worker struct {
 	Logger       *slog.Logger
 }
 
-func New(store Persistence, cipher *functionsecret.Cipher, email mailer.Sender, workerID string, logger *slog.Logger) (*Worker, error) {
+func New(
+	store Persistence,
+	cipher *functionsecret.Cipher,
+	email mailer.Sender,
+	workerID string,
+	logger *slog.Logger,
+) (*Worker, error) {
 	if store == nil || cipher == nil || strings.TrimSpace(workerID) == "" {
 		return nil, errors.New("invalid admin notification worker dependencies")
 	}
@@ -83,7 +93,9 @@ func (w *Worker) Run(ctx context.Context) error {
 	ticker := time.NewTicker(poll)
 	defer ticker.Stop()
 	for {
-		if _, err := w.Store.RequeueStaleAdminNotificationDeliveries(ctx, leaseAge); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+		if _, err := w.Store.RequeueStaleAdminNotificationDeliveries(ctx, leaseAge); err != nil &&
+			!errors.Is(err, context.Canceled) &&
+			!errors.Is(err, context.DeadlineExceeded) {
 			w.Logger.Error("admin notification lease recovery failed", "error", safeError(err))
 		}
 		processed, err := w.RunOnce(ctx, leaseAge)
@@ -114,15 +126,36 @@ func (w *Worker) RunOnce(ctx context.Context, leaseAge time.Duration) (bool, err
 		maxAttempts = defaultMaxAttempts
 	}
 	if job.Attempts > maxAttempts {
-		return true, w.Store.FinishAdminNotificationDelivery(ctx, job.DeliveryID, w.WorkerID, false, "maximum notification delivery attempts exceeded", nil)
+		return true, w.Store.FinishAdminNotificationDelivery(
+			ctx,
+			job.DeliveryID,
+			w.WorkerID,
+			false,
+			"maximum notification delivery attempts exceeded",
+			nil,
+		)
 	}
 	config, err := w.Cipher.Decrypt(job.ConfigEncrypted)
 	if err != nil {
-		return true, w.Store.FinishAdminNotificationDelivery(ctx, job.DeliveryID, w.WorkerID, false, "notification configuration could not be decrypted", nil)
+		return true, w.Store.FinishAdminNotificationDelivery(
+			ctx,
+			job.DeliveryID,
+			w.WorkerID,
+			false,
+			"notification configuration could not be decrypted",
+			nil,
+		)
 	}
 	if err := w.deliver(ctx, job, config); err != nil {
 		retryAt := notificationRetryAt(job.Attempts, maxAttempts)
-		return true, w.Store.FinishAdminNotificationDelivery(ctx, job.DeliveryID, w.WorkerID, false, safeError(err), retryAt)
+		return true, w.Store.FinishAdminNotificationDelivery(
+			ctx,
+			job.DeliveryID,
+			w.WorkerID,
+			false,
+			safeError(err),
+			retryAt,
+		)
 	}
 	return true, w.Store.FinishAdminNotificationDelivery(ctx, job.DeliveryID, w.WorkerID, true, "", nil)
 }

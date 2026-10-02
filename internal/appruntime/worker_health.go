@@ -3,6 +3,7 @@ package appruntime
 import (
 	"context"
 	"errors"
+
 	"github.com/Stealth-deplover/stealth/internal/repository"
 	"github.com/google/uuid"
 )
@@ -21,9 +22,11 @@ func (w *Worker) processHealthCheck(parent context.Context, job repository.AppHe
 			return repository.ErrAppRuntimeStale
 		}
 		container, found, err := w.Runtime.InspectApp(ctx, appID)
-		if err != nil || !found || container.ID != job.ContainerID || !container.State.Running || containerAddress(container, w.runtimeNetworkName()) != job.Address {
+		if err != nil || !found || container.ID != job.ContainerID || !container.State.Running ||
+			containerAddress(container, w.runtimeNetworkName()) != job.Address {
 			invalidateErr := w.Store.InvalidateAppHealthIdentity(ctx, job)
-			if errors.Is(invalidateErr, repository.ErrAppRuntimeLeaseLost) || errors.Is(invalidateErr, repository.ErrAppRuntimeStale) {
+			if errors.Is(invalidateErr, repository.ErrAppRuntimeLeaseLost) ||
+				errors.Is(invalidateErr, repository.ErrAppRuntimeStale) {
 				return invalidateErr
 			}
 			if invalidateErr != nil {
@@ -35,7 +38,9 @@ func (w *Worker) processHealthCheck(parent context.Context, job repository.AppHe
 
 		probeErr := w.Runtime.ProbeApp(ctx, job, container)
 		if errors.Is(probeErr, ErrHealthRuntimeDrift) {
-			if err := w.Store.InvalidateAppHealthIdentity(ctx, job); err != nil && !errors.Is(err, repository.ErrAppRuntimeStale) && !errors.Is(err, repository.ErrAppRuntimeLeaseLost) {
+			if err := w.Store.InvalidateAppHealthIdentity(ctx, job); err != nil &&
+				!errors.Is(err, repository.ErrAppRuntimeStale) &&
+				!errors.Is(err, repository.ErrAppRuntimeLeaseLost) {
 				return err
 			}
 			return nil
@@ -49,9 +54,11 @@ func (w *Worker) processHealthCheck(parent context.Context, job repository.AppHe
 			return repository.ErrAppRuntimeStale
 		}
 		latest, found, inspectErr := w.Runtime.InspectApp(ctx, appID)
-		if inspectErr != nil || !found || latest.ID != job.ContainerID || !latest.State.Running || containerAddress(latest, w.runtimeNetworkName()) != job.Address {
+		if inspectErr != nil || !found || latest.ID != job.ContainerID || !latest.State.Running ||
+			containerAddress(latest, w.runtimeNetworkName()) != job.Address {
 			invalidateErr := w.Store.InvalidateAppHealthIdentity(ctx, job)
-			if errors.Is(invalidateErr, repository.ErrAppRuntimeLeaseLost) || errors.Is(invalidateErr, repository.ErrAppRuntimeStale) {
+			if errors.Is(invalidateErr, repository.ErrAppRuntimeLeaseLost) ||
+				errors.Is(invalidateErr, repository.ErrAppRuntimeStale) {
 				return invalidateErr
 			}
 			if invalidateErr != nil {
@@ -61,7 +68,8 @@ func (w *Worker) processHealthCheck(parent context.Context, job repository.AppHe
 		}
 		return w.Store.CompleteAppHealthCheck(ctx, job, probeErr == nil)
 	})
-	if errors.Is(err, repository.ErrAppRuntimeStale) || errors.Is(err, repository.ErrAppRuntimeLeaseLost) || errors.Is(err, context.Canceled) {
+	if errors.Is(err, repository.ErrAppRuntimeStale) || errors.Is(err, repository.ErrAppRuntimeLeaseLost) ||
+		errors.Is(err, context.Canceled) {
 		return nil
 	}
 	return err

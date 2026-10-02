@@ -97,7 +97,12 @@ func ValidateArtifactCleanupInput(input ArtifactCleanupInput) error {
 
 func validArtifactCleanupStore(kind ArtifactCleanupStoreKind) bool {
 	switch kind {
-	case ArtifactCleanupStorage, ArtifactCleanupFunctions, ArtifactCleanupSiteArchives, ArtifactCleanupSites, ArtifactCleanupAppSources, ArtifactCleanupAppImages:
+	case ArtifactCleanupStorage,
+		ArtifactCleanupFunctions,
+		ArtifactCleanupSiteArchives,
+		ArtifactCleanupSites,
+		ArtifactCleanupAppSources,
+		ArtifactCleanupAppImages:
 		return true
 	default:
 		return false
@@ -156,8 +161,16 @@ func (r *Repository) ReserveArtifactPublishCleanup(ctx context.Context, input Ar
 // ReserveAppSourceUpload checks durable App artifact quota and records its
 // filesystem cleanup reservation before an uploaded source archive is
 // atomically published.
-func (r *Repository) ReserveAppSourceUpload(ctx context.Context, projectID, appID uuid.UUID, actor AppActor, size int64, cleanup ArtifactCleanupInput) error {
-	if size <= 0 || cleanup.ProjectID != projectID || cleanup.StoreKind != ArtifactCleanupAppSources || cleanup.Operation != ArtifactCleanupRelative || !validAppArtifactPath(cleanup.RelativePath) {
+func (r *Repository) ReserveAppSourceUpload(
+	ctx context.Context,
+	projectID, appID uuid.UUID,
+	actor AppActor,
+	size int64,
+	cleanup ArtifactCleanupInput,
+) error {
+	if size <= 0 || cleanup.ProjectID != projectID || cleanup.StoreKind != ArtifactCleanupAppSources ||
+		cleanup.Operation != ArtifactCleanupRelative ||
+		!validAppArtifactPath(cleanup.RelativePath) {
 		return ErrInvalidAppDeployment
 	}
 	tx, err := r.pool.Begin(ctx)
@@ -184,7 +197,16 @@ func (r *Repository) ReserveAppSourceUpload(ctx context.Context, projectID, appI
 	if err := reserveArtifactPublishCleanupTx(ctx, tx, cleanup); err != nil {
 		return err
 	}
-	result, err := tx.Exec(ctx, `UPDATE artifact_cleanup_jobs SET quota_app_id=$5,quota_reserved_bytes=$6,updated_at=now() WHERE project_id=$1 AND store_kind=$2 AND operation=$3 AND relative_path=$4 AND status='reserved' AND quota_app_id IS NULL AND quota_reserved_bytes=0`, projectID, cleanup.StoreKind, cleanup.Operation, cleanup.RelativePath, appID, size)
+	result, err := tx.Exec(
+		ctx,
+		`UPDATE artifact_cleanup_jobs SET quota_app_id=$5,quota_reserved_bytes=$6,updated_at=now() WHERE project_id=$1 AND store_kind=$2 AND operation=$3 AND relative_path=$4 AND status='reserved' AND quota_app_id IS NULL AND quota_reserved_bytes=0`,
+		projectID,
+		cleanup.StoreKind,
+		cleanup.Operation,
+		cleanup.RelativePath,
+		appID,
+		size,
+	)
 	if err != nil {
 		return err
 	}
@@ -198,7 +220,8 @@ func (r *Repository) ReserveAppSourceUpload(ctx context.Context, projectID, appI
 // immediate cleanup and releases its quota reservation in the same DB
 // transaction. It is safe only before deployment metadata can reference it.
 func (r *Repository) AbandonAppSourceUpload(ctx context.Context, input ArtifactCleanupInput) error {
-	if input.StoreKind != ArtifactCleanupAppSources || input.Operation != ArtifactCleanupRelative || ValidateArtifactCleanupInput(input) != nil {
+	if input.StoreKind != ArtifactCleanupAppSources || input.Operation != ArtifactCleanupRelative ||
+		ValidateArtifactCleanupInput(input) != nil {
 		return ErrInvalidArtifactCleanup
 	}
 	tx, err := r.pool.Begin(ctx)
@@ -208,7 +231,8 @@ func (r *Repository) AbandonAppSourceUpload(ctx context.Context, input ArtifactC
 	defer tx.Rollback(ctx)
 	var appID *uuid.UUID
 	var reserved int64
-	err = tx.QueryRow(ctx, `SELECT quota_app_id,quota_reserved_bytes FROM artifact_cleanup_jobs WHERE project_id=$1 AND store_kind=$2 AND operation=$3 AND relative_path=$4 AND status='reserved' FOR UPDATE`, input.ProjectID, input.StoreKind, input.Operation, input.RelativePath).Scan(&appID, &reserved)
+	err = tx.QueryRow(ctx, `SELECT quota_app_id,quota_reserved_bytes FROM artifact_cleanup_jobs WHERE project_id=$1 AND store_kind=$2 AND operation=$3 AND relative_path=$4 AND status='reserved' FOR UPDATE`, input.ProjectID, input.StoreKind, input.Operation, input.RelativePath).
+		Scan(&appID, &reserved)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
@@ -216,7 +240,13 @@ func (r *Repository) AbandonAppSourceUpload(ctx context.Context, input ArtifactC
 		return err
 	}
 	if appID != nil && reserved > 0 {
-		result, err := tx.Exec(ctx, `UPDATE project_apps SET artifact_reserved_bytes=artifact_reserved_bytes-$3,updated_at=now() WHERE project_id=$1 AND id=$2 AND artifact_reserved_bytes >= $3`, input.ProjectID, *appID, reserved)
+		result, err := tx.Exec(
+			ctx,
+			`UPDATE project_apps SET artifact_reserved_bytes=artifact_reserved_bytes-$3,updated_at=now() WHERE project_id=$1 AND id=$2 AND artifact_reserved_bytes >= $3`,
+			input.ProjectID,
+			*appID,
+			reserved,
+		)
 		if err != nil {
 			return err
 		}
@@ -282,11 +312,17 @@ func finalizeArtifactPublishCleanupTx(ctx context.Context, tx pgx.Tx, input Arti
 	return nil
 }
 
-func validatePublishCleanup(input *ArtifactCleanupInput, projectID uuid.UUID, kind ArtifactCleanupStoreKind, relativePath string) error {
+func validatePublishCleanup(
+	input *ArtifactCleanupInput,
+	projectID uuid.UUID,
+	kind ArtifactCleanupStoreKind,
+	relativePath string,
+) error {
 	if input == nil {
 		return nil
 	}
-	if input.ProjectID != projectID || input.StoreKind != kind || input.Operation != ArtifactCleanupRelative || input.RelativePath != relativePath {
+	if input.ProjectID != projectID || input.StoreKind != kind || input.Operation != ArtifactCleanupRelative ||
+		input.RelativePath != relativePath {
 		return fmt.Errorf("%w: publish reservation does not match metadata", ErrInvalidArtifactCleanup)
 	}
 	return nil
@@ -294,7 +330,11 @@ func validatePublishCleanup(input *ArtifactCleanupInput, projectID uuid.UUID, ki
 
 // ClaimNextArtifactCleanup leases one due job. SKIP LOCKED allows multiple
 // workers while the lease makes a crashed process recoverable.
-func (r *Repository) ClaimNextArtifactCleanup(ctx context.Context, workerID string, leaseAge time.Duration) (ArtifactCleanupJob, error) {
+func (r *Repository) ClaimNextArtifactCleanup(
+	ctx context.Context,
+	workerID string,
+	leaseAge time.Duration,
+) (ArtifactCleanupJob, error) {
 	if !validFunctionWorkerID(workerID) || leaseAge <= 0 {
 		return ArtifactCleanupJob{}, ErrInvalidArtifactCleanup
 	}
@@ -381,7 +421,8 @@ func (r *Repository) CompleteArtifactCleanup(ctx context.Context, jobID uuid.UUI
 	var projectID uuid.UUID
 	var appID *uuid.UUID
 	var reserved int64
-	err = tx.QueryRow(ctx, `SELECT project_id,quota_app_id,quota_reserved_bytes FROM artifact_cleanup_jobs WHERE id=$1 AND status='pending' AND worker_id=$2 AND leased_at IS NOT NULL FOR UPDATE`, jobID, workerID).Scan(&projectID, &appID, &reserved)
+	err = tx.QueryRow(ctx, `SELECT project_id,quota_app_id,quota_reserved_bytes FROM artifact_cleanup_jobs WHERE id=$1 AND status='pending' AND worker_id=$2 AND leased_at IS NOT NULL FOR UPDATE`, jobID, workerID).
+		Scan(&projectID, &appID, &reserved)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrArtifactCleanupNotOwned
 	}
@@ -389,7 +430,13 @@ func (r *Repository) CompleteArtifactCleanup(ctx context.Context, jobID uuid.UUI
 		return err
 	}
 	if appID != nil && reserved > 0 {
-		result, err := tx.Exec(ctx, `UPDATE project_apps SET artifact_reserved_bytes=artifact_reserved_bytes-$3,updated_at=now() WHERE project_id=$1 AND id=$2 AND artifact_reserved_bytes >= $3`, projectID, *appID, reserved)
+		result, err := tx.Exec(
+			ctx,
+			`UPDATE project_apps SET artifact_reserved_bytes=artifact_reserved_bytes-$3,updated_at=now() WHERE project_id=$1 AND id=$2 AND artifact_reserved_bytes >= $3`,
+			projectID,
+			*appID,
+			reserved,
+		)
 		if err != nil {
 			return err
 		}
@@ -403,7 +450,12 @@ func (r *Repository) CompleteArtifactCleanup(ctx context.Context, jobID uuid.UUI
 			}
 		}
 	}
-	result, err := tx.Exec(ctx, `DELETE FROM artifact_cleanup_jobs WHERE id=$1 AND status='pending' AND worker_id=$2 AND leased_at IS NOT NULL`, jobID, workerID)
+	result, err := tx.Exec(
+		ctx,
+		`DELETE FROM artifact_cleanup_jobs WHERE id=$1 AND status='pending' AND worker_id=$2 AND leased_at IS NOT NULL`,
+		jobID,
+		workerID,
+	)
 	if err != nil {
 		return err
 	}
@@ -413,7 +465,13 @@ func (r *Repository) CompleteArtifactCleanup(ctx context.Context, jobID uuid.UUI
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) RetryArtifactCleanup(ctx context.Context, jobID uuid.UUID, workerID string, retryAt time.Time, lastError string) error {
+func (r *Repository) RetryArtifactCleanup(
+	ctx context.Context,
+	jobID uuid.UUID,
+	workerID string,
+	retryAt time.Time,
+	lastError string,
+) error {
 	if jobID == uuid.Nil || !validFunctionWorkerID(workerID) || retryAt.IsZero() {
 		return ErrInvalidArtifactCleanup
 	}
@@ -431,7 +489,12 @@ func (r *Repository) RetryArtifactCleanup(ctx context.Context, jobID uuid.UUID, 
 	return nil
 }
 
-func (r *Repository) FailArtifactCleanup(ctx context.Context, jobID uuid.UUID, workerID string, lastError string) error {
+func (r *Repository) FailArtifactCleanup(
+	ctx context.Context,
+	jobID uuid.UUID,
+	workerID string,
+	lastError string,
+) error {
 	if jobID == uuid.Nil || !validFunctionWorkerID(workerID) {
 		return ErrInvalidArtifactCleanup
 	}

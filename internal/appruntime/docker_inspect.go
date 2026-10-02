@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/Stealth-deplover/stealth/internal/repository"
-	"github.com/Stealth-deplover/stealth/internal/workloadspec"
-	"github.com/google/uuid"
 	"net"
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/Stealth-deplover/stealth/internal/repository"
+	"github.com/Stealth-deplover/stealth/internal/workloadspec"
+	"github.com/google/uuid"
 )
 
 type Container struct {
@@ -144,7 +145,10 @@ func managedContainerAddress(container Container, network NetworkInspect, networ
 		return "", false
 	}
 	address := net.ParseIP(attachment.IPAddress)
-	if address == nil || address.To4() == nil || !address.IsPrivate() || address.IsLoopback() || address.IsUnspecified() || address.IsLinkLocalUnicast() || address.IsMulticast() {
+	if address == nil || address.To4() == nil || !address.IsPrivate() || address.IsLoopback() ||
+		address.IsUnspecified() ||
+		address.IsLinkLocalUnicast() ||
+		address.IsMulticast() {
 		return "", false
 	}
 	for _, configured := range network.IPAM.Config {
@@ -173,7 +177,10 @@ func validHealthCheckJobIdentity(job repository.AppHealthCheckJob) bool {
 		job.RouteIdentity != uuid.Nil && job.ContainerName == repository.AppRuntimeContainerNameForIncarnation(appID, job.RouteIdentity) &&
 		job.App.Enabled && job.App.RuntimeStatus == "running" && job.App.ObservedGeneration == job.App.DesiredGeneration &&
 		job.App.DesiredGeneration > 0 && validRuntimeID(job.ContainerID) && job.LeaseToken != uuid.Nil && job.WorkerID != "" &&
-		len(job.App.WorkloadSpecSHA256) == 64 && workloadErr == nil && digestErr == nil && workloadDigest == job.App.WorkloadSpecSHA256 &&
+		len(job.App.WorkloadSpecSHA256) == 64 &&
+		workloadErr == nil &&
+		digestErr == nil &&
+		workloadDigest == job.App.WorkloadSpecSHA256 &&
 		validPrivateProbeAddress(job.Address)
 }
 
@@ -197,15 +204,26 @@ func containerMatchesHealthIdentity(container Container, job repository.AppHealt
 		"stealth.generation":           strconv.FormatInt(job.App.DesiredGeneration, 10),
 		"stealth.workload_spec_sha256": job.App.WorkloadSpecSHA256, "stealth.runtime_schema": runtimeSchema,
 	}
-	if !hasLabels(container.Config.Labels, expected) || container.HostConfig.NetworkMode != networkName || len(container.Networks) != 1 ||
-		container.HostConfig.Privileged || container.HostConfig.AutoRemove || len(container.HostConfig.CapAdd) != 0 || !container.HostConfig.ReadonlyRootfs ||
-		!slices.Contains(container.HostConfig.CapDrop, "ALL") || !slices.Contains(container.HostConfig.SecurityOpt, "no-new-privileges:true") ||
-		container.HostConfig.Memory != job.App.Workload.Resources.MemoryBytes || container.HostConfig.MemorySwap != job.App.Workload.Resources.MemoryBytes ||
-		container.HostConfig.NanoCpus != int64(job.App.Workload.Resources.CPUMillis)*1_000_000 || container.HostConfig.PidsLimit == nil || *container.HostConfig.PidsLimit != int64(job.App.Workload.Resources.PIDsLimit) ||
-		container.HostConfig.NetworkMode == "host" || container.HostConfig.PidMode == "host" || container.HostConfig.IpcMode == "host" ||
-		container.HostConfig.UTSMode == "host" || container.HostConfig.UsernsMode == "host" || len(container.HostConfig.Binds) != 0 ||
-		len(container.HostConfig.VolumesFrom) != 0 || len(container.HostConfig.PortBindings) != 0 || len(container.HostConfig.Devices) != 0 ||
-		!exactTmpfs(container.HostConfig.Tmpfs) || !noUnexpectedMounts(container.Mounts) {
+	labelsMatch := hasLabels(container.Config.Labels, expected)
+	networkMatches := container.HostConfig.NetworkMode == networkName && len(container.Networks) == 1
+	securityOptionsMatch := !container.HostConfig.Privileged && !container.HostConfig.AutoRemove &&
+		len(container.HostConfig.CapAdd) == 0 && container.HostConfig.ReadonlyRootfs &&
+		slices.Contains(
+			container.HostConfig.CapDrop,
+			"ALL",
+		) && slices.Contains(container.HostConfig.SecurityOpt, "no-new-privileges:true")
+	resourceLimitsMatch := container.HostConfig.Memory == job.App.Workload.Resources.MemoryBytes &&
+		container.HostConfig.MemorySwap == job.App.Workload.Resources.MemoryBytes &&
+		container.HostConfig.NanoCpus == int64(job.App.Workload.Resources.CPUMillis)*1_000_000 &&
+		container.HostConfig.PidsLimit != nil && *container.HostConfig.PidsLimit == int64(job.App.Workload.Resources.PIDsLimit)
+	namespacesIsolated := container.HostConfig.NetworkMode != "host" && container.HostConfig.PidMode != "host" &&
+		container.HostConfig.IpcMode != "host" && container.HostConfig.UTSMode != "host" && container.HostConfig.UsernsMode != "host"
+	mountsMatch := len(container.HostConfig.Binds) == 0 && len(container.HostConfig.VolumesFrom) == 0 &&
+		len(container.HostConfig.PortBindings) == 0 && len(container.HostConfig.Devices) == 0
+	if !labelsMatch || !networkMatches || !securityOptionsMatch || !resourceLimitsMatch || !namespacesIsolated ||
+		!mountsMatch ||
+		!exactTmpfs(container.HostConfig.Tmpfs) ||
+		!noUnexpectedMounts(container.Mounts) {
 		return false
 	}
 	_, ok := container.Networks[networkName]

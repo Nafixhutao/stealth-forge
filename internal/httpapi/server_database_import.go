@@ -51,14 +51,24 @@ func (s *Server) importDatabaseRows(w http.ResponseWriter, r *http.Request) {
 	for index, row := range request.Rows {
 		data, err := decodeRowObject(row.Data)
 		if err != nil {
-			writeError(w, http.StatusUnprocessableEntity, "validation_error", "rows["+strconv.Itoa(index)+"].data: "+err.Error())
+			writeError(
+				w,
+				http.StatusUnprocessableEntity,
+				"validation_error",
+				"rows["+strconv.Itoa(index)+"].data: "+err.Error(),
+			)
 			return
 		}
 		id := uuid.Nil
 		if row.ID != nil {
 			id = *row.ID
 			if id == uuid.Nil {
-				writeError(w, http.StatusUnprocessableEntity, "validation_error", "rows["+strconv.Itoa(index)+"].id must be a non-zero UUID")
+				writeError(
+					w,
+					http.StatusUnprocessableEntity,
+					"validation_error",
+					"rows["+strconv.Itoa(index)+"].id must be a non-zero UUID",
+				)
 				return
 			}
 		}

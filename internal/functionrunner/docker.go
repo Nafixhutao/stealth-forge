@@ -68,7 +68,13 @@ type ExecutionResult struct {
 // and streams a tar archive of the resulting files to sink. The volume is
 // removed before Build returns; the caller persists the streamed archive in
 // the private Function store instead of relying on Docker volume lifetime.
-func (e *DockerExecutor) Build(ctx context.Context, job repository.FunctionBuildJob, stagingSubpath string, variables []repository.FunctionRuntimeVariable, sink io.Writer) error {
+func (e *DockerExecutor) Build(
+	ctx context.Context,
+	job repository.FunctionBuildJob,
+	stagingSubpath string,
+	variables []repository.FunctionRuntimeVariable,
+	sink io.Writer,
+) error {
 	if e == nil || e.Command == nil || strings.TrimSpace(e.StagingVolume) == "" || sink == nil {
 		return ErrRuntimeUnavailable
 	}
@@ -117,11 +123,17 @@ func (e *DockerExecutor) Build(ctx context.Context, job repository.FunctionBuild
 // Docker boundary as Function builds. The command can only see its copied
 // workspace; the resulting output directory is exported as an opaque tar
 // stream for the Site worker to validate and publish.
-func (e *DockerExecutor) BuildSite(ctx context.Context, job repository.SiteBuildJob, stagingSubpath string, sink io.Writer) error {
+func (e *DockerExecutor) BuildSite(
+	ctx context.Context,
+	job repository.SiteBuildJob,
+	stagingSubpath string,
+	sink io.Writer,
+) error {
 	if e == nil || e.Command == nil || strings.TrimSpace(e.StagingVolume) == "" || sink == nil {
 		return ErrRuntimeUnavailable
 	}
-	if !safeVolumeSubpath(stagingSubpath) || !containerNamePattern.MatchString(e.StagingVolume) || !safeSiteOutputDirectory(job.Deployment.OutputDirectory) {
+	if !safeVolumeSubpath(stagingSubpath) || !containerNamePattern.MatchString(e.StagingVolume) ||
+		!safeSiteOutputDirectory(job.Deployment.OutputDirectory) {
 		return ErrRuntimeUnavailable
 	}
 	volume := e.buildVolumeName(job.Deployment.ID)
@@ -181,7 +193,12 @@ func NewDockerExecutor(stagingVolume string) *DockerExecutor {
 	}
 }
 
-func (e *DockerExecutor) Execute(ctx context.Context, job repository.FunctionExecutionJob, stagingSubpath string, variables []repository.FunctionRuntimeVariable) (ExecutionResult, error) {
+func (e *DockerExecutor) Execute(
+	ctx context.Context,
+	job repository.FunctionExecutionJob,
+	stagingSubpath string,
+	variables []repository.FunctionRuntimeVariable,
+) (ExecutionResult, error) {
 	if e == nil || e.Command == nil || strings.TrimSpace(e.StagingVolume) == "" {
 		return ExecutionResult{}, ErrRuntimeUnavailable
 	}
@@ -218,17 +235,36 @@ func (e *DockerExecutor) Execute(ctx context.Context, job repository.FunctionExe
 		buildArgs = append(buildArgs, "sh", "-c", job.Function.Commands)
 		var buildStdout, buildStderr boundedBuffer
 		if err := e.run(ctx, buildArgs, nil, &buildStdout, &buildStderr); err != nil {
-			return ExecutionResult{Stdout: buildStdout.String(), Stderr: buildStderr.String(), Truncated: buildStdout.Truncated() || buildStderr.Truncated()}, fmt.Errorf("function build failed: %w", usefulCommandError(ctx, err, buildStderr.String()))
+			return ExecutionResult{
+					Stdout:    buildStdout.String(),
+					Stderr:    buildStderr.String(),
+					Truncated: buildStdout.Truncated() || buildStderr.Truncated(),
+				}, fmt.Errorf(
+					"function build failed: %w",
+					usefulCommandError(ctx, err, buildStderr.String()),
+				)
 		}
 		if buildStdout.Truncated() || buildStderr.Truncated() {
-			return ExecutionResult{Stdout: buildStdout.String(), Stderr: buildStderr.String(), Truncated: true}, ErrOutputTooLarge
+			return ExecutionResult{
+				Stdout:    buildStdout.String(),
+				Stderr:    buildStderr.String(),
+				Truncated: true,
+			}, ErrOutputTooLarge
 		}
 	}
 	args := e.containerArgs(volume, image, env, true)
 	args = append(args, command...)
 	var stdout, stderr boundedBuffer
 	if err := e.run(ctx, args, bytes.NewReader(job.Execution.InputJSON), &stdout, &stderr); err != nil {
-		return ExecutionResult{Stdout: stdout.String(), Stderr: stderr.String(), Truncated: stdout.Truncated() || stderr.Truncated()}, usefulCommandError(ctx, err, stderr.String())
+		return ExecutionResult{
+				Stdout:    stdout.String(),
+				Stderr:    stderr.String(),
+				Truncated: stdout.Truncated() || stderr.Truncated(),
+			}, usefulCommandError(
+				ctx,
+				err,
+				stderr.String(),
+			)
 	}
 	if stdout.Truncated() || stderr.Truncated() {
 		return ExecutionResult{Stdout: stdout.String(), Stderr: stderr.String(), Truncated: true}, ErrOutputTooLarge

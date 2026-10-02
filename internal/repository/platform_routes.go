@@ -41,7 +41,11 @@ func (r *Repository) TryPlatformRouteReconcileLock(ctx context.Context) (func() 
 	var releaseErr error
 	return func() error {
 		releaseOnce.Do(func() {
-			_, releaseErr = conn.Exec(context.Background(), `SELECT pg_advisory_unlock($1)`, platformRouteReconcileLockID)
+			_, releaseErr = conn.Exec(
+				context.Background(),
+				`SELECT pg_advisory_unlock($1)`,
+				platformRouteReconcileLockID,
+			)
 			conn.Release()
 		})
 		return releaseErr
@@ -137,13 +141,26 @@ func (r *Repository) ListAppPlatformRoutes(ctx context.Context) ([]domain.AppPla
 		}
 		parsedID, idErr := ParseUUID(appID)
 		hostname, hostErr := platformhostname.Hostname(label, baseDomain)
-		validIdentity := idErr == nil && appRuntimeRouteIdentityMatches(parsedID, routeIdentity, healthRouteIdentity, containerName)
-		if idErr != nil || hostErr != nil || !validIdentity || routeIdentity == nil || !validPrivateRuntimeAddress(runtimeAddress) || port == nil || *port < 1 || *port > 65535 {
+		validIdentity := idErr == nil &&
+			appRuntimeRouteIdentityMatches(parsedID, routeIdentity, healthRouteIdentity, containerName)
+		if idErr != nil || hostErr != nil || !validIdentity || routeIdentity == nil ||
+			!validPrivateRuntimeAddress(runtimeAddress) ||
+			port == nil ||
+			*port < 1 ||
+			*port > 65535 {
 			// Fail closed for this App only. A bad App record must not prevent
 			// Site snapshots or other valid App routes from converging.
 			continue
 		}
-		routes = append(routes, domain.AppPlatformRoute{AppID: parsedID.String(), RouteIdentity: *routeIdentity, Hostname: hostname, Port: int(*port)})
+		routes = append(
+			routes,
+			domain.AppPlatformRoute{
+				AppID:         parsedID.String(),
+				RouteIdentity: *routeIdentity,
+				Hostname:      hostname,
+				Port:          int(*port),
+			},
+		)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -154,7 +171,10 @@ func (r *Repository) ListAppPlatformRoutes(ctx context.Context) ([]domain.AppPla
 // GetActiveSiteArtifactByPlatformHostname resolves the current request Host
 // against PostgreSQL state before opening an artifact. A stale Traefik router
 // therefore cannot keep deleted or disabled Sites public.
-func (r *Repository) GetActiveSiteArtifactByPlatformHostname(ctx context.Context, hostname string) (SitePublicArtifact, error) {
+func (r *Repository) GetActiveSiteArtifactByPlatformHostname(
+	ctx context.Context,
+	hostname string,
+) (SitePublicArtifact, error) {
 	if r == nil || r.pool == nil {
 		return SitePublicArtifact{}, ErrNotFound
 	}
@@ -166,7 +186,7 @@ func (r *Repository) GetActiveSiteArtifactByPlatformHostname(ctx context.Context
 		return SitePublicArtifact{}, ErrNotFound
 	}
 	var siteID, platformLabel, workloadBaseDomain string
-	if err := r.pool.QueryRow(ctx, `
+	err = r.pool.QueryRow(ctx, `
 		SELECT s.id::text,s.platform_label,d.workload_base_domain
 		FROM project_sites s
 		JOIN instance_domain_settings d ON d.id=TRUE
@@ -174,9 +194,11 @@ func (r *Repository) GetActiveSiteArtifactByPlatformHostname(ctx context.Context
 		  AND s.platform_label IS NOT NULL
 		  AND s.enabled=TRUE
 		  AND s.status='active'
-		  AND s.platform_label || '.' || d.workload_base_domain = $1`, normalizedHostname).Scan(&siteID, &platformLabel, &workloadBaseDomain); errors.Is(err, pgx.ErrNoRows) {
+		  AND s.platform_label || '.' || d.workload_base_domain = $1`, normalizedHostname).Scan(&siteID, &platformLabel, &workloadBaseDomain)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return SitePublicArtifact{}, ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return SitePublicArtifact{}, err
 	}
 	derivedHostname, err := platformhostname.Hostname(platformLabel, workloadBaseDomain)

@@ -117,14 +117,19 @@ func cloneAgentProviderCatalog(items []AgentProviderCatalogItem) []AgentProvider
 }
 
 func validCatalogText(value string, min, max int, token bool) bool {
-	if value == "" || utf8.RuneCountInString(value) < min || utf8.RuneCountInString(value) > max || strings.ContainsAny(value, "\x00\t\r\n") {
+	if value == "" || utf8.RuneCountInString(value) < min || utf8.RuneCountInString(value) > max ||
+		strings.ContainsAny(value, "\x00\t\r\n") {
 		return false
 	}
 	if !token {
 		return true
 	}
 	for _, character := range value {
-		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') || character == '.' || character == '_' || character == '-' {
+		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+			(character >= '0' && character <= '9') ||
+			character == '.' ||
+			character == '_' ||
+			character == '-' {
 			continue
 		}
 		return false

@@ -13,7 +13,12 @@ import (
 // ListAuditEvents returns the newest tenant audit events visible to a member.
 // UUIDv7 event IDs provide a monotonic cursor for this descending projection;
 // the API keeps the cursor opaque to callers while validating it as a UUID.
-func (r *Repository) ListAuditEvents(ctx context.Context, organizationID, accountID uuid.UUID, limit int, cursor string) ([]domain.AuditEvent, string, error) {
+func (r *Repository) ListAuditEvents(
+	ctx context.Context,
+	organizationID, accountID uuid.UUID,
+	limit int,
+	cursor string,
+) ([]domain.AuditEvent, string, error) {
 	if err := r.requireMembership(ctx, organizationID, accountID); err != nil {
 		return nil, "", err
 	}
@@ -24,11 +29,18 @@ func (r *Repository) ListAuditEvents(ctx context.Context, organizationID, accoun
 // their metadata (plus the project creation event, whose target is the
 // project itself). Older events without that scope stay visible at the
 // organization level but cannot be misattributed to a project.
-func (r *Repository) ListProjectAuditEvents(ctx context.Context, projectID, accountID uuid.UUID, limit int, cursor string) ([]domain.AuditEvent, string, error) {
+func (r *Repository) ListProjectAuditEvents(
+	ctx context.Context,
+	projectID, accountID uuid.UUID,
+	limit int,
+	cursor string,
+) ([]domain.AuditEvent, string, error) {
 	var organizationID uuid.UUID
-	if err := r.pool.QueryRow(ctx, `SELECT organization_id FROM projects WHERE id=$1`, projectID).Scan(&organizationID); errors.Is(err, pgx.ErrNoRows) {
+	err := r.pool.QueryRow(ctx, `SELECT organization_id FROM projects WHERE id=$1`, projectID).Scan(&organizationID)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, "", ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return nil, "", err
 	}
 	if err := r.requireMembership(ctx, organizationID, accountID); err != nil {
@@ -37,7 +49,13 @@ func (r *Repository) ListProjectAuditEvents(ctx context.Context, projectID, acco
 	return r.listAuditEvents(ctx, organizationID, accountID, projectID.String(), limit, cursor)
 }
 
-func (r *Repository) listAuditEvents(ctx context.Context, organizationID, accountID uuid.UUID, projectID string, limit int, cursor string) ([]domain.AuditEvent, string, error) {
+func (r *Repository) listAuditEvents(
+	ctx context.Context,
+	organizationID, accountID uuid.UUID,
+	projectID string,
+	limit int,
+	cursor string,
+) ([]domain.AuditEvent, string, error) {
 	query := `
 		SELECT e.id::text,e.organization_id::text,e.actor_account_id::text,a.email,
 		       e.action,e.target_type,e.target_id::text,e.metadata,e.created_at

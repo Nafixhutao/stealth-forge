@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -84,7 +85,12 @@ func (s *Server) listAppRuntimeLogs(w http.ResponseWriter, r *http.Request) {
 	}
 	reader, ok := s.telemetry.(telemetry.ContainerLogReader)
 	if !ok {
-		writeError(w, http.StatusServiceUnavailable, "telemetry_unavailable", "App runtime logs are temporarily unavailable")
+		writeError(
+			w,
+			http.StatusServiceUnavailable,
+			"telemetry_unavailable",
+			"App runtime logs are temporarily unavailable",
+		)
 		return
 	}
 	result, err := reader.QueryContainerLogs(r.Context(), telemetry.ContainerLogsQuery{
@@ -119,13 +125,18 @@ func appRuntimeLogsQueryTime(r *http.Request, name string) (*time.Time, error) {
 	}
 	parsed, err := time.Parse(time.RFC3339Nano, raw)
 	if err != nil {
-		return nil, errors.New(name + " must be an RFC3339 timestamp")
+		return nil, fmt.Errorf("%q must be an RFC3339 timestamp", name)
 	}
 	parsed = parsed.UTC()
 	return &parsed, nil
 }
 
-func resolveAppRuntimeLogRange(now time.Time, explicitFrom, explicitTo *time.Time, cursor *telemetry.LogCursor, maxRange time.Duration) (telemetry.TimeRange, error) {
+func resolveAppRuntimeLogRange(
+	now time.Time,
+	explicitFrom, explicitTo *time.Time,
+	cursor *telemetry.LogCursor,
+	maxRange time.Duration,
+) (telemetry.TimeRange, error) {
 	if now.IsZero() || maxRange <= 0 {
 		return telemetry.TimeRange{}, errInvalidAppRuntimeLogRange
 	}
@@ -148,7 +159,9 @@ func resolveAppRuntimeLogRange(now time.Time, explicitFrom, explicitTo *time.Tim
 	}
 	if cursor != nil {
 		cursorTime := cursor.Timestamp.UTC()
-		if cursor.Timestamp.IsZero() || strings.TrimSpace(cursor.EventID) == "" || len(cursor.EventID) > 256 || cursorTime.After(now) {
+		cursorInvalid := cursor.Timestamp.IsZero() || strings.TrimSpace(cursor.EventID) == "" ||
+			len(cursor.EventID) > 256
+		if cursorInvalid || cursorTime.After(now) {
 			return telemetry.TimeRange{}, errInvalidAppRuntimeLogCursor
 		}
 		if explicitFrom != nil && from.After(cursorTime) {

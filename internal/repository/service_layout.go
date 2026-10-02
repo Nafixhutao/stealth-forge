@@ -27,7 +27,10 @@ type ProjectServiceLayoutInput struct {
 // ListProjectServiceLayout returns only rows that still point at a live
 // resource. Resource deletion has independent tables, so the existence filter
 // prevents stale polymorphic rows from leaking into the console projection.
-func (r *Repository) ListProjectServiceLayout(ctx context.Context, projectID, accountID uuid.UUID) ([]domain.ProjectServiceLayout, bool, error) {
+func (r *Repository) ListProjectServiceLayout(
+	ctx context.Context,
+	projectID, accountID uuid.UUID,
+) ([]domain.ProjectServiceLayout, bool, error) {
 	role, err := r.projectRole(ctx, projectID, accountID)
 	if err != nil {
 		return nil, false, err
@@ -55,7 +58,11 @@ func (r *Repository) ListProjectServiceLayout(ctx context.Context, projectID, ac
 // ReplaceProjectServiceLayout atomically replaces the complete canvas layout.
 // A whole-document write keeps drag persistence deterministic and also removes
 // positions for resources deleted since the previous read.
-func (r *Repository) ReplaceProjectServiceLayout(ctx context.Context, projectID, accountID uuid.UUID, inputs []ProjectServiceLayoutInput) ([]domain.ProjectServiceLayout, error) {
+func (r *Repository) ReplaceProjectServiceLayout(
+	ctx context.Context,
+	projectID, accountID uuid.UUID,
+	inputs []ProjectServiceLayoutInput,
+) ([]domain.ProjectServiceLayout, error) {
 	if len(inputs) > MaxProjectServiceLayoutItems {
 		return nil, ErrInvalidServiceLayout
 	}
@@ -70,7 +77,9 @@ func (r *Repository) ReplaceProjectServiceLayout(ctx context.Context, projectID,
 	}
 	seen := make(map[string]struct{}, len(inputs))
 	for _, input := range inputs {
-		if !validServiceLayoutType(input.ResourceType) || !validServiceLayoutCoord(input.X) || !validServiceLayoutCoord(input.Y) || input.ResourceID == uuid.Nil {
+		if !validServiceLayoutType(input.ResourceType) || !validServiceLayoutCoord(input.X) ||
+			!validServiceLayoutCoord(input.Y) ||
+			input.ResourceID == uuid.Nil {
 			return nil, ErrInvalidServiceLayout
 		}
 		key := input.ResourceType + ":" + input.ResourceID.String()
@@ -119,7 +128,11 @@ const serviceLayoutListQuery = `
 	  )
 	ORDER BY l.resource_type, l.resource_id`
 
-func listProjectServiceLayoutTx(ctx context.Context, tx pgx.Tx, projectID uuid.UUID) ([]domain.ProjectServiceLayout, error) {
+func listProjectServiceLayoutTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+) ([]domain.ProjectServiceLayout, error) {
 	rows, err := tx.Query(ctx, serviceLayoutListQuery, projectID)
 	if err != nil {
 		return nil, err
@@ -149,7 +162,13 @@ func validServiceLayoutCoord(value int) bool {
 	return value >= MinProjectServiceLayoutCoord && value <= MaxProjectServiceLayoutCoord
 }
 
-func projectServiceResourceExists(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, resourceType string, resourceID uuid.UUID) (bool, error) {
+func projectServiceResourceExists(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	resourceType string,
+	resourceID uuid.UUID,
+) (bool, error) {
 	var query string
 	switch resourceType {
 	case "function":

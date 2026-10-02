@@ -94,7 +94,7 @@ func SchemaFingerprint(ctx context.Context, pool *pgxpool.Pool) (string, error) 
 	if err := conn.QueryRow(ctx, `SELECT to_regclass('schema_migrations') IS NOT NULL`).Scan(&exists); err != nil {
 		return "", fmt.Errorf("inspect migration ledger: %w", err)
 	}
-	var names []string
+	names := []string{}
 	if exists {
 		rows, err := conn.Query(ctx, `SELECT name FROM schema_migrations ORDER BY name`)
 		if err != nil {
