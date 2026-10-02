@@ -16,7 +16,6 @@ type NetworkInspect struct {
 	Scope    string            `json:"Scope"`
 	Internal bool              `json:"Internal"`
 	Labels   map[string]string `json:"Labels"`
-	Options  map[string]string `json:"Options"`
 	IPAM     struct {
 		Config []struct {
 			Subnet string `json:"Subnet"`
@@ -37,10 +36,7 @@ func (m *Moby) EnsureNetwork(ctx context.Context) error {
 	if found {
 		return m.validateNetwork(ctx, network)
 	}
-	args := []string{
-		"network", "create", "--driver", "bridge",
-		"--opt", "com.docker.network.bridge.enable_icc=false",
-	}
+	args := []string{"network", "create", "--driver", "bridge"}
 	labels := networkLabels()
 	for _, key := range []string{"stealth.managed", "stealth.resource_type", "stealth.runtime_schema"} {
 		args = append(args, "--label", key+"="+labels[key])
@@ -100,8 +96,7 @@ func (m *Moby) inspectNetwork(ctx context.Context) (NetworkInspect, bool, error)
 func (m *Moby) validateNetwork(ctx context.Context, network NetworkInspect) error {
 	labels := networkLabels()
 	if network.Name != m.NetworkName || network.Driver != "bridge" || network.Scope != "local" || network.Internal ||
-		!hasLabels(network.Labels, labels) ||
-		network.Options["com.docker.network.bridge.enable_icc"] != "false" {
+		!hasLabels(network.Labels, labels) {
 		return ErrRuntimeNetworkConflict
 	}
 	for containerID := range network.Containers {
