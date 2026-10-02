@@ -12,10 +12,10 @@ import (
 )
 
 // This lock is session-scoped and is held from the desired-state snapshot
-// through publication by the worker. Its ID must stay distinct from the
-// migration (…601), admin-realtime ordering (…602), and Cloudflare reconcile
-// (…603) locks so the domains never block each other.
-const platformRouteReconcileLockID int64 = 8_105_202_604
+// through publication by the worker. It is intentionally distinct from the
+// migration (…601), admin-realtime ordering (…604), and Cloudflare reconcile
+// (…603) locks.
+const platformRouteReconcileLockID int64 = 8_105_202_602
 
 // TryPlatformRouteReconcileLock gives one worker a distributed single-writer
 // lease. The returned release function must be called after the generated

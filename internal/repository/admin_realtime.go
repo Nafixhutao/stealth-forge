@@ -14,11 +14,14 @@ import (
 )
 
 const (
-	adminRealtimeMaxBatch             = 100
-	adminRealtimeExpiry               = 24 * time.Hour
-	adminRealtimePruneMax             = 1000
-	adminRealtimeEventVersion         = 1
-	adminRealtimeOrderingLockID int64 = 8_105_202_602
+	adminRealtimeMaxBatch     = 100
+	adminRealtimeExpiry       = 24 * time.Hour
+	adminRealtimePruneMax     = 1000
+	adminRealtimeEventVersion = 1
+	// Must not share an id with the platform route reconcile lock (…602), the
+	// migration lock (…601), or the Cloudflare reconcile lock (…603): admin
+	// writes and route reconciliation would otherwise block each other.
+	adminRealtimeOrderingLockID int64 = 8_105_202_604
 )
 
 var (
