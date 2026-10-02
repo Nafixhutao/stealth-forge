@@ -72,6 +72,9 @@ func extractZip(ctx context.Context, compressed []byte, destination string, root
 			return ArchiveStats{}, fmt.Errorf("%w: links and special files are not allowed", ErrArchiveEntry)
 		}
 		if isDirectory {
+			if stats.Files+stats.Directories >= limits.MaxFiles {
+				return ArchiveStats{}, ErrArchiveTooLarge
+			}
 			if err := makeDirectory(root, destination, relative); err != nil {
 				return ArchiveStats{}, err
 			}

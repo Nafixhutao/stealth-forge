@@ -29,7 +29,7 @@ func (r *Repository) ClaimNextFunctionDeployment(ctx context.Context, workerID s
 		WHERE d.status IN ('ready','active') AND d.build_status IN ('queued','deferred')
 		ORDER BY d.queued_at,d.id
 		LIMIT 1
-		FOR UPDATE OF d SKIP LOCKED`).Scan(&deploymentID, &projectID, &functionID)
+		FOR UPDATE OF f SKIP LOCKED`).Scan(&deploymentID, &projectID, &functionID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return FunctionBuildJob{}, ErrNoDeploymentJob
 	}
@@ -125,6 +125,25 @@ func (r *Repository) completeFunctionDeploymentBuild(ctx context.Context, projec
 	if err != nil {
 		return domain.FunctionDeployment{}, err
 	}
+	// A deployment created with Activate=true carries status='active' as its
+	// deferred activation request but does not become the function's active
+	// pointer until its immutable artifact exists. The function row is already
+	// locked, so the previous active deployment keeps serving and is only
+	// superseded now that the build has succeeded.
+	if item.Status == "active" && (function.ActiveDeploymentID == nil || *function.ActiveDeploymentID != deploymentID.String()) {
+		if function.ActiveDeploymentID != nil {
+			if _, err := tx.Exec(ctx, `UPDATE function_deployments SET status='superseded',finished_at=now(),updated_at=now() WHERE project_id=$1 AND function_id=$2 AND id=$3 AND status='active'`, projectID, functionID, *function.ActiveDeploymentID); err != nil {
+				return domain.FunctionDeployment{}, err
+			}
+		}
+		if _, err := tx.Exec(ctx, `UPDATE project_functions SET active_deployment_id=$3,updated_at=now() WHERE project_id=$1 AND id=$2`, projectID, functionID, deploymentID); err != nil {
+			return domain.FunctionDeployment{}, err
+		}
+		updated, err = scanFunctionDeploymentPublic(tx.QueryRow(ctx, `UPDATE function_deployments SET activated_at=COALESCE(activated_at,now()),updated_at=now() WHERE project_id=$1 AND function_id=$2 AND id=$3 RETURNING `+functionDeploymentProjection, projectID, functionID, deploymentID))
+		if err != nil {
+			return domain.FunctionDeployment{}, err
+		}
+	}
 	if err := validatePublishCleanup(cleanup, projectID, ArtifactCleanupFunctions, buildPath); err != nil {
 		return domain.FunctionDeployment{}, err
 	}
@@ -177,32 +196,41 @@ func (r *Repository) FailFunctionDeploymentBuild(ctx context.Context, projectID,
 	if err != nil {
 		return domain.FunctionDeployment{}, err
 	}
+	type failedExecutionWindow struct {
+		startedAt  *time.Time
+		finishedAt *time.Time
+	}
+	windows := make([]failedExecutionWindow, 0)
 	for failedExecutions.Next() {
-		var startedAt, finishedAt *time.Time
-		if err := failedExecutions.Scan(&startedAt, &finishedAt); err != nil {
+		var window failedExecutionWindow
+		if err := failedExecutions.Scan(&window.startedAt, &window.finishedAt); err != nil {
 			failedExecutions.Close()
 			return domain.FunctionDeployment{}, err
 		}
-		if finishedAt == nil {
-			continue
-		}
-		delta := UsageDelta{FunctionFailureCount: 1}
-		if startedAt != nil {
-			if computeMS := finishedAt.Sub(*startedAt).Milliseconds(); computeMS > 0 {
-				delta.FunctionComputeMS = computeMS
-			}
-		}
-		if err := incrementUsageTx(ctx, tx, projectID, *finishedAt, delta); err != nil {
-			failedExecutions.Close()
-			return domain.FunctionDeployment{}, err
-		}
+		windows = append(windows, window)
 	}
 	if err := failedExecutions.Err(); err != nil {
 		failedExecutions.Close()
 		return domain.FunctionDeployment{}, err
 	}
+	// The returned rows must be drained and the cursor closed before usage is
+	// incremented on the same connection, otherwise pgx reports "conn busy".
 	failedExecutions.Close()
-	updated, err := scanFunctionDeploymentPublic(tx.QueryRow(ctx, `UPDATE function_deployments SET build_status='failed',build_worker_id=NULL,error_message=$4,updated_at=now() WHERE project_id=$1 AND function_id=$2 AND id=$3 RETURNING `+functionDeploymentProjection, projectID, functionID, deploymentID, failureMessage))
+	for _, window := range windows {
+		if window.finishedAt == nil {
+			continue
+		}
+		delta := UsageDelta{FunctionFailureCount: 1}
+		if window.startedAt != nil {
+			if computeMS := window.finishedAt.Sub(*window.startedAt).Milliseconds(); computeMS > 0 {
+				delta.FunctionComputeMS = computeMS
+			}
+		}
+		if err := incrementUsageTx(ctx, tx, projectID, *window.finishedAt, delta); err != nil {
+			return domain.FunctionDeployment{}, err
+		}
+	}
+	updated, err := scanFunctionDeploymentPublic(tx.QueryRow(ctx, `UPDATE function_deployments SET status='failed',build_status='failed',build_worker_id=NULL,error_message=$4,updated_at=now() WHERE project_id=$1 AND function_id=$2 AND id=$3 RETURNING `+functionDeploymentProjection, projectID, functionID, deploymentID, failureMessage))
 	if err != nil {
 		return domain.FunctionDeployment{}, err
 	}

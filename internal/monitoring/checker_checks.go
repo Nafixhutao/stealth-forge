@@ -100,7 +100,13 @@ func checkDNS(ctx context.Context, job repository.AdminMonitorJob, config monito
 	resolver := net.DefaultResolver
 	switch recordType {
 	case "A", "AAAA":
-		ips, lookupErr := resolver.LookupIP(ctx, strings.ToLower(recordType), job.Target)
+		// net.Resolver.LookupIP only accepts "ip", "ip4" or "ip6"; passing
+		// "a"/"aaaa" fails with UnknownNetworkError on every lookup.
+		network := "ip4"
+		if recordType == "AAAA" {
+			network = "ip6"
+		}
+		ips, lookupErr := resolver.LookupIP(ctx, network, job.Target)
 		err = lookupErr
 		for _, ip := range ips {
 			if (recordType == "A" && ip.To4() != nil) || (recordType == "AAAA" && ip.To4() == nil) {

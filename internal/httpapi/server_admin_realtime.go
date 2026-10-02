@@ -66,7 +66,11 @@ func (s *Server) adminRealtime(w http.ResponseWriter, r *http.Request) {
 		allowed, checkErr := s.repo.IsInstanceAdminSession(r.Context(), mustUUID(accountFrom(r).ID), sessionFrom(r))
 		return checkErr == nil && allowed
 	}
-	if !authorized() {
+	if allowed, checkErr := s.repo.IsInstanceAdminSession(r.Context(), mustUUID(accountFrom(r).ID), sessionFrom(r)); checkErr != nil {
+		internalError(s, w, checkErr)
+		return
+	} else if !allowed {
+		writeError(w, http.StatusForbidden, "forbidden", "instance administrator access is required")
 		return
 	}
 	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")

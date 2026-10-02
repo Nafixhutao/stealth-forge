@@ -101,7 +101,11 @@ func (s *Server) deleteAdminNotificationChannel(w http.ResponseWriter, r *http.R
 
 func (s *Server) testAdminNotificationChannel(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathUUID(w, r, "channelID")
-	if !ok || s.repo == nil {
+	if !ok {
+		return
+	}
+	if s.repo == nil {
+		writeError(w, http.StatusServiceUnavailable, "not_ready", "admin notifications are not ready")
 		return
 	}
 	deliveryID, err := s.repo.EnqueueAdminNotificationTest(r.Context(), mustUUID(accountFrom(r).ID), id)

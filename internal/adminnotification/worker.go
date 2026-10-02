@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Stealth-deplover/stealth/internal/functionsecret"
 	"github.com/Stealth-deplover/stealth/internal/mailer"
@@ -272,10 +273,20 @@ func safeText(value string, maximum int) string {
 		}
 		return character
 	}, strings.TrimSpace(value))
-	if len(value) > maximum {
-		return value[:maximum]
+	return boundedUTF8(value, maximum)
+}
+
+// boundedUTF8 trims value to limit bytes without splitting a UTF-8 sequence so
+// the result stays valid for PostgreSQL text columns.
+func boundedUTF8(value string, limit int) string {
+	if limit <= 0 || len(value) <= limit {
+		return value
 	}
-	return value
+	cut := limit
+	for cut > 0 && !utf8.ValidString(value[:cut]) {
+		cut--
+	}
+	return value[:cut]
 }
 
 func safeError(err error) string {

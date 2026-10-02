@@ -10,7 +10,7 @@ import (
 )
 
 const corsAllowedMethods = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-const corsAllowedHeaders = "Accept, Authorization, Content-Type, Idempotency-Key, Last-Event-ID, X-Requested-With"
+const corsAllowedHeaders = "Accept, Authorization, Content-Type, Idempotency-Key, Last-Event-ID, X-Requested-With, X-Stealth-Key, X-Stealth-Setup, X-Stealth-Bootstrap-Proof, X-Stealth-Heartbeat"
 
 // cors applies a per-project, credentialed origin allowlist. The Console
 // bridge intentionally strips Origin, so Console requests remain same-origin
@@ -26,6 +26,25 @@ func (s *Server) cors(next http.Handler) http.Handler {
 		origin, err := repository.NormalizeCORSOrigin(rawOrigin)
 		if err != nil {
 			corsDenied(w, r)
+			return
+		}
+		// The production setup handoff is submitted from the temporary first-run
+		// origin, whose random Quick Tunnel hostname cannot be known at deploy
+		// time. The endpoint authenticates with a single-use handoff token in
+		// the POST body rather than an ambient credential, so it is exempt from
+		// the Origin allowlist. CORS headers are still emitted so a credentialed
+		// fetch can read the response.
+		if isSetupHandoffPath(r.URL.Path) {
+			setCORSHeaders(w, origin, r)
+			if r.Method == http.MethodOptions {
+				if !corsMethodAllowed(r.Header.Get("Access-Control-Request-Method")) {
+					corsDenied(w, r)
+					return
+				}
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			next.ServeHTTP(w, r)
 			return
 		}
 		// The browser-hosted management Console is a trusted application
@@ -98,6 +117,13 @@ func (s *Server) sameSetupOrigin(r *http.Request, origin string) bool {
 	}
 	expected := s.externalOrigin(r)
 	return expected != "" && strings.EqualFold(expected, origin)
+}
+
+// isSetupHandoffPath reports whether a request targets the token-authenticated
+// production setup handoff, which must be reachable from the temporary setup
+// origin before that origin can be known to the server.
+func isSetupHandoffPath(path string) bool {
+	return strings.TrimRight(path, "/") == "/v1/setup/handoff"
 }
 
 func projectIDFromCORSPath(path string) (uuid.UUID, bool) {

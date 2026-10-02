@@ -96,6 +96,7 @@ export function BrowserSetupView() {
         {handoffReady ? (
           <HandoffSubmission
             publicURL={installPublicURL}
+            persistedURL={installViewState?.draft.public_url}
             token={handoffToken}
           />
         ) : null}
@@ -107,7 +108,11 @@ export function BrowserSetupView() {
   return (
     <SetupShell currentStep={activeStep}>
       {handoffReady ? (
-        <HandoffSubmission publicURL={installPublicURL} token={handoffToken} />
+        <HandoffSubmission
+          publicURL={installPublicURL}
+          persistedURL={installViewState?.draft.public_url}
+          token={handoffToken}
+        />
       ) : null}
       <div className="grid gap-7 lg:grid-cols-[220px_minmax(0,1fr)]">
         <nav aria-label="Setup progress" className="lg:pt-1">

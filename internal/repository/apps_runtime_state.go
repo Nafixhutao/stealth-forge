@@ -303,6 +303,22 @@ func (r *Repository) CompleteAppRuntime(
 			appID, projectID, container.ID); err != nil {
 			return err
 		}
+		// Retired container IDs accumulate forever; the logs endpoint fails once
+		// more than maxAppRuntimeLogSources rows exist. Keep a bounded history of
+		// the most recently observed containers and never drop the active one.
+		if _, err := tx.Exec(ctx, `
+			DELETE FROM app_runtime_log_sources
+			WHERE app_id=$1
+			  AND container_id <> $2
+			  AND container_id NOT IN (
+			    SELECT container_id FROM app_runtime_log_sources
+			    WHERE app_id=$1
+			    ORDER BY last_seen_at DESC,container_id DESC
+			    LIMIT $3
+			  )`,
+			appID, container.ID, maxAppRuntimeLogSources-1); err != nil {
+			return err
+		}
 	}
 	if current.RuntimeStatus != status || current.RuntimeError != nil ||
 		current.ObservedGeneration != job.App.DesiredGeneration {

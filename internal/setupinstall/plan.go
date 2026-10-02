@@ -109,8 +109,10 @@ func BuildPlan(state setupstate.State, installRoot string) (installengine.Plan, 
 }
 
 // BaseVersion extracts the release version from the existing API image.
+// Digest-pinned images (repo@sha256:...) carry no release tag and fall back to
+// the unknown-version sentinel.
 func BaseVersion(values map[string]string) string {
-	if value := strings.TrimSpace(values["STEALTH_API_IMAGE"]); value != "" {
+	if value := strings.TrimSpace(values["STEALTH_API_IMAGE"]); value != "" && !strings.Contains(value, "@") {
 		if index := strings.LastIndexByte(value, ':'); index >= 0 && index+1 < len(value) {
 			return value[index+1:]
 		}

@@ -85,13 +85,18 @@ func (s *Server) exportDatabaseRowsJSON(
 	actor repository.DatabaseActor,
 	limit int,
 ) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	if _, err := w.Write([]byte(`{"rows":[`)); err != nil {
-		s.logger.Warn("database export response write failed", "table_id", tableID, "error", err)
-		return
-	}
+	started := false
 	first := true
+	start := func() error {
+		if started {
+			return nil
+		}
+		started = true
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, err := w.Write([]byte(`{"rows":[`))
+		return err
+	}
 	count, err := s.repo.StreamDatabaseRows(
 		r.Context(),
 		projectID,
@@ -100,6 +105,9 @@ func (s *Server) exportDatabaseRowsJSON(
 		actor,
 		limit,
 		func(row domain.DatabaseRow) error {
+			if err := start(); err != nil {
+				return err
+			}
 			if !first {
 				if _, err := w.Write([]byte(",")); err != nil {
 					return err
@@ -115,7 +123,17 @@ func (s *Server) exportDatabaseRowsJSON(
 		},
 	)
 	if err != nil {
+		if !started {
+			if !databaseResourceError(w, err) {
+				internalError(s, w, err)
+			}
+			return
+		}
 		s.logger.Warn("database JSON export failed", "table_id", tableID, "count", count, "error", err)
+		return
+	}
+	if err := start(); err != nil {
+		s.logger.Warn("database export response write failed", "table_id", tableID, "error", err)
 		return
 	}
 	if _, err := w.Write([]byte(`],"count":` + strconv.Itoa(count) + `}`)); err != nil {
@@ -131,16 +149,20 @@ func (s *Server) exportDatabaseRowsCSV(
 	schema repository.DatabaseTableSchema,
 	limit int,
 ) {
-	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
+	started := false
 	writer := csv.NewWriter(w)
-	header := []string{"id", "project_id", "table_id", "created_at", "updated_at"}
-	for _, column := range schema.Columns {
-		header = append(header, column.Key)
-	}
-	if err := writer.Write(header); err != nil {
-		s.logger.Warn("database CSV export failed", "table_id", tableID, "error", err)
-		return
+	start := func() error {
+		if started {
+			return nil
+		}
+		started = true
+		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		header := []string{"id", "project_id", "table_id", "created_at", "updated_at"}
+		for _, column := range schema.Columns {
+			header = append(header, column.Key)
+		}
+		return writer.Write(header)
 	}
 	count, err := s.repo.StreamDatabaseRows(
 		r.Context(),
@@ -150,6 +172,9 @@ func (s *Server) exportDatabaseRowsCSV(
 		actor,
 		limit,
 		func(row domain.DatabaseRow) error {
+			if err := start(); err != nil {
+				return err
+			}
 			record := []string{
 				row.ID,
 				row.ProjectID,
@@ -172,11 +197,27 @@ func (s *Server) exportDatabaseRowsCSV(
 			return writer.Write(record)
 		},
 	)
-	writer.Flush()
-	if err != nil || writer.Error() != nil {
-		if err == nil {
+	if err != nil {
+		if !started {
+			writer.Flush()
+			if !databaseResourceError(w, err) {
+				internalError(s, w, err)
+			}
+			return
+		}
+		writer.Flush()
+		if writer.Error() != nil {
 			err = writer.Error()
 		}
 		s.logger.Warn("database CSV export failed", "table_id", tableID, "count", count, "error", err)
+		return
+	}
+	if err := start(); err != nil {
+		s.logger.Warn("database CSV export failed", "table_id", tableID, "error", err)
+		return
+	}
+	writer.Flush()
+	if writer.Error() != nil {
+		s.logger.Warn("database CSV export failed", "table_id", tableID, "error", writer.Error())
 	}
 }

@@ -236,8 +236,22 @@ export function ServicesCanvasView({
   const [nodes, setNodes, onNodesChange] =
     useNodesState<ResourceNode>(initialNodes);
   const [edges, , onEdgesChange] = useEdgesState([]);
+  // Merge refreshed resource data into the canvas while preserving the user's
+  // local node positions. Replacing the whole graph on every refetch would
+  // discard unsaved drags; skipping the update whenever the resource IDs are
+  // unchanged would leave stale labels and statuses after a realtime
+  // invalidation or an edit refetch, so merge instead.
   useEffect(() => {
-    setNodes(initialNodes);
+    setNodes((current) => {
+      if (current.length === 0) return initialNodes;
+      const positions = new Map(
+        current.map((node) => [node.id, node.position]),
+      );
+      return initialNodes.map((node) => {
+        const position = positions.get(node.id);
+        return position ? { ...node, position } : node;
+      });
+    });
   }, [initialNodes, setNodes]);
   const saveLayout = () => {
     save.mutate(

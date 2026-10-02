@@ -194,8 +194,11 @@ func main() {
 		userStorage, err = storage.New(cfg.StorageRoot, cfg.StorageMaxFileSize)
 	}
 	if err != nil {
+		// A missing user storage store would leave storage cleanup jobs
+		// claimed but never removable, so fail fast like the other artifact
+		// stores instead of degrading to an endless retry loop.
 		logger.Error("user artifact cleanup storage configuration error", "error", err)
-		userStorage = nil
+		os.Exit(1)
 	}
 	artifactCleanupWorker, err := artifactcleanup.New(repo, artifactcleanup.Stores{
 		Storage:      userStorage,

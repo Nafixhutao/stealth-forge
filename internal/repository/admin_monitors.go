@@ -566,7 +566,12 @@ func normalizeAdminMonitorError(value string) string {
 		return r
 	}, value))
 	if len(value) > 1000 {
-		return value[:1000]
+		// Back off to the last valid rune boundary so PostgreSQL never
+		// receives a truncated UTF-8 sequence.
+		value = value[:1000]
+		for !utf8.ValidString(value) {
+			value = value[:len(value)-1]
+		}
 	}
 	return value
 }

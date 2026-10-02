@@ -50,7 +50,10 @@ export function submitGitHubManifest(actionURL: string, manifest: string) {
   form.submit();
 }
 
-export function handoffURL(publicURL: string) {
+export function handoffURL(
+  publicURL: string,
+  allowedOrigins: Array<string | undefined> = [],
+) {
   try {
     const target = new URL(publicURL);
     if (
@@ -61,6 +64,27 @@ export function handoffURL(publicURL: string) {
       target.hash ||
       (target.pathname !== "" && target.pathname !== "/")
     ) {
+      return "";
+    }
+    // The one-time handoff token must only be POSTed to a trusted Console
+    // origin. public_url is user-editable, so without this check a tampered
+    // value could exfiltrate the token to an attacker origin. Callers pass the
+    // server-persisted setup draft (and/or window.location.origin); fail closed
+    // when no trusted origin is available.
+    const allowed = new Set(
+      allowedOrigins
+        .map((origin) => origin?.trim())
+        .filter((origin): origin is string => Boolean(origin))
+        .map((origin) => {
+          try {
+            return new URL(origin).origin;
+          } catch {
+            return "";
+          }
+        })
+        .filter(Boolean),
+    );
+    if (allowed.size === 0 || !allowed.has(target.origin)) {
       return "";
     }
     target.pathname = "/v1/setup/handoff";

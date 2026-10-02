@@ -95,6 +95,7 @@ export function useBrowserSetupFlow() {
   const testStorage = useTestSetupStorage();
   const startInstall = useStartSetupInstall();
   const issueHandoff = useIssueSetupHandoffToken();
+  const issueHandoffRef = useRef(issueHandoff.mutateAsync);
   const watchedConfig = useWatch({ control: configForm.control });
   const networkMode = watchedConfig.network_mode ?? defaultConfig.network_mode;
   const databaseMode =
@@ -210,6 +211,10 @@ export function useBrowserSetupFlow() {
   }, [activeStep, setupStatus]);
 
   useEffect(() => {
+    issueHandoffRef.current = issueHandoff.mutateAsync;
+  }, [issueHandoff.mutateAsync]);
+
+  useEffect(() => {
     if (
       activeStep !== "install" ||
       !state ||
@@ -225,23 +230,24 @@ export function useBrowserSetupFlow() {
     if (handoffToken) {
       return;
     }
-    void issueHandoff
-      .mutateAsync()
+    // The guard is only cleared by an explicit user action (start/retry
+    // installation). Resetting it here would let the 2s poll or SSE stream
+    // retry a failed handoff indefinitely with no backoff.
+    void issueHandoffRef
+      .current()
       .then((result) => {
         if (result?.token) {
           setHandoffToken(result.token);
         } else {
-          handoffSubmitted.current = false;
           setActionError(
             new Error("The production session handoff was empty."),
           );
         }
       })
       .catch((error) => {
-        handoffSubmitted.current = false;
         setActionError(error);
       });
-  }, [activeStep, configForm, handoffToken, issueHandoff, state]);
+  }, [activeStep, configForm, handoffToken, state]);
 
   const persistConfig = useCallback(
     async (values: ConfigValues) => {

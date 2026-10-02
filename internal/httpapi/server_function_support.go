@@ -5,12 +5,37 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Stealth-deplover/stealth/internal/apikey"
 	"github.com/Stealth-deplover/stealth/internal/database"
 	"github.com/Stealth-deplover/stealth/internal/functionstore"
 	"github.com/Stealth-deplover/stealth/internal/repository"
 	"github.com/Stealth-deplover/stealth/internal/storage"
 	"github.com/google/uuid"
 )
+
+// authorizeFunctionDeploymentWrite verifies a caller may write to the target
+// project/function before an upload stages or commits an artifact. API-key
+// actors were already bound to projectID by requireProjectManagement, so only
+// the write scope remains; console actors must resolve an owner/admin role and
+// the function must exist in the project.
+func (s *Server) authorizeFunctionDeploymentWrite(w http.ResponseWriter, r *http.Request, projectID, functionID uuid.UUID) bool {
+	actor := functionActorFrom(r)
+	if actor.Kind == repository.FunctionAPIKeyActor {
+		if !apikey.HasScope(actor.APIKeyScopes, "functions.write") {
+			writeError(w, http.StatusForbidden, "forbidden", "you do not have permission to manage Functions")
+			return false
+		}
+		return true
+	}
+	if _, err := s.repo.GetFunction(r.Context(), projectID, functionID, actor); err != nil {
+		if functionResourceError(w, err) {
+			return false
+		}
+		internalError(s, w, err)
+		return false
+	}
+	return true
+}
 
 func functionPathIDs(w http.ResponseWriter, r *http.Request) (uuid.UUID, uuid.UUID, bool) {
 	projectID, ok := pathUUID(w, r, "projectID")

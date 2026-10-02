@@ -134,6 +134,15 @@ func NewSiteWorker(
 	}, nil
 }
 
+// cleanStaleStaging removes site build workspaces left by a process that
+// exited before its deferred cleanup ran.
+func (w *SiteWorker) cleanStaleStaging(maxAge time.Duration) (int, error) {
+	if w == nil || w.StagingRoot == "" {
+		return 0, errors.New("site staging cleanup is not configured")
+	}
+	return sweepStaleStagingRoot(filepath.Join(w.StagingRoot, "site-builds"), maxAge)
+}
+
 func (w *SiteWorker) Run(ctx context.Context) error {
 	if w == nil || w.Store == nil || w.SourceStore == nil || w.PublicStore == nil || w.Builder == nil {
 		return errors.New("site worker is not configured")
@@ -148,9 +157,18 @@ func (w *SiteWorker) Run(ctx context.Context) error {
 	}
 	ticker := time.NewTicker(poll)
 	defer ticker.Stop()
+	lastStagingSweep := time.Time{}
 	for {
 		if metrics := w.Metrics; metrics != nil {
 			metrics.Polls.Inc()
+		}
+		if lastStagingSweep.IsZero() || time.Since(lastStagingSweep) >= staleStagingSweepInterval {
+			if removed, err := w.cleanStaleStaging(2 * leaseAge); err != nil {
+				w.Logger.Warn("stale site staging cleanup failed", "error", err)
+			} else if removed > 0 {
+				w.Logger.Info("removed stale site staging directories", "count", removed)
+			}
+			lastStagingSweep = time.Now()
 		}
 		if requeued, err := w.Store.RequeueStaleSiteDeployments(ctx, leaseAge); err != nil &&
 			!errors.Is(err, context.Canceled) {

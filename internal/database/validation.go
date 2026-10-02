@@ -408,7 +408,10 @@ func integerValue(value any) (int64, bool) {
 	case float64:
 		notFinite := math.IsNaN(number) || math.IsInf(number, 0)
 		notInteger := math.Trunc(number) != number
-		outOfRange := number < math.MinInt64 || number > math.MaxInt64
+		// float64 cannot represent MaxInt64 exactly: the nearest value is
+		// 2^63, which would wrap on conversion. Reject at or above that bound
+		// (and at or below MinInt64) so every accepted value round-trips.
+		outOfRange := number <= math.MinInt64 || number >= float64(math.MaxInt64)
 		if notFinite || notInteger || outOfRange {
 			return 0, false
 		}

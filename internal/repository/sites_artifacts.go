@@ -45,7 +45,7 @@ func (r *Repository) DeleteSiteDeploymentWithArtifact(
 	if _, err := tx.Exec(ctx, `UPDATE project_sites SET artifact_used_bytes=GREATEST(0,artifact_used_bytes-$3),artifact_reserved_bytes=GREATEST(0,artifact_reserved_bytes-$4),updated_at=now() WHERE project_id=$1 AND id=$2`, projectID, siteID, item.SizeBytes, item.ReservedBytes); err != nil {
 		return SiteStoragePaths{}, err
 	}
-	if err := r.auditSite(ctx, tx, projectID, actor, "site_deployment.delete", "site_deployment", deploymentID, map[string]any{"version": item.Version, "size_bytes": item.SizeBytes}); err != nil {
+	if err := r.auditSite(ctx, tx, projectID, actor, "site_deployment.delete", "site_deployment", deploymentID, map[string]any{"site_id": siteID.String(), "version": item.Version, "size_bytes": item.SizeBytes}); err != nil {
 		return SiteStoragePaths{}, err
 	}
 	if err := queueArtifactCleanupTx(ctx, tx, ArtifactCleanupInput{

@@ -18,6 +18,7 @@ func (s *Server) routes() http.Handler {
 	// the 500 response that callers actually receive.
 	r.Use(
 		s.requestID,
+		s.captureTraceAccount,
 		observability.HTTPMiddlewareWithRecorder(s.recordHTTPTrace),
 		s.requestLog,
 		s.recoverer,

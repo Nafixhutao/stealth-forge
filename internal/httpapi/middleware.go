@@ -73,6 +73,7 @@ func (s *Server) requireProjectManagement(next http.Handler) http.Handler {
 				return
 			}
 			ctx := context.WithValue(r.Context(), accountContextKey, account)
+			recordTraceAccount(ctx, account)
 			ctx = context.WithValue(ctx, sessionContextKey, sessionID)
 			ctx = context.WithValue(ctx, projectActorContextKey, projectActor{kind: consoleProjectActor})
 			next.ServeHTTP(w, r.WithContext(ctx))
@@ -152,6 +153,7 @@ func (s *Server) requireFunctionExecutionActor(next http.Handler) http.Handler {
 				return
 			}
 			ctx := context.WithValue(r.Context(), accountContextKey, account)
+			recordTraceAccount(ctx, account)
 			ctx = context.WithValue(ctx, sessionContextKey, sessionID)
 			ctx = context.WithValue(ctx, projectActorContextKey, projectActor{kind: consoleProjectActor})
 			next.ServeHTTP(w, r.WithContext(ctx))
@@ -499,6 +501,7 @@ func (s *Server) requireSession(next http.Handler) http.Handler {
 			return
 		}
 		ctx := context.WithValue(r.Context(), accountContextKey, account)
+		recordTraceAccount(ctx, account)
 		ctx = context.WithValue(ctx, sessionContextKey, sessionID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

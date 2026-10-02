@@ -5,13 +5,15 @@ import { handoffURL } from "./helpers";
 
 export function HandoffSubmission({
   publicURL,
+  persistedURL,
   token,
 }: {
   publicURL: string;
+  persistedURL?: string;
   token: string;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
-  const action = handoffURL(publicURL);
+  const action = handoffURL(publicURL, [persistedURL]);
 
   useEffect(() => {
     if (action) formRef.current?.requestSubmit();

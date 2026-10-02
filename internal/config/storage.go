@@ -30,8 +30,8 @@ type storageSettings struct {
 
 func loadStorageSettings() (storageSettings, error) {
 	root, err := filepath.Abs(value("STORAGE_ROOT", "/var/lib/stealth/storage"))
-	if err != nil || strings.TrimSpace(root) == "" {
-		return storageSettings{}, fmt.Errorf("STORAGE_ROOT must be a valid filesystem path")
+	if err != nil || strings.TrimSpace(root) == "" || filepath.Clean(root) == string(filepath.Separator) {
+		return storageSettings{}, fmt.Errorf("STORAGE_ROOT must be a valid non-root filesystem path")
 	}
 	maxFileSize, err := parseBytes(value("STORAGE_MAX_FILE_SIZE", "50MiB"))
 	if err != nil || maxFileSize < 1 {
@@ -127,6 +127,9 @@ func (c *Config) applyStorageDefaults() {
 func (c Config) ValidateStorage() error {
 	if c.StorageDriver != "local" && c.StorageDriver != "s3" {
 		return fmt.Errorf("storage driver must be local or s3")
+	}
+	if filepath.Clean(c.StorageRoot) == string(filepath.Separator) {
+		return fmt.Errorf("storage root must not be the filesystem root")
 	}
 	if c.StorageMaxFileSize <= 0 || c.StorageDefaultQuotaBytes <= 0 {
 		return fmt.Errorf("storage size and quota settings are invalid")

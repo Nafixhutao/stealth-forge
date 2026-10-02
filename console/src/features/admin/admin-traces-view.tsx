@@ -21,9 +21,16 @@ export function AdminTracesView() {
   const timeRange = useAdminTimeRange();
   const searchParams = useSearchParams();
   const [service, setService] = useState("");
-  const [traceID, setTraceID] = useState(
-    () => searchParams.get("trace_id") ?? "",
-  );
+  const traceIDParam = searchParams.get("trace_id") ?? "";
+  const [traceID, setTraceID] = useState(traceIDParam);
+  // The route can be reused with a different trace_id without remounting this
+  // view. Adjust the filter during render when the URL param changes (the
+  // React-recommended alternative to syncing state from an effect).
+  const [syncedTraceIDParam, setSyncedTraceIDParam] = useState(traceIDParam);
+  if (traceIDParam !== syncedTraceIDParam) {
+    setSyncedTraceIDParam(traceIDParam);
+    setTraceID(traceIDParam);
+  }
   const query = useMemo(
     () => ({ ...timeRange.query, service, trace_id: traceID, limit: 100 }),
     [service, timeRange.query, traceID],

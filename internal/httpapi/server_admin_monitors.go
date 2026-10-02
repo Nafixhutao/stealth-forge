@@ -97,7 +97,11 @@ func (s *Server) createAdminMonitor(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getAdminMonitor(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathUUID(w, r, "monitorID")
-	if !ok || s.repo == nil {
+	if !ok {
+		return
+	}
+	if s.repo == nil {
+		writeError(w, http.StatusServiceUnavailable, "service_unavailable", "monitoring is unavailable")
 		return
 	}
 	item, err := s.repo.AdminMonitorByID(r.Context(), id)
@@ -115,7 +119,11 @@ func (s *Server) getAdminMonitor(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) updateAdminMonitor(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathUUID(w, r, "monitorID")
-	if !ok || s.repo == nil {
+	if !ok {
+		return
+	}
+	if s.repo == nil {
+		writeError(w, http.StatusServiceUnavailable, "service_unavailable", "monitoring is unavailable")
 		return
 	}
 	var request adminMonitorRequest
@@ -139,7 +147,11 @@ func (s *Server) updateAdminMonitor(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) deleteAdminMonitor(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathUUID(w, r, "monitorID")
-	if !ok || s.repo == nil {
+	if !ok {
+		return
+	}
+	if s.repo == nil {
+		writeError(w, http.StatusServiceUnavailable, "service_unavailable", "monitoring is unavailable")
 		return
 	}
 	if err := s.repo.DeleteAdminMonitor(r.Context(), mustUUID(accountFrom(r).ID), id); err != nil {

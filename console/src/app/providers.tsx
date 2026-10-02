@@ -18,8 +18,10 @@ export function Providers({
               const status =
                 error instanceof Error && "status" in error
                   ? Number(error.status)
-                  : 0;
-              return status >= 500 && failureCount < 2;
+                  : Number.NaN;
+              return (
+                (Number.isNaN(status) || status >= 500) && failureCount < 2
+              );
             },
           },
         },

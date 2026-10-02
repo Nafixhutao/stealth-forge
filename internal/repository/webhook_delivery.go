@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -69,8 +70,13 @@ func truncateWebhookError(value string) *string {
 	if value == "" {
 		return nil
 	}
+	value = strings.ToValidUTF8(value, "�")
 	if len(value) > 4000 {
+		// Back off to a rune boundary so PostgreSQL never receives invalid UTF-8.
 		value = value[:4000]
+		for !utf8.ValidString(value) {
+			value = value[:len(value)-1]
+		}
 	}
 	return &value
 }

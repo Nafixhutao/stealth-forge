@@ -61,6 +61,9 @@ func extractTar(ctx context.Context, source io.Reader, destination string, root 
 		seen[relative] = struct{}{}
 		switch header.Typeflag {
 		case tar.TypeDir:
+			if stats.Files+stats.Directories >= limits.MaxFiles {
+				return ArchiveStats{}, ErrArchiveTooLarge
+			}
 			if err := makeDirectory(root, destination, relative); err != nil {
 				return ArchiveStats{}, err
 			}

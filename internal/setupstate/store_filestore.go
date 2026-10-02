@@ -238,9 +238,18 @@ func (s *FileStore) acquireFileLock() (*os.File, error) {
 		return nil, fmt.Errorf("create setup state directory: %w", err)
 	}
 	lockPath := s.path + ".lock"
-	file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, sharedStateFileMode)
+	file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, sharedStateFileMode)
 	if err != nil {
 		return nil, fmt.Errorf("open setup state lock: %w", err)
+	}
+	info, err := file.Stat()
+	if err != nil {
+		_ = file.Close()
+		return nil, fmt.Errorf("inspect setup state lock: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		_ = file.Close()
+		return nil, fmt.Errorf("setup state lock is not a regular file")
 	}
 	if err := file.Chmod(sharedStateFileMode); err != nil {
 		_ = file.Close()

@@ -13,7 +13,8 @@ import (
 
 // This lock is session-scoped and is held from the desired-state snapshot
 // through publication by the worker. It is intentionally distinct from the
-// migration and realtime locks.
+// migration (…601), admin-realtime ordering (…604), and Cloudflare reconcile
+// (…603) locks.
 const platformRouteReconcileLockID int64 = 8_105_202_602
 
 // TryPlatformRouteReconcileLock gives one worker a distributed single-writer

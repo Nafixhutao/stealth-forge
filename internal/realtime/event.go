@@ -192,12 +192,24 @@ func safeValue(value any) any {
 }
 
 func sensitiveKey(value string) bool {
-	value = strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(value, "-", "_"), " ", "_"))
-	if value == "api_key" || strings.Contains(value, "api_key_secret") {
+	value = strings.ToLower(value)
+	// Remove common separators so camelCase and snake/kebab-case keys normalize
+	// to the same fragment, matching the telemetry redactor.
+	normalized := strings.Map(func(character rune) rune {
+		switch character {
+		case '-', '_', ' ', '.', '\t':
+			return -1
+		}
+		return character
+	}, value)
+	if strings.Contains(normalized, "apikey") {
 		return true
 	}
-	for _, fragment := range []string{"password", "secret", "token", "authorization", "cookie", "access_key", "access_token", "refresh_token", "private_key", "ciphertext"} {
-		if strings.Contains(value, fragment) {
+	for _, fragment := range []string{
+		"password", "secret", "token", "authorization", "cookie",
+		"accesskey", "accesstoken", "refreshtoken", "privatekey", "ciphertext",
+	} {
+		if strings.Contains(normalized, fragment) {
 			return true
 		}
 	}

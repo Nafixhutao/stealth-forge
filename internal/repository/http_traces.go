@@ -115,6 +115,21 @@ func (r *Repository) RecordHTTPTrace(ctx context.Context, id uuid.UUID, input HT
 		return err
 	}
 	defer tx.Rollback(ctx)
+	// Verify the tenant boundary before persisting or metering usage. A trace
+	// that names a project must name a project owned by the supplied
+	// organization; otherwise a caller could inflate another tenant's usage.
+	if input.ProjectID != nil {
+		var projectOrganizationID uuid.UUID
+		if err := tx.QueryRow(ctx, `SELECT organization_id FROM projects WHERE id=$1`, *input.ProjectID).Scan(&projectOrganizationID); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrNotFound
+			}
+			return err
+		}
+		if input.OrganizationID != nil && *input.OrganizationID != projectOrganizationID {
+			return ErrNotFound
+		}
+	}
 	_, err = tx.Exec(ctx, `
 		INSERT INTO http_traces (id,trace_id,span_id,organization_id,project_id,account_id,method,route,status,duration_ms,response_bytes,started_at,finished_at)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,

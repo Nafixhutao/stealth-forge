@@ -83,12 +83,12 @@ func uuidSuffix(resourceID uuid.UUID) string {
 func labelWithSuffix(human, suffix string) string {
 	maxHuman := MaxLabelLength - 1 - len(suffix)
 	if maxHuman < 1 {
-		return suffix[:MaxLabelLength]
+		return suffix
 	}
 	human = human[:min(len(human), maxHuman)]
 	human = strings.TrimRight(human, "-")
 	if human == "" {
-		return suffix[:MaxLabelLength]
+		return suffix
 	}
 	return human + "-" + suffix
 }

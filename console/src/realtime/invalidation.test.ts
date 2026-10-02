@@ -282,4 +282,21 @@ describe("realtime query invalidation", () => {
       ["function-deployment", "project-1", "function-1", "deployment-1"],
     ]);
   });
+
+  it("still invalidates deployment lists when a delete omits the parent id", () => {
+    expect(
+      realtimeInvalidationKeys("project-1", {
+        type: "function_deployment.delete",
+        resource_id: "deployment-1",
+        payload: {},
+      }),
+    ).toEqual([["function-deployments", "project-1"]]);
+    expect(
+      realtimeInvalidationKeys("project-1", {
+        type: "site_deployment.delete",
+        resource_id: "deployment-2",
+        payload: {},
+      }),
+    ).toEqual([["site-deployments", "project-1"]]);
+  });
 });

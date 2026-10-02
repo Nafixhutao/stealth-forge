@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -17,6 +18,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
+
+// functionVariableKeyPattern mirrors the function_variables_key_valid CHECK.
+var functionVariableKeyPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]{0,119}$`)
 
 func (r *Repository) ListFunctions(
 	ctx context.Context,
@@ -451,7 +455,7 @@ func (r *Repository) CreateFunctionVariable(
 	actor FunctionActor,
 	input FunctionVariableInput,
 ) (domain.FunctionVariable, error) {
-	if len(input.Key) == 0 || len(input.Key) > 128 || strings.ContainsRune(input.Key, '\x00') {
+	if !functionVariableKeyPattern.MatchString(input.Key) {
 		return domain.FunctionVariable{}, ErrInvalidFunctionVariable
 	}
 	if input.Description != nil &&

@@ -1,11 +1,14 @@
 package httpapi
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/Stealth-deplover/stealth/internal/repository"
@@ -122,7 +125,14 @@ func (s *Server) servePublishedSiteFile(w http.ResponseWriter, r *http.Request, 
 	defer file.Close()
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "same-origin")
-	w.Header().Set("ETag", `"`+artifact.Deployment.ChecksumSHA256+`"`)
+	// The deployment checksum alone is identical for every file in a release,
+	// so a shared ETag made conditional and range requests return the wrong
+	// body. Mix in the requested path and the file identity for a per-file tag.
+	fileTag := sha256.Sum256([]byte(
+		artifact.Deployment.ChecksumSHA256 + "\x00" + requested + "\x00" +
+			strconv.FormatInt(info.Size(), 10) + "\x00" + strconv.FormatInt(info.ModTime().UnixNano(), 10),
+	))
+	w.Header().Set("ETag", `"`+hex.EncodeToString(fileTag[:])+`"`)
 	ext := strings.ToLower(filepath.Ext(requested))
 	if mimeType := mime.TypeByExtension(ext); mimeType != "" {
 		w.Header().Set("Content-Type", mimeType)

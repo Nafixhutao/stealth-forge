@@ -161,7 +161,35 @@ func validBuildkitAddress(value string) bool {
 		return false
 	}
 	portNumber, err := strconv.Atoi(port)
-	return err == nil && portNumber >= 1 && portNumber <= 65535
+	if err != nil || portNumber < 1 || portNumber > 65535 {
+		return false
+	}
+	return privateBuildkitHost(host)
+}
+
+// privateBuildkitHost enforces the "private TCP host" contract. An IP literal
+// must be loopback or private, and a resolvable hostname must resolve only to
+// loopback or private addresses. Single-label hostnames (Docker Compose
+// service names such as "buildkit") are resolved by the container network, so
+// they are accepted without a host-side lookup.
+func privateBuildkitHost(host string) bool {
+	host = strings.Trim(strings.TrimSpace(host), "[]")
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback() || ip.IsPrivate()
+	}
+	if !strings.Contains(host, ".") {
+		return true
+	}
+	addresses, err := net.LookupIP(host)
+	if err != nil || len(addresses) == 0 {
+		return false
+	}
+	for _, address := range addresses {
+		if !address.IsLoopback() && !address.IsPrivate() {
+			return false
+		}
+	}
+	return true
 }
 
 func (s appBuildSettings) apply(config *Config) {

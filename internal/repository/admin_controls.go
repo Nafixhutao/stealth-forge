@@ -3,6 +3,7 @@ package repository
 import (
 	"errors"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -32,5 +33,7 @@ func normalizeAdminControlText(value string, minimum, maximum int) (string, erro
 
 func validAdminControlText(value string, minimum, maximum int) bool {
 	length := utf8.RuneCountInString(value)
-	return length >= minimum && length <= maximum && !strings.ContainsAny(value, "\x00\r\n")
+	// Match the database CHECK (!~ '[[:cntrl:]]') so every control rune is
+	// rejected here instead of surfacing as an unmapped constraint violation.
+	return length >= minimum && length <= maximum && !strings.ContainsFunc(value, unicode.IsControl)
 }
