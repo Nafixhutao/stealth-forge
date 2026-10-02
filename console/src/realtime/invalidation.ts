@@ -273,7 +273,7 @@ export function realtimeCacheChanges(
     const tableIds = [
       stringValue(data.source_table_id),
       stringValue(data.target_table_id),
-    ].filter((value): value is string => Boolean(value));
+    ].flatMap((value) => (value ? [value] : []));
     if (!databaseId || tableIds.length === 0) return [];
     return tableIds.map((tableId) => ({
       kind: "database-table-schema" as const,

@@ -11,10 +11,12 @@ function NavGroup({
   section,
   collapsed,
   pathname,
+  onNavigate,
 }: {
   section: NavSection;
   collapsed: boolean;
   pathname: string;
+  onNavigate?: () => void;
 }) {
   return (
     <div className="mb-5">
@@ -38,6 +40,7 @@ function NavGroup({
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               title={collapsed ? item.label : undefined}
               aria-current={active ? "page" : undefined}
               className={cn(
@@ -73,10 +76,12 @@ export function Sidebar({
   mobile = false,
   collapsed = false,
   onToggle,
+  onNavigate,
 }: {
   mobile?: boolean;
   collapsed?: boolean;
   onToggle?: () => void;
+  onNavigate?: () => void;
 }) {
   const { organizationId, projectId, pathname } = useConsoleRouteContext();
   const account = useCurrentAccount();
@@ -135,6 +140,7 @@ export function Sidebar({
         section={nav.organization}
         collapsed={effectiveCollapsed}
         pathname={pathname}
+        onNavigate={onNavigate}
       />
       {nav.project ? (
         nav.project.map((section) => (
@@ -143,6 +149,7 @@ export function Sidebar({
             section={section}
             collapsed={effectiveCollapsed}
             pathname={pathname}
+            onNavigate={onNavigate}
           />
         ))
       ) : (
@@ -166,6 +173,7 @@ export function Sidebar({
           section={nav.admin}
           collapsed={effectiveCollapsed}
           pathname={pathname}
+          onNavigate={onNavigate}
         />
       ) : null}
       <div

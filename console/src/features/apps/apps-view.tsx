@@ -24,6 +24,11 @@ import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
+const appSearchable = (item: StealthApp, term: string) =>
+  `${item.name} ${item.runtime_status} ${item.platform_hostname ?? ""}`
+    .toLowerCase()
+    .includes(term);
+
 export function AppsView({
   organizationId,
   projectId,
@@ -137,11 +142,7 @@ export function AppsView({
       ) : query.data?.apps.length ? (
         <ResourceTableCard
           data={query.data.apps}
-          searchable={(item, term) =>
-            `${item.name} ${item.runtime_status} ${item.platform_hostname ?? ""}`
-              .toLowerCase()
-              .includes(term)
-          }
+          searchable={appSearchable}
           serverPagination={pageControls(
             navigation,
             nextCursor(query.data),

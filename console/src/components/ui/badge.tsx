@@ -29,13 +29,16 @@ export function Badge({
   );
 }
 
+const UNDERSCORE = /_/g;
+const FIRST_CHAR = /^\w/;
+
 export function StatusBadge({ status }: { status: string | null | undefined }) {
   const normalized = status?.toLowerCase() ?? "unknown";
   const variant = getStatusVariant(normalized);
   const label = status
     ? status
-        .replace(/_/g, " ")
-        .replace(/^\w/, (character) => character.toUpperCase())
+        .replace(UNDERSCORE, " ")
+        .replace(FIRST_CHAR, (character) => character.toUpperCase())
     : "Unknown";
   return (
     <Badge variant={variant}>

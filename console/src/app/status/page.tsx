@@ -128,8 +128,11 @@ function statusVariant(
   }
 }
 
+const UNDERSCORE = /_/g;
+const FIRST_CHAR = /^\w/;
+
 function statusLabel(status: string) {
   return status
-    .replace(/_/g, " ")
-    .replace(/^\w/, (letter) => letter.toUpperCase());
+    .replace(UNDERSCORE, " ")
+    .replace(FIRST_CHAR, (letter) => letter.toUpperCase());
 }

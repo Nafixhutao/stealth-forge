@@ -27,7 +27,7 @@ function ConsoleShellContent({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const router = useRouter();
-  const { pathname, projectId } = useConsoleRouteContext();
+  const { projectId } = useConsoleRouteContext();
   const account = useCurrentAccount();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -38,10 +38,6 @@ function ConsoleShellContent({
   useEffect(() => {
     if (unauthorized) router.replace("/login");
   }, [router, unauthorized]);
-  useEffect(() => {
-    const handle = window.setTimeout(() => setMobileOpen(false), 0);
-    return () => window.clearTimeout(handle);
-  }, [pathname]);
 
   if (account.isPending)
     return (
@@ -110,7 +106,7 @@ function ConsoleShellContent({
                 Move between Stealth workspaces and resources.
               </DialogDescription>
             </DialogHeader>
-            <Sidebar mobile />
+            <Sidebar mobile onNavigate={() => setMobileOpen(false)} />
           </DialogContent>
         </Dialog>
         <div className="min-w-0 flex-1">

@@ -61,6 +61,7 @@ export function AccountVerificationView() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const mutation = useConfirmAccountVerification();
+  const confirmVerification = mutation.mutateAsync;
   const attempted = useRef(false);
   const token = searchParams.get("token");
   const secret = searchParams.get("secret");
@@ -69,13 +70,12 @@ export function AccountVerificationView() {
   useEffect(() => {
     if ((!token && !secret) || attempted.current) return;
     attempted.current = true;
-    void mutation
-      .mutateAsync(tokenPayload(token ?? secret ?? "", secret))
+    void confirmVerification(tokenPayload(token ?? secret ?? "", secret))
       .then(() => {
         router.replace("/verify?status=success");
       })
       .catch(() => undefined);
-  }, [mutation, router, secret, token]);
+  }, [confirmVerification, router, secret, token]);
 
   if (status === "success") {
     return (

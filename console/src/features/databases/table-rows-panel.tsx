@@ -116,14 +116,16 @@ export function TableRowsPanel({
     search: searchParams.get("search") || undefined,
     search_column: searchParams.get("search_column") || undefined,
   });
-  const indexedKeys = new Set(
-    indexes
-      .filter((index) => index.type === "key" || index.type === "unique")
-      .map((index) => index.column_keys[0]),
-  );
-  const searchableKeys = indexes
-    .filter((index) => index.type === "fulltext")
-    .map((index) => index.column_keys[0]);
+  // Tally indexed and full-text-searchable columns in a single pass.
+  const indexedKeys = new Set<string>();
+  const searchableKeys: string[] = [];
+  for (const index of indexes) {
+    if (index.type === "key" || index.type === "unique") {
+      indexedKeys.add(index.column_keys[0]);
+    } else if (index.type === "fulltext") {
+      searchableKeys.push(index.column_keys[0]);
+    }
+  }
 
   const applyQuery = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

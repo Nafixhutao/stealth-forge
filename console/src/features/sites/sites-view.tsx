@@ -26,6 +26,9 @@ import {
   type SiteFormValues,
 } from "@/features/sites/site-form";
 
+const siteSearchable = (item: Site, term: string) =>
+  `${item.name} ${item.status}`.toLowerCase().includes(term);
+
 export function SitesView({
   organizationId,
   projectId,
@@ -129,9 +132,7 @@ export function SitesView({
       ) : query.data?.sites.length ? (
         <ResourceTableCard
           data={query.data.sites}
-          searchable={(item, term) =>
-            `${item.name} ${item.status}`.toLowerCase().includes(term)
-          }
+          searchable={siteSearchable}
           serverPagination={pageControls(
             navigation,
             nextCursor(query.data),

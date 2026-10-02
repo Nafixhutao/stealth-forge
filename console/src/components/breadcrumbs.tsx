@@ -7,6 +7,8 @@ import { useConsoleRouteContext } from "@/components/navigation/console-route-co
 import { organizationProjectsPath, projectPath } from "@/lib/console-routes";
 import { cn } from "@/lib/utils";
 
+const HYPHEN = /-/g;
+
 const resourceLabels: Record<string, string> = {
   services: "Services",
   deployments: "Deployments",
@@ -61,7 +63,7 @@ export function Breadcrumbs() {
     if (projectSegments[0]) {
       const resource =
         resourceLabels[projectSegments[0]] ??
-        projectSegments[0].replace(/-/g, " ");
+        projectSegments[0].replace(HYPHEN, " ");
       items.push({ label: resource });
     }
   }

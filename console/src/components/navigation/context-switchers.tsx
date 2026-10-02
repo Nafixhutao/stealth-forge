@@ -96,15 +96,12 @@ export function OrganizationSwitcher({ currentId }: { currentId?: string }) {
       ? [selected, ...items]
       : items;
   }, [data?.organizations, selectedOrganization.data]);
-  const filtered = useMemo(
-    () =>
-      (organizations ?? []).filter((organization) =>
-        `${organization.name} ${organization.slug}`
-          .toLowerCase()
-          .includes(search.toLowerCase()),
-      ),
-    [organizations, search],
-  );
+  const filtered = useMemo(() => {
+    const term = search.toLowerCase();
+    return (organizations ?? []).filter((organization) =>
+      `${organization.name} ${organization.slug}`.toLowerCase().includes(term),
+    );
+  }, [organizations, search]);
   const current = (organizations ?? []).find(
     (organization) => organization.id === currentId,
   );
@@ -217,13 +214,12 @@ export function ProjectSwitcher({
       ? [selected, ...items]
       : items;
   }, [data?.projects, organizationId, selectedProject.data?.project]);
-  const filtered = useMemo(
-    () =>
-      (projects ?? []).filter((project) =>
-        project.name.toLowerCase().includes(search.toLowerCase()),
-      ),
-    [projects, search],
-  );
+  const filtered = useMemo(() => {
+    const term = search.toLowerCase();
+    return (projects ?? []).filter((project) =>
+      project.name.toLowerCase().includes(term),
+    );
+  }, [projects, search]);
   const current = (projects ?? []).find((project) => project.id === currentId);
   const navigate = (project: Project) => {
     setOpen(false);
