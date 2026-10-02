@@ -7,7 +7,7 @@ package repository
 import (
 	"context"
 	"errors"
-	"sort"
+	"slices"
 
 	"github.com/Stealth-deplover/stealth/internal/apikey"
 	"github.com/Stealth-deplover/stealth/internal/domain"
@@ -402,7 +402,7 @@ func siteChangedFields(patch SitePatch) []string {
 	if patch.ArtifactQuotaBytes != nil {
 		fields = append(fields, "artifact_quota_bytes")
 	}
-	sort.Strings(fields)
+	slices.Sort(fields)
 	return fields
 }
 

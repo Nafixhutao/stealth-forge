@@ -1,8 +1,9 @@
 package repository
 
 import (
+	"cmp"
 	"context"
-	"sort"
+	"slices"
 	"testing"
 	"time"
 
@@ -68,7 +69,7 @@ func TestQueryAdminAlertEventsGlobalCursorPaginationIntegration(t *testing.T) {
 		ids = append(ids, insertAdminAlertHistoryEvent(t, fixture, occurredAt, "firing"))
 	}
 	want := append([]uuid.UUID(nil), ids...)
-	sort.Slice(want, func(i, j int) bool { return want[i].String() > want[j].String() })
+	slices.SortFunc(want, func(a, b uuid.UUID) int { return cmp.Compare(b.String(), a.String()) })
 	from := occurredAt.Add(-time.Minute)
 	to := occurredAt.Add(time.Minute)
 	query := AdminAlertEventQuery{From: &from, To: &to, Limit: 2}

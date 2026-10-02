@@ -6,7 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 )
@@ -117,7 +117,7 @@ func normalizeScopes(raw []string, supported map[string]struct{}) ([]string, err
 	for scope := range seen {
 		scopes = append(scopes, scope)
 	}
-	sort.Strings(scopes)
+	slices.Sort(scopes)
 	return scopes, nil
 }
 

@@ -14,7 +14,6 @@ import (
 	"maps"
 	"path"
 	"slices"
-	"sort"
 	"strings"
 )
 
@@ -303,7 +302,7 @@ func Inspect(reader io.ReadSeeker, expectedDigest string, maxBytes int64) (Image
 		}
 		volumes = append(volumes, name)
 	}
-	sort.Strings(volumes)
+	slices.Sort(volumes)
 	return ImageInfo{
 		ManifestDigest: expectedDigest,
 		ConfigDigest:   manifest.Config.Digest,

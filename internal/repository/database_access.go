@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
-	"sort"
+	"slices"
 	"strconv"
 
 	"github.com/Stealth-deplover/stealth/internal/apikey"
@@ -204,7 +204,7 @@ func normalizeRowPermissions(raw *[]string, actor DatabaseActor, defaultForUser 
 
 func buildRowSourceMetadata(actor DatabaseActor, changed []string) map[string]any {
 	copyChanged := append([]string(nil), changed...)
-	sort.Strings(copyChanged)
+	slices.Sort(copyChanged)
 	return map[string]any{"changed_fields": copyChanged}
 }
 

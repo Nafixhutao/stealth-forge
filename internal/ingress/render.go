@@ -1,11 +1,12 @@
 package ingress
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"net"
 	"net/url"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -53,11 +54,11 @@ func Render(routes []domain.PlatformRoute, backendURL string) ([]byte, error) {
 		return nil, err
 	}
 	ordered := append([]domain.PlatformRoute(nil), routes...)
-	sort.Slice(ordered, func(i, j int) bool {
-		if ordered[i].Hostname != ordered[j].Hostname {
-			return ordered[i].Hostname < ordered[j].Hostname
+	slices.SortFunc(ordered, func(a, b domain.PlatformRoute) int {
+		if c := cmp.Compare(a.Hostname, b.Hostname); c != 0 {
+			return c
 		}
-		return ordered[i].SiteID < ordered[j].SiteID
+		return cmp.Compare(a.SiteID, b.SiteID)
 	})
 	// Traefik's file provider rejects empty map sections such as
 	// "routers: {}" as standalone elements. A comment-only document is a
@@ -122,11 +123,11 @@ func Render(routes []domain.PlatformRoute, backendURL string) ([]byte, error) {
 // retain an obsolete App target in the next complete snapshot.
 func RenderApps(routes []domain.AppPlatformRoute) ([]byte, error) {
 	ordered := append([]domain.AppPlatformRoute(nil), routes...)
-	sort.Slice(ordered, func(i, j int) bool {
-		if ordered[i].Hostname != ordered[j].Hostname {
-			return ordered[i].Hostname < ordered[j].Hostname
+	slices.SortFunc(ordered, func(a, b domain.AppPlatformRoute) int {
+		if c := cmp.Compare(a.Hostname, b.Hostname); c != 0 {
+			return c
 		}
-		return ordered[i].AppID < ordered[j].AppID
+		return cmp.Compare(a.AppID, b.AppID)
 	})
 	if len(ordered) == 0 {
 		return []byte("# Stealth App route snapshot: no eligible Apps\n"), nil

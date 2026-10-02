@@ -5,7 +5,7 @@ import (
 	"errors"
 	"math"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/Stealth-deplover/stealth/internal/appsecret"
@@ -288,7 +288,7 @@ func (r *Repository) UpdateAppEnvironmentVariable(ctx context.Context, projectID
 	if patch.Value != nil || patch.ClearValue {
 		fields = append(fields, "value")
 	}
-	sort.Strings(fields)
+	slices.Sort(fields)
 	if err := r.auditApp(ctx, tx, projectID, actor, "app_environment_variable.update", appID, appEnvironmentAuditMetadata(item, fields, runtimeChanged)); err != nil {
 		return domain.AppEnvironmentVariable{}, err
 	}

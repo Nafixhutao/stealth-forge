@@ -1,11 +1,12 @@
 package repository
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/Stealth-deplover/stealth/internal/domain"
@@ -260,7 +261,7 @@ func lockAdminAlertMonitorsTx(ctx context.Context, tx pgx.Tx, monitorIDs ...uuid
 		unique[monitorID] = struct{}{}
 		ordered = append(ordered, monitorID)
 	}
-	sort.Slice(ordered, func(i, j int) bool { return ordered[i].String() < ordered[j].String() })
+	slices.SortFunc(ordered, func(a, b uuid.UUID) int { return cmp.Compare(a.String(), b.String()) })
 	locked := make(map[uuid.UUID]string, len(ordered))
 	for _, monitorID := range ordered {
 		var monitorKind string

@@ -3,8 +3,9 @@ package appruntime
 import (
 	"context"
 	"errors"
-	"github.com/Stealth-deplover/stealth/internal/ociartifact"
 	"time"
+
+	"github.com/Stealth-deplover/stealth/internal/ociartifact"
 )
 
 const (

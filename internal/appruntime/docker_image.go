@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/Stealth-deplover/stealth/internal/ociartifact"
-	"github.com/Stealth-deplover/stealth/internal/repository"
-	"github.com/google/uuid"
 	"io"
 	"runtime"
 	"slices"
 	"strings"
+
+	"github.com/Stealth-deplover/stealth/internal/ociartifact"
+	"github.com/Stealth-deplover/stealth/internal/repository"
+	"github.com/google/uuid"
 )
 
 type Image struct {

@@ -5,18 +5,19 @@ package appruntime
 import (
 	"context"
 	"errors"
-	"github.com/Stealth-deplover/stealth/internal/appsecret"
-	"github.com/Stealth-deplover/stealth/internal/appstore"
-	"github.com/Stealth-deplover/stealth/internal/observability"
-	"github.com/Stealth-deplover/stealth/internal/ociartifact"
-	"github.com/Stealth-deplover/stealth/internal/repository"
-	"github.com/google/uuid"
 	"io"
 	"log/slog"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Stealth-deplover/stealth/internal/appsecret"
+	"github.com/Stealth-deplover/stealth/internal/appstore"
+	"github.com/Stealth-deplover/stealth/internal/observability"
+	"github.com/Stealth-deplover/stealth/internal/ociartifact"
+	"github.com/Stealth-deplover/stealth/internal/repository"
+	"github.com/google/uuid"
 )
 
 const (

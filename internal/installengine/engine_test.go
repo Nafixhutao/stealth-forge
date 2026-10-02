@@ -11,7 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -316,7 +316,7 @@ func testAssetChecksums(assets map[string]string) string {
 	for name := range assets {
 		names = append(names, name)
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 	var manifest strings.Builder
 	for _, name := range names {
 		digest := sha256.Sum256([]byte(assets[name]))

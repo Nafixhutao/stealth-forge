@@ -2,11 +2,12 @@ package appruntime
 
 import (
 	"fmt"
-	"github.com/Stealth-deplover/stealth/internal/repository"
-	"github.com/google/uuid"
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/Stealth-deplover/stealth/internal/repository"
+	"github.com/google/uuid"
 )
 
 type RuntimeSecurityProfile struct {

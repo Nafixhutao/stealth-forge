@@ -11,7 +11,7 @@ import (
 	"math"
 	"net/url"
 	"regexp"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -102,7 +102,7 @@ func NormalizePermissions(raw []string) ([]string, error) {
 		seen[canonical] = struct{}{}
 		out = append(out, canonical)
 	}
-	sort.Strings(out)
+	slices.Sort(out)
 	return out, nil
 }
 
@@ -267,7 +267,7 @@ func NormalizeUpdate(existing, patch map[string]any, columns []ColumnDefinition)
 	if err != nil {
 		return nil, nil, err
 	}
-	sort.Strings(changed)
+	slices.Sort(changed)
 	return validated, changed, nil
 }
 

@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -150,7 +150,7 @@ func unknownLayoutEntries(layout InstallLayout) []string {
 			}
 		}
 	}
-	sort.Strings(unknown)
+	slices.Sort(unknown)
 	return unknown
 }
 

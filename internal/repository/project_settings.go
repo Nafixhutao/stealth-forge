@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -83,7 +83,7 @@ func NormalizeCORSOrigins(raw []string) ([]string, error) {
 		seen[origin] = struct{}{}
 		result = append(result, origin)
 	}
-	sort.Strings(result)
+	slices.Sort(result)
 	return result, nil
 }
 

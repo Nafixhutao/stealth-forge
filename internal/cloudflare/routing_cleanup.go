@@ -1,10 +1,11 @@
 package cloudflare
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/Stealth-deplover/stealth/internal/domainname"
@@ -63,7 +64,7 @@ func longestContainingZone(zones []Zone, hostname string) (Zone, error) {
 	if len(matches) == 0 {
 		return Zone{}, errors.New("Cloudflare token cannot access a DNS zone containing the workload domain; add Zone Read and DNS Edit access for its zone")
 	}
-	sort.Slice(matches, func(i, j int) bool { return matches[i].ID < matches[j].ID })
+	slices.SortFunc(matches, func(a, b Zone) int { return cmp.Compare(a.ID, b.ID) })
 	if len(matches) > 1 && matches[0].Name == matches[1].Name {
 		return Zone{}, errors.New("Cloudflare returned multiple equally specific zones for the workload domain")
 	}

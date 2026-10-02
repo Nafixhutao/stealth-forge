@@ -3,10 +3,11 @@ package appruntime
 import (
 	"context"
 	"errors"
+	"strconv"
+
 	"github.com/Stealth-deplover/stealth/internal/repository"
 	"github.com/Stealth-deplover/stealth/internal/workloadspec"
 	"github.com/google/uuid"
-	"strconv"
 )
 
 func (m *Moby) CreateApp(ctx context.Context, job repository.AppRuntimeJob, image Image, environment []RuntimeEnvironmentVariable) (Container, error) {

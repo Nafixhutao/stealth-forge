@@ -3,10 +3,11 @@ package appruntime
 import (
 	"context"
 	"errors"
-	"github.com/Stealth-deplover/stealth/internal/repository"
-	"github.com/google/uuid"
 	"strconv"
 	"strings"
+
+	"github.com/Stealth-deplover/stealth/internal/repository"
+	"github.com/google/uuid"
 )
 
 // RenameApp rotates the container's Docker DNS identity before a restarted

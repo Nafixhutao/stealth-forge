@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -156,7 +156,7 @@ func applyMigrationsBefore(ctx context.Context, conn *pgxpool.Conn, embedded fs.
 			names = append(names, entry.Name())
 		}
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 	for _, name := range names {
 		sql, err := fs.ReadFile(embedded, "migrations/"+name)
 		if err != nil {
