@@ -20,79 +20,84 @@
   --font-weight-extrabold: 590;
   --font-weight-black: 590;
 
-  --color-void: #08090a;
-  --color-carbon: #0f1011;
-  --color-obsidian: #161718;
-  --color-graphite: #23252a;
-  --color-smoke: #383b3f;
-  --color-ash: #62666d;
-  --color-fog: #8a8f98;
-  --color-mist: #d0d6e0;
-  --color-bone: #e5e5e6;
-  --color-paper: #ffffff;
-  --color-acid-lime: #e4f222;
-  --color-pulse-green: #27a644;
-  --color-coral-red: #eb5757;
-  --color-signal-teal: #02b8cc;
-  --color-iris-violet: #6366f1;
-  --color-lavender: #8b5cf6;
+  /* The dark palette follows Inlark: warm near-black surfaces, hairline alpha
+     borders, a pastel lavender accent and muted semantic colours. Token names
+     are kept as the component API, so a name like acid-lime now carries the
+     lavender accent value. */
+  --color-void: #171718;
+  --color-carbon: #111112;
+  --color-obsidian: #1e1e20;
+  --color-graphite: #252527;
+  --color-smoke: #2a2a2c;
+  --color-ash: #77777f;
+  --color-fog: #96969e;
+  --color-mist: #b7b7bd;
+  --color-bone: #dedee1;
+  --color-paper: #f2f2f3;
+  --color-acid-lime: #aaa6ec;
+  --color-pulse-green: #76bc9a;
+  --color-coral-red: #ea9198;
+  --color-signal-teal: #6fc0cc;
+  --color-iris-violet: #a69aef;
+  --color-lavender: #d491ac;
 
   /* Control boundaries must stay legible against the dark surfaces (WCAG 1.4.11,
-     3:1). graphite is a decorative border tone and is too dark for a control edge. */
-  --color-control-border: #6f747c;
+     3:1). graphite is a decorative border tone and is too dark for a control edge.
+     faint clears 3:1 against every surface (3.75:1 on the elevated one). */
+  --color-control-border: #77777f;
 
   /* Named aliases retain the existing component API while moving it to the system. */
-  --color-stealth-bg: #08090a;
-  --color-stealth-panel: #0f1011;
-  --color-stealth-elevated: #161718;
-  --color-stealth-subtle: #23252a;
-  --color-stealth-border: #23252a;
-  --color-stealth-muted: #8a8f98;
-  --color-stealth-accent: #e4f222;
-  --color-stealth-success: #27a644;
-  --color-stealth-warning: #e4f222;
-  --color-stealth-danger: #eb5757;
-  --color-stealth-info: #02b8cc;
+  --color-stealth-bg: #171718;
+  --color-stealth-panel: #111112;
+  --color-stealth-elevated: #1e1e20;
+  --color-stealth-subtle: #252527;
+  --color-stealth-border: #252527;
+  --color-stealth-muted: #96969e;
+  --color-stealth-accent: #aaa6ec;
+  --color-stealth-success: #76bc9a;
+  --color-stealth-warning: #d4b36e;
+  --color-stealth-danger: #ea9198;
+  --color-stealth-info: #6fc0cc;
 
   /* Legacy utility names are semantic aliases, not a second palette. */
-  --color-cyan-100: #ffffff;
-  --color-cyan-200: #e5e5e6;
-  --color-cyan-300: #e4f222;
-  --color-cyan-400: #e4f222;
-  --color-cyan-500: #b9c915;
-  --color-cyan-600: #8f9b0e;
-  --color-slate-100: #e5e5e6;
-  --color-slate-200: #d0d6e0;
-  --color-slate-300: #d0d6e0;
-  --color-slate-400: #aeb5bf;
-  --color-slate-500: #8a8f98;
-  --color-slate-600: #8a8f98;
-  --color-slate-700: #8a8f98;
-  --color-slate-950: #08090a;
-  --color-emerald-100: #c6f0cd;
-  --color-emerald-200: #9be3a8;
-  --color-emerald-300: #27a644;
-  --color-emerald-400: #27a644;
-  --color-rose-100: #ffd0d0;
-  --color-rose-200: #f6a2a2;
-  --color-rose-300: #eb5757;
-  --color-rose-400: #eb5757;
-  --color-rose-500: #eb5757;
-  --color-amber-50: #fffbc2;
-  --color-amber-100: #f9f5a2;
-  --color-amber-200: #e4f222;
-  --color-amber-300: #e4f222;
-  --color-amber-400: #c1ce1b;
-  --color-violet-100: #ddd9ff;
-  --color-violet-200: #bcb8ff;
-  --color-violet-300: #6366f1;
-  --color-violet-400: #6366f1;
-  --color-orange-100: #d0f1f4;
-  --color-orange-200: #7dd9e1;
-  --color-orange-300: #02b8cc;
-  --color-orange-400: #02b8cc;
-  --color-pink-200: #d9c7ff;
-  --color-pink-300: #8b5cf6;
+  --color-cyan-100: #f2f2f3;
+  --color-cyan-200: #dedee1;
+  --color-cyan-300: #aaa6ec;
+  --color-cyan-400: #aaa6ec;
+  --color-cyan-500: #8f89e0;
+  --color-cyan-600: #6d67cb;
+  --color-slate-100: #dedee1;
+  --color-slate-200: #b7b7bd;
+  --color-slate-300: #b7b7bd;
+  --color-slate-400: #a3a3ad;
+  --color-slate-500: #96969e;
+  --color-slate-600: #96969e;
+  --color-slate-700: #96969e;
+  --color-slate-950: #171718;
+  --color-emerald-100: #cbe8da;
+  --color-emerald-200: #a3d6bd;
+  --color-emerald-300: #76bc9a;
+  --color-emerald-400: #76bc9a;
+  --color-rose-100: #f7d4d6;
+  --color-rose-200: #f0b4b7;
+  --color-rose-300: #ea9198;
+  --color-rose-400: #ea9198;
+  --color-rose-500: #ea9198;
+  --color-amber-50: #f5ecd6;
+  --color-amber-100: #ecd9b0;
+  --color-amber-200: #d4b36e;
+  --color-amber-300: #d4b36e;
+  --color-amber-400: #b8944f;
+  --color-violet-100: #d9d5f8;
+  --color-violet-200: #c2bdf2;
+  --color-violet-300: #aaa6ec;
+  --color-violet-400: #aaa6ec;
+  --color-orange-100: #d2eaee;
+  --color-orange-200: #a5d8e0;
+  --color-orange-300: #6fc0cc;
+  --color-orange-400: #6fc0cc;
+  --color-pink-200: #eccdd8;
+  --color-pink-300: #d491ac;
 
   --text-caption: 13px;
   --text-body-sm: 15px;
@@ -138,20 +143,20 @@
 
   --shadow-sm: 0 2px 4px rgb(0 0 0 / 40%);
   --shadow-md: inset 0 0 12px rgb(0 0 0 / 20%);
-  --shadow-subtle: inset 0 0 0 1px #23252a;
-  --shadow-xl: 0 4px 32px rgb(8 9 10 / 60%);
+  --shadow-subtle: inset 0 0 0 1px #252527;
+  --shadow-xl: 0 4px 32px rgb(17 17 18 / 60%);
 }
 
 :root {
   color-scheme: dark;
-  --background: #08090a;
-  --foreground: #e5e5e6;
-  --muted: #8a8f98;
-  --border: #23252a;
-  --panel: #0f1011;
-  --elevated: #161718;
-  --subtle: #23252a;
-  --accent: #e4f222;
+  --background: #171718;
+  --foreground: #dedee1;
+  --muted: #96969e;
+  --border: #252527;
+  --panel: #111112;
+  --elevated: #1e1e20;
+  --subtle: #252527;
+  --accent: #aaa6ec;
   --page-max-width: 1200px;
   --section-gap: 96px;
   --card-padding: 24px;
@@ -203,7 +208,7 @@ textarea::placeholder {
 }
 
 ::selection {
-  background: rgb(228 242 34 / 24%);
+  background: rgb(170 166 236 / 24%);
   color: var(--color-paper);
 }
 

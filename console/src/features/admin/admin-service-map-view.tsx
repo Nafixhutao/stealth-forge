@@ -190,11 +190,11 @@ function buildGraph(items: ServiceEdge[], rangeSeconds: number) {
     label: `${(item.request_count / rangeSeconds).toFixed(2)} req/s · ${(item.error_rate * 100).toFixed(1)}% errors`,
     animated: false,
     style: {
-      stroke: item.error_rate > 0 ? "#eb5757" : "#62666d",
+      stroke: item.error_rate > 0 ? "#ea9198" : "#77777f",
       strokeWidth: 1.5,
     },
-    labelStyle: { fill: "#8a8f98", fontSize: 10 },
-    labelBgStyle: { fill: "#0f1011", fillOpacity: 0.92, color: "#23252a" },
+    labelStyle: { fill: "#96969e", fontSize: 10 },
+    labelBgStyle: { fill: "#111112", fillOpacity: 0.92, color: "#252527" },
   }));
   return { nodes, edges };
 }

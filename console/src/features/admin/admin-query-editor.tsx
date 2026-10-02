@@ -91,7 +91,7 @@ export function AdminQueryEditor({
           EditorView.theme({
             "&": {
               backgroundColor: "transparent",
-              color: "#d0d6e0",
+              color: "#b7b7bd",
               minHeight: "46px",
             },
             ".cm-content": {
@@ -104,13 +104,13 @@ export function AdminQueryEditor({
             ".cm-gutters": { display: "none" },
             "&.cm-focused": { outline: "none" },
             ".cm-tooltip": {
-              backgroundColor: "#161718",
-              border: "1px solid #383b3f",
-              color: "#d0d6e0",
+              backgroundColor: "#1e1e20",
+              border: "1px solid #2a2a2c",
+              color: "#b7b7bd",
             },
             ".cm-tooltip-autocomplete ul li[aria-selected]": {
-              backgroundColor: "#23252a",
-              color: "#ffffff",
+              backgroundColor: "#252527",
+              color: "#f2f2f3",
             },
           }),
           EditorView.updateListener.of((update) => {
