@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"archive/tar"
 	"bytes"
 	"context"
 	"fmt"
@@ -120,7 +121,7 @@ func TestRealV025UpgradeSmoke(t *testing.T) {
 	legacy := NewApp(strings.NewReader(""), io.Discard, io.Discard)
 	legacy.executablePath = func() (string, error) { return installedCLI, nil }
 	legacy.runner = execCommandRunner{}
-	legacyReleaseServer := newUpdateTestServer(t, testArchive(t, "stealth", bridgeArchive, 0), "")
+	legacyReleaseServer := newUpdateTestServer(t, testArchive(t, "stealth", bridgeArchive, tar.TypeReg), "")
 	legacyAsset, err := releaseAsset(runtime.GOOS, runtime.GOARCH)
 	if err != nil {
 		t.Fatal(err)
@@ -155,12 +156,12 @@ func TestRealV025UpgradeSmoke(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	releaseServer := newUpdateTestServer(t, testArchive(t, "stealth", targetArchive, 0), "")
+	releaseServer := newUpdateTestServer(t, testArchive(t, "stealth", targetArchive, tar.TypeReg), "")
 	asset, err := releaseAsset(runtime.GOOS, runtime.GOARCH)
 	if err != nil {
 		t.Fatal(err)
 	}
-	releaseArchive := testArchive(t, "stealth", targetArchive, 0)
+	releaseArchive := testArchive(t, "stealth", targetArchive, tar.TypeReg)
 	releaseServer.archive = releaseArchive
 	releaseServer.checksums = testChecksums(releaseArchive, asset)
 	releaseServer.release = githubRelease{
