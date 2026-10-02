@@ -65,7 +65,7 @@ func extractTar(ctx context.Context, source io.Reader, destination string, root 
 				return ArchiveStats{}, err
 			}
 			stats.Directories++
-		case tar.TypeReg, tar.TypeRegA:
+		case tar.TypeReg:
 			if stats.Files >= limits.MaxFiles || header.Size < 0 || header.Size > limits.MaxEntry || header.Size > limits.MaxBytes-stats.Bytes {
 				return ArchiveStats{}, ErrArchiveTooLarge
 			}

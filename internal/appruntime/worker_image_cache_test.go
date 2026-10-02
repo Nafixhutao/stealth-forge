@@ -104,7 +104,7 @@ func TestRuntimeImageCacheSweepUsesStableDeploymentOrdering(t *testing.T) {
 }
 
 func TestRuntimeImageCacheSweepBoundsRemovalsAndFailsClosed(t *testing.T) {
-	worker, store, driver := newImageCacheWorker(t)
+	worker, _, driver := newImageCacheWorker(t)
 	worker.ImageCacheMaxBytes = 5 << 20
 	worker.ImageCacheTargetBytes = 1 << 20
 	now := time.Now().UTC()
@@ -119,7 +119,7 @@ func TestRuntimeImageCacheSweepBoundsRemovalsAndFailsClosed(t *testing.T) {
 		t.Fatalf("image removals in one sweep = %d, want at most %d", len(driver.removedImageTags), maxRuntimeImageGCRemovalsPerSweep)
 	}
 
-	worker, store, driver = newImageCacheWorker(t)
+	worker, store, driver := newImageCacheWorker(t)
 	store.activeRuntimeLease = true
 	id := newCacheDeploymentID(t)
 	driver.runtimeImageCache = []RuntimeImageCacheEntry{cacheEntry(t, id, 'b', 6<<20, now)}

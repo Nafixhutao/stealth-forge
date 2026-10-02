@@ -156,7 +156,7 @@ func Validate(reader io.Reader, expectedDigest string, maxBytes int64) error {
 			}
 			continue
 		}
-		if header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA || header.Size < 0 {
+		if header.Typeflag != tar.TypeReg || header.Size < 0 {
 			return fmt.Errorf("%w: links and special files are not allowed", ErrInvalidArchive)
 		}
 		fileCount++
@@ -351,7 +351,7 @@ func readBlob(reader io.ReadSeeker, digest string, maxMetadataBytes, maxArchiveB
 		if name != wanted {
 			continue
 		}
-		if (header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA) || header.Size <= 0 || header.Size > maxMetadataBytes {
+		if (header.Typeflag != tar.TypeReg) || header.Size <= 0 || header.Size > maxMetadataBytes {
 			return nil, ErrInvalidArchive
 		}
 		data, err := io.ReadAll(io.LimitReader(archive, header.Size+1))

@@ -137,7 +137,7 @@ func updateAdminAlertRuleTx(ctx context.Context, tx pgx.Tx, accountID, id uuid.U
 	if err != nil {
 		return domain.AdminAlertRule{}, err
 	}
-	name, kind, condition, severity, forSeconds, enabled, err := mergedAdminAlertRuleValues(current, normalized)
+	_, kind, condition, _, _, _, err := mergedAdminAlertRuleValues(current, normalized)
 	if err != nil {
 		return domain.AdminAlertRule{}, err
 	}
@@ -178,7 +178,7 @@ func updateAdminAlertRuleTx(ctx context.Context, tx pgx.Tx, accountID, id uuid.U
 	if err != nil {
 		return domain.AdminAlertRule{}, err
 	}
-	name, kind, condition, severity, forSeconds, enabled, err = mergedAdminAlertRuleValues(current, normalized)
+	name, kind, condition, severity, forSeconds, enabled, err := mergedAdminAlertRuleValues(current, normalized)
 	if err != nil {
 		return domain.AdminAlertRule{}, err
 	}
