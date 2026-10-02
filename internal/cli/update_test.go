@@ -157,7 +157,7 @@ func testArchive(t *testing.T, name string, contents []byte, typeFlag byte) []by
 	if err := tarWriter.WriteHeader(header); err != nil {
 		t.Fatal(err)
 	}
-	if typeFlag == tar.TypeReg || typeFlag == tar.TypeRegA {
+	if typeFlag == tar.TypeReg {
 		if _, err := tarWriter.Write(contents); err != nil {
 			t.Fatal(err)
 		}

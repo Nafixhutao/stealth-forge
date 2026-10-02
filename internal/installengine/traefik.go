@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -353,13 +354,13 @@ func validateTraefikCoreAsset(contents []byte) error {
 		return errors.New("Traefik core routes must not buffer complete request bodies")
 	}
 	for routerName, router := range config.HTTP.Routers {
-		if strings.TrimSpace(router.Rule) == "" || !containsString(router.EntryPoints, "web") {
+		if strings.TrimSpace(router.Rule) == "" || !slices.Contains(router.EntryPoints, "web") {
 			return fmt.Errorf("Traefik core router %q is incomplete", routerName)
 		}
 		if !strings.Contains(router.Rule, "Host(`") {
 			return fmt.Errorf("Traefik core router %q has no Host matcher", routerName)
 		}
-		if !containsString(router.Middlewares, traefikSecurityHeadersMiddleware) {
+		if !slices.Contains(router.Middlewares, traefikSecurityHeadersMiddleware) {
 			return fmt.Errorf(
 				"Traefik core router %q is missing the release-managed security-header middleware",
 				routerName,
@@ -408,13 +409,4 @@ func decodeTraefikYAML(contents []byte, target any) error {
 		return err
 	}
 	return nil
-}
-
-func containsString(values []string, wanted string) bool {
-	for _, value := range values {
-		if value == wanted {
-			return true
-		}
-	}
-	return false
 }

@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -148,7 +148,7 @@ func (r *Registry) Providers() []string {
 	for provider := range r.adapters {
 		providers = append(providers, provider)
 	}
-	sort.Strings(providers)
+	slices.Sort(providers)
 	return providers
 }
 

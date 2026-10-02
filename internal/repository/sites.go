@@ -7,7 +7,7 @@ package repository
 import (
 	"context"
 	"errors"
-	"sort"
+	"slices"
 
 	"github.com/Stealth-deplover/stealth/internal/apikey"
 	"github.com/Stealth-deplover/stealth/internal/domain"
@@ -402,7 +402,7 @@ func (r *Repository) CreateSite(
 		if claim.RowsAffected() == 0 {
 			continue
 		}
-		item, err = scanSite(
+		_, err = scanSite(
 			tx.QueryRow(
 				ctx,
 				`INSERT INTO project_sites (id,project_id,name,platform_label,framework,enabled,status,artifact_quota_bytes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (platform_label) DO NOTHING RETURNING `+siteMutationProjection,
@@ -493,7 +493,7 @@ func (r *Repository) UpdateSite(
 		quota < existing.ArtifactUsedBytes+existing.ArtifactReservedBytes {
 		return domain.Site{}, ErrInvalidSiteSettings
 	}
-	item, err := scanSite(
+	_, err = scanSite(
 		tx.QueryRow(
 			ctx,
 			`UPDATE project_sites SET name=$3,framework=$4,enabled=$5,status=$6,artifact_quota_bytes=$7,updated_at=now() WHERE project_id=$1 AND id=$2 RETURNING `+siteMutationProjection,
@@ -512,7 +512,7 @@ func (r *Repository) UpdateSite(
 	if err != nil {
 		return domain.Site{}, mapError(err)
 	}
-	item, err = r.siteByID(ctx, tx, projectID, siteID, false)
+	item, err := r.siteByID(ctx, tx, projectID, siteID, false)
 	if err != nil {
 		return domain.Site{}, err
 	}
@@ -542,7 +542,7 @@ func siteChangedFields(patch SitePatch) []string {
 	if patch.ArtifactQuotaBytes != nil {
 		fields = append(fields, "artifact_quota_bytes")
 	}
-	sort.Strings(fields)
+	slices.Sort(fields)
 	return fields
 }
 

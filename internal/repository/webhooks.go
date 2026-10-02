@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -154,7 +154,7 @@ func NormalizeWebhookEvents(raw []string) ([]string, error) {
 	for event := range seen {
 		result = append(result, event)
 	}
-	sort.Strings(result)
+	slices.Sort(result)
 	return result, nil
 }
 

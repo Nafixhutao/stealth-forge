@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -104,8 +105,8 @@ func NewAPIMetrics() *APIMetrics {
 		metrics.RealtimeActiveConnections,
 		metrics.RealtimeEventsDelivered,
 		metrics.RealtimeSlowDisconnects,
-		prometheus.NewGoCollector(),
-		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
+		collectors.NewGoCollector(),
+		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 	)
 	return metrics
 }
@@ -487,8 +488,8 @@ func NewWorkerMetrics() *WorkerMetrics {
 		metrics.OutboxPublished,
 		metrics.OutboxFailed,
 		metrics.OutboxPublishDuration,
-		prometheus.NewGoCollector(),
-		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
+		collectors.NewGoCollector(),
+		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 	)
 	return metrics
 }

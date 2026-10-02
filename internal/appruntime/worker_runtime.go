@@ -386,13 +386,6 @@ func (w *Worker) runtimeNetworkName() string {
 	return defaultRuntimeNetwork
 }
 
-func (w *Worker) logRuntimeUnavailable(operation string, err error) {
-	if w.Metrics != nil {
-		w.Metrics.AppRuntimeErrors.WithLabelValues(operation).Inc()
-	}
-	w.Logger.Warn("App runtime dependency unavailable", "operation", operation, "error", safeRuntimeError(err))
-}
-
 func runtimeBackoff(attempt int) time.Duration {
 	if attempt < 0 {
 		attempt = 0

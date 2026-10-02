@@ -14,7 +14,6 @@ import (
 	"maps"
 	"path"
 	"slices"
-	"sort"
 	"strings"
 )
 
@@ -156,8 +155,7 @@ func Validate(reader io.Reader, expectedDigest string, maxBytes int64) error {
 			}
 			continue
 		}
-		isRegularFile := header.Typeflag == tar.TypeReg || header.Typeflag == tar.TypeRegA
-		if !isRegularFile || header.Size < 0 {
+		if header.Typeflag != tar.TypeReg || header.Size < 0 {
 			return fmt.Errorf("%w: links and special files are not allowed", ErrInvalidArchive)
 		}
 		fileCount++
@@ -317,7 +315,7 @@ func Inspect(reader io.ReadSeeker, expectedDigest string, maxBytes int64) (Image
 		}
 		volumes = append(volumes, name)
 	}
-	sort.Strings(volumes)
+	slices.Sort(volumes)
 	return ImageInfo{
 		ManifestDigest: expectedDigest,
 		ConfigDigest:   manifest.Config.Digest,
@@ -365,7 +363,7 @@ func readBlob(reader io.ReadSeeker, digest string, maxMetadataBytes, maxArchiveB
 		if name != wanted {
 			continue
 		}
-		if (header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA) || header.Size <= 0 ||
+		if (header.Typeflag != tar.TypeReg) || header.Size <= 0 ||
 			header.Size > maxMetadataBytes {
 			return nil, ErrInvalidArchive
 		}

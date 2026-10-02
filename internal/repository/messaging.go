@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net/mail"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/Stealth-deplover/stealth/internal/apikey"
@@ -168,7 +168,7 @@ func normalizeMessagingCredentials(raw map[string]string) ([]byte, bool, error) 
 		normalized[key] = value
 		keys = append(keys, key)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 	// encoding/json sorts string map keys, but explicitly building the map
 	// above ensures callers cannot mutate the input while it is being encoded.
 	encoded, err := json.Marshal(normalized)

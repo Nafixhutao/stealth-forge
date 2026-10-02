@@ -80,9 +80,10 @@ func makeDirectory(root *os.Root, destination, relative string) error {
 	native := filepath.FromSlash(relative)
 	info, err := root.Lstat(native)
 	if errors.Is(err, os.ErrNotExist) {
-		if err := root.Mkdir(native, 0o700); err != nil {
-			if !errors.Is(err, os.ErrExist) {
-				return fmt.Errorf("create archive directory: %w", err)
+		mkdirErr := root.Mkdir(native, 0o700)
+		if mkdirErr != nil {
+			if !errors.Is(mkdirErr, os.ErrExist) {
+				return fmt.Errorf("create archive directory: %w", mkdirErr)
 			}
 			info, err = root.Lstat(native)
 		} else {

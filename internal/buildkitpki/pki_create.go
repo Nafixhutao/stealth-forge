@@ -223,7 +223,7 @@ func parsePrivateKey(contents []byte) (*ecdsa.PrivateKey, error) {
 
 func publicKeysMatch(certPublic any, key *ecdsa.PrivateKey) bool {
 	certKey, ok := certPublic.(*ecdsa.PublicKey)
-	return ok && certKey.Curve == key.Curve && certKey.X.Cmp(key.X) == 0 && certKey.Y.Cmp(key.Y) == 0
+	return ok && certKey.Equal(key.Public())
 }
 
 func invalidFile(name string, err error) error {

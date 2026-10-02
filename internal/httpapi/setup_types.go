@@ -41,11 +41,6 @@ type setupGitHubManualRequest struct {
 	WebhookSecret string `json:"webhook_secret"`
 }
 
-type setupCloudflareOAuthResponse struct {
-	AuthorizationURL string    `json:"authorization_url"`
-	ExpiresAt        time.Time `json:"expires_at"`
-}
-
 type setupCloudflareTokenRequest struct {
 	APIToken string `json:"api_token"`
 }

@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -280,7 +280,7 @@ func installerAcceptanceAssetServer(t *testing.T) *httptest.Server {
 	for name := range assets {
 		names = append(names, name)
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 	var checksums strings.Builder
 	for _, name := range names {
 		digest := sha256.Sum256(assets[name])

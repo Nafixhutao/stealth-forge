@@ -200,39 +200,6 @@ func scanFunctionVariable(row functionScanner) (domain.FunctionVariable, error) 
 	)
 }
 
-func scanFunctionDeployment(row functionScanner) (domain.FunctionDeployment, string, error) {
-	var item domain.FunctionDeployment
-	var sourcePath string
-	var createdBy *uuid.UUID
-	err := row.Scan(
-		&item.ID,
-		&item.FunctionID,
-		&item.ProjectID,
-		&item.Version,
-		&item.Source,
-		&item.SourceName,
-		&item.SizeBytes,
-		&item.ChecksumSHA256,
-		&item.Status,
-		&item.BuildStatus,
-		&item.ErrorMessage,
-		&createdBy,
-		&item.QueuedAt,
-		&item.BuildStartedAt,
-		&item.BuiltAt,
-		&item.ActivatedAt,
-		&item.FinishedAt,
-		&item.CreatedAt,
-		&item.UpdatedAt,
-		&sourcePath,
-	)
-	if err == nil && createdBy != nil {
-		value := createdBy.String()
-		item.CreatedByAccountID = &value
-	}
-	return item, sourcePath, err
-}
-
 // scanFunctionDeploymentRow expects the private source_path to be selected
 // after the public projection. It is kept separate so callers cannot
 // accidentally serialize source paths by scanning directly into a DTO.
@@ -322,8 +289,7 @@ func scanFunctionExecutionLog(row functionScanner) (domain.FunctionExecutionLog,
 	)
 }
 
-func functionActorIsConsole(actor FunctionActor) bool { return actor.Kind == FunctionConsoleActor }
-func functionActorIsAPIKey(actor FunctionActor) bool  { return actor.Kind == FunctionAPIKeyActor }
+func functionActorIsAPIKey(actor FunctionActor) bool { return actor.Kind == FunctionAPIKeyActor }
 
 // requireFunctionRead returns canManage for the response capability field.
 // Every branch verifies the project boundary before exposing metadata.

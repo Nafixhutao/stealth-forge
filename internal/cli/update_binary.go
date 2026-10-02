@@ -53,7 +53,7 @@ func extractUpdateBinary(archive []byte) (string, string, error) {
 			cleanup()
 			return "", "", fmt.Errorf("release archive contains multiple Stealth binaries")
 		}
-		if header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA {
+		if header.Typeflag != tar.TypeReg {
 			_ = reader.Close()
 			cleanup()
 			return "", "", fmt.Errorf("release archive entry %q is not a regular file", header.Name)

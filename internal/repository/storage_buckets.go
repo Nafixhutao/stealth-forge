@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
-	"sort"
+	"slices"
 
 	"github.com/Stealth-deplover/stealth/internal/domain"
 	"github.com/google/uuid"
@@ -190,7 +190,7 @@ func storageBucketChangedFields(patch StorageBucketPatch) []string {
 	if patch.MaxFileSizeBytes != nil {
 		fields = append(fields, "max_file_size_bytes")
 	}
-	sort.Strings(fields)
+	slices.Sort(fields)
 	return fields
 }
 

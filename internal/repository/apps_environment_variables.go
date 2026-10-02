@@ -5,7 +5,7 @@ import (
 	"errors"
 	"math"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/Stealth-deplover/stealth/internal/appsecret"
@@ -328,7 +328,7 @@ func (r *Repository) UpdateAppEnvironmentVariable(
 	if patch.Value != nil || patch.ClearValue {
 		fields = append(fields, "value")
 	}
-	sort.Strings(fields)
+	slices.Sort(fields)
 	if err := r.auditApp(ctx, tx, projectID, actor, "app_environment_variable.update", appID, appEnvironmentAuditMetadata(item, fields, runtimeChanged)); err != nil {
 		return domain.AppEnvironmentVariable{}, err
 	}
@@ -424,7 +424,7 @@ func advanceAppEnvironmentGenerationTx(
 	if app.DesiredGeneration == math.MaxInt64 {
 		return ErrInvalidAppSettings
 	}
-	status := app.RuntimeStatus
+	var status string
 	if !app.Enabled || app.DesiredDeploymentID != nil {
 		status = "pending"
 	} else {

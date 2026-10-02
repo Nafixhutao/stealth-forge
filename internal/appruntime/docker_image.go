@@ -257,11 +257,3 @@ func runtimeTagForJob(job repository.AppRuntimeJob) (string, error) {
 	}
 	return ImageTag(deploymentID), nil
 }
-
-func deploymentDigest(job repository.AppRuntimeJob) (string, error) {
-	if job.Deployment.ImageDigest == nil || !strings.HasPrefix(*job.Deployment.ImageDigest, "sha256:") ||
-		!validDigest((*job.Deployment.ImageDigest)[7:]) {
-		return "", ErrImageVerification
-	}
-	return *job.Deployment.ImageDigest, nil
-}

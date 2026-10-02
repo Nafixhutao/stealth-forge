@@ -476,25 +476,6 @@ func (r *Repository) ActivateSiteDeployment(
 	return item, site, nil
 }
 
-func siteDeploymentStoragePaths(ctx context.Context, query interface {
-	QueryRow(context.Context, string, ...any) pgx.Row
-}, projectID, siteID, deploymentID uuid.UUID) (string, string, error) {
-	var sourcePath *string
-	var artifactPath string
-	err := query.QueryRow(ctx, `SELECT source_path,artifact_path FROM site_deployments WHERE project_id=$1 AND site_id=$2 AND id=$3`, projectID, siteID, deploymentID).
-		Scan(&sourcePath, &artifactPath)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return "", "", ErrNotFound
-	}
-	if err != nil {
-		return "", "", err
-	}
-	if sourcePath == nil {
-		return "", artifactPath, nil
-	}
-	return *sourcePath, artifactPath, nil
-}
-
 // ClaimNextSiteDeployment leases one source deployment for the trusted Sites
 // builder. The row remains queued while the immutable public directory is
 // being produced; the active pointer is changed only after a successful

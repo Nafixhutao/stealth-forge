@@ -2,11 +2,12 @@ package appruntime
 
 import (
 	"bytes"
+	"cmp"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -35,7 +36,7 @@ func writeRuntimeEnvironmentFile(values []RuntimeEnvironmentVariable) (string, f
 		return "", nil, ErrContainerCreate
 	}
 	ordered := append([]RuntimeEnvironmentVariable(nil), values...)
-	sort.Slice(ordered, func(i, j int) bool { return ordered[i].Key < ordered[j].Key })
+	slices.SortFunc(ordered, func(a, b RuntimeEnvironmentVariable) int { return cmp.Compare(a.Key, b.Key) })
 	seen := make(map[string]struct{}, len(ordered))
 	total := 0
 	totalValueBytes := 0

@@ -33,11 +33,11 @@ func TestNormalizeWebhookURL(t *testing.T) {
 }
 
 func TestNormalizeWebhookEvents(t *testing.T) {
-	got, err := NormalizeWebhookEvents([]string{"function_execution.succeeded", "database_row.create", "function_execution.succeeded"})
+	_, err := NormalizeWebhookEvents([]string{"function_execution.succeeded", "database_row.create", "function_execution.succeeded"})
 	if err == nil || !errors.Is(err, ErrInvalidWebhook) {
 		t.Fatalf("duplicate events error = %v", err)
 	}
-	got, err = NormalizeWebhookEvents([]string{"function_execution.succeeded", "database_row.create"})
+	got, err := NormalizeWebhookEvents([]string{"function_execution.succeeded", "database_row.create"})
 	if err != nil || strings.Join(got, ",") != "database_row.create,function_execution.succeeded" {
 		t.Fatalf("normalized events = %#v, %v", got, err)
 	}

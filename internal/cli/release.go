@@ -1,12 +1,9 @@
 package cli
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"strings"
 
@@ -52,34 +49,6 @@ func releaseAsset(goos, goarch string) (string, error) {
 			goarch,
 		)
 	}
-}
-
-func (a *App) rawAssetURL(version, path string) string {
-	return strings.TrimRight(a.assetBase, "/") + "/" + version + "/" + path
-}
-
-func (a *App) fetchAsset(ctx context.Context, assetURL string) ([]byte, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, assetURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("create asset request: %w", err)
-	}
-	response, err := a.httpClient.Do(request)
-	if err != nil {
-		return nil, fmt.Errorf("download asset: %w", err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("download asset returned HTTP %d", response.StatusCode)
-	}
-	const maxAssetSize = 2 << 20
-	contents, err := io.ReadAll(io.LimitReader(response.Body, maxAssetSize+1))
-	if err != nil {
-		return nil, fmt.Errorf("read downloaded asset: %w", err)
-	}
-	if len(contents) > maxAssetSize {
-		return nil, fmt.Errorf("downloaded asset is unexpectedly large")
-	}
-	return contents, nil
 }
 
 func verifySHA256(contents []byte, expected string) error {

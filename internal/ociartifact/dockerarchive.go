@@ -80,7 +80,7 @@ func WriteDockerArchive(reader io.ReadSeeker, info ImageInfo, output io.Writer) 
 			}
 			continue
 		}
-		if (header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA) || header.Size <= 0 {
+		if header.Typeflag != tar.TypeReg || header.Size <= 0 {
 			return fmt.Errorf("%w: links and special files are not allowed", ErrInvalidArchive)
 		}
 		fileCount++

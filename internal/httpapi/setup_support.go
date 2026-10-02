@@ -191,11 +191,6 @@ func (s *Server) validSetupCSRF(r *http.Request) bool {
 	return true
 }
 
-func (s *Server) setupSession(r *http.Request) (setupSession, bool) {
-	session, ok := r.Context().Value(setupSessionContextKey).(setupSession)
-	return session, ok
-}
-
 func (s *Server) requestIsHTTPS(r *http.Request) bool {
 	if r != nil && r.TLS != nil {
 		return true
@@ -306,20 +301,4 @@ func setupRedirect(path string) string {
 		return "/setup"
 	}
 	return path
-}
-
-func (s *Server) clearSetupCookie(w http.ResponseWriter, r *http.Request) {
-	http.SetCookie(
-		w,
-		&http.Cookie{
-			Name:     setupCookieName,
-			Value:    "",
-			Path:     "/",
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteLaxMode,
-			MaxAge:   -1,
-			Expires:  time.Unix(1, 0),
-		},
-	)
 }

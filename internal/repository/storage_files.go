@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/Stealth-deplover/stealth/internal/apikey"
 	"github.com/Stealth-deplover/stealth/internal/database"
@@ -123,10 +123,9 @@ func (r *Repository) UpdateStorageFile(ctx context.Context, projectID, bucketID,
 			if err := requireStorageBucketPermission(bucket, actor, "update"); err != nil {
 				return domain.StorageFile{}, err
 			}
-		} else if !storageBucketPermission(bucket, actor, "update") {
-			// The row predicate below supplies the file-level grant when the
-			// bucket update grant did not already authorize the operation.
 		}
+		// The row predicate below supplies the file-level grant when the
+		// bucket update grant did not already authorize the operation.
 		if patch.ReadPermissions != nil || patch.UpdatePermissions != nil || patch.DeletePermissions != nil {
 			return domain.StorageFile{}, ErrForbidden
 		}
@@ -207,7 +206,7 @@ func (r *Repository) UpdateStorageFile(ctx context.Context, projectID, bucketID,
 	if patch.DeletePermissions != nil {
 		changed = append(changed, "delete_permissions")
 	}
-	sort.Strings(changed)
+	slices.Sort(changed)
 	if err := r.auditStorage(ctx, tx, projectID, actor, "storage_file.update", "storage_file", fileID, map[string]any{"bucket_id": bucketID.String(), "changed_fields": changed, "name": name}); err != nil {
 		return domain.StorageFile{}, err
 	}

@@ -113,7 +113,7 @@ func extractArchive(ctx context.Context, source io.Reader, sourceName, destinati
 		if err != nil {
 			return ArchiveStats{}, err
 		}
-		defer closeFn()
+		defer func() { _ = closeFn() }()
 		return extractTar(ctx, reader, destination, root, limits, allowSymlinks)
 	case strings.HasSuffix(name, ".tar"):
 		return extractTar(ctx, bytes.NewReader(compressed), destination, root, limits, allowSymlinks)

@@ -1,0 +1,41 @@
+version: "2"
+
+# Stealth runs a curated golangci-lint set: correctness first. gofmt, go vet and
+# the unit tests already run in CI; this adds the checks they miss, such as
+# unchecked errors, ineffectual assignments and unused code.
+linters:
+  default: standard
+  settings:
+    errcheck:
+      exclude-functions:
+        # Best-effort transaction cleanup: Rollback after a successful Commit is
+        # an expected no-op, so its error is deliberately ignored.
+        - (github.com/jackc/pgx/v5.Tx).Rollback
+        - (io.Closer).Close
+  exclusions:
+    presets:
+      # Ignore the common, deliberate error-handling idioms: defer Close and
+      # writes to fmt writers.
+      - std-error-handling
+      - common-false-positives
+    rules:
+      # Tests may ignore cleanup errors.
+      - path: _test\.go
+        linters:
+          - errcheck
+      # Keep staticcheck's correctness checks (SA*) but not its stylistic
+      # quickfixes and simplifications, which are advisory here.
+      - linters:
+          - staticcheck
+        text: "ST1005"
+      - linters:
+          - staticcheck
+        text: "QF1"
+      - linters:
+          - staticcheck
+        text: "S1"
+
+issues:
+  # Report every occurrence so a local run matches CI.
+  max-same-issues: 0
+  max-issues-per-linter: 0

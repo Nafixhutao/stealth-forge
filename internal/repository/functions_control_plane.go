@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/Stealth-deplover/stealth/internal/database"
@@ -273,7 +273,7 @@ func functionChangedFields(patch FunctionPatch) []string {
 	if patch.ArtifactQuotaBytes != nil {
 		fields = append(fields, "artifact_quota_bytes")
 	}
-	sort.Strings(fields)
+	slices.Sort(fields)
 	return fields
 }
 
@@ -627,7 +627,7 @@ func functionVariableChangedFields(patch FunctionVariablePatch) []string {
 	if patch.SetDescription {
 		fields = append(fields, "description")
 	}
-	sort.Strings(fields)
+	slices.Sort(fields)
 	return fields
 }
 

@@ -304,7 +304,7 @@ func TestSetupHTTPFlowClaimsCodeAndKeepsProviderSecretsServerSide(t *testing.T) 
 	callbackRequest.Host = "silent-moon.trycloudflare.com"
 	handler.ServeHTTP(callback, callbackRequest)
 	authorizationLocation := callback.Header().Get("Location")
-	authorizationURL, err := url.Parse(authorizationLocation)
+	authorizationURL, _ := url.Parse(authorizationLocation)
 	if callback.Code != http.StatusFound || authorizationURL.Host != "github.com" || authorizationURL.Path != "/login/oauth/authorize" {
 		t.Fatalf("manifest callback = %d, headers=%#v", callback.Code, callback.Header())
 	}
