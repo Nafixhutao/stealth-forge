@@ -1,4 +1,4 @@
-import { AgentRunsView } from "@/features/resources/detail-views";
+import { AgentRunsView } from "@/features/agents/agent-runs-view";
 
 export default async function AgentRunsPage({
   params,

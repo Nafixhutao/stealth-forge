@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ServerPagination } from "@/components/data-table";
 
@@ -25,17 +25,30 @@ export function ResourceTableCard<T extends object>({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const querySearch = searchParams.get("search") ?? "";
-  const search = querySearch;
-  const updateSearch = (value: string) => {
-    const next = new URLSearchParams(searchParams.toString());
-    if (value) next.set("search", value);
-    else next.delete("search");
-    next.delete("cursor");
-    router.replace(
-      `${pathname}${next.toString() ? `?${next.toString()}` : ""}`,
-      { scroll: false },
-    );
-  };
+  // The input is the source of truth while typing so each keystroke filters the
+  // already-loaded page immediately instead of triggering a router navigation.
+  // The URL is updated after a short idle, and external URL changes (back /
+  // forward, links) are adopted during render.
+  const [search, setSearch] = useState(querySearch);
+  const [syncedSearch, setSyncedSearch] = useState(querySearch);
+  if (querySearch !== syncedSearch) {
+    setSyncedSearch(querySearch);
+    setSearch(querySearch);
+  }
+  useEffect(() => {
+    if (search === querySearch) return;
+    const timer = window.setTimeout(() => {
+      const next = new URLSearchParams(searchParams.toString());
+      if (search) next.set("search", search);
+      else next.delete("search");
+      next.delete("cursor");
+      router.replace(
+        `${pathname}${next.toString() ? `?${next.toString()}` : ""}`,
+        { scroll: false },
+      );
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [pathname, querySearch, router, search, searchParams]);
   const filtered = useMemo(
     () =>
       searchable && search
@@ -54,7 +67,7 @@ export function ResourceTableCard<T extends object>({
             />
             <Input
               value={search}
-              onChange={(event) => updateSearch(event.target.value)}
+              onChange={(event) => setSearch(event.target.value)}
               placeholder={searchPlaceholder}
               className="pl-9"
               aria-label={searchPlaceholder}

@@ -1,4 +1,4 @@
-import { ProjectSettingsView } from "@/features/resources/misc-views";
+import { ProjectSettingsView } from "@/features/settings/project-settings-view";
 
 export default async function ProjectSettingsPage({
   params,

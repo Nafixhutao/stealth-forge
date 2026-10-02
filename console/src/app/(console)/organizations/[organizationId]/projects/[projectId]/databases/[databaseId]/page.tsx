@@ -1,4 +1,4 @@
-import { DatabaseDetailView } from "@/features/resources/detail-views";
+import { DatabaseDetailView } from "@/features/databases/database-detail-view";
 
 export default async function DatabasePage({
   params,

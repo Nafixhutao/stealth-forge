@@ -12,6 +12,7 @@ import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { formatDate, formatDuration } from "@/lib/format";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { AdminShell } from "./admin-shell";
 import { AdminTimeRange, useAdminTimeRange } from "./admin-time-range";
 
@@ -31,9 +32,19 @@ export function AdminTracesView() {
     setSyncedTraceIDParam(traceIDParam);
     setTraceID(traceIDParam);
   }
+  // Debounce the free-text filters so typing does not start one telemetry
+  // request per keystroke (the inputs and row selection still update state
+  // immediately; only the request that follows is debounced).
+  const debouncedService = useDebouncedValue(service);
+  const debouncedTraceID = useDebouncedValue(traceID);
   const query = useMemo(
-    () => ({ ...timeRange.query, service, trace_id: traceID, limit: 100 }),
-    [service, timeRange.query, traceID],
+    () => ({
+      ...timeRange.query,
+      service: debouncedService,
+      trace_id: debouncedTraceID,
+      limit: 100,
+    }),
+    [debouncedService, debouncedTraceID, timeRange.query],
   );
   const traces = useAdminTraces(query, {
     refetchInterval: timeRange.refreshInterval,

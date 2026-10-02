@@ -1,4 +1,4 @@
-import { OrganizationProjectsView } from "@/features/organization/organization-views";
+import { OrganizationProjectsView } from "@/features/organization/projects-view";
 
 export default async function OrganizationProjectsPage({
   params,

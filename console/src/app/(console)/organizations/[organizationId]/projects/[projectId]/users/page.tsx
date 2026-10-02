@@ -1,4 +1,4 @@
-import { UsersView } from "@/features/resources/collection-views";
+import { UsersView } from "@/features/users/users-view";
 
 export default async function UsersPage({
   params,

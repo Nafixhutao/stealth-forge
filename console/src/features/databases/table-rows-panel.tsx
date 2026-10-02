@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent } from "react";
+import { type FormEvent, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ComponentsParametersOrderDirection } from "@/api/generated/schema";
@@ -156,6 +156,13 @@ export function TableRowsPanel({
     }
   };
 
+  // Look up column metadata once instead of scanning the schema for every
+  // rendered cell.
+  const columnByKey = useMemo(
+    () => new Map(schema.map((column) => [column.key, column])),
+    [schema],
+  );
+
   const rowColumns: DataTableColumnDef<DatabaseRow>[] = [
     {
       accessorKey: "id",
@@ -183,7 +190,7 @@ export function TableRowsPanel({
       cell: ({ row }) => (
         <RowValue
           value={row.original.data?.[key]}
-          type={schema.find((column) => column.key === key)?.type}
+          type={columnByKey.get(key)?.type}
         />
       ),
     })),

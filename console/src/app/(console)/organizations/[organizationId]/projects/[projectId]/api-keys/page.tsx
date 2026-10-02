@@ -1,4 +1,4 @@
-import { APIKeysView } from "@/features/resources/collection-views";
+import { APIKeysView } from "@/features/api-keys/api-keys-view";
 
 export default async function APIKeysPage({
   params,

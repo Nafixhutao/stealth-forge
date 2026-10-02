@@ -1,4 +1,4 @@
-import { DatabasesView } from "@/features/resources/collection-views";
+import { DatabasesView } from "@/features/databases/databases-view";
 
 export default async function DatabasesPage({
   params,

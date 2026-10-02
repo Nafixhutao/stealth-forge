@@ -1,4 +1,4 @@
-import { DeploymentsView } from "@/features/resources/misc-views";
+import { DeploymentsView } from "@/features/deployments/deployments-view";
 
 export default async function DeploymentsPage({
   params,

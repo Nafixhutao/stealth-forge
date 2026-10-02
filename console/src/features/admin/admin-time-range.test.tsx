@@ -37,10 +37,12 @@ describe("admin time range preferences", () => {
 
     expect(screen.getByTestId("range")).toHaveTextContent("24h");
     expect(screen.getByTestId("refresh")).toHaveTextContent("30s");
-    expect(window.localStorage.getItem("stealth.admin.time-range")).toBe("24h");
-    expect(window.localStorage.getItem("stealth.admin.refresh-interval")).toBe(
-      "30s",
-    );
+    expect(
+      window.localStorage.getItem("stealth.admin.time-range:v1"),
+    ).toBe("24h");
+    expect(
+      window.localStorage.getItem("stealth.admin.refresh-interval:v1"),
+    ).toBe("30s");
   });
 
   it("re-reads preferences after a remount", () => {
@@ -134,13 +136,13 @@ describe("admin time range preferences", () => {
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
 
     expect(screen.getByTestId("range")).toHaveTextContent("custom");
-    expect(window.localStorage.getItem("stealth.admin.time-range")).toBe(
-      "custom",
-    );
-    expect(window.localStorage.getItem("stealth.admin.custom-from")).toBe(
-      new Date("2026-09-17T10:00").toISOString(),
-    );
-    expect(window.localStorage.getItem("stealth.admin.custom-to")).toBe(
+    expect(
+      window.localStorage.getItem("stealth.admin.time-range:v1"),
+    ).toBe("custom");
+    expect(
+      window.localStorage.getItem("stealth.admin.custom-from:v1"),
+    ).toBe(new Date("2026-09-17T10:00").toISOString());
+    expect(window.localStorage.getItem("stealth.admin.custom-to:v1")).toBe(
       new Date("2026-09-17T11:30").toISOString(),
     );
   });

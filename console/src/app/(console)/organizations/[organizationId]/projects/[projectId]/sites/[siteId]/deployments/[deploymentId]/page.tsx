@@ -1,4 +1,4 @@
-import { SiteDeploymentView } from "@/features/resources/detail-views";
+import { SiteDeploymentView } from "@/features/sites/site-detail-view";
 
 export default async function SiteDeploymentPage({
   params,

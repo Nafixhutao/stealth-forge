@@ -1,4 +1,4 @@
-import { FunctionsView } from "@/features/resources/collection-views";
+import { FunctionsView } from "@/features/functions/functions-view";
 
 export default async function FunctionsPage({
   params,

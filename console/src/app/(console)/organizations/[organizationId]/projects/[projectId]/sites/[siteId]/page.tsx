@@ -1,4 +1,4 @@
-import { SiteDetailView } from "@/features/resources/detail-views";
+import { SiteDetailView } from "@/features/sites/site-detail-view";
 
 export default async function SitePage({
   params,

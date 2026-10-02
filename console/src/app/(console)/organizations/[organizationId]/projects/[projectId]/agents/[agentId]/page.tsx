@@ -1,4 +1,4 @@
-import { AgentDetailView } from "@/features/resources/misc-views";
+import { AgentDetailView } from "@/features/agents/agents-view";
 
 export default async function AgentPage({
   params,

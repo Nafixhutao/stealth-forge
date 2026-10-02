@@ -1,4 +1,4 @@
-import { SitesView } from "@/features/resources/collection-views";
+import { SitesView } from "@/features/sites/sites-view";
 
 export default async function SitesPage({
   params,

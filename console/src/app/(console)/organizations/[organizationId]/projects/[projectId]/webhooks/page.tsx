@@ -1,4 +1,4 @@
-import { WebhooksView } from "@/features/resources/collection-views";
+import { WebhooksView } from "@/features/webhooks/webhooks-view";
 
 export default async function WebhooksPage({
   params,

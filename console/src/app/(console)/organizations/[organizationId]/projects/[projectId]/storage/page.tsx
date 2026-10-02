@@ -1,4 +1,4 @@
-import { StorageView } from "@/features/resources/collection-views";
+import { StorageView } from "@/features/storage/storage-view";
 
 export default async function StoragePage({
   params,

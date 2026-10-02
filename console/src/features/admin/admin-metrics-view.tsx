@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { formatDate } from "@/lib/format";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { AdminShell } from "./admin-shell";
 import { AdminMetricChartLoader } from "./admin-metric-chart-loader";
 import { AdminTimeRange, useAdminTimeRange } from "./admin-time-range";
@@ -17,9 +18,18 @@ export function AdminMetricsView() {
   const timeRange = useAdminTimeRange();
   const [service, setService] = useState("");
   const [name, setName] = useState("");
+  // Debounce the free-text filters so typing does not start one telemetry
+  // request per keystroke (the inputs still update immediately).
+  const debouncedService = useDebouncedValue(service);
+  const debouncedName = useDebouncedValue(name);
   const query = useMemo(
-    () => ({ ...timeRange.query, service, name, limit: 100 }),
-    [name, service, timeRange.query],
+    () => ({
+      ...timeRange.query,
+      service: debouncedService,
+      name: debouncedName,
+      limit: 100,
+    }),
+    [debouncedName, debouncedService, timeRange.query],
   );
   const metrics = useAdminMetrics(query, {
     refetchInterval: timeRange.refreshInterval,

@@ -1,4 +1,4 @@
-import { WebhookDetailView } from "@/features/resources/detail-views";
+import { WebhookDetailView } from "@/features/webhooks/webhook-detail-view";
 
 export default async function WebhookPage({
   params,

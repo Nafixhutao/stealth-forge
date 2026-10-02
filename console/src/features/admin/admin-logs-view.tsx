@@ -15,13 +15,17 @@ import { AdminQueryEditorLoader } from "./admin-query-editor-loader";
 import { AdminTimeRange, useAdminTimeRange } from "./admin-time-range";
 import { downloadLogs, VirtualizedLogTable } from "./admin-log-table";
 
-const logQueryHistoryKey = "stealth.admin.log-query-history";
+const logQueryHistoryVersion = "v1";
+const logQueryHistoryKey = `stealth.admin.log-query-history:${logQueryHistoryVersion}`;
+const legacyLogQueryHistoryKey = "stealth.admin.log-query-history";
 
 function readLogQueryHistory(): string[] {
   if (typeof window === "undefined") return [];
   try {
     const parsed = JSON.parse(
-      window.localStorage.getItem(logQueryHistoryKey) ?? "[]",
+      window.localStorage.getItem(logQueryHistoryKey) ??
+        window.localStorage.getItem(legacyLogQueryHistoryKey) ??
+        "[]",
     );
     if (!Array.isArray(parsed)) return [];
     return parsed
