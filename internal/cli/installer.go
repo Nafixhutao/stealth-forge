@@ -61,7 +61,7 @@ func (a *App) runInstallerTUI(ctx context.Context, checks []SystemCheck, plan *I
 	}
 	uiCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	model := newInstallerModel(a, uiCtx, cancel, checks, plan, repair)
+	model := newInstallerModel(uiCtx, a, cancel, checks, plan, repair)
 	program := tea.NewProgram(model, tea.WithInput(a.in), tea.WithOutput(a.out))
 	finalModel, err := program.Run()
 	if err != nil {
@@ -123,7 +123,14 @@ func (a *App) runNoninteractiveRepair(ctx context.Context, checks []SystemCheck,
 	return 0
 }
 
-func newInstallerModel(app *App, ctx context.Context, cancel context.CancelFunc, checks []SystemCheck, plan *InstallPlan, repair bool) installerModel {
+func newInstallerModel(
+	ctx context.Context,
+	app *App,
+	cancel context.CancelFunc,
+	checks []SystemCheck,
+	plan *InstallPlan,
+	repair bool,
+) installerModel {
 	input := textinput.New()
 	input.Prompt = "Instance URL  "
 	input.Placeholder = "https://stealth.example.com"
@@ -365,7 +372,9 @@ func renderInstallerView(m installerModel) string {
 	case installerGitHub:
 		builder.WriteString("GitHub authentication\n\n")
 		builder.WriteString("Fresh browser setup uses a GitHub App Manifest and browser authorization.\n")
-		builder.WriteString("This direct installer accepts an existing App identifier for legacy bootstrap compatibility.\n\n")
+		builder.WriteString(
+			"This direct installer accepts an existing App identifier for legacy bootstrap compatibility.\n\n",
+		)
 		builder.WriteString(m.githubInput.View())
 		builder.WriteString("\n")
 		if m.err != nil {

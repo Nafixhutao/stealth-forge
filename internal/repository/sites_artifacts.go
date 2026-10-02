@@ -14,7 +14,11 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (r *Repository) DeleteSiteDeploymentWithArtifact(ctx context.Context, projectID, siteID, deploymentID uuid.UUID, actor SiteActor) (SiteStoragePaths, error) {
+func (r *Repository) DeleteSiteDeploymentWithArtifact(
+	ctx context.Context,
+	projectID, siteID, deploymentID uuid.UUID,
+	actor SiteActor,
+) (SiteStoragePaths, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return SiteStoragePaths{}, err
@@ -31,7 +35,8 @@ func (r *Repository) DeleteSiteDeploymentWithArtifact(ctx context.Context, proje
 	if err != nil {
 		return SiteStoragePaths{}, err
 	}
-	if (site.ActiveDeploymentID != nil && *site.ActiveDeploymentID == deploymentID.String()) || item.Status == "active" {
+	if (site.ActiveDeploymentID != nil && *site.ActiveDeploymentID == deploymentID.String()) ||
+		item.Status == "active" {
 		return SiteStoragePaths{}, ErrSiteDeploymentActive
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM site_deployments WHERE project_id=$1 AND site_id=$2 AND id=$3`, projectID, siteID, deploymentID); err != nil {
@@ -63,7 +68,11 @@ func (r *Repository) DeleteSiteDeploymentWithArtifact(ctx context.Context, proje
 	return SiteStoragePaths{SourcePath: sourcePath, ArtifactPath: artifactPath}, nil
 }
 
-func (r *Repository) getSiteArtifact(ctx context.Context, siteID, deploymentID uuid.UUID, allowReady bool) (SitePublicArtifact, error) {
+func (r *Repository) getSiteArtifact(
+	ctx context.Context,
+	siteID, deploymentID uuid.UUID,
+	allowReady bool,
+) (SitePublicArtifact, error) {
 	site, err := scanSite(r.pool.QueryRow(ctx, `SELECT `+siteProjection+` FROM project_sites WHERE id=$1`, siteID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return SitePublicArtifact{}, ErrNotFound
@@ -82,7 +91,8 @@ func (r *Repository) getSiteArtifact(ctx context.Context, siteID, deploymentID u
 	if err != nil {
 		return SitePublicArtifact{}, err
 	}
-	if deployment.BuildStatus != "succeeded" || (deployment.Status != "active" && (!allowReady || deployment.Status != "ready")) {
+	if deployment.BuildStatus != "succeeded" ||
+		(deployment.Status != "active" && (!allowReady || deployment.Status != "ready")) {
 		return SitePublicArtifact{}, ErrNotFound
 	}
 	return SitePublicArtifact{Site: site, Deployment: deployment, ArtifactPath: artifactPath}, nil
@@ -91,7 +101,10 @@ func (r *Repository) getSiteArtifact(ctx context.Context, siteID, deploymentID u
 // GetSiteDeploymentArtifact resolves a ready or active immutable Site release
 // for a public preview URL. A preview is available only while the Site itself
 // remains enabled and active; disabled Sites never leak unpublished artifacts.
-func (r *Repository) GetSiteDeploymentArtifact(ctx context.Context, siteID, deploymentID uuid.UUID) (SitePublicArtifact, error) {
+func (r *Repository) GetSiteDeploymentArtifact(
+	ctx context.Context,
+	siteID, deploymentID uuid.UUID,
+) (SitePublicArtifact, error) {
 	return r.getSiteArtifact(ctx, siteID, deploymentID, true)
 }
 
@@ -114,7 +127,8 @@ func (r *Repository) GetActiveSiteArtifact(ctx context.Context, siteID uuid.UUID
 	if err != nil {
 		return SitePublicArtifact{}, err
 	}
-	if artifact.Deployment.Status != "active" || artifact.Site.ActiveDeploymentID == nil || *artifact.Site.ActiveDeploymentID != deploymentID.String() {
+	if artifact.Deployment.Status != "active" || artifact.Site.ActiveDeploymentID == nil ||
+		*artifact.Site.ActiveDeploymentID != deploymentID.String() {
 		return SitePublicArtifact{}, ErrNotFound
 	}
 	return artifact, nil

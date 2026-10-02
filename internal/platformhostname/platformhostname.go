@@ -102,7 +102,9 @@ func Validate(label string) error {
 		return ErrInvalidLabel
 	}
 	for _, character := range label {
-		if character >= 'a' && character <= 'z' || character >= '0' && character <= '9' || character == '-' {
+		alphaNumeric := (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9')
+		separator := character == '-'
+		if alphaNumeric || separator {
 			continue
 		}
 		return ErrInvalidLabel
@@ -126,11 +128,4 @@ func Hostname(label, workloadBaseDomain string) (string, error) {
 		return "", err
 	}
 	return normalized, nil
-}
-
-func min(left, right int) int {
-	if left < right {
-		return left
-	}
-	return right
 }

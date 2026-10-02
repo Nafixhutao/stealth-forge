@@ -55,11 +55,20 @@ const adminNotificationProjection = `
 	c.last_delivery_at,c.last_delivery_status,c.last_error,
 	c.created_by_account_id::text,c.created_at,c.updated_at`
 
-func (r *Repository) ListAdminNotificationChannels(ctx context.Context, limit int) ([]domain.AdminNotificationChannel, error) {
-	if r == nil || r.pool == nil || limit < 1 || limit > adminNotificationMaxLimit {
+func (r *Repository) ListAdminNotificationChannels(
+	ctx context.Context,
+	limit int,
+) ([]domain.AdminNotificationChannel, error) {
+	invalidRepository := r == nil || r.pool == nil
+	invalidLimit := limit < 1 || limit > adminNotificationMaxLimit
+	if invalidRepository || invalidLimit {
 		return nil, ErrInvalidAdminNotification
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+adminNotificationProjection+` FROM admin_notification_channels c ORDER BY c.updated_at DESC,c.id DESC LIMIT $1`, limit)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT `+adminNotificationProjection+` FROM admin_notification_channels c ORDER BY c.updated_at DESC,c.id DESC LIMIT $1`,
+		limit,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -75,18 +84,31 @@ func (r *Repository) ListAdminNotificationChannels(ctx context.Context, limit in
 	return items, rows.Err()
 }
 
-func (r *Repository) AdminNotificationChannelByID(ctx context.Context, id uuid.UUID) (domain.AdminNotificationChannel, error) {
+func (r *Repository) AdminNotificationChannelByID(
+	ctx context.Context,
+	id uuid.UUID,
+) (domain.AdminNotificationChannel, error) {
 	if r == nil || r.pool == nil || id == uuid.Nil {
 		return domain.AdminNotificationChannel{}, ErrNotFound
 	}
-	item, err := scanAdminNotificationChannel(r.pool.QueryRow(ctx, `SELECT `+adminNotificationProjection+` FROM admin_notification_channels c WHERE c.id=$1`, id))
+	item, err := scanAdminNotificationChannel(
+		r.pool.QueryRow(
+			ctx,
+			`SELECT `+adminNotificationProjection+` FROM admin_notification_channels c WHERE c.id=$1`,
+			id,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.AdminNotificationChannel{}, ErrNotFound
 	}
 	return item, err
 }
 
-func (r *Repository) CreateAdminNotificationChannel(ctx context.Context, accountID, id uuid.UUID, input AdminNotificationChannelInput) (domain.AdminNotificationChannel, error) {
+func (r *Repository) CreateAdminNotificationChannel(
+	ctx context.Context,
+	accountID, id uuid.UUID,
+	input AdminNotificationChannelInput,
+) (domain.AdminNotificationChannel, error) {
 	normalized, err := normalizeAdminNotificationChannelInput(input)
 	if err != nil {
 		return domain.AdminNotificationChannel{}, err
@@ -109,7 +131,9 @@ func (r *Repository) CreateAdminNotificationChannel(ctx context.Context, account
 	if _, err := tx.Exec(ctx, `INSERT INTO admin_notification_channels (id,name,kind,enabled,config_encrypted,created_by_account_id) VALUES ($1,$2,$3,$4,$5,$6)`, id, normalized.Name, normalized.Kind, normalized.Enabled, ciphertext, accountID); err != nil {
 		return domain.AdminNotificationChannel{}, mapError(err)
 	}
-	item, err := scanAdminNotificationChannel(tx.QueryRow(ctx, `SELECT `+adminNotificationProjection+` FROM admin_notification_channels c WHERE c.id=$1`, id))
+	item, err := scanAdminNotificationChannel(
+		tx.QueryRow(ctx, `SELECT `+adminNotificationProjection+` FROM admin_notification_channels c WHERE c.id=$1`, id),
+	)
 	if err != nil {
 		return domain.AdminNotificationChannel{}, err
 	}
@@ -122,7 +146,11 @@ func (r *Repository) CreateAdminNotificationChannel(ctx context.Context, account
 	return item, nil
 }
 
-func (r *Repository) UpdateAdminNotificationChannel(ctx context.Context, accountID, id uuid.UUID, input AdminNotificationChannelInput) (domain.AdminNotificationChannel, error) {
+func (r *Repository) UpdateAdminNotificationChannel(
+	ctx context.Context,
+	accountID, id uuid.UUID,
+	input AdminNotificationChannelInput,
+) (domain.AdminNotificationChannel, error) {
 	normalized, err := normalizeAdminNotificationChannelInput(input)
 	if err != nil {
 		return domain.AdminNotificationChannel{}, err
@@ -142,14 +170,24 @@ func (r *Repository) UpdateAdminNotificationChannel(ctx context.Context, account
 	if err := requireInstanceAdminTx(ctx, tx, accountID); err != nil {
 		return domain.AdminNotificationChannel{}, err
 	}
-	result, err := tx.Exec(ctx, `UPDATE admin_notification_channels SET name=$2,kind=$3,enabled=$4,config_encrypted=$5,updated_at=now() WHERE id=$1`, id, normalized.Name, normalized.Kind, normalized.Enabled, ciphertext)
+	result, err := tx.Exec(
+		ctx,
+		`UPDATE admin_notification_channels SET name=$2,kind=$3,enabled=$4,config_encrypted=$5,updated_at=now() WHERE id=$1`,
+		id,
+		normalized.Name,
+		normalized.Kind,
+		normalized.Enabled,
+		ciphertext,
+	)
 	if err != nil {
 		return domain.AdminNotificationChannel{}, mapError(err)
 	}
 	if result.RowsAffected() == 0 {
 		return domain.AdminNotificationChannel{}, ErrNotFound
 	}
-	item, err := scanAdminNotificationChannel(tx.QueryRow(ctx, `SELECT `+adminNotificationProjection+` FROM admin_notification_channels c WHERE c.id=$1`, id))
+	item, err := scanAdminNotificationChannel(
+		tx.QueryRow(ctx, `SELECT `+adminNotificationProjection+` FROM admin_notification_channels c WHERE c.id=$1`, id),
+	)
 	if err != nil {
 		return domain.AdminNotificationChannel{}, err
 	}
@@ -187,7 +225,10 @@ func (r *Repository) DeleteAdminNotificationChannel(ctx context.Context, account
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) EnqueueAdminNotificationTest(ctx context.Context, accountID, channelID uuid.UUID) (uuid.UUID, error) {
+func (r *Repository) EnqueueAdminNotificationTest(
+	ctx context.Context,
+	accountID, channelID uuid.UUID,
+) (uuid.UUID, error) {
 	if r == nil || r.pool == nil || accountID == uuid.Nil || channelID == uuid.Nil {
 		return uuid.Nil, ErrInvalidAdminNotification
 	}
@@ -200,11 +241,13 @@ func (r *Repository) EnqueueAdminNotificationTest(ctx context.Context, accountID
 		return uuid.Nil, err
 	}
 	var enabled, configured bool
-	if err := tx.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 		SELECT enabled,(config_encrypted IS NOT NULL AND octet_length(config_encrypted) > 0)
-		FROM admin_notification_channels WHERE id=$1`, channelID).Scan(&enabled, &configured); errors.Is(err, pgx.ErrNoRows) {
+		FROM admin_notification_channels WHERE id=$1`, channelID).Scan(&enabled, &configured)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return uuid.Nil, ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return uuid.Nil, err
 	}
 	if !enabled || !configured {
@@ -228,7 +271,10 @@ func (r *Repository) EnqueueAdminNotificationTest(ctx context.Context, accountID
 	return deliveryID, nil
 }
 
-func (r *Repository) RequeueStaleAdminNotificationDeliveries(ctx context.Context, leaseAge time.Duration) (int64, error) {
+func (r *Repository) RequeueStaleAdminNotificationDeliveries(
+	ctx context.Context,
+	leaseAge time.Duration,
+) (int64, error) {
 	if r == nil || r.pool == nil || leaseAge <= 0 {
 		return 0, ErrInvalidAdminNotification
 	}
@@ -242,7 +288,11 @@ func (r *Repository) RequeueStaleAdminNotificationDeliveries(ctx context.Context
 	return result.RowsAffected(), nil
 }
 
-func (r *Repository) ClaimNextAdminNotificationDelivery(ctx context.Context, workerID string, leaseAge time.Duration) (AdminNotificationDeliveryJob, error) {
+func (r *Repository) ClaimNextAdminNotificationDelivery(
+	ctx context.Context,
+	workerID string,
+	leaseAge time.Duration,
+) (AdminNotificationDeliveryJob, error) {
 	if r == nil || r.pool == nil || !validFunctionWorkerID(workerID) || leaseAge <= 0 {
 		return AdminNotificationDeliveryJob{}, ErrInvalidAdminNotification
 	}
@@ -285,7 +335,14 @@ func (r *Repository) ClaimNextAdminNotificationDelivery(ctx context.Context, wor
 	return job, nil
 }
 
-func (r *Repository) FinishAdminNotificationDelivery(ctx context.Context, deliveryID uuid.UUID, workerID string, success bool, lastError string, retryAt *time.Time) error {
+func (r *Repository) FinishAdminNotificationDelivery(
+	ctx context.Context,
+	deliveryID uuid.UUID,
+	workerID string,
+	success bool,
+	lastError string,
+	retryAt *time.Time,
+) error {
 	if r == nil || r.pool == nil || deliveryID == uuid.Nil || !validFunctionWorkerID(workerID) {
 		return ErrInvalidAdminNotification
 	}
@@ -367,45 +424,84 @@ func scanAdminNotificationChannel(row interface{ Scan(...any) error }) (domain.A
 	return item, nil
 }
 
-func normalizeAdminNotificationChannelInput(input AdminNotificationChannelInput) (AdminNotificationChannelInput, error) {
+func normalizeAdminNotificationChannelInput(
+	input AdminNotificationChannelInput,
+) (AdminNotificationChannelInput, error) {
 	name, err := normalizeAdminControlText(input.Name, 1, 120)
 	if err != nil {
 		return AdminNotificationChannelInput{}, fmt.Errorf("%w: channel name is invalid", ErrInvalidAdminNotification)
 	}
 	kind := strings.ToLower(strings.TrimSpace(input.Kind))
 	if kind != "email" && kind != "webhook" && kind != "slack" && kind != "discord" && kind != "telegram" {
-		return AdminNotificationChannelInput{}, fmt.Errorf("%w: channel kind is unsupported", ErrInvalidAdminNotification)
+		return AdminNotificationChannelInput{}, fmt.Errorf(
+			"%w: channel kind is unsupported",
+			ErrInvalidAdminNotification,
+		)
 	}
 	if len(input.Config) == 0 || len(input.Config) > adminNotificationMaxConfig || !json.Valid(input.Config) {
-		return AdminNotificationChannelInput{}, fmt.Errorf("%w: channel configuration is invalid", ErrInvalidAdminNotification)
+		return AdminNotificationChannelInput{}, fmt.Errorf(
+			"%w: channel configuration is invalid",
+			ErrInvalidAdminNotification,
+		)
 	}
 	var config map[string]any
 	if err := json.Unmarshal(input.Config, &config); err != nil || config == nil {
-		return AdminNotificationChannelInput{}, fmt.Errorf("%w: channel configuration must be an object", ErrInvalidAdminNotification)
+		return AdminNotificationChannelInput{}, fmt.Errorf(
+			"%w: channel configuration must be an object",
+			ErrInvalidAdminNotification,
+		)
 	}
 	for key, value := range config {
 		if len(key) > 80 || strings.ContainsAny(key, "\x00\r\n") || !notificationValueSafe(value) {
-			return AdminNotificationChannelInput{}, fmt.Errorf("%w: channel configuration contains an invalid value", ErrInvalidAdminNotification)
+			return AdminNotificationChannelInput{}, fmt.Errorf(
+				"%w: channel configuration contains an invalid value",
+				ErrInvalidAdminNotification,
+			)
 		}
 	}
 	switch kind {
 	case "email":
 		recipient, ok := config["recipient"].(string)
 		if !ok || !validNotificationEmail(recipient) {
-			return AdminNotificationChannelInput{}, fmt.Errorf("%w: email recipient is invalid", ErrInvalidAdminNotification)
+			return AdminNotificationChannelInput{}, fmt.Errorf(
+				"%w: email recipient is invalid",
+				ErrInvalidAdminNotification,
+			)
 		}
 	case "telegram":
 		if !notificationString(config, "bot_token", 512) || !notificationString(config, "chat_id", 128) {
-			return AdminNotificationChannelInput{}, fmt.Errorf("%w: Telegram configuration is incomplete", ErrInvalidAdminNotification)
+			return AdminNotificationChannelInput{}, fmt.Errorf(
+				"%w: Telegram configuration is incomplete",
+				ErrInvalidAdminNotification,
+			)
 		}
 	default:
 		endpoint, ok := config["url"].(string)
 		parsed, parseErr := url.Parse(strings.TrimSpace(endpoint))
-		if !ok || parseErr != nil || parsed.Scheme != "https" || parsed.Hostname() == "" || parsed.User != nil || parsed.Fragment != "" || len(endpoint) > 2048 {
-			return AdminNotificationChannelInput{}, fmt.Errorf("%w: HTTPS webhook URL is invalid", ErrInvalidAdminNotification)
+		if !ok || parseErr != nil {
+			return AdminNotificationChannelInput{}, fmt.Errorf(
+				"%w: HTTPS webhook URL is invalid",
+				ErrInvalidAdminNotification,
+			)
+		}
+		invalidScheme := parsed.Scheme != "https"
+		invalidHost := parsed.Hostname() == ""
+		hasUserInfo := parsed.User != nil
+		hasFragment := parsed.Fragment != ""
+		tooLong := len(endpoint) > 2048
+		if invalidScheme || invalidHost || hasUserInfo || hasFragment || tooLong {
+			return AdminNotificationChannelInput{}, fmt.Errorf(
+				"%w: HTTPS webhook URL is invalid",
+				ErrInvalidAdminNotification,
+			)
 		}
 	}
-	return AdminNotificationChannelInput{Name: name, Kind: kind, Enabled: input.Enabled, Config: append([]byte(nil), input.Config...)}, nil
+	return AdminNotificationChannelInput{
+		Name:    name,
+		Kind:    kind,
+		Enabled: input.Enabled,
+		Config:  append([]byte(nil), input.Config...),
+	}, nil
 }
 
 func notificationValueSafe(value any) bool {

@@ -45,7 +45,12 @@ func (s *Server) updateAdminCloudflare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.cloudflareFactory == nil {
-		writeError(w, http.StatusServiceUnavailable, "cloudflare_unavailable", "Cloudflare token validation is unavailable")
+		writeError(
+			w,
+			http.StatusServiceUnavailable,
+			"cloudflare_unavailable",
+			"Cloudflare token validation is unavailable",
+		)
 		return
 	}
 	instanceHostname, err := s.instanceHostname()
@@ -67,14 +72,24 @@ func (s *Server) updateAdminCloudflare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if current.ConsoleHostname != "" && current.ConsoleHostname != instanceHostname {
-		writeError(w, http.StatusConflict, "cloudflare_tunnel_identity_conflict", "PUBLIC_APP_URL does not match the Console hostname saved with the existing Cloudflare tunnel")
+		writeError(
+			w,
+			http.StatusConflict,
+			"cloudflare_tunnel_identity_conflict",
+			"PUBLIC_APP_URL does not match the Console hostname saved with the existing Cloudflare tunnel",
+		)
 		return
 	}
 	accountID, tunnelID := strings.TrimSpace(current.AccountID), strings.TrimSpace(current.TunnelID)
 	if accountID == "" || tunnelID == "" {
 		accountID, tunnelID = strings.TrimSpace(request.AccountID), strings.TrimSpace(request.TunnelID)
 		if accountID == "" || tunnelID == "" {
-			writeError(w, http.StatusUnprocessableEntity, "cloudflare_tunnel_identity_required", "This instance has no recoverable Cloudflare tunnel identity. Provide the existing Cloudflare account_id and tunnel_id; Stealth will validate and reuse that tunnel without creating another.")
+			writeError(
+				w,
+				http.StatusUnprocessableEntity,
+				"cloudflare_tunnel_identity_required",
+				"This instance has no recoverable Cloudflare tunnel identity. Provide the existing Cloudflare account_id and tunnel_id; Stealth will validate and reuse that tunnel without creating another.",
+			)
 			return
 		}
 	} else if (request.AccountID != "" && strings.TrimSpace(request.AccountID) != accountID) || (request.TunnelID != "" && strings.TrimSpace(request.TunnelID) != tunnelID) {
@@ -88,10 +103,24 @@ func (s *Server) updateAdminCloudflare(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
-	validated, err := cloudflare.ValidateExistingTunnel(ctx, client, accountID, current.ConsoleZoneID, instanceHostname, tunnelID, current.TunnelName, settings.WorkloadBaseDomain)
+	validated, err := cloudflare.ValidateExistingTunnel(
+		ctx,
+		client,
+		accountID,
+		current.ConsoleZoneID,
+		instanceHostname,
+		tunnelID,
+		current.TunnelName,
+		settings.WorkloadBaseDomain,
+	)
 	if err != nil {
 		if errors.Is(err, cloudflare.ErrUnauthorized) {
-			writeError(w, http.StatusUnprocessableEntity, "cloudflare_token_rejected", "Cloudflare rejected the token or it lacks Account Tunnel Edit, Account Settings Read, Zone Read, DNS Edit, or workload-zone SSL and Certificates Read access")
+			writeError(
+				w,
+				http.StatusUnprocessableEntity,
+				"cloudflare_token_rejected",
+				"Cloudflare rejected the token or it lacks Account Tunnel Edit, Account Settings Read, Zone Read, DNS Edit, or workload-zone SSL and Certificates Read access",
+			)
 		} else {
 			writeError(w, http.StatusBadGateway, "cloudflare_validation_failed", "Cloudflare could not verify the existing account, tunnel, Console DNS, and configured workload zone. Check the scoped token and keep the existing tunnel unchanged.")
 		}
@@ -105,9 +134,19 @@ func (s *Server) updateAdminCloudflare(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, repository.ErrForbidden):
 			writeError(w, http.StatusForbidden, "forbidden", "instance owner permission is required")
 		case errors.Is(err, repository.ErrCloudflareConnectionConflict):
-			writeError(w, http.StatusConflict, "cloudflare_tunnel_identity_conflict", "the existing Cloudflare tunnel identity cannot be replaced")
+			writeError(
+				w,
+				http.StatusConflict,
+				"cloudflare_tunnel_identity_conflict",
+				"the existing Cloudflare tunnel identity cannot be replaced",
+			)
 		case errors.Is(err, repository.ErrCloudflareConnectionUnavailable):
-			writeError(w, http.StatusServiceUnavailable, "cloudflare_unavailable", "Cloudflare credential encryption is unavailable")
+			writeError(
+				w,
+				http.StatusServiceUnavailable,
+				"cloudflare_unavailable",
+				"Cloudflare credential encryption is unavailable",
+			)
 		default:
 			internalError(s, w, err)
 		}

@@ -34,7 +34,7 @@ func HashCallbackState(value string) string {
 	return base64.RawURLEncoding.EncodeToString(sha256Bytes([]byte(strings.TrimSpace(value))))
 }
 
-func HashManifestState(value string) string {
+func hashManifestState(value string) string {
 	return HashCallbackState(value)
 }
 

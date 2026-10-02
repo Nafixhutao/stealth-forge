@@ -46,7 +46,8 @@ func (e *Engine) recordUpgradeSchemaFingerprint(ctx context.Context, plan Plan) 
 	if err != nil {
 		return fmt.Errorf("cannot snapshot schema compatibility before migration: %w", err)
 	}
-	if metadata.TargetVersion != strings.TrimSpace(plan.Version) || (strings.TrimSpace(plan.InstalledVersion) != "" && metadata.PreviousVersion != strings.TrimSpace(plan.InstalledVersion)) {
+	if metadata.TargetVersion != strings.TrimSpace(plan.Version) ||
+		(strings.TrimSpace(plan.InstalledVersion) != "" && metadata.PreviousVersion != strings.TrimSpace(plan.InstalledVersion)) {
 		return errors.New("previous release metadata does not match the upgrade plan")
 	}
 	fingerprint, err := e.querySchemaFingerprint(ctx, plan, plan.ExternalDatabase)

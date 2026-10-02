@@ -77,7 +77,10 @@ func configuredRuntimeNetwork(values map[string]string) string {
 	return name
 }
 
-func (a *App) inspectAppRuntimeResources(ctx context.Context, plan uninstallPlan) ([]appRuntimePurgeContainer, *appRuntimePurgeNetwork, error) {
+func (a *App) inspectAppRuntimeResources(
+	ctx context.Context,
+	plan uninstallPlan,
+) ([]appRuntimePurgeContainer, *appRuntimePurgeNetwork, error) {
 	if !validDockerResourceName(plan.appRuntimeNetwork) || len(plan.appRuntimeNetwork) > 63 {
 		return nil, nil, fmt.Errorf("refusing to inspect invalid App runtime network name %q", plan.appRuntimeNetwork)
 	}
@@ -118,13 +121,19 @@ func (a *App) inspectAppRuntimeResources(ctx context.Context, plan uninstallPlan
 			}
 			if _, managed := containerIDs[id]; !managed {
 				if err := a.inspectAppRuntimePeer(ctx, id); err != nil {
-					return nil, nil, fmt.Errorf("App runtime network contains a container outside the managed App ownership set; refusing purge: %w", err)
+					return nil, nil, fmt.Errorf(
+						"App runtime network contains a container outside the managed App ownership set; refusing purge: %w",
+						err,
+					)
 				}
 			}
 		}
 		for _, container := range containers {
 			if _, attached := network.Containers[container.ID]; !attached {
-				return nil, nil, fmt.Errorf("managed App container %q is not attached to the owned App runtime network; refusing purge", container.Name)
+				return nil, nil, fmt.Errorf(
+					"managed App container %q is not attached to the owned App runtime network; refusing purge",
+					container.Name,
+				)
 			}
 		}
 		return containers, &network, nil
@@ -141,7 +150,8 @@ func (a *App) inspectAppRuntimePeer(ctx context.Context, id string) error {
 		return fmt.Errorf("App runtime peer inspect exceeds the validation limit")
 	}
 	var rows []appRuntimePurgeInspect
-	if json.Unmarshal(output, &rows) != nil || len(rows) != 1 || !validDockerContainerID(rows[0].ID) || rows[0].ID != id {
+	if json.Unmarshal(output, &rows) != nil || len(rows) != 1 || !validDockerContainerID(rows[0].ID) ||
+		rows[0].ID != id {
 		return fmt.Errorf("refusing to purge an unreadable App runtime peer")
 	}
 	item := rows[0]
@@ -153,14 +163,23 @@ func (a *App) inspectAppRuntimePeer(ctx context.Context, id string) error {
 
 func appRuntimePurgePeerMatches(item appRuntimePurgeInspect) bool {
 	labels := item.Config.Labels
-	if labels["stealth.managed"] != "true" || labels["stealth.runtime_schema"] != appRuntimeSchema || item.HostConfig.Privileged ||
-		item.HostConfig.NetworkMode == "host" || item.HostConfig.NetworkMode == "none" || item.HostConfig.PidMode == "host" || item.HostConfig.IpcMode == "host" || item.HostConfig.UTSMode == "host" || item.HostConfig.UsernsMode == "host" ||
-		len(item.HostConfig.PortBindings) != 0 || len(item.HostConfig.CapAdd) != 0 {
+	isManaged := labels["stealth.managed"] == "true"
+	hasRuntimeSchema := labels["stealth.runtime_schema"] == appRuntimeSchema
+	isPrivileged := item.HostConfig.Privileged
+	hasHostNetworkMode := item.HostConfig.NetworkMode == "host" || item.HostConfig.NetworkMode == "none"
+	hasHostNamespace := item.HostConfig.PidMode == "host" || item.HostConfig.IpcMode == "host" ||
+		item.HostConfig.UTSMode == "host" ||
+		item.HostConfig.UsernsMode == "host"
+	hasPortBindings := len(item.HostConfig.PortBindings) != 0
+	hasAddedCapabilities := len(item.HostConfig.CapAdd) != 0
+	if !isManaged || !hasRuntimeSchema || isPrivileged || hasHostNetworkMode || hasHostNamespace || hasPortBindings ||
+		hasAddedCapabilities {
 		return false
 	}
-	socketMount := false
+	var socketMount bool
 	for _, mount := range item.Mounts {
-		if mount.Type == "bind" && mount.Source == "/var/run/docker.sock" && mount.Destination == "/var/run/docker.sock" {
+		if mount.Type == "bind" && mount.Source == "/var/run/docker.sock" &&
+			mount.Destination == "/var/run/docker.sock" {
 			socketMount = true
 			break
 		}
@@ -176,7 +195,10 @@ func appRuntimePurgePeerMatches(item appRuntimePurgeInspect) bool {
 	}
 }
 
-func (a *App) inspectAppRuntimeContainer(ctx context.Context, id, runtimeNetwork string) (appRuntimePurgeContainer, error) {
+func (a *App) inspectAppRuntimeContainer(
+	ctx context.Context,
+	id, runtimeNetwork string,
+) (appRuntimePurgeContainer, error) {
 	output, err := a.runner.CombinedOutput(ctx, "", "docker", "container", "inspect", id)
 	if err != nil {
 		return appRuntimePurgeContainer{}, fmt.Errorf("inspect managed App container %q: %w", id, err)
@@ -186,7 +208,9 @@ func (a *App) inspectAppRuntimeContainer(ctx context.Context, id, runtimeNetwork
 	}
 	var rows []appRuntimePurgeInspect
 	if err := json.Unmarshal(output, &rows); err != nil || len(rows) != 1 {
-		return appRuntimePurgeContainer{}, fmt.Errorf("refusing to purge App container with an unreadable inspect result")
+		return appRuntimePurgeContainer{}, fmt.Errorf(
+			"refusing to purge App container with an unreadable inspect result",
+		)
 	}
 	item := rows[0]
 	labels := item.Config.Labels
@@ -196,14 +220,27 @@ func (a *App) inspectAppRuntimeContainer(ctx context.Context, id, runtimeNetwork
 	generation, generationErr := strconv.ParseInt(labels["stealth.generation"], 10, 64)
 	if !validDockerContainerID(item.ID) || item.ID != id || appErr != nil || projectErr != nil || deploymentErr != nil ||
 		appID == uuid.Nil || projectID == uuid.Nil || deploymentID == uuid.Nil || generation < 1 || generationErr != nil ||
-		labels["stealth.managed"] != "true" || labels["stealth.resource_type"] != "app" || labels["stealth.runtime_schema"] != appRuntimeSchema ||
-		!validRuntimeSpecDigest(labels["stealth.workload_spec_sha256"]) || !validAppRuntimePurgeContainerName(appID, strings.TrimPrefix(item.Name, "/")) {
-		return appRuntimePurgeContainer{}, fmt.Errorf("App container %q does not have a complete, deterministic Stealth ownership identity; refusing purge", id)
+		labels["stealth.managed"] != "true" || labels["stealth.resource_type"] != "app" ||
+		labels["stealth.runtime_schema"] != appRuntimeSchema ||
+		!validRuntimeSpecDigest(labels["stealth.workload_spec_sha256"]) ||
+		!validAppRuntimePurgeContainerName(appID, strings.TrimPrefix(item.Name, "/")) {
+		return appRuntimePurgeContainer{}, fmt.Errorf(
+			"App container %q does not have a complete, deterministic Stealth ownership identity; refusing purge",
+			id,
+		)
 	}
 	if !validDockerResourceName(item.Name[1:]) || item.HostConfig.NetworkMode != runtimeNetwork {
-		return appRuntimePurgeContainer{}, fmt.Errorf("App container %q has an unsafe name or network mode; refusing purge", id)
+		return appRuntimePurgeContainer{}, fmt.Errorf(
+			"App container %q has an unsafe name or network mode; refusing purge",
+			id,
+		)
 	}
-	return appRuntimePurgeContainer{ID: item.ID, Name: item.Name[1:], Running: item.State.Running, NetworkMode: item.HostConfig.NetworkMode}, nil
+	return appRuntimePurgeContainer{
+		ID:          item.ID,
+		Name:        item.Name[1:],
+		Running:     item.State.Running,
+		NetworkMode: item.HostConfig.NetworkMode,
+	}, nil
 }
 
 func validAppRuntimePurgeContainerName(appID uuid.UUID, name string) bool {
@@ -230,7 +267,8 @@ func (a *App) inspectAppRuntimeNetwork(ctx context.Context, name string) (appRun
 	output, err := a.runner.CombinedOutput(ctx, "", "docker", "network", "inspect", "--format", "{{json .}}", name)
 	if err != nil {
 		message := strings.ToLower(string(output) + " " + err.Error())
-		if strings.Contains(message, "no such network") || strings.Contains(message, "network "+strings.ToLower(name)+" not found") {
+		if strings.Contains(message, "no such network") ||
+			strings.Contains(message, "network "+strings.ToLower(name)+" not found") {
 			return appRuntimePurgeNetwork{}, false, nil
 		}
 		return appRuntimePurgeNetwork{}, false, fmt.Errorf("inspect App runtime network %q: %w", name, err)
@@ -240,7 +278,10 @@ func (a *App) inspectAppRuntimeNetwork(ctx context.Context, name string) (appRun
 	}
 	var network appRuntimePurgeNetwork
 	if !appRuntimeNetworkOwned(name, output) || json.Unmarshal(output, &network) != nil {
-		return appRuntimePurgeNetwork{}, false, fmt.Errorf("App runtime network %q is not owned by this Stealth runtime; refusing purge", name)
+		return appRuntimePurgeNetwork{}, false, fmt.Errorf(
+			"App runtime network %q is not owned by this Stealth runtime; refusing purge",
+			name,
+		)
 	}
 	return network, true, nil
 }

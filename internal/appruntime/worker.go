@@ -46,7 +46,10 @@ type Persistence interface {
 	ScheduleAppRuntimeStartupSweep(context.Context) error
 	RequeueStaleAppRuntimeLeases(context.Context) (int64, error)
 	ClaimNextAppRuntime(context.Context, string, time.Duration) (repository.AppRuntimeJob, error)
-	ListAppRuntimeEnvironment(context.Context, repository.AppRuntimeJob) ([]repository.AppRuntimeEnvironmentCiphertext, error)
+	ListAppRuntimeEnvironment(
+		context.Context,
+		repository.AppRuntimeJob,
+	) ([]repository.AppRuntimeEnvironmentCiphertext, error)
 	RenewAppRuntimeLease(context.Context, uuid.UUID, string, uuid.UUID, time.Duration) error
 	IsAppRuntimeJobCurrent(context.Context, repository.AppRuntimeJob) (bool, error)
 	ReleaseAppRuntimeJob(context.Context, repository.AppRuntimeJob) error
@@ -115,8 +118,17 @@ type Worker struct {
 	startupSweepMutex         sync.Mutex
 }
 
-func New(store Persistence, artifacts *appstore.Store, runtime Runtime, workerID string, pollInterval, leaseAge time.Duration, maxImageBytes int64, logger *slog.Logger) (*Worker, error) {
-	if store == nil || artifacts == nil || artifacts.Images == nil || runtime == nil || !safeWorkerID(workerID) || maxImageBytes < 1 {
+func New(
+	store Persistence,
+	artifacts *appstore.Store,
+	runtime Runtime,
+	workerID string,
+	pollInterval, leaseAge time.Duration,
+	maxImageBytes int64,
+	logger *slog.Logger,
+) (*Worker, error) {
+	if store == nil || artifacts == nil || artifacts.Images == nil || runtime == nil || !safeWorkerID(workerID) ||
+		maxImageBytes < 1 {
 		return nil, errors.New("invalid App runtime worker dependencies")
 	}
 	if pollInterval <= 0 {
@@ -265,7 +277,11 @@ func (w *Worker) RunOnce(ctx context.Context) (bool, error) {
 	return true, err
 }
 
-func (w *Worker) withAppHeartbeat(parent context.Context, job repository.AppRuntimeJob, action func(context.Context) error) error {
+func (w *Worker) withAppHeartbeat(
+	parent context.Context,
+	job repository.AppRuntimeJob,
+	action func(context.Context) error,
+) error {
 	appID := uuid.MustParse(job.App.ID)
 	return w.withHeartbeat(parent, func(ctx context.Context) error {
 		return w.Store.RenewAppRuntimeLease(ctx, appID, job.WorkerID, job.LeaseToken, w.LeaseAge)
@@ -281,13 +297,21 @@ func (w *Worker) deferNetworkRetry(now time.Time) time.Duration {
 	return delay
 }
 
-func (w *Worker) withCleanupHeartbeat(parent context.Context, job repository.AppRuntimeCleanupJob, action func(context.Context) error) error {
+func (w *Worker) withCleanupHeartbeat(
+	parent context.Context,
+	job repository.AppRuntimeCleanupJob,
+	action func(context.Context) error,
+) error {
 	return w.withHeartbeat(parent, func(ctx context.Context) error {
 		return w.Store.RenewAppRuntimeCleanupLease(ctx, job, w.LeaseAge)
 	}, action)
 }
 
-func (w *Worker) withHeartbeat(parent context.Context, renew func(context.Context) error, action func(context.Context) error) error {
+func (w *Worker) withHeartbeat(
+	parent context.Context,
+	renew func(context.Context) error,
+	action func(context.Context) error,
+) error {
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
 	interval := w.LeaseAge / 3

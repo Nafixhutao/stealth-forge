@@ -158,9 +158,19 @@ func (s *Server) recordAdminMonitorHeartbeat(w http.ResponseWriter, r *http.Requ
 	if !ok {
 		return
 	}
-	decision, err := s.limiter.Allow(r.Context(), ratelimit.ProjectIPKey("monitor_heartbeat", id.String(), s.requestClientIP(r)), 60, time.Minute)
+	decision, err := s.limiter.Allow(
+		r.Context(),
+		ratelimit.ProjectIPKey("monitor_heartbeat", id.String(), s.requestClientIP(r)),
+		60,
+		time.Minute,
+	)
 	if err != nil {
-		writeError(w, http.StatusServiceUnavailable, "service_unavailable", "heartbeat protection is temporarily unavailable")
+		writeError(
+			w,
+			http.StatusServiceUnavailable,
+			"service_unavailable",
+			"heartbeat protection is temporarily unavailable",
+		)
 		return
 	}
 	if !decision.Allowed {
@@ -184,7 +194,10 @@ func (s *Server) recordAdminMonitorHeartbeat(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *Server) adminMonitorInput(w http.ResponseWriter, request adminMonitorRequest) (repository.AdminMonitorInput, string, bool) {
+func (s *Server) adminMonitorInput(
+	w http.ResponseWriter,
+	request adminMonitorRequest,
+) (repository.AdminMonitorInput, string, bool) {
 	kind := strings.ToLower(strings.TrimSpace(request.Kind))
 	interval := request.IntervalSeconds
 	if interval == 0 {
@@ -214,7 +227,7 @@ func (s *Server) adminMonitorInput(w http.ResponseWriter, request adminMonitorRe
 		"expected_values": request.ExpectedValues, "grace_seconds": request.GraceSeconds,
 		"certificate_expiry_days": request.CertificateExpiryDays,
 	}
-	heartbeatToken := ""
+	var heartbeatToken string
 	var heartbeatHash []byte
 	if kind == "heartbeat" {
 		var err error
@@ -274,9 +287,19 @@ func heartbeatEndpoint(id, token string) string {
 func adminMonitorError(s *Server, w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, repository.ErrAdminMonitorRuleConflict):
-		writeError(w, http.StatusConflict, "monitor_alert_rule_conflict", "the monitor kind conflicts with an existing alert rule")
+		writeError(
+			w,
+			http.StatusConflict,
+			"monitor_alert_rule_conflict",
+			"the monitor kind conflicts with an existing alert rule",
+		)
 	case errors.Is(err, repository.ErrAdminMonitorHasRules):
-		writeError(w, http.StatusConflict, "monitor_has_alert_rules", "delete the monitor's alert rules before deleting this monitor")
+		writeError(
+			w,
+			http.StatusConflict,
+			"monitor_has_alert_rules",
+			"delete the monitor's alert rules before deleting this monitor",
+		)
 	case errors.Is(err, repository.ErrInvalidAdminMonitor):
 		writeError(w, http.StatusBadRequest, "validation_error", "monitor configuration is invalid")
 	case errors.Is(err, repository.ErrNotFound), errors.Is(err, repository.ErrNoAdminMonitor):

@@ -21,8 +21,13 @@ func loadTelemetrySettings() (telemetrySettings, error) {
 	endpoint := strings.TrimSpace(os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))
 	if endpoint != "" {
 		parsed, err := url.Parse(endpoint)
-		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
-			return telemetrySettings{}, fmt.Errorf("OTEL_EXPORTER_OTLP_ENDPOINT must be an absolute HTTP(S) URL without query or fragment")
+		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" ||
+			parsed.User != nil ||
+			parsed.RawQuery != "" ||
+			parsed.Fragment != "" {
+			return telemetrySettings{}, fmt.Errorf(
+				"OTEL_EXPORTER_OTLP_ENDPOINT must be an absolute HTTP(S) URL without query or fragment",
+			)
 		}
 	}
 	sampleRatio, err := strconv.ParseFloat(value("OTEL_TRACES_SAMPLER_ARG", "0.1"), 64)

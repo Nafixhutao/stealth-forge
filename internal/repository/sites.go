@@ -98,7 +98,9 @@ type SiteStoragePaths struct {
 }
 
 const siteProjection = `id,project_id,name,framework,enabled,status,artifact_quota_bytes,artifact_used_bytes,artifact_reserved_bytes,active_deployment_id,created_at,updated_at,platform_label,(SELECT workload_base_domain FROM instance_domain_settings WHERE id=TRUE)`
+
 const siteMutationProjection = `id,project_id,name,framework,enabled,status,artifact_quota_bytes,artifact_used_bytes,artifact_reserved_bytes,active_deployment_id,created_at,updated_at,platform_label,NULL::text`
+
 const siteDeploymentProjection = `id,site_id,project_id,version,source,source_name,size_bytes,archive_size_bytes,checksum_sha256,status,build_runtime,build_command,output_directory,reserved_bytes,build_status,activate_requested,error_message,created_by_account_id,queued_at,build_started_at,built_at,activated_at,finished_at,created_at,updated_at,git_repository,git_ref`
 const siteBuildLogProjection = `id,deployment_id,site_id,project_id,sequence,level,message,created_at`
 
@@ -109,7 +111,22 @@ func scanSite(row siteScanner) (domain.Site, error) {
 	var active *uuid.UUID
 	var platformLabel string
 	var workloadBaseDomain *string
-	err := row.Scan(&item.ID, &item.ProjectID, &item.Name, &item.Framework, &item.Enabled, &item.Status, &item.ArtifactQuotaBytes, &item.ArtifactUsedBytes, &item.ArtifactReservedBytes, &active, &item.CreatedAt, &item.UpdatedAt, &platformLabel, &workloadBaseDomain)
+	err := row.Scan(
+		&item.ID,
+		&item.ProjectID,
+		&item.Name,
+		&item.Framework,
+		&item.Enabled,
+		&item.Status,
+		&item.ArtifactQuotaBytes,
+		&item.ArtifactUsedBytes,
+		&item.ArtifactReservedBytes,
+		&active,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+		&platformLabel,
+		&workloadBaseDomain,
+	)
 	if err == nil && active != nil {
 		value := active.String()
 		item.ActiveDeploymentID = &value
@@ -127,7 +144,35 @@ func scanSite(row siteScanner) (domain.Site, error) {
 func scanSiteDeploymentPublic(row siteScanner) (domain.SiteDeployment, error) {
 	var item domain.SiteDeployment
 	var createdBy *uuid.UUID
-	err := row.Scan(&item.ID, &item.SiteID, &item.ProjectID, &item.Version, &item.Source, &item.SourceName, &item.SizeBytes, &item.ArchiveSizeBytes, &item.ChecksumSHA256, &item.Status, &item.BuildRuntime, &item.BuildCommand, &item.OutputDirectory, &item.ReservedBytes, &item.BuildStatus, &item.ActivateRequested, &item.ErrorMessage, &createdBy, &item.QueuedAt, &item.BuildStartedAt, &item.BuiltAt, &item.ActivatedAt, &item.FinishedAt, &item.CreatedAt, &item.UpdatedAt, &item.GitRepository, &item.GitRef)
+	err := row.Scan(
+		&item.ID,
+		&item.SiteID,
+		&item.ProjectID,
+		&item.Version,
+		&item.Source,
+		&item.SourceName,
+		&item.SizeBytes,
+		&item.ArchiveSizeBytes,
+		&item.ChecksumSHA256,
+		&item.Status,
+		&item.BuildRuntime,
+		&item.BuildCommand,
+		&item.OutputDirectory,
+		&item.ReservedBytes,
+		&item.BuildStatus,
+		&item.ActivateRequested,
+		&item.ErrorMessage,
+		&createdBy,
+		&item.QueuedAt,
+		&item.BuildStartedAt,
+		&item.BuiltAt,
+		&item.ActivatedAt,
+		&item.FinishedAt,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+		&item.GitRepository,
+		&item.GitRef,
+	)
 	if err == nil && createdBy != nil {
 		value := createdBy.String()
 		item.CreatedByAccountID = &value
@@ -140,7 +185,37 @@ func scanSiteDeploymentWithPath(row siteScanner) (domain.SiteDeployment, string,
 	var createdBy *uuid.UUID
 	var sourcePath *string
 	var artifactPath string
-	err := row.Scan(&item.ID, &item.SiteID, &item.ProjectID, &item.Version, &item.Source, &item.SourceName, &item.SizeBytes, &item.ArchiveSizeBytes, &item.ChecksumSHA256, &item.Status, &item.BuildRuntime, &item.BuildCommand, &item.OutputDirectory, &item.ReservedBytes, &item.BuildStatus, &item.ActivateRequested, &item.ErrorMessage, &createdBy, &item.QueuedAt, &item.BuildStartedAt, &item.BuiltAt, &item.ActivatedAt, &item.FinishedAt, &item.CreatedAt, &item.UpdatedAt, &item.GitRepository, &item.GitRef, &sourcePath, &artifactPath)
+	err := row.Scan(
+		&item.ID,
+		&item.SiteID,
+		&item.ProjectID,
+		&item.Version,
+		&item.Source,
+		&item.SourceName,
+		&item.SizeBytes,
+		&item.ArchiveSizeBytes,
+		&item.ChecksumSHA256,
+		&item.Status,
+		&item.BuildRuntime,
+		&item.BuildCommand,
+		&item.OutputDirectory,
+		&item.ReservedBytes,
+		&item.BuildStatus,
+		&item.ActivateRequested,
+		&item.ErrorMessage,
+		&createdBy,
+		&item.QueuedAt,
+		&item.BuildStartedAt,
+		&item.BuiltAt,
+		&item.ActivatedAt,
+		&item.FinishedAt,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+		&item.GitRepository,
+		&item.GitRef,
+		&sourcePath,
+		&artifactPath,
+	)
 	if err == nil && createdBy != nil {
 		value := createdBy.String()
 		item.CreatedByAccountID = &value
@@ -153,7 +228,16 @@ func scanSiteDeploymentWithPath(row siteScanner) (domain.SiteDeployment, string,
 
 func scanSiteBuildLog(row siteScanner) (domain.SiteBuildLog, error) {
 	var item domain.SiteBuildLog
-	err := row.Scan(&item.ID, &item.DeploymentID, &item.SiteID, &item.ProjectID, &item.Sequence, &item.Level, &item.Message, &item.CreatedAt)
+	err := row.Scan(
+		&item.ID,
+		&item.DeploymentID,
+		&item.SiteID,
+		&item.ProjectID,
+		&item.Sequence,
+		&item.Level,
+		&item.Message,
+		&item.CreatedAt,
+	)
 	return item, err
 }
 
@@ -209,19 +293,38 @@ func (r *Repository) siteByID(ctx context.Context, query interface {
 	if lock {
 		suffix = " FOR UPDATE"
 	}
-	item, err := scanSite(query.QueryRow(ctx, `SELECT `+siteProjection+` FROM project_sites WHERE project_id=$1 AND id=$2`+suffix, projectID, siteID))
+	item, err := scanSite(
+		query.QueryRow(
+			ctx,
+			`SELECT `+siteProjection+` FROM project_sites WHERE project_id=$1 AND id=$2`+suffix,
+			projectID,
+			siteID,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Site{}, ErrNotFound
 	}
 	return item, err
 }
 
-func (r *Repository) ListSites(ctx context.Context, projectID uuid.UUID, actor SiteActor, limit int, cursor *uuid.UUID) ([]domain.Site, string, bool, error) {
+func (r *Repository) ListSites(
+	ctx context.Context,
+	projectID uuid.UUID,
+	actor SiteActor,
+	limit int,
+	cursor *uuid.UUID,
+) ([]domain.Site, string, bool, error) {
 	canManage, err := r.requireSiteRead(ctx, projectID, actor)
 	if err != nil {
 		return nil, "", false, err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+siteProjection+` FROM project_sites WHERE project_id=$1 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $2`, projectID, limit+1, cursor)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT `+siteProjection+` FROM project_sites WHERE project_id=$1 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $2`,
+		projectID,
+		limit+1,
+		cursor,
+	)
 	if err != nil {
 		return nil, "", false, err
 	}
@@ -252,7 +355,12 @@ func (r *Repository) GetSite(ctx context.Context, projectID, siteID uuid.UUID, a
 	return r.siteByID(ctx, r.pool, projectID, siteID, false)
 }
 
-func (r *Repository) CreateSite(ctx context.Context, id, projectID uuid.UUID, actor SiteActor, input SiteInput) (domain.Site, error) {
+func (r *Repository) CreateSite(
+	ctx context.Context,
+	id, projectID uuid.UUID,
+	actor SiteActor,
+	input SiteInput,
+) (domain.Site, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.Site{}, err
@@ -294,7 +402,20 @@ func (r *Repository) CreateSite(ctx context.Context, id, projectID uuid.UUID, ac
 		if claim.RowsAffected() == 0 {
 			continue
 		}
-		_, err = scanSite(tx.QueryRow(ctx, `INSERT INTO project_sites (id,project_id,name,platform_label,framework,enabled,status,artifact_quota_bytes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (platform_label) DO NOTHING RETURNING `+siteMutationProjection, id, projectID, input.Name, platformLabel, input.Framework, input.Enabled, input.Status, input.ArtifactQuotaBytes))
+		_, err = scanSite(
+			tx.QueryRow(
+				ctx,
+				`INSERT INTO project_sites (id,project_id,name,platform_label,framework,enabled,status,artifact_quota_bytes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (platform_label) DO NOTHING RETURNING `+siteMutationProjection,
+				id,
+				projectID,
+				input.Name,
+				platformLabel,
+				input.Framework,
+				input.Enabled,
+				input.Status,
+				input.ArtifactQuotaBytes,
+			),
+		)
 		if errors.Is(err, pgx.ErrNoRows) {
 			if _, claimErr := tx.Exec(ctx, `DELETE FROM platform_hostname_claims WHERE label=$1 AND resource_type='site' AND resource_id=$2`, platformLabel, id); claimErr != nil {
 				return domain.Site{}, claimErr
@@ -323,7 +444,12 @@ func (r *Repository) CreateSite(ctx context.Context, id, projectID uuid.UUID, ac
 	return item, nil
 }
 
-func (r *Repository) UpdateSite(ctx context.Context, projectID, siteID uuid.UUID, actor SiteActor, patch SitePatch) (domain.Site, error) {
+func (r *Repository) UpdateSite(
+	ctx context.Context,
+	projectID, siteID uuid.UUID,
+	actor SiteActor,
+	patch SitePatch,
+) (domain.Site, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.Site{}, err
@@ -362,10 +488,24 @@ func (r *Repository) UpdateSite(ctx context.Context, projectID, siteID uuid.UUID
 			status = "disabled"
 		}
 	}
-	if framework != "static" || (status != "active" && status != "disabled") || (status == "active") != enabled || quota <= 0 || quota < existing.ArtifactUsedBytes+existing.ArtifactReservedBytes {
+	if framework != "static" || (status != "active" && status != "disabled") || (status == "active") != enabled ||
+		quota <= 0 ||
+		quota < existing.ArtifactUsedBytes+existing.ArtifactReservedBytes {
 		return domain.Site{}, ErrInvalidSiteSettings
 	}
-	_, err = scanSite(tx.QueryRow(ctx, `UPDATE project_sites SET name=$3,framework=$4,enabled=$5,status=$6,artifact_quota_bytes=$7,updated_at=now() WHERE project_id=$1 AND id=$2 RETURNING `+siteMutationProjection, projectID, siteID, name, framework, enabled, status, quota))
+	_, err = scanSite(
+		tx.QueryRow(
+			ctx,
+			`UPDATE project_sites SET name=$3,framework=$4,enabled=$5,status=$6,artifact_quota_bytes=$7,updated_at=now() WHERE project_id=$1 AND id=$2 RETURNING `+siteMutationProjection,
+			projectID,
+			siteID,
+			name,
+			framework,
+			enabled,
+			status,
+			quota,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Site{}, ErrNotFound
 	}
@@ -406,7 +546,11 @@ func siteChangedFields(patch SitePatch) []string {
 	return fields
 }
 
-func (r *Repository) DeleteSite(ctx context.Context, projectID, siteID uuid.UUID, actor SiteActor) ([]SiteStoragePaths, error) {
+func (r *Repository) DeleteSite(
+	ctx context.Context,
+	projectID, siteID uuid.UUID,
+	actor SiteActor,
+) ([]SiteStoragePaths, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -418,7 +562,12 @@ func (r *Repository) DeleteSite(ctx context.Context, projectID, siteID uuid.UUID
 	if _, err := r.siteByID(ctx, tx, projectID, siteID, true); err != nil {
 		return nil, err
 	}
-	rows, err := tx.Query(ctx, `SELECT artifact_path,source_path FROM site_deployments WHERE project_id=$1 AND site_id=$2 FOR UPDATE`, projectID, siteID)
+	rows, err := tx.Query(
+		ctx,
+		`SELECT artifact_path,source_path FROM site_deployments WHERE project_id=$1 AND site_id=$2 FOR UPDATE`,
+		projectID,
+		siteID,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -471,7 +620,15 @@ func (r *Repository) DeleteSite(ctx context.Context, projectID, siteID uuid.UUID
 	return paths, nil
 }
 
-func (r *Repository) auditSite(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, actor SiteActor, action, targetType string, target uuid.UUID, metadata map[string]any) error {
+func (r *Repository) auditSite(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	actor SiteActor,
+	action, targetType string,
+	target uuid.UUID,
+	metadata map[string]any,
+) error {
 	orgID, err := projectOrganizationIDValue(ctx, tx, projectID)
 	if err != nil {
 		return err

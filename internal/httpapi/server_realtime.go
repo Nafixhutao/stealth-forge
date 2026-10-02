@@ -72,7 +72,15 @@ func (s *Server) realtime(w http.ResponseWriter, r *http.Request) {
 		if subscribeErr != nil {
 			// Redis is only the low-latency fanout. The database outbox remains
 			// available as a bounded polling fallback when Redis is degraded.
-			s.logger.Warn("realtime fanout unavailable; using database polling", "error", subscribeErr, "project_id", projectID, "request_id", requestIDFrom(r.Context()))
+			s.logger.Warn(
+				"realtime fanout unavailable; using database polling",
+				"error",
+				subscribeErr,
+				"project_id",
+				projectID,
+				"request_id",
+				requestIDFrom(r.Context()),
+			)
 		} else {
 			realtimeSubscription = subscription
 			defer realtimeSubscription.Close()

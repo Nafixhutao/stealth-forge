@@ -27,7 +27,11 @@ func NormalizeCORSOrigin(raw string) (string, error) {
 		return "", ErrInvalidCORSOrigin
 	}
 	parsed, err := url.Parse(value)
-	if err != nil || parsed.Opaque != "" || parsed.User != nil || parsed.Host == "" || parsed.Path != "" || parsed.RawPath != "" || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != "" {
+	if err != nil || parsed.Opaque != "" || parsed.User != nil || parsed.Host == "" || parsed.Path != "" ||
+		parsed.RawPath != "" ||
+		parsed.RawQuery != "" ||
+		parsed.ForceQuery ||
+		parsed.Fragment != "" {
 		return "", ErrInvalidCORSOrigin
 	}
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
@@ -92,7 +96,8 @@ func NormalizeCORSOrigins(raw []string) ([]string, error) {
 // returns an allowlist, never project metadata or data.
 func (r *Repository) ProjectCORSOrigins(ctx context.Context, projectID uuid.UUID) ([]string, error) {
 	var origins []string
-	err := r.pool.QueryRow(ctx, `SELECT cors_origins FROM project_auth_settings WHERE project_id=$1`, projectID).Scan(&origins)
+	err := r.pool.QueryRow(ctx, `SELECT cors_origins FROM project_auth_settings WHERE project_id=$1`, projectID).
+		Scan(&origins)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}

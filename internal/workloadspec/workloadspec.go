@@ -175,8 +175,13 @@ func Normalize(input Spec) (Spec, error) {
 	if spec.StopGracePeriodSeconds == 0 {
 		spec.StopGracePeriodSeconds = DefaultStopGracePeriodSeconds
 	}
-	if spec.StopGracePeriodSeconds < MinStopGracePeriodSeconds || spec.StopGracePeriodSeconds > MaxStopGracePeriodSeconds {
-		return Spec{}, invalid("stop_grace_period_seconds must be between %d and %d", MinStopGracePeriodSeconds, MaxStopGracePeriodSeconds)
+	if spec.StopGracePeriodSeconds < MinStopGracePeriodSeconds ||
+		spec.StopGracePeriodSeconds > MaxStopGracePeriodSeconds {
+		return Spec{}, invalid(
+			"stop_grace_period_seconds must be between %d and %d",
+			MinStopGracePeriodSeconds,
+			MaxStopGracePeriodSeconds,
+		)
 	}
 	if spec.RestartPolicy == "" {
 		spec.RestartPolicy = DefaultRestartPolicy
@@ -193,7 +198,10 @@ func normalizeWorkingDirectory(input *string) (*string, error) {
 	}
 	value := *input
 	if !utf8.ValidString(value) || len(value) > MaxWorkingDirectoryBytes || !strings.HasPrefix(value, "/") {
-		return nil, invalid("working_directory must be an absolute POSIX path no longer than %d bytes", MaxWorkingDirectoryBytes)
+		return nil, invalid(
+			"working_directory must be an absolute POSIX path no longer than %d bytes",
+			MaxWorkingDirectoryBytes,
+		)
 	}
 	for _, character := range value {
 		if character == '\\' || unicode.IsControl(character) {
@@ -223,16 +231,32 @@ func normalizeHealthCheck(input HealthCheck) (HealthCheck, error) {
 		health.FailureThreshold = DefaultHealthFailureThreshold
 	}
 	if health.IntervalSeconds < MinHealthIntervalSeconds || health.IntervalSeconds > MaxHealthIntervalSeconds {
-		return HealthCheck{}, invalid("health_check.interval_seconds must be between %d and %d", MinHealthIntervalSeconds, MaxHealthIntervalSeconds)
+		return HealthCheck{}, invalid(
+			"health_check.interval_seconds must be between %d and %d",
+			MinHealthIntervalSeconds,
+			MaxHealthIntervalSeconds,
+		)
 	}
-	if health.TimeoutSeconds < MinHealthTimeoutSeconds || health.TimeoutSeconds > MaxHealthTimeoutSeconds || health.TimeoutSeconds > health.IntervalSeconds {
-		return HealthCheck{}, invalid("health_check.timeout_seconds must be between %d and %d and no greater than interval_seconds", MinHealthTimeoutSeconds, MaxHealthTimeoutSeconds)
+	if health.TimeoutSeconds < MinHealthTimeoutSeconds || health.TimeoutSeconds > MaxHealthTimeoutSeconds ||
+		health.TimeoutSeconds > health.IntervalSeconds {
+		return HealthCheck{}, invalid(
+			"health_check.timeout_seconds must be between %d and %d and no greater than interval_seconds",
+			MinHealthTimeoutSeconds,
+			MaxHealthTimeoutSeconds,
+		)
 	}
 	if *health.InitialDelaySeconds < 0 || *health.InitialDelaySeconds > MaxHealthInitialDelay {
-		return HealthCheck{}, invalid("health_check.initial_delay_seconds must be between 0 and %d", MaxHealthInitialDelay)
+		return HealthCheck{}, invalid(
+			"health_check.initial_delay_seconds must be between 0 and %d",
+			MaxHealthInitialDelay,
+		)
 	}
 	if health.FailureThreshold < MinHealthFailureThreshold || health.FailureThreshold > MaxHealthFailureThreshold {
-		return HealthCheck{}, invalid("health_check.failure_threshold must be between %d and %d", MinHealthFailureThreshold, MaxHealthFailureThreshold)
+		return HealthCheck{}, invalid(
+			"health_check.failure_threshold must be between %d and %d",
+			MinHealthFailureThreshold,
+			MaxHealthFailureThreshold,
+		)
 	}
 	switch health.Protocol {
 	case "tcp":
@@ -259,7 +283,8 @@ func normalizeHealthCheck(input HealthCheck) (HealthCheck, error) {
 }
 
 func validateHTTPPath(value string) error {
-	if len(value) == 0 || len(value) > MaxHealthPathBytes || !strings.HasPrefix(value, "/") || strings.HasPrefix(value, "//") {
+	if len(value) == 0 || len(value) > MaxHealthPathBytes || !strings.HasPrefix(value, "/") ||
+		strings.HasPrefix(value, "//") {
 		return invalid("health_check.path must be an absolute local path no longer than %d bytes", MaxHealthPathBytes)
 	}
 	if !utf8.ValidString(value) || strings.ContainsAny(value, "\\?#") {
@@ -375,7 +400,7 @@ func Decode(data []byte) (Spec, error) {
 		if err := rejectExplicitZero(resources.CPUMillis, spec.Resources.CPUMillis, "resources.cpu_millis"); err != nil {
 			return Spec{}, err
 		}
-		if err := rejectExplicitZeroInt64(resources.MemoryBytes, spec.Resources.MemoryBytes, "resources.memory_bytes"); err != nil {
+		if err := rejectExplicitZero(resources.MemoryBytes, spec.Resources.MemoryBytes, "resources.memory_bytes"); err != nil {
 			return Spec{}, err
 		}
 		if err := rejectExplicitZero(resources.PIDsLimit, spec.Resources.PIDsLimit, "resources.pids_limit"); err != nil {
@@ -386,7 +411,11 @@ func Decode(data []byte) (Spec, error) {
 		return Spec{}, err
 	}
 	if input.StopGracePeriodSeconds != nil && spec.StopGracePeriodSeconds == 0 {
-		return Spec{}, invalid("stop_grace_period_seconds must be between %d and %d", MinStopGracePeriodSeconds, MaxStopGracePeriodSeconds)
+		return Spec{}, invalid(
+			"stop_grace_period_seconds must be between %d and %d",
+			MinStopGracePeriodSeconds,
+			MaxStopGracePeriodSeconds,
+		)
 	}
 	if err := decodeRequiredField(input.RestartPolicy, "restart_policy", &spec.RestartPolicy); err != nil {
 		return Spec{}, err
@@ -409,7 +438,17 @@ type partialSpec struct {
 }
 
 func (input partialSpec) hasAnyField() bool {
-	return input.SchemaVersion != nil || input.Port != nil || input.Command != nil || input.WorkingDirectory != nil || input.HealthCheck != nil || input.Resources != nil || input.StopGracePeriodSeconds != nil || input.RestartPolicy != nil
+	hasSchemaVersion := input.SchemaVersion != nil
+	hasPort := input.Port != nil
+	hasCommand := input.Command != nil
+	hasWorkingDirectory := input.WorkingDirectory != nil
+	hasHealthCheck := input.HealthCheck != nil
+	hasResources := input.Resources != nil
+	hasStopGracePeriod := input.StopGracePeriodSeconds != nil
+	hasRestartPolicy := input.RestartPolicy != nil
+	return hasSchemaVersion || hasPort || hasCommand || hasWorkingDirectory || hasHealthCheck || hasResources ||
+		hasStopGracePeriod ||
+		hasRestartPolicy
 }
 
 type partialHealthCheck struct {
@@ -464,15 +503,9 @@ func decodeNullableField[T any](raw json.RawMessage, field string, target **T) e
 	return nil
 }
 
-func rejectExplicitZero(raw json.RawMessage, value int, field string) error {
-	if raw != nil && value == 0 {
-		return invalid("%s cannot be zero when provided", field)
-	}
-	return nil
-}
-
-func rejectExplicitZeroInt64(raw json.RawMessage, value int64, field string) error {
-	if raw != nil && value == 0 {
+func rejectExplicitZero[T comparable](raw json.RawMessage, value T, field string) error {
+	var zero T
+	if raw != nil && value == zero {
 		return invalid("%s cannot be zero when provided", field)
 	}
 	return nil

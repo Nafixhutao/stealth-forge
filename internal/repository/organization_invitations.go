@@ -30,7 +30,11 @@ func invitationStatus(invitation domain.OrganizationInvitation, now time.Time) s
 	return "pending"
 }
 
-func (r *Repository) organizationManagerRoleTx(ctx context.Context, tx pgx.Tx, organizationID, accountID uuid.UUID) (string, error) {
+func (r *Repository) organizationManagerRoleTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	organizationID, accountID uuid.UUID,
+) (string, error) {
 	role, err := r.organizationRoleTx(ctx, tx, organizationID, accountID)
 	if errors.Is(err, ErrNotFound) {
 		return "", ErrForbidden
@@ -84,8 +88,15 @@ const invitationProjection = `
 // CreateOrganizationInvitation persists a new email-bound invitation. A new
 // send replaces any prior live invitation for the same address, making the UI
 // retry-safe while retaining an audit trail for the replacement.
-func (r *Repository) CreateOrganizationInvitation(ctx context.Context, organizationID, actorID uuid.UUID, email, role string, tokenHash []byte, expiresAt time.Time) (domain.OrganizationInvitation, error) {
-	if !OrganizationMembershipRole(role) || len(tokenHash) != 32 || strings.TrimSpace(email) == "" || !expiresAt.After(time.Now().UTC()) {
+func (r *Repository) CreateOrganizationInvitation(
+	ctx context.Context,
+	organizationID, actorID uuid.UUID,
+	email, role string,
+	tokenHash []byte,
+	expiresAt time.Time,
+) (domain.OrganizationInvitation, error) {
+	if !OrganizationMembershipRole(role) || len(tokenHash) != 32 || strings.TrimSpace(email) == "" ||
+		!expiresAt.After(time.Now().UTC()) {
 		return domain.OrganizationInvitation{}, ErrForbidden
 	}
 	tx, err := r.pool.Begin(ctx)
@@ -166,7 +177,12 @@ func (r *Repository) CreateOrganizationInvitation(ctx context.Context, organizat
 
 // ListOrganizationInvitations returns pending (including expired but not yet
 // revoked) invitations visible to organization owners and admins.
-func (r *Repository) ListOrganizationInvitations(ctx context.Context, organizationID, accountID uuid.UUID, limit int, cursor string) ([]domain.OrganizationInvitation, string, bool, error) {
+func (r *Repository) ListOrganizationInvitations(
+	ctx context.Context,
+	organizationID, accountID uuid.UUID,
+	limit int,
+	cursor string,
+) ([]domain.OrganizationInvitation, string, bool, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return nil, "", false, err
@@ -212,7 +228,10 @@ func (r *Repository) ListOrganizationInvitations(ctx context.Context, organizati
 // RevokeOrganizationInvitation makes a token unusable. It is idempotent for
 // an already revoked invitation only from the perspective of the caller that
 // can no longer see it; accepted invitations remain immutable.
-func (r *Repository) RevokeOrganizationInvitation(ctx context.Context, organizationID, invitationID, actorID uuid.UUID) error {
+func (r *Repository) RevokeOrganizationInvitation(
+	ctx context.Context,
+	organizationID, invitationID, actorID uuid.UUID,
+) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -223,9 +242,12 @@ func (r *Repository) RevokeOrganizationInvitation(ctx context.Context, organizat
 	}
 	var email, role string
 	var acceptedAt, revokedAt *time.Time
-	if err := tx.QueryRow(ctx, `SELECT email,role,accepted_at,revoked_at FROM organization_invitations WHERE id=$1 AND organization_id=$2 FOR UPDATE`, invitationID, organizationID).Scan(&email, &role, &acceptedAt, &revokedAt); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT email,role,accepted_at,revoked_at FROM organization_invitations WHERE id=$1 AND organization_id=$2 FOR UPDATE`, invitationID, organizationID).
+		Scan(&email, &role, &acceptedAt, &revokedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return err
 	}
 	if acceptedAt != nil {
@@ -246,7 +268,11 @@ func (r *Repository) RevokeOrganizationInvitation(ctx context.Context, organizat
 // AcceptOrganizationInvitation consumes a token and creates the matching
 // membership in one transaction. The recipient must be signed in as the
 // normalized email address that received the invitation.
-func (r *Repository) AcceptOrganizationInvitation(ctx context.Context, tokenHash []byte, accountID uuid.UUID) (domain.Membership, error) {
+func (r *Repository) AcceptOrganizationInvitation(
+	ctx context.Context,
+	tokenHash []byte,
+	accountID uuid.UUID,
+) (domain.Membership, error) {
 	if len(tokenHash) != 32 {
 		return domain.Membership{}, ErrInvalidOrganizationInvitation
 	}
@@ -256,9 +282,11 @@ func (r *Repository) AcceptOrganizationInvitation(ctx context.Context, tokenHash
 	}
 	defer tx.Rollback(ctx)
 	var accountEmail sql.NullString
-	if err := tx.QueryRow(ctx, `SELECT email FROM accounts WHERE id=$1`, accountID).Scan(&accountEmail); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT email FROM accounts WHERE id=$1`, accountID).Scan(&accountEmail)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Membership{}, ErrInvalidOrganizationInvitation
-	} else if err != nil {
+	}
+	if err != nil {
 		return domain.Membership{}, err
 	}
 	// Organization invitations are deliberately email-bound. A GitHub-only
@@ -271,18 +299,30 @@ func (r *Repository) AcceptOrganizationInvitation(ctx context.Context, tokenHash
 	var email, role string
 	var acceptedAt, revokedAt *time.Time
 	var expiresAt time.Time
-	if err := tx.QueryRow(ctx, `SELECT id,organization_id,email,role,expires_at,accepted_at,revoked_at FROM organization_invitations WHERE token_hash=$1 FOR UPDATE`, tokenHash).Scan(&invitationID, &organizationID, &email, &role, &expiresAt, &acceptedAt, &revokedAt); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT id,organization_id,email,role,expires_at,accepted_at,revoked_at FROM organization_invitations WHERE token_hash=$1 FOR UPDATE`, tokenHash).
+		Scan(&invitationID, &organizationID, &email, &role, &expiresAt, &acceptedAt, &revokedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Membership{}, ErrInvalidOrganizationInvitation
-	} else if err != nil {
+	}
+	if err != nil {
 		return domain.Membership{}, err
 	}
-	if acceptedAt != nil || revokedAt != nil || !expiresAt.After(time.Now().UTC()) || !strings.EqualFold(email, accountEmail.String) {
-		if !strings.EqualFold(email, accountEmail.String) && acceptedAt == nil && revokedAt == nil && expiresAt.After(time.Now().UTC()) {
+	if acceptedAt != nil || revokedAt != nil || !expiresAt.After(time.Now().UTC()) ||
+		!strings.EqualFold(email, accountEmail.String) {
+		if !strings.EqualFold(email, accountEmail.String) && acceptedAt == nil && revokedAt == nil &&
+			expiresAt.After(time.Now().UTC()) {
 			return domain.Membership{}, ErrForbidden
 		}
 		return domain.Membership{}, ErrInvalidOrganizationInvitation
 	}
-	item, err := membershipFromRow(tx.QueryRow(ctx, `SELECT m.organization_id,m.account_id,a.email,ai.provider,ai.provider_login,m.role,m.created_at FROM organization_memberships m JOIN accounts a ON a.id=m.account_id LEFT JOIN account_identities ai ON ai.account_id=a.id AND ai.provider='github' WHERE m.organization_id=$1 AND m.account_id=$2 FOR UPDATE OF m,a`, organizationID, accountID))
+	item, err := membershipFromRow(
+		tx.QueryRow(
+			ctx,
+			`SELECT m.organization_id,m.account_id,a.email,ai.provider,ai.provider_login,m.role,m.created_at FROM organization_memberships m JOIN accounts a ON a.id=m.account_id LEFT JOIN account_identities ai ON ai.account_id=a.id AND ai.provider='github' WHERE m.organization_id=$1 AND m.account_id=$2 FOR UPDATE OF m,a`,
+			organizationID,
+			accountID,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		if err := r.enforceOrganizationLimitTx(ctx, tx, organizationID, "members"); err != nil {
 			return domain.Membership{}, err

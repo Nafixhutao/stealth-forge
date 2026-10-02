@@ -379,7 +379,7 @@ func TestSetupModelClosesTunnelAfterOwnerCompletion(t *testing.T) {
 	app.runner = runner
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	model := newSetupModel(app, ctx, cancel, newInstallLayout(t.TempDir()), nil, "http://127.0.0.1:18080", "http://127.0.0.1:8080/setup", &setupTunnelState{})
+	model := newSetupModel(ctx, app, cancel, newInstallLayout(t.TempDir()), nil, "http://127.0.0.1:18080", "http://127.0.0.1:8080/setup", &setupTunnelState{})
 	model.phase = setupWaiting
 	model.containerName = "stealth-onboarding-test"
 	model.tunnelStarted = true

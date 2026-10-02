@@ -90,15 +90,21 @@ func scanHTTPTrace(row httpTraceScanner) (domain.HTTPTrace, error) {
 // the API middleware after a response has been produced; recorder failures
 // must be logged by the caller and never change the already selected status.
 func (r *Repository) RecordHTTPTrace(ctx context.Context, id uuid.UUID, input HTTPTraceInput) error {
-	if id == uuid.Nil || !validHTTPTraceID(input.TraceID, 16, 64) || (input.SpanID != "" && !validHTTPTraceID(input.SpanID, 8, 32)) {
+	if id == uuid.Nil || !validHTTPTraceID(input.TraceID, 16, 64) ||
+		(input.SpanID != "" && !validHTTPTraceID(input.SpanID, 8, 32)) {
 		return ErrInvalidHTTPTrace
 	}
 	method := strings.TrimSpace(input.Method)
 	route := strings.TrimSpace(input.Route)
-	if method == "" || utf8.RuneCountInString(method) > 16 || strings.ContainsAny(method, "\x00\r\n") || route == "" || utf8.RuneCountInString(route) > 240 || strings.ContainsRune(route, '\x00') {
+	if method == "" || utf8.RuneCountInString(method) > 16 || strings.ContainsAny(method, "\x00\r\n") || route == "" ||
+		utf8.RuneCountInString(route) > 240 ||
+		strings.ContainsRune(route, '\x00') {
 		return ErrInvalidHTTPTrace
 	}
-	if input.Status < 100 || input.Status > 599 || input.Duration < 0 || input.ResponseBytes < 0 || input.FinishedAt.Before(input.StartedAt) || input.StartedAt.IsZero() || input.FinishedAt.IsZero() {
+	if input.Status < 100 || input.Status > 599 || input.Duration < 0 || input.ResponseBytes < 0 ||
+		input.FinishedAt.Before(input.StartedAt) ||
+		input.StartedAt.IsZero() ||
+		input.FinishedAt.IsZero() {
 		return ErrInvalidHTTPTrace
 	}
 	if input.OrganizationID == nil && input.ProjectID == nil {
@@ -140,7 +146,12 @@ func (r *Repository) RecordHTTPTrace(ctx context.Context, id uuid.UUID, input HT
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) ListOrganizationHTTPTraces(ctx context.Context, organizationID, accountID uuid.UUID, limit int, cursor string) ([]domain.HTTPTrace, string, error) {
+func (r *Repository) ListOrganizationHTTPTraces(
+	ctx context.Context,
+	organizationID, accountID uuid.UUID,
+	limit int,
+	cursor string,
+) ([]domain.HTTPTrace, string, error) {
 	if limit < 1 || limit > 100 {
 		return nil, "", fmt.Errorf("%w: limit must be between 1 and 100", ErrInvalidHTTPTrace)
 	}
@@ -182,14 +193,21 @@ func (r *Repository) ListOrganizationHTTPTraces(ctx context.Context, organizatio
 // ListProjectHTTPTraces returns the newest durable root requests recorded for
 // one project. Project membership is checked before querying so a caller can
 // never use a guessed project ID to inspect another tenant's traffic.
-func (r *Repository) ListProjectHTTPTraces(ctx context.Context, projectID, accountID uuid.UUID, limit int, cursor string) ([]domain.HTTPTrace, string, error) {
+func (r *Repository) ListProjectHTTPTraces(
+	ctx context.Context,
+	projectID, accountID uuid.UUID,
+	limit int,
+	cursor string,
+) ([]domain.HTTPTrace, string, error) {
 	if limit < 1 || limit > 100 {
 		return nil, "", fmt.Errorf("%w: limit must be between 1 and 100", ErrInvalidHTTPTrace)
 	}
 	var organizationID uuid.UUID
-	if err := r.pool.QueryRow(ctx, `SELECT organization_id FROM projects WHERE id=$1`, projectID).Scan(&organizationID); errors.Is(err, pgx.ErrNoRows) {
+	err := r.pool.QueryRow(ctx, `SELECT organization_id FROM projects WHERE id=$1`, projectID).Scan(&organizationID)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, "", ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return nil, "", err
 	}
 	if err := r.requireMembership(ctx, organizationID, accountID); err != nil {
@@ -232,7 +250,8 @@ func validHTTPTraceID(value string, min, max int) bool {
 		return false
 	}
 	for _, character := range value {
-		if (character >= '0' && character <= '9') || (character >= 'a' && character <= 'f') || (character >= 'A' && character <= 'F') {
+		if (character >= '0' && character <= '9') || (character >= 'a' && character <= 'f') ||
+			(character >= 'A' && character <= 'F') {
 			continue
 		}
 		return false

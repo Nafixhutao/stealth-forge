@@ -30,10 +30,21 @@ func (s *Server) createMembership(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !repository.OrganizationMembershipRole(req.Role) {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "role must be one of admin, developer, viewer, or billing")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"role must be one of admin, developer, viewer, or billing",
+		)
 		return
 	}
-	item, err := s.repo.AddOrganizationMembership(r.Context(), organizationID, uuid.Must(uuid.Parse(accountFrom(r).ID)), email, req.Role)
+	item, err := s.repo.AddOrganizationMembership(
+		r.Context(),
+		organizationID,
+		uuid.Must(uuid.Parse(accountFrom(r).ID)),
+		email,
+		req.Role,
+	)
 	if organizationMembershipMutationError(w, err) {
 		return
 	}
@@ -62,10 +73,21 @@ func (s *Server) updateMembership(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !repository.OrganizationMembershipRole(req.Role) {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "role must be one of admin, developer, viewer, or billing")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"role must be one of admin, developer, viewer, or billing",
+		)
 		return
 	}
-	item, err := s.repo.UpdateOrganizationMembershipRole(r.Context(), organizationID, targetID, uuid.Must(uuid.Parse(accountFrom(r).ID)), req.Role)
+	item, err := s.repo.UpdateOrganizationMembershipRole(
+		r.Context(),
+		organizationID,
+		targetID,
+		uuid.Must(uuid.Parse(accountFrom(r).ID)),
+		req.Role,
+	)
 	if organizationMembershipMutationError(w, err) {
 		return
 	}
@@ -85,7 +107,12 @@ func (s *Server) removeMembership(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	err := s.repo.RemoveOrganizationMembership(r.Context(), organizationID, targetID, uuid.Must(uuid.Parse(accountFrom(r).ID)))
+	err := s.repo.RemoveOrganizationMembership(
+		r.Context(),
+		organizationID,
+		targetID,
+		uuid.Must(uuid.Parse(accountFrom(r).ID)),
+	)
 	if organizationMembershipMutationError(w, err) {
 		return
 	}
@@ -105,7 +132,12 @@ func organizationMembershipMutationError(w http.ResponseWriter, err error) bool 
 		return true
 	}
 	if errors.Is(err, repository.ErrForbidden) {
-		writeError(w, http.StatusForbidden, "forbidden", "you do not have permission to manage this organization membership")
+		writeError(
+			w,
+			http.StatusForbidden,
+			"forbidden",
+			"you do not have permission to manage this organization membership",
+		)
 		return true
 	}
 	return false

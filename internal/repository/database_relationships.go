@@ -43,14 +43,27 @@ func scanDatabaseRelationship(row interface{ Scan(...any) error }) (domain.Datab
 	return item, err
 }
 
-func (r *Repository) ListDatabaseRelationships(ctx context.Context, projectID, databaseID uuid.UUID, actor DatabaseActor, limit int, cursor *uuid.UUID) ([]domain.DatabaseRelationship, string, error) {
+func (r *Repository) ListDatabaseRelationships(
+	ctx context.Context,
+	projectID, databaseID uuid.UUID,
+	actor DatabaseActor,
+	limit int,
+	cursor *uuid.UUID,
+) ([]domain.DatabaseRelationship, string, error) {
 	if _, err := r.requireDatabaseRead(ctx, projectID, actor); err != nil {
 		return nil, "", err
 	}
 	if err := r.ensureDatabaseProject(ctx, projectID, databaseID); err != nil {
 		return nil, "", err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+databaseRelationshipProjection+` FROM database_relationships WHERE project_id=$1 AND database_id=$2 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $4`, projectID, databaseID, cursor, limit+1)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT `+databaseRelationshipProjection+` FROM database_relationships WHERE project_id=$1 AND database_id=$2 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $4`,
+		projectID,
+		databaseID,
+		cursor,
+		limit+1,
+	)
 	if err != nil {
 		return nil, "", err
 	}
@@ -74,18 +87,35 @@ func (r *Repository) ListDatabaseRelationships(ctx context.Context, projectID, d
 	return items, next, nil
 }
 
-func (r *Repository) GetDatabaseRelationship(ctx context.Context, projectID, databaseID, relationshipID uuid.UUID, actor DatabaseActor) (domain.DatabaseRelationship, error) {
+func (r *Repository) GetDatabaseRelationship(
+	ctx context.Context,
+	projectID, databaseID, relationshipID uuid.UUID,
+	actor DatabaseActor,
+) (domain.DatabaseRelationship, error) {
 	if _, err := r.requireDatabaseRead(ctx, projectID, actor); err != nil {
 		return domain.DatabaseRelationship{}, err
 	}
-	item, err := scanDatabaseRelationship(r.pool.QueryRow(ctx, `SELECT `+databaseRelationshipProjection+` FROM database_relationships WHERE project_id=$1 AND database_id=$2 AND id=$3`, projectID, databaseID, relationshipID))
+	item, err := scanDatabaseRelationship(
+		r.pool.QueryRow(
+			ctx,
+			`SELECT `+databaseRelationshipProjection+` FROM database_relationships WHERE project_id=$1 AND database_id=$2 AND id=$3`,
+			projectID,
+			databaseID,
+			relationshipID,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.DatabaseRelationship{}, ErrNotFound
 	}
 	return item, err
 }
 
-func (r *Repository) CreateDatabaseRelationship(ctx context.Context, id, projectID, databaseID uuid.UUID, actor DatabaseActor, input DatabaseRelationshipInput) (domain.DatabaseRelationship, error) {
+func (r *Repository) CreateDatabaseRelationship(
+	ctx context.Context,
+	id, projectID, databaseID uuid.UUID,
+	actor DatabaseActor,
+	input DatabaseRelationshipInput,
+) (domain.DatabaseRelationship, error) {
 	if _, err := dbcore.ValidateIdentifier(input.SourceColumnKey); err != nil {
 		return domain.DatabaseRelationship{}, err
 	}
@@ -96,7 +126,10 @@ func (r *Repository) CreateDatabaseRelationship(ctx context.Context, id, project
 		input.OnDelete = DatabaseRelationshipRestrict
 	}
 	if input.RelationshipType != DatabaseRelationshipManyToOne {
-		return domain.DatabaseRelationship{}, fmt.Errorf("%w: relationship type must be many_to_one", dbcore.ErrInvalidIdentifier)
+		return domain.DatabaseRelationship{}, fmt.Errorf(
+			"%w: relationship type must be many_to_one",
+			dbcore.ErrInvalidIdentifier,
+		)
 	}
 	if input.OnDelete != DatabaseRelationshipRestrict {
 		return domain.DatabaseRelationship{}, fmt.Errorf("%w: on_delete must be restrict", dbcore.ErrInvalidIdentifier)
@@ -123,13 +156,19 @@ func (r *Repository) CreateDatabaseRelationship(ctx context.Context, id, project
 		return domain.DatabaseRelationship{}, err
 	}
 	var columnType dbcore.ColumnType
-	if err := tx.QueryRow(ctx, `SELECT column_type FROM database_columns WHERE table_id=$1 AND key=$2`, input.SourceTableID, input.SourceColumnKey).Scan(&columnType); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT column_type FROM database_columns WHERE table_id=$1 AND key=$2`, input.SourceTableID, input.SourceColumnKey).
+		Scan(&columnType)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.DatabaseRelationship{}, ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return domain.DatabaseRelationship{}, err
 	}
 	if columnType != dbcore.TypeText && columnType != dbcore.TypeVarchar {
-		return domain.DatabaseRelationship{}, fmt.Errorf("%w: relationship source column must be text or varchar", dbcore.ErrInvalidColumn)
+		return domain.DatabaseRelationship{}, fmt.Errorf(
+			"%w: relationship source column must be text or varchar",
+			dbcore.ErrInvalidColumn,
+		)
 	}
 	var invalidRows bool
 	if err := tx.QueryRow(ctx, `SELECT EXISTS (
@@ -148,7 +187,20 @@ func (r *Repository) CreateDatabaseRelationship(ctx context.Context, id, project
 	if invalidRows {
 		return domain.DatabaseRelationship{}, ErrSchemaConflict
 	}
-	item, err := scanDatabaseRelationship(tx.QueryRow(ctx, `INSERT INTO database_relationships (id,project_id,database_id,source_table_id,source_column_key,target_table_id,relationship_type,on_delete) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING `+databaseRelationshipProjection, id, projectID, databaseID, input.SourceTableID, input.SourceColumnKey, input.TargetTableID, input.RelationshipType, input.OnDelete))
+	item, err := scanDatabaseRelationship(
+		tx.QueryRow(
+			ctx,
+			`INSERT INTO database_relationships (id,project_id,database_id,source_table_id,source_column_key,target_table_id,relationship_type,on_delete) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING `+databaseRelationshipProjection,
+			id,
+			projectID,
+			databaseID,
+			input.SourceTableID,
+			input.SourceColumnKey,
+			input.TargetTableID,
+			input.RelationshipType,
+			input.OnDelete,
+		),
+	)
 	if err != nil {
 		return domain.DatabaseRelationship{}, mapError(err)
 	}
@@ -166,7 +218,11 @@ func (r *Repository) CreateDatabaseRelationship(ctx context.Context, id, project
 	return item, nil
 }
 
-func (r *Repository) DeleteDatabaseRelationship(ctx context.Context, projectID, databaseID, relationshipID uuid.UUID, actor DatabaseActor) error {
+func (r *Repository) DeleteDatabaseRelationship(
+	ctx context.Context,
+	projectID, databaseID, relationshipID uuid.UUID,
+	actor DatabaseActor,
+) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -182,12 +238,21 @@ func (r *Repository) DeleteDatabaseRelationship(ctx context.Context, projectID, 
 		return err
 	}
 	var sourceTableID, targetTableID uuid.UUID
-	if err := tx.QueryRow(ctx, `SELECT source_table_id,target_table_id FROM database_relationships WHERE project_id=$1 AND database_id=$2 AND id=$3 FOR UPDATE`, projectID, databaseID, relationshipID).Scan(&sourceTableID, &targetTableID); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT source_table_id,target_table_id FROM database_relationships WHERE project_id=$1 AND database_id=$2 AND id=$3 FOR UPDATE`, projectID, databaseID, relationshipID).
+		Scan(&sourceTableID, &targetTableID)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return err
 	}
-	result, err := tx.Exec(ctx, `DELETE FROM database_relationships WHERE project_id=$1 AND database_id=$2 AND id=$3`, projectID, databaseID, relationshipID)
+	result, err := tx.Exec(
+		ctx,
+		`DELETE FROM database_relationships WHERE project_id=$1 AND database_id=$2 AND id=$3`,
+		projectID,
+		databaseID,
+		relationshipID,
+	)
 	if err != nil {
 		return err
 	}
@@ -208,7 +273,11 @@ func (r *Repository) DeleteDatabaseRelationship(ctx context.Context, projectID, 
 // is tableID. A missing or explicit null source value is allowed; any present
 // non-null value must be the UUID of a live row in the target table.
 func validateDatabaseRowRelationshipsTx(ctx context.Context, tx pgx.Tx, tableID uuid.UUID, data map[string]any) error {
-	rows, err := tx.Query(ctx, `SELECT source_column_key,target_table_id FROM database_relationships WHERE source_table_id=$1`, tableID)
+	rows, err := tx.Query(
+		ctx,
+		`SELECT source_column_key,target_table_id FROM database_relationships WHERE source_table_id=$1`,
+		tableID,
+	)
 	if err != nil {
 		return err
 	}
@@ -240,18 +309,18 @@ func validateDatabaseRowRelationshipsTx(ctx context.Context, tx pgx.Tx, tableID 
 		}
 		text, ok := value.(string)
 		if !ok {
-			return fmt.Errorf("%s: %w: relationship value must be a row UUID", columnKey, dbcore.ErrInvalidValue)
+			return fmt.Errorf("%q: %w: relationship value must be a row UUID", columnKey, dbcore.ErrInvalidValue)
 		}
 		targetID, err := uuid.Parse(text)
 		if err != nil {
-			return fmt.Errorf("%s: %w: relationship value must be a row UUID", columnKey, dbcore.ErrInvalidValue)
+			return fmt.Errorf("%q: %w: relationship value must be a row UUID", columnKey, dbcore.ErrInvalidValue)
 		}
 		var exists bool
 		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM database_rows WHERE table_id=$1 AND id=$2)`, targetTableID, targetID).Scan(&exists); err != nil {
 			return err
 		}
 		if !exists {
-			return fmt.Errorf("%w: target row for %s does not exist", ErrReferenceViolation, columnKey)
+			return fmt.Errorf("%w: target row for %q does not exist", ErrReferenceViolation, columnKey)
 		}
 	}
 	return nil

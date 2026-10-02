@@ -13,7 +13,10 @@ type RuntimeEnvironmentVariable struct {
 	Value []byte
 }
 
-func (w *Worker) runtimeEnvironment(ctx context.Context, job repository.AppRuntimeJob) ([]RuntimeEnvironmentVariable, error) {
+func (w *Worker) runtimeEnvironment(
+	ctx context.Context,
+	job repository.AppRuntimeJob,
+) ([]RuntimeEnvironmentVariable, error) {
 	encrypted, err := w.Store.ListAppRuntimeEnvironment(ctx, job)
 	if err != nil {
 		return nil, err
@@ -46,7 +49,8 @@ func (w *Worker) runtimeEnvironment(ctx context.Context, job repository.AppRunti
 		}
 		seen[item.Key] = struct{}{}
 		plaintext, decryptErr := w.AppSecretsCipher.Decrypt(projectID, appID, item.ID, item.Ciphertext)
-		if decryptErr != nil || len(plaintext) > repository.AppEnvironmentVariableMaxValueBytes || bytes.IndexAny(plaintext, "\x00\r\n") >= 0 {
+		if decryptErr != nil || len(plaintext) > repository.AppEnvironmentVariableMaxValueBytes ||
+			bytes.IndexAny(plaintext, "\x00\r\n") >= 0 {
 			clear(plaintext)
 			wipeRuntimeEnvironment(values)
 			return nil, ErrAppEnvironmentDecryption

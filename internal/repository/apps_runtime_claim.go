@@ -60,8 +60,13 @@ func (r *Repository) RequeueStaleAppRuntimeLeases(ctx context.Context) (int64, e
 // ClaimNextAppRuntime uses a short transaction to lease one App, then returns
 // the current desired App and selected immutable deployment. Docker work is
 // always performed after this transaction commits.
-func (r *Repository) ClaimNextAppRuntime(ctx context.Context, workerID string, leaseAge time.Duration) (AppRuntimeJob, error) {
-	if r == nil || r.pool == nil || !validFunctionWorkerID(workerID) || leaseAge < 15*time.Second || leaseAge > 10*time.Minute {
+func (r *Repository) ClaimNextAppRuntime(
+	ctx context.Context,
+	workerID string,
+	leaseAge time.Duration,
+) (AppRuntimeJob, error) {
+	if r == nil || r.pool == nil || !validFunctionWorkerID(workerID) || leaseAge < 15*time.Second ||
+		leaseAge > 10*time.Minute {
 		return AppRuntimeJob{}, ErrInvalidAppRuntimeJob
 	}
 	token, err := uuid.NewV7()
@@ -156,7 +161,15 @@ func (r *Repository) ClaimNextAppRuntime(ctx context.Context, workerID string, l
 		if parseErr != nil {
 			return AppRuntimeJob{}, ErrInvalidAppRuntimeJob
 		}
-		deployment, _, imagePath, _, _, _, _, deploymentErr := appDeploymentByID(ctx, tx, projectID, appID, deploymentID, false, true)
+		deployment, _, imagePath, _, _, _, _, deploymentErr := appDeploymentByID(
+			ctx,
+			tx,
+			projectID,
+			appID,
+			deploymentID,
+			false,
+			true,
+		)
 		if deploymentErr != nil {
 			return AppRuntimeJob{}, deploymentErr
 		}
@@ -173,8 +186,16 @@ func (r *Repository) ClaimNextAppRuntime(ctx context.Context, workerID string, l
 
 // RenewAppRuntimeLease extends only the exact claim token that began the
 // current reconcile operation.
-func (r *Repository) RenewAppRuntimeLease(ctx context.Context, appID uuid.UUID, workerID string, token uuid.UUID, leaseAge time.Duration) error {
-	if r == nil || r.pool == nil || appID == uuid.Nil || token == uuid.Nil || !validFunctionWorkerID(workerID) || leaseAge < 15*time.Second || leaseAge > 10*time.Minute {
+func (r *Repository) RenewAppRuntimeLease(
+	ctx context.Context,
+	appID uuid.UUID,
+	workerID string,
+	token uuid.UUID,
+	leaseAge time.Duration,
+) error {
+	if r == nil || r.pool == nil || appID == uuid.Nil || token == uuid.Nil || !validFunctionWorkerID(workerID) ||
+		leaseAge < 15*time.Second ||
+		leaseAge > 10*time.Minute {
 		return ErrInvalidAppRuntimeJob
 	}
 	result, err := r.pool.Exec(ctx, `

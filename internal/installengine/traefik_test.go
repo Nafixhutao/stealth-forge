@@ -289,7 +289,7 @@ func TestMigrateReleaseConfigAddsOrPreservesBuildKitAppArmorProfile(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	config, err := MigrateReleaseConfig(map[string]string{"APPS_BUILDKIT_ADDRESS": "tcp://buildkit:1234"}, "v1.2.3", "v1.2.2")
+	config, err := migrateReleaseConfig(map[string]string{"APPS_BUILDKIT_ADDRESS": "tcp://buildkit:1234"}, "v1.2.3", "v1.2.2")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -298,7 +298,7 @@ func TestMigrateReleaseConfigAddsOrPreservesBuildKitAppArmorProfile(t *testing.T
 		t.Fatalf("migrated profile = %q, %v; want detected %q", values["APPS_BUILDKIT_APPARMOR_PROFILE"], err, want)
 	}
 	for _, profile := range []string{"unconfined", BuildKitAppArmorProfileName} {
-		config, err := MigrateReleaseConfig(map[string]string{"APPS_BUILDKIT_APPARMOR_PROFILE": profile}, "v1.2.3", "v1.2.2")
+		config, err := migrateReleaseConfig(map[string]string{"APPS_BUILDKIT_APPARMOR_PROFILE": profile}, "v1.2.3", "v1.2.2")
 		if err != nil {
 			t.Fatalf("migrate explicit %q: %v", profile, err)
 		}
@@ -310,7 +310,7 @@ func TestMigrateReleaseConfigAddsOrPreservesBuildKitAppArmorProfile(t *testing.T
 }
 
 func TestAppSecretKeyIsGeneratedOncePreservedAndNeverSilentlyReplaced(t *testing.T) {
-	generated, err := MigrateReleaseConfig(map[string]string{}, "v1.2.3", "v1.2.2")
+	generated, err := migrateReleaseConfig(map[string]string{}, "v1.2.3", "v1.2.2")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -322,7 +322,7 @@ func TestAppSecretKeyIsGeneratedOncePreservedAndNeverSilentlyReplaced(t *testing
 	if err != nil || len(key) != 32 {
 		t.Fatalf("upgrade-generated App key length=%d err=%v", len(key), err)
 	}
-	repeated, err := MigrateReleaseConfig(values, "v1.2.4", "v1.2.3")
+	repeated, err := migrateReleaseConfig(values, "v1.2.4", "v1.2.3")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -336,7 +336,7 @@ func TestAppSecretKeyIsGeneratedOncePreservedAndNeverSilentlyReplaced(t *testing
 		"raw url base64":  base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{0x93}, 32)),
 	} {
 		t.Run(name, func(t *testing.T) {
-			contents, err := MigrateReleaseConfig(map[string]string{"APPS_SECRET_KEY": encoded}, "v1.2.4", "v1.2.3")
+			contents, err := migrateReleaseConfig(map[string]string{"APPS_SECRET_KEY": encoded}, "v1.2.4", "v1.2.3")
 			if err != nil {
 				t.Fatalf("valid existing key was rejected: %v", err)
 			}
@@ -352,7 +352,7 @@ func TestAppSecretKeyIsGeneratedOncePreservedAndNeverSilentlyReplaced(t *testing
 		"wrong decoded length": base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{0x93}, 31)),
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := MigrateReleaseConfig(map[string]string{"APPS_SECRET_KEY": invalid}, "v1.2.3", "v1.2.2"); err == nil || !strings.Contains(err.Error(), "refusing to replace it") {
+			if _, err := migrateReleaseConfig(map[string]string{"APPS_SECRET_KEY": invalid}, "v1.2.3", "v1.2.2"); err == nil || !strings.Contains(err.Error(), "refusing to replace it") {
 				t.Fatalf("invalid existing App key was not rejected safely: %v", err)
 			}
 		})
@@ -360,7 +360,7 @@ func TestAppSecretKeyIsGeneratedOncePreservedAndNeverSilentlyReplaced(t *testing
 }
 
 func TestBuildKitTLSPathsAreAddedAndOperatorPathsPreserved(t *testing.T) {
-	contents, err := MigrateReleaseConfig(map[string]string{}, "v1.2.3", "v1.2.2")
+	contents, err := migrateReleaseConfig(map[string]string{}, "v1.2.3", "v1.2.2")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -378,7 +378,7 @@ func TestBuildKitTLSPathsAreAddedAndOperatorPathsPreserved(t *testing.T) {
 			t.Fatalf("migrated %s = %q, want %q", name, values[name], path)
 		}
 	}
-	contents, err = MigrateReleaseConfig(map[string]string{"APPS_BUILDKIT_CLIENT_KEY": "/operator/keys/buildkit-worker.pem"}, "v1.2.3", "v1.2.2")
+	contents, err = migrateReleaseConfig(map[string]string{"APPS_BUILDKIT_CLIENT_KEY": "/operator/keys/buildkit-worker.pem"}, "v1.2.3", "v1.2.2")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -434,7 +434,7 @@ func TestTraefikConfigValidationRejectsMalformedAndDanglingRoutes(t *testing.T) 
 }
 
 func TestMigrateReleaseConfigAddsTraefikPeerToCustomTrustedProxies(t *testing.T) {
-	contents, err := MigrateReleaseConfig(map[string]string{
+	contents, err := migrateReleaseConfig(map[string]string{
 		"TRUSTED_PROXY_CIDRS": "10.0.0.0/8, 192.0.2.0/24",
 	}, "v1.2.4", "v1.2.3")
 	if err != nil {
@@ -454,7 +454,7 @@ func TestMigrateReleaseConfigAddsTraefikPeerToCustomTrustedProxies(t *testing.T)
 }
 
 func TestMigrateReleaseConfigUsesPersistedTraefikPeer(t *testing.T) {
-	contents, err := MigrateReleaseConfig(map[string]string{
+	contents, err := migrateReleaseConfig(map[string]string{
 		"STEALTH_INGRESS_NETWORK_NAME":   "operator_ingress",
 		"STEALTH_INGRESS_NETWORK_SUBNET": "10.44.8.0/24",
 		"STEALTH_INGRESS_IP_RANGE":       "10.44.8.64/26",

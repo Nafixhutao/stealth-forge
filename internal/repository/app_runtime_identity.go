@@ -61,7 +61,8 @@ func AppRuntimeContainerNameForRouteIdentity(appID uuid.UUID, identity string) (
 }
 
 func appRuntimeRouteIdentityMatches(appID uuid.UUID, routeIdentity, healthRouteIdentity, containerName *string) bool {
-	if routeIdentity == nil || healthRouteIdentity == nil || containerName == nil || *healthRouteIdentity != *routeIdentity {
+	if routeIdentity == nil || healthRouteIdentity == nil || containerName == nil ||
+		*healthRouteIdentity != *routeIdentity {
 		return false
 	}
 	expectedName, valid := AppRuntimeContainerNameForRouteIdentity(appID, *routeIdentity)

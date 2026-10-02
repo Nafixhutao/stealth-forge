@@ -61,13 +61,28 @@ func (s *Server) registerProjectUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal_error", "unable to create application session")
 		return
 	}
-	item, err := s.repo.RegisterProjectUser(r.Context(), uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7()), projectID, email, passwordHash, name, tokenHash, time.Now().UTC().Add(s.config.AppSessionTTL))
+	item, err := s.repo.RegisterProjectUser(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		uuid.Must(uuid.NewV7()),
+		projectID,
+		email,
+		passwordHash,
+		name,
+		tokenHash,
+		time.Now().UTC().Add(s.config.AppSessionTTL),
+	)
 	if errors.Is(err, repository.ErrRegistrationDisabled) {
 		writeError(w, http.StatusForbidden, "registration_disabled", "public registration is disabled for this project")
 		return
 	}
 	if errors.Is(err, repository.ErrConflict) {
-		writeError(w, http.StatusConflict, "conflict", "an application user with this email already exists in the project")
+		writeError(
+			w,
+			http.StatusConflict,
+			"conflict",
+			"an application user with this email already exists in the project",
+		)
 		return
 	}
 	if projectSettingsError(w, err) {
@@ -137,7 +152,14 @@ func (s *Server) loginProjectUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal_error", "unable to create application session")
 		return
 	}
-	err = s.repo.CreateProjectUserSession(r.Context(), uuid.Must(uuid.NewV7()), projectID, userID, tokenHash, time.Now().UTC().Add(s.config.AppSessionTTL))
+	err = s.repo.CreateProjectUserSession(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		projectID,
+		userID,
+		tokenHash,
+		time.Now().UTC().Add(s.config.AppSessionTTL),
+	)
 	if errors.Is(err, repository.ErrForbidden) || errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusUnauthorized, "invalid_credentials", "invalid email or password")
 		return
@@ -198,19 +220,35 @@ func (s *Server) updateProjectAuthSettings(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if req.RegistrationEnabled == nil && req.CORSOrigins == nil {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "registration_enabled or cors_origins is required")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"registration_enabled or cors_origins is required",
+		)
 		return
 	}
 	var origins *[]string
 	if req.CORSOrigins != nil {
 		normalized, normalizeErr := repository.NormalizeCORSOrigins(*req.CORSOrigins)
 		if normalizeErr != nil {
-			writeError(w, http.StatusUnprocessableEntity, "validation_error", "cors_origins must contain up to 32 valid HTTP(S) origins without paths or wildcards")
+			writeError(
+				w,
+				http.StatusUnprocessableEntity,
+				"validation_error",
+				"cors_origins must contain up to 32 valid HTTP(S) origins without paths or wildcards",
+			)
 			return
 		}
 		origins = &normalized
 	}
-	item, err := s.repo.UpdateProjectAuthSettings(r.Context(), projectID, uuid.Must(uuid.Parse(accountFrom(r).ID)), req.RegistrationEnabled, origins)
+	item, err := s.repo.UpdateProjectAuthSettings(
+		r.Context(),
+		projectID,
+		uuid.Must(uuid.Parse(accountFrom(r).ID)),
+		req.RegistrationEnabled,
+		origins,
+	)
 	if projectSettingsError(w, err) {
 		return
 	}

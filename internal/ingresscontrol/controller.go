@@ -79,7 +79,13 @@ func New(store Store, reconciler Reconciler, probe Probe, publicURL string, logg
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Controller{store: store, reconciler: reconciler, probe: probe, publicURL: strings.TrimSpace(publicURL), logger: logger}, nil
+	return &Controller{
+		store:      store,
+		reconciler: reconciler,
+		probe:      probe,
+		publicURL:  strings.TrimSpace(publicURL),
+		logger:     logger,
+	}, nil
 }
 
 func (c *Controller) Status(ctx context.Context, out io.Writer) error {
@@ -137,14 +143,18 @@ func (c *Controller) Verify(ctx context.Context, siteHostname, siteSHA256 string
 		return err
 	}
 	if status.ConsoleOriginDesired != status.ConsoleOriginObserved || status.ConsoleOriginStatus != "ready" {
-		return errors.New("Cloudflare Console origin is not converged; inspect `stealth ingress status` and retry after reconciliation")
+		return errors.New(
+			"Cloudflare Console origin is not converged; inspect `stealth ingress status` and retry after reconciliation",
+		)
 	}
 	providerOrigin, err := c.reconciler.VerifyProvider(ctx)
 	if err != nil {
 		return fmt.Errorf("Cloudflare Tunnel verification failed: %w", err)
 	}
 	if providerOrigin != status.ConsoleOriginDesired {
-		return errors.New("Cloudflare Tunnel Console origin differs from persisted observed state; run `stealth ingress status` and retry after reconciliation")
+		return errors.New(
+			"Cloudflare Tunnel Console origin differs from persisted observed state; run `stealth ingress status` and retry after reconciliation",
+		)
 	}
 	if err := c.probe.LocalTraefik(ctx, connection.ConsoleHostname); err != nil {
 		return fmt.Errorf("Traefik local preflight failed: %w", err)
@@ -208,14 +218,30 @@ func (c *Controller) Cutover(ctx context.Context, out io.Writer) error {
 		defer cancel()
 		requested, _, checkErr := c.current(checkCtx)
 		if checkErr != nil {
-			return fmt.Errorf("could not persist or inspect Console origin cutover request: %w; HIGH SEVERITY: durable state is uncertain, run `stealth ingress rollback` from the installation host", errors.Join(err, checkErr))
+			return fmt.Errorf(
+				"could not persist or inspect Console origin cutover request: %w; HIGH SEVERITY: durable state is uncertain, run `stealth ingress rollback` from the installation host",
+				errors.Join(err, checkErr),
+			)
 		}
 		if requested.ConsoleOriginDesired == OriginTraefik {
-			return c.rollbackAfterFailedCutover(ctx, baseline, fmt.Errorf("cutover request result was uncertain: %w", err), out)
+			return c.rollbackAfterFailedCutover(
+				ctx,
+				baseline,
+				fmt.Errorf("cutover request result was uncertain: %w", err),
+				out,
+			)
 		}
 		return fmt.Errorf("could not persist Console origin cutover request: %w", err)
 	}
-	c.logger.Info("cloudflare console origin desired changed", "previous_origin", status.ConsoleOriginDesired, "desired_origin", OriginTraefik, "source", "host_cli")
+	c.logger.Info(
+		"cloudflare console origin desired changed",
+		"previous_origin",
+		status.ConsoleOriginDesired,
+		"desired_origin",
+		OriginTraefik,
+		"source",
+		"host_cli",
+	)
 	if err := c.reconcileRequestedOrigin(ctx, OriginTraefik); err != nil {
 		return c.rollbackAfterFailedCutover(ctx, baseline, err, out)
 	}
@@ -245,9 +271,20 @@ func (c *Controller) Rollback(ctx context.Context, out io.Writer) error {
 	if _, err := c.store.SetCloudflareConsoleOriginDesired(ctx, OriginProxy, "rollback"); err != nil {
 		return fmt.Errorf("could not persist Nginx rollback request: %w", err)
 	}
-	c.logger.Info("cloudflare console origin desired changed", "previous_origin", status.ConsoleOriginDesired, "desired_origin", OriginProxy, "source", "host_cli")
+	c.logger.Info(
+		"cloudflare console origin desired changed",
+		"previous_origin",
+		status.ConsoleOriginDesired,
+		"desired_origin",
+		OriginProxy,
+		"source",
+		"host_cli",
+	)
 	if err := c.reconcileRequestedOrigin(ctx, OriginProxy); err != nil {
-		return fmt.Errorf("Nginx rollback did not converge through Cloudflare; run `stealth ingress status` and retry: %w", err)
+		return fmt.Errorf(
+			"Nginx rollback did not converge through Cloudflare; run `stealth ingress status` and retry: %w",
+			err,
+		)
 	}
 	if _, err := c.probe.VerifyPublicConsole(ctx, c.publicURL, nil); err != nil {
 		return fmt.Errorf("Cloudflare now targets Nginx, but public recovery verification failed: %w", err)
@@ -260,24 +297,45 @@ func (c *Controller) Rollback(ctx context.Context, out io.Writer) error {
 	return nil
 }
 
-func (c *Controller) rollbackAfterFailedCutover(ctx context.Context, baseline PublicEvidence, verificationErr error, out io.Writer) error {
+func (c *Controller) rollbackAfterFailedCutover(
+	ctx context.Context,
+	baseline PublicEvidence,
+	verificationErr error,
+	out io.Writer,
+) error {
 	c.logger.Warn("cloudflare automatic console rollback started", "origin", OriginProxy)
 	rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 90*time.Second)
 	defer cancel()
 	if _, err := c.store.SetCloudflareConsoleOriginDesired(rollbackCtx, OriginProxy, "rollback"); err != nil {
 		c.logger.Error("cloudflare automatic console rollback failed", "error", safeReason(err))
-		return fmt.Errorf("cutover failed (%v); HIGH SEVERITY: automatic rollback could not be persisted: %w. Run `stealth ingress rollback` from the installation host", safeReason(verificationErr), err)
+		return fmt.Errorf(
+			"cutover failed (%v); HIGH SEVERITY: automatic rollback could not be persisted: %w. Run `stealth ingress rollback` from the installation host",
+			safeReason(verificationErr),
+			err,
+		)
 	}
 	if err := c.reconcileRequestedOrigin(rollbackCtx, OriginProxy); err != nil {
 		c.logger.Error("cloudflare automatic console rollback failed", "error", safeReason(err))
-		return fmt.Errorf("cutover failed (%v); HIGH SEVERITY: provider rollback did not verify: %w. Run `stealth ingress rollback` from the installation host", safeReason(verificationErr), err)
+		return fmt.Errorf(
+			"cutover failed (%v); HIGH SEVERITY: provider rollback did not verify: %w. Run `stealth ingress rollback` from the installation host",
+			safeReason(verificationErr),
+			err,
+		)
 	}
 	if _, err := c.probe.VerifyPublicConsole(rollbackCtx, c.publicURL, &baseline); err != nil {
 		c.logger.Error("cloudflare automatic console rollback failed", "error", safeReason(err))
-		return fmt.Errorf("cutover failed (%v); HIGH SEVERITY: provider targets Nginx but public recovery failed: %w. Check Cloudflare HSTS and security policy, then run `stealth ingress verify`", safeReason(verificationErr), err)
+		return fmt.Errorf(
+			"cutover failed (%v); HIGH SEVERITY: provider targets Nginx but public recovery failed: %w. Check Cloudflare HSTS and security policy, then run `stealth ingress verify`",
+			safeReason(verificationErr),
+			err,
+		)
 	}
 	if err := c.persistVerifiedOrigin(rollbackCtx, OriginProxy); err != nil {
-		return fmt.Errorf("cutover failed (%v); service recovered through Nginx, but recovery status could not be persisted: %w", safeReason(verificationErr), err)
+		return fmt.Errorf(
+			"cutover failed (%v); service recovered through Nginx, but recovery status could not be persisted: %w",
+			safeReason(verificationErr),
+			err,
+		)
 	}
 	c.logger.Warn("cloudflare automatic console rollback succeeded", "origin", OriginProxy)
 	fmt.Fprintln(out, "Cutover failed verification; rollback succeeded and service was restored through Nginx.")
@@ -294,13 +352,14 @@ func (c *Controller) reconcileCurrentOrigin(ctx context.Context) error {
 
 func (c *Controller) reconcileRequestedOrigin(ctx context.Context, origin string) error {
 	var reconcileErr error
-	for attempt := 0; attempt < 30; attempt++ {
+	for attempt := range 30 {
 		_, reconcileErr = c.reconciler.ReconcileConsoleOrigin(ctx)
 		status, connection, statusErr := c.current(ctx)
 		if statusErr != nil {
 			return statusErr
 		}
-		if status.ConsoleOriginDesired == origin && status.ConsoleOriginObserved == origin && status.ConsoleOriginStatus == "ready" {
+		if status.ConsoleOriginDesired == origin && status.ConsoleOriginObserved == origin &&
+			status.ConsoleOriginStatus == "ready" {
 			if connection.ConsoleHostname == "" {
 				return errors.New("Cloudflare Console hostname is missing")
 			}
@@ -310,13 +369,16 @@ func (c *Controller) reconcileRequestedOrigin(ctx context.Context, origin string
 			if verifyErr == nil && providerOrigin == origin {
 				return nil
 			}
-			if errors.Is(verifyErr, cloudflare.ErrLockNotAcquired) {
-				reconcileErr = verifyErr
-			} else if verifyErr != nil {
-				return fmt.Errorf("HIGH SEVERITY: Cloudflare Console-origin provider verification failed: %w", verifyErr)
-			} else {
+			if verifyErr == nil {
 				return errors.New("HIGH SEVERITY: Cloudflare Tunnel did not verify the requested Console origin")
 			}
+			if !errors.Is(verifyErr, cloudflare.ErrLockNotAcquired) {
+				return fmt.Errorf(
+					"HIGH SEVERITY: Cloudflare Console-origin provider verification failed: %w",
+					verifyErr,
+				)
+			}
+			reconcileErr = verifyErr
 		}
 		if !errors.Is(reconcileErr, cloudflare.ErrLockNotAcquired) {
 			if reconcileErr != nil {
@@ -344,18 +406,30 @@ func (c *Controller) persistVerifiedOrigin(ctx context.Context, origin string) e
 		return fmt.Errorf("persist public Console verification: %w", err)
 	}
 	if !verified {
-		return errors.New("Console origin changed while public verification was running; rerun `stealth ingress verify`")
+		return errors.New(
+			"Console origin changed while public verification was running; rerun `stealth ingress verify`",
+		)
 	}
 	return nil
 }
 
-func (c *Controller) verifySiteReadiness(ctx context.Context, status domain.CloudflareRoutingStatus, connection domain.CloudflareConnection, hostname, digest string) error {
-	if !status.Configured || connection.WorkloadBaseDomain == nil || status.Status != "ready" || status.EdgeTLSStatus != "ready" {
-		return errors.New("platform Site routing is not ready: Cloudflare wildcard routing and edge TLS must both be ready before public Site verification")
+func (c *Controller) verifySiteReadiness(
+	ctx context.Context,
+	status domain.CloudflareRoutingStatus,
+	connection domain.CloudflareConnection,
+	hostname, digest string,
+) error {
+	if !status.Configured || connection.WorkloadBaseDomain == nil || status.Status != "ready" ||
+		status.EdgeTLSStatus != "ready" {
+		return errors.New(
+			"platform Site routing is not ready: Cloudflare wildcard routing and edge TLS must both be ready before public Site verification",
+		)
 	}
 	canonical, err := normalizePlatformSiteHostname(hostname, *connection.WorkloadBaseDomain)
 	if err != nil {
-		return errors.New("Site hostname must be exactly one platform label beneath the configured workload_base_domain")
+		return errors.New(
+			"Site hostname must be exactly one platform label beneath the configured workload_base_domain",
+		)
 	}
 	if digest != "" {
 		decoded, err := hex.DecodeString(digest)
@@ -413,16 +487,32 @@ func (c *Controller) requirePublicHost(consoleHostname string) error {
 
 func requireConnection(status domain.CloudflareRoutingStatus, connection domain.CloudflareConnection) error {
 	if !status.Configured || strings.TrimSpace(connection.AccountID) == "" || strings.TrimSpace(connection.TunnelID) == "" ||
-		strings.TrimSpace(connection.ConsoleZoneID) == "" || strings.TrimSpace(connection.TunnelName) == "" || strings.TrimSpace(connection.ConsoleHostname) == "" {
-		return errors.New("Cloudflare Named Tunnel is not fully configured; reconnect the existing tunnel before changing the Console origin")
+		strings.TrimSpace(connection.ConsoleZoneID) == "" ||
+		strings.TrimSpace(connection.TunnelName) == "" ||
+		strings.TrimSpace(connection.ConsoleHostname) == "" {
+		return errors.New(
+			"Cloudflare Named Tunnel is not fully configured; reconnect the existing tunnel before changing the Console origin",
+		)
 	}
 	return nil
 }
 
 func parsePublicURL(raw string) (*url.URL, error) {
 	parsed, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Path != "" && parsed.Path != "/" {
-		return nil, errors.New("PUBLIC_APP_URL must be the HTTPS Console origin without credentials, query, fragment, or path")
+	if err != nil {
+		return nil, errors.New(
+			"PUBLIC_APP_URL must be the HTTPS Console origin without credentials, query, fragment, or path",
+		)
+	}
+	isHTTPS := parsed.Scheme == "https"
+	hasHostname := parsed.Hostname() != ""
+	hasNoUserInfo := parsed.User == nil
+	hasNoQueryOrFragment := parsed.RawQuery == "" && parsed.Fragment == ""
+	hasNoPath := parsed.Path == "" || parsed.Path == "/"
+	if !isHTTPS || !hasHostname || !hasNoUserInfo || !hasNoQueryOrFragment || !hasNoPath {
+		return nil, errors.New(
+			"PUBLIC_APP_URL must be the HTTPS Console origin without credentials, query, fragment, or path",
+		)
 	}
 	if !validHTTPSPort(parsed) {
 		return nil, errors.New("PUBLIC_APP_URL must use a canonical HTTPS port")

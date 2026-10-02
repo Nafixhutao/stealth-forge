@@ -34,7 +34,14 @@ func (s *Server) listDatabaseRelationships(w http.ResponseWriter, r *http.Reques
 		parsed, _ := uuid.Parse(cursor)
 		cursorID = &parsed
 	}
-	items, next, err := s.repo.ListDatabaseRelationships(r.Context(), projectID, databaseID, databaseActorFrom(r), limit, cursorID)
+	items, next, err := s.repo.ListDatabaseRelationships(
+		r.Context(),
+		projectID,
+		databaseID,
+		databaseActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if databaseResourceError(w, err) {
 		return
 	}
@@ -58,7 +65,13 @@ func (s *Server) getDatabaseRelationship(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	item, err := s.repo.GetDatabaseRelationship(r.Context(), projectID, databaseID, relationshipID, databaseActorFrom(r))
+	item, err := s.repo.GetDatabaseRelationship(
+		r.Context(),
+		projectID,
+		databaseID,
+		relationshipID,
+		databaseActorFrom(r),
+	)
 	if databaseResourceError(w, err) {
 		return
 	}
@@ -92,10 +105,17 @@ func (s *Server) createDatabaseRelationship(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", "target_table_id must be a UUID")
 		return
 	}
-	item, err := s.repo.CreateDatabaseRelationship(r.Context(), uuid.Must(uuid.NewV7()), projectID, databaseID, databaseActorFrom(r), repository.DatabaseRelationshipInput{
-		SourceTableID: sourceTableID, SourceColumnKey: req.SourceColumnKey, TargetTableID: targetTableID,
-		RelationshipType: req.RelationshipType, OnDelete: req.OnDelete,
-	})
+	item, err := s.repo.CreateDatabaseRelationship(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		projectID,
+		databaseID,
+		databaseActorFrom(r),
+		repository.DatabaseRelationshipInput{
+			SourceTableID: sourceTableID, SourceColumnKey: req.SourceColumnKey, TargetTableID: targetTableID,
+			RelationshipType: req.RelationshipType, OnDelete: req.OnDelete,
+		},
+	)
 	if databaseResourceError(w, err) {
 		return
 	}
@@ -119,9 +139,11 @@ func (s *Server) deleteDatabaseRelationship(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
-	if err := s.repo.DeleteDatabaseRelationship(r.Context(), projectID, databaseID, relationshipID, databaseActorFrom(r)); databaseResourceError(w, err) {
+	err := s.repo.DeleteDatabaseRelationship(r.Context(), projectID, databaseID, relationshipID, databaseActorFrom(r))
+	if databaseResourceError(w, err) {
 		return
-	} else if err != nil {
+	}
+	if err != nil {
 		internalError(s, w, err)
 		return
 	}

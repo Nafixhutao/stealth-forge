@@ -12,7 +12,10 @@ var slugPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,62}$`)
 func Email(value string) (string, error) {
 	normalized := strings.ToLower(strings.TrimSpace(value))
 	address, err := mail.ParseAddress(normalized)
-	if err != nil || address.Address != normalized || len(normalized) > 320 {
+	if err != nil {
+		return "", fmt.Errorf("email must be a valid address")
+	}
+	if address.Address != normalized || len(normalized) > 320 {
 		return "", fmt.Errorf("email must be a valid address")
 	}
 	return normalized, nil

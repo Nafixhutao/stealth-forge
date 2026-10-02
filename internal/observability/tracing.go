@@ -20,7 +20,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	"go.opentelemetry.io/otel/semconv/v1.27.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.27.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -129,8 +129,19 @@ func (e *invalidTracerConfig) Error() string {
 
 func normalizeOTLPEndpoint(raw string) (string, bool, error) {
 	parsed, err := url.Parse(raw)
-	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return "", false, &invalidTracerConfig{message: "OTLP endpoint must be an absolute HTTP(S) URL without query or fragment"}
+	if err != nil {
+		return "", false, &invalidTracerConfig{
+			message: "OTLP endpoint must be an absolute HTTP(S) URL without query or fragment",
+		}
+	}
+	validScheme := parsed.Scheme == "http" || parsed.Scheme == "https"
+	hasHost := parsed.Host != ""
+	hasNoUserInfo := parsed.User == nil
+	hasNoQueryOrFragment := parsed.RawQuery == "" && parsed.Fragment == ""
+	if !validScheme || !hasHost || !hasNoUserInfo || !hasNoQueryOrFragment {
+		return "", false, &invalidTracerConfig{
+			message: "OTLP endpoint must be an absolute HTTP(S) URL without query or fragment",
+		}
 	}
 	if strings.TrimSuffix(parsed.Path, "/") == "" {
 		parsed.Path = "/v1/traces"
@@ -165,9 +176,14 @@ func HTTPMiddlewareWithRecorder(recorder HTTPTraceRecorder) func(http.Handler) h
 		return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 			startedAt := time.Now()
 			parent := otel.GetTextMapPropagator().Extract(request.Context(), propagation.HeaderCarrier(request.Header))
-			ctx, span := tracer.Start(parent, request.Method, trace.WithSpanKind(trace.SpanKindServer), trace.WithAttributes(
-				semconv.HTTPRequestMethodKey.String(request.Method),
-			))
+			ctx, span := tracer.Start(
+				parent,
+				request.Method,
+				trace.WithSpanKind(trace.SpanKindServer),
+				trace.WithAttributes(
+					semconv.HTTPRequestMethodKey.String(request.Method),
+				),
+			)
 			response := &traceResponseWriter{ResponseWriter: writer, status: http.StatusOK}
 			traceID := span.SpanContext().TraceID()
 			traceIDValue := ""
@@ -226,7 +242,9 @@ func newTraceID() string {
 // spans correlated with any context supplied by a future queue transport and
 // adds fixed operation metadata without tenant IDs or user payloads.
 func StartWorkerSpan(ctx context.Context, operation string, attrs ...attribute.KeyValue) (context.Context, trace.Span) {
-	return Tracer(workerInstrumentationName).Start(ctx, operation, trace.WithSpanKind(trace.SpanKindConsumer), trace.WithAttributes(attrs...))
+	return Tracer(
+		workerInstrumentationName,
+	).Start(ctx, operation, trace.WithSpanKind(trace.SpanKindConsumer), trace.WithAttributes(attrs...))
 }
 
 type traceResponseWriter struct {

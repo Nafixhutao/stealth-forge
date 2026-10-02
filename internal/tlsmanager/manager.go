@@ -233,7 +233,15 @@ func normalizeHost(value string) (string, error) {
 
 func isDirectoryURL(value string) bool {
 	parsed, err := url.Parse(strings.TrimSpace(value))
-	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.Hostname() == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || strings.ContainsAny(value, "\x00\r\n \t") {
+	if err != nil {
+		return false
+	}
+	validScheme := parsed.Scheme == "https"
+	hasHost := parsed.Host != "" && parsed.Hostname() != ""
+	hasNoUserInfo := parsed.User == nil
+	hasNoQueryOrFragment := parsed.RawQuery == "" && parsed.Fragment == ""
+	hasSafeValue := !strings.ContainsAny(value, "\x00\r\n \t")
+	if !validScheme || !hasHost || !hasNoUserInfo || !hasNoQueryOrFragment || !hasSafeValue {
 		return false
 	}
 	if port := parsed.Port(); port != "" {

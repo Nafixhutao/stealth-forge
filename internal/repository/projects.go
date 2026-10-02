@@ -9,7 +9,12 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (r *Repository) ListProjects(ctx context.Context, organizationID, accountID uuid.UUID, limit int, cursor string) ([]domain.Project, string, bool, error) {
+func (r *Repository) ListProjects(
+	ctx context.Context,
+	organizationID, accountID uuid.UUID,
+	limit int,
+	cursor string,
+) ([]domain.Project, string, bool, error) {
 	if err := r.requireMembership(ctx, organizationID, accountID); err != nil {
 		return nil, "", false, err
 	}
@@ -18,7 +23,13 @@ func (r *Repository) ListProjects(ctx context.Context, organizationID, accountID
 		return nil, "", false, err
 	}
 	canManage := role == "owner" || role == "admin" || role == "developer"
-	rows, err := r.pool.Query(ctx, `SELECT id,organization_id,name,created_at FROM projects WHERE organization_id=$1 AND ($2='' OR id::text>$2) ORDER BY id LIMIT $3`, organizationID, cursor, limit+1)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT id,organization_id,name,created_at FROM projects WHERE organization_id=$1 AND ($2='' OR id::text>$2) ORDER BY id LIMIT $3`,
+		organizationID,
+		cursor,
+		limit+1,
+	)
 	if err != nil {
 		return nil, "", false, err
 	}
@@ -41,7 +52,12 @@ func (r *Repository) ListProjects(ctx context.Context, organizationID, accountID
 	}
 	return items, next, canManage, nil
 }
-func (r *Repository) CreateProject(ctx context.Context, id, organizationID, accountID uuid.UUID, name string) (domain.Project, error) {
+
+func (r *Repository) CreateProject(
+	ctx context.Context,
+	id, organizationID, accountID uuid.UUID,
+	name string,
+) (domain.Project, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.Project{}, err
@@ -73,7 +89,8 @@ func (r *Repository) CreateProject(ctx context.Context, id, organizationID, acco
 }
 func (r *Repository) ProjectByID(ctx context.Context, id, accountID uuid.UUID) (domain.Project, error) {
 	var item domain.Project
-	err := r.pool.QueryRow(ctx, `SELECT p.id,p.organization_id,p.name,p.created_at FROM projects p JOIN organization_memberships m ON m.organization_id=p.organization_id WHERE p.id=$1 AND m.account_id=$2`, id, accountID).Scan(&item.ID, &item.OrganizationID, &item.Name, &item.CreatedAt)
+	err := r.pool.QueryRow(ctx, `SELECT p.id,p.organization_id,p.name,p.created_at FROM projects p JOIN organization_memberships m ON m.organization_id=p.organization_id WHERE p.id=$1 AND m.account_id=$2`, id, accountID).
+		Scan(&item.ID, &item.OrganizationID, &item.Name, &item.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Project{}, ErrNotFound
 	}
@@ -83,7 +100,11 @@ func (r *Repository) ProjectByID(ctx context.Context, id, accountID uuid.UUID) (
 // UpdateProject changes the mutable project metadata while holding the
 // project row lock. A repeated name is deliberately idempotent and does not
 // emit an audit event or webhook notification.
-func (r *Repository) UpdateProject(ctx context.Context, projectID, accountID uuid.UUID, name string) (domain.Project, error) {
+func (r *Repository) UpdateProject(
+	ctx context.Context,
+	projectID, accountID uuid.UUID,
+	name string,
+) (domain.Project, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.Project{}, err
@@ -159,9 +180,12 @@ func (r *Repository) DeleteProject(ctx context.Context, projectID, accountID uui
 
 	var orgID uuid.UUID
 	var name string
-	if err := tx.QueryRow(ctx, `SELECT organization_id,name FROM projects WHERE id=$1 FOR UPDATE`, projectID).Scan(&orgID, &name); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT organization_id,name FROM projects WHERE id=$1 FOR UPDATE`, projectID).
+		Scan(&orgID, &name)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return err
 	}
 	if err := requireProjectRoleTx(ctx, tx, projectID, accountID, "owner"); err != nil {

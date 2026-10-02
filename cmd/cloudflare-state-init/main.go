@@ -28,9 +28,18 @@ func main() {
 		logger.Error("Cloudflare setup-state source directory is unavailable or unsafe")
 		os.Exit(1)
 	}
-	published, err := cloudflareimport.PublishLegacySetupSnapshot(context.Background(), sourcePath, inputDirectory, owner)
+	published, err := cloudflareimport.PublishLegacySetupSnapshot(
+		context.Background(),
+		sourcePath,
+		inputDirectory,
+		owner,
+	)
 	if err != nil {
-		logger.Error("Cloudflare setup-state handoff rejected unsafe or unavailable source state", "reason", safeReason(err))
+		logger.Error(
+			"Cloudflare setup-state handoff rejected unsafe or unavailable source state",
+			"reason",
+			safeReason(err),
+		)
 		os.Exit(1)
 	}
 	result := cloudflareimport.OutcomeNoImport

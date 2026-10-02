@@ -32,7 +32,9 @@ func writeRuntimeEnvironmentFile(values []RuntimeEnvironmentVariable) (string, f
 	total := 0
 	totalValueBytes := 0
 	for _, item := range ordered {
-		if !appRuntimeEnvironmentKey.MatchString(item.Key) || len(item.Value) > repository.AppEnvironmentVariableMaxValueBytes || bytes.IndexAny(item.Value, "\x00\r\n") >= 0 {
+		if !appRuntimeEnvironmentKey.MatchString(item.Key) ||
+			len(item.Value) > repository.AppEnvironmentVariableMaxValueBytes ||
+			bytes.IndexAny(item.Value, "\x00\r\n") >= 0 {
 			return "", nil, ErrContainerCreate
 		}
 		if _, duplicate := seen[item.Key]; duplicate {
@@ -80,7 +82,8 @@ func writeRuntimeEnvironmentFile(values []RuntimeEnvironmentVariable) (string, f
 }
 
 func validRuntimeEnvironmentFilePath(path string) bool {
-	return filepath.IsAbs(path) && filepath.Clean(path) == path && strings.HasPrefix(path, runtimeEnvironmentDirectory+"/.stealth-app-env-")
+	return filepath.IsAbs(path) && filepath.Clean(path) == path &&
+		strings.HasPrefix(path, runtimeEnvironmentDirectory+"/.stealth-app-env-")
 }
 
 func wipeAndRemoveRuntimeEnvironmentFile(path string) error {

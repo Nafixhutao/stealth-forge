@@ -132,9 +132,12 @@ type FunctionRuntimeVariable struct {
 }
 
 const functionProjection = `id,project_id,name,runtime,entrypoint,commands,timeout_seconds,enabled,logging,execute_permissions,description,status,artifact_quota_bytes,artifact_used_bytes,active_deployment_id,created_at,updated_at`
+
 const functionVariableProjection = `id,function_id,project_id,key,kind,is_secret,(value_ciphertext IS NOT NULL),description,created_at,updated_at`
+
 const functionDeploymentProjection = `id,function_id,project_id,version,source,source_name,size_bytes,checksum_sha256,status,build_status,error_message,created_by_account_id,queued_at,build_started_at,built_at,activated_at,finished_at,created_at,updated_at`
 const functionBuildLogProjection = `id,deployment_id,function_id,project_id,sequence,level,message,created_at`
+
 const functionExecutionProjection = `id,deployment_id,function_id,project_id,status,trigger,input_json,response_status,output_json,output_content_type,error_message,started_at,finished_at,created_at,updated_at`
 const functionExecutionLogProjection = `id,execution_id,function_id,project_id,sequence,level,message,created_at`
 
@@ -155,7 +158,25 @@ type functionVariableRows interface {
 func scanFunction(row functionScanner) (domain.Function, error) {
 	var item domain.Function
 	var active *uuid.UUID
-	err := row.Scan(&item.ID, &item.ProjectID, &item.Name, &item.Runtime, &item.Entrypoint, &item.Commands, &item.TimeoutSeconds, &item.Enabled, &item.Logging, &item.ExecutePermissions, &item.Description, &item.Status, &item.ArtifactQuotaBytes, &item.ArtifactUsedBytes, &active, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&item.ID,
+		&item.ProjectID,
+		&item.Name,
+		&item.Runtime,
+		&item.Entrypoint,
+		&item.Commands,
+		&item.TimeoutSeconds,
+		&item.Enabled,
+		&item.Logging,
+		&item.ExecutePermissions,
+		&item.Description,
+		&item.Status,
+		&item.ArtifactQuotaBytes,
+		&item.ArtifactUsedBytes,
+		&active,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	if err == nil && active != nil {
 		value := active.String()
 		item.ActiveDeploymentID = &value
@@ -165,7 +186,18 @@ func scanFunction(row functionScanner) (domain.Function, error) {
 
 func scanFunctionVariable(row functionScanner) (domain.FunctionVariable, error) {
 	var item domain.FunctionVariable
-	return item, row.Scan(&item.ID, &item.FunctionID, &item.ProjectID, &item.Key, &item.Kind, &item.IsSecret, &item.HasValue, &item.Description, &item.CreatedAt, &item.UpdatedAt)
+	return item, row.Scan(
+		&item.ID,
+		&item.FunctionID,
+		&item.ProjectID,
+		&item.Key,
+		&item.Kind,
+		&item.IsSecret,
+		&item.HasValue,
+		&item.Description,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 }
 
 // scanFunctionDeploymentRow expects the private source_path to be selected
@@ -174,7 +206,27 @@ func scanFunctionVariable(row functionScanner) (domain.FunctionVariable, error) 
 func scanFunctionDeploymentPublic(row functionScanner) (domain.FunctionDeployment, error) {
 	var item domain.FunctionDeployment
 	var createdBy *uuid.UUID
-	err := row.Scan(&item.ID, &item.FunctionID, &item.ProjectID, &item.Version, &item.Source, &item.SourceName, &item.SizeBytes, &item.ChecksumSHA256, &item.Status, &item.BuildStatus, &item.ErrorMessage, &createdBy, &item.QueuedAt, &item.BuildStartedAt, &item.BuiltAt, &item.ActivatedAt, &item.FinishedAt, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&item.ID,
+		&item.FunctionID,
+		&item.ProjectID,
+		&item.Version,
+		&item.Source,
+		&item.SourceName,
+		&item.SizeBytes,
+		&item.ChecksumSHA256,
+		&item.Status,
+		&item.BuildStatus,
+		&item.ErrorMessage,
+		&createdBy,
+		&item.QueuedAt,
+		&item.BuildStartedAt,
+		&item.BuiltAt,
+		&item.ActivatedAt,
+		&item.FinishedAt,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	if err == nil && createdBy != nil {
 		value := createdBy.String()
 		item.CreatedByAccountID = &value
@@ -184,13 +236,38 @@ func scanFunctionDeploymentPublic(row functionScanner) (domain.FunctionDeploymen
 
 func scanFunctionBuildLog(row functionScanner) (domain.FunctionBuildLog, error) {
 	var item domain.FunctionBuildLog
-	return item, row.Scan(&item.ID, &item.DeploymentID, &item.FunctionID, &item.ProjectID, &item.Sequence, &item.Level, &item.Message, &item.CreatedAt)
+	return item, row.Scan(
+		&item.ID,
+		&item.DeploymentID,
+		&item.FunctionID,
+		&item.ProjectID,
+		&item.Sequence,
+		&item.Level,
+		&item.Message,
+		&item.CreatedAt,
+	)
 }
 
 func scanFunctionExecution(row functionScanner) (domain.FunctionExecution, error) {
 	var item domain.FunctionExecution
 	var input, output []byte
-	err := row.Scan(&item.ID, &item.DeploymentID, &item.FunctionID, &item.ProjectID, &item.Status, &item.Trigger, &input, &item.ResponseStatus, &output, &item.OutputContentType, &item.ErrorMessage, &item.StartedAt, &item.FinishedAt, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&item.ID,
+		&item.DeploymentID,
+		&item.FunctionID,
+		&item.ProjectID,
+		&item.Status,
+		&item.Trigger,
+		&input,
+		&item.ResponseStatus,
+		&output,
+		&item.OutputContentType,
+		&item.ErrorMessage,
+		&item.StartedAt,
+		&item.FinishedAt,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	if err == nil {
 		item.InputJSON = append(item.InputJSON[:0], input...)
 		item.OutputJSON = append(item.OutputJSON[:0], output...)
@@ -200,7 +277,16 @@ func scanFunctionExecution(row functionScanner) (domain.FunctionExecution, error
 
 func scanFunctionExecutionLog(row functionScanner) (domain.FunctionExecutionLog, error) {
 	var item domain.FunctionExecutionLog
-	return item, row.Scan(&item.ID, &item.ExecutionID, &item.FunctionID, &item.ProjectID, &item.Sequence, &item.Level, &item.Message, &item.CreatedAt)
+	return item, row.Scan(
+		&item.ID,
+		&item.ExecutionID,
+		&item.FunctionID,
+		&item.ProjectID,
+		&item.Sequence,
+		&item.Level,
+		&item.Message,
+		&item.CreatedAt,
+	)
 }
 
 func functionActorIsAPIKey(actor FunctionActor) bool { return actor.Kind == FunctionAPIKeyActor }
@@ -238,7 +324,12 @@ func (r *Repository) requireFunctionRead(ctx context.Context, projectID uuid.UUI
 	}
 }
 
-func (r *Repository) requireFunctionWriteTx(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, actor FunctionActor) error {
+func (r *Repository) requireFunctionWriteTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	actor FunctionActor,
+) error {
 	switch actor.Kind {
 	case FunctionConsoleActor:
 		return requireProjectRoleTx(ctx, tx, projectID, actor.AccountID, "owner", "admin")
@@ -259,14 +350,29 @@ func (r *Repository) functionByID(ctx context.Context, query interface {
 	if lock {
 		suffix = " FOR UPDATE"
 	}
-	item, err := scanFunction(query.QueryRow(ctx, `SELECT `+functionProjection+` FROM project_functions WHERE project_id=$1 AND id=$2`+suffix, projectID, functionID))
+	item, err := scanFunction(
+		query.QueryRow(
+			ctx,
+			`SELECT `+functionProjection+` FROM project_functions WHERE project_id=$1 AND id=$2`+suffix,
+			projectID,
+			functionID,
+		),
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Function{}, ErrNotFound
 	}
 	return item, err
 }
 
-func (r *Repository) auditFunction(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, actor FunctionActor, action, targetType string, target uuid.UUID, metadata map[string]any) error {
+func (r *Repository) auditFunction(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	actor FunctionActor,
+	action, targetType string,
+	target uuid.UUID,
+	metadata map[string]any,
+) error {
 	orgID, err := projectOrganizationIDValue(ctx, tx, projectID)
 	if err != nil {
 		return err

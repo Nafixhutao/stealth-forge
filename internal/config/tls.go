@@ -28,7 +28,9 @@ func loadTLSSettings(storageRoot, httpAddress string) (tlsSettings, error) {
 	}
 	directoryURL := value("ACME_DIRECTORY_URL", "https://acme-v02.api.letsencrypt.org/directory")
 	if !isACMEDirectoryURL(directoryURL) {
-		return tlsSettings{}, fmt.Errorf("ACME_DIRECTORY_URL must be an absolute HTTPS URL without credentials, query, or fragment")
+		return tlsSettings{}, fmt.Errorf(
+			"ACME_DIRECTORY_URL must be an absolute HTTPS URL without credentials, query, or fragment",
+		)
 	}
 	tlsAddress := value("ACME_TLS_ADDR", ":8443")
 	if !isListenAddress(tlsAddress) {
@@ -36,7 +38,9 @@ func loadTLSSettings(storageRoot, httpAddress string) (tlsSettings, error) {
 	}
 	httpChallengeAddress := value("ACME_HTTP_CHALLENGE_ADDR", ":8081")
 	if !isListenAddress(httpChallengeAddress) {
-		return tlsSettings{}, fmt.Errorf("ACME_HTTP_CHALLENGE_ADDR must be a TCP host:port with a port between 1 and 65535")
+		return tlsSettings{}, fmt.Errorf(
+			"ACME_HTTP_CHALLENGE_ADDR must be a TCP host:port with a port between 1 and 65535",
+		)
 	}
 	email := strings.TrimSpace(os.Getenv("ACME_EMAIL"))
 	certCacheDir, err := filepath.Abs(value("ACME_CERT_CACHE_DIR", filepath.Join(storageRoot, "acme")))

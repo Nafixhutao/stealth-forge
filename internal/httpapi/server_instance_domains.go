@@ -67,7 +67,12 @@ func (s *Server) updateInstanceDomainSettings(w http.ResponseWriter, r *http.Req
 		internalError(s, w, err)
 		return
 	}
-	settings, err := s.repo.UpdateInstanceDomainSettings(r.Context(), mustUUID(accountFrom(r).ID), instanceHostname, request.WorkloadBaseDomain.Value)
+	settings, err := s.repo.UpdateInstanceDomainSettings(
+		r.Context(),
+		mustUUID(accountFrom(r).ID),
+		instanceHostname,
+		request.WorkloadBaseDomain.Value,
+	)
 	if instanceDomainSettingsError(s, w, err) {
 		return
 	}
@@ -81,7 +86,10 @@ func (s *Server) updateInstanceDomainSettings(w http.ResponseWriter, r *http.Req
 func (s *Server) instanceHostname() (string, error) {
 	raw := strings.TrimSpace(s.config.PublicAppURL)
 	parsed, err := url.Parse(raw)
-	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.Hostname() == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != "" {
+	schemeInvalid := parsed.Scheme != "http" && parsed.Scheme != "https"
+	hostMissing := parsed.Host == "" || parsed.Hostname() == ""
+	hasCredentialsOrQuery := parsed.User != nil || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != ""
+	if err != nil || schemeInvalid || hostMissing || hasCredentialsOrQuery {
 		return "", errors.New("PUBLIC_APP_URL is invalid for instance domain settings")
 	}
 	hostname := parsed.Hostname()
@@ -100,11 +108,23 @@ func instanceDomainSettingsError(s *Server, w http.ResponseWriter, err error) bo
 	case errors.Is(err, repository.ErrForbidden):
 		writeError(w, http.StatusForbidden, "forbidden", "instance owner permission is required")
 		return true
-	case errors.Is(err, repository.ErrInvalidInstanceDomain), errors.Is(err, domainname.ErrInvalidHostname), errors.Is(err, domainname.ErrInvalidRegistrableDomain):
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "workload_base_domain is not a valid operator-controlled domain")
+	case errors.Is(err, repository.ErrInvalidInstanceDomain),
+		errors.Is(err, domainname.ErrInvalidHostname),
+		errors.Is(err, domainname.ErrInvalidRegistrableDomain):
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"workload_base_domain is not a valid operator-controlled domain",
+		)
 		return true
 	case errors.Is(err, repository.ErrInstanceDomainConflict):
-		writeError(w, http.StatusConflict, "platform_namespace_conflict", "workload_base_domain conflicts with an existing Site custom domain")
+		writeError(
+			w,
+			http.StatusConflict,
+			"platform_namespace_conflict",
+			"workload_base_domain conflicts with an existing Site custom domain",
+		)
 		return true
 	case errors.Is(err, repository.ErrNotFound):
 		internalError(s, w, errors.New("instance domain settings are unavailable"))

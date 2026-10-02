@@ -84,7 +84,10 @@ type Client interface {
 // can remain available to existing non-browser callers without making the
 // setup wizard depend on it.
 type OAuthClient interface {
-	ExchangeAuthorizationCode(ctx context.Context, clientID, clientSecret, code, redirectURI, codeVerifier string) (OAuthToken, error)
+	ExchangeAuthorizationCode(
+		ctx context.Context,
+		clientID, clientSecret, code, redirectURI, codeVerifier string,
+	) (OAuthToken, error)
 	GetUser(ctx context.Context, accessToken string) (User, error)
 }
 
@@ -129,7 +132,12 @@ func AuthorizationURL(clientID, redirectURI, state, codeChallenge string) (strin
 	redirectURI = strings.TrimSpace(redirectURI)
 	state = strings.TrimSpace(state)
 	codeChallenge = strings.TrimSpace(codeChallenge)
-	if !validClientID(clientID) || !validWebRedirectURI(redirectURI) || state == "" || len(state) > 512 || strings.ContainsAny(state, "\x00\r\n") || len(codeChallenge) < 43 || len(codeChallenge) > 128 || strings.ContainsAny(codeChallenge, "\x00\r\n") {
+	clientIDInvalid := !validClientID(clientID)
+	redirectInvalid := !validWebRedirectURI(redirectURI)
+	stateInvalid := state == "" || len(state) > 512 || strings.ContainsAny(state, "\x00\r\n")
+	codeChallengeInvalid := len(codeChallenge) < 43 || len(codeChallenge) > 128 ||
+		strings.ContainsAny(codeChallenge, "\x00\r\n")
+	if clientIDInvalid || redirectInvalid || stateInvalid || codeChallengeInvalid {
 		return "", errors.New("GitHub web authorization settings are invalid")
 	}
 	values := url.Values{}
@@ -185,7 +193,8 @@ func (c *HTTPClient) RequestDeviceCode(ctx context.Context, clientID string) (De
 	}
 	response.DeviceCode = strings.TrimSpace(response.DeviceCode)
 	response.UserCode = strings.TrimSpace(response.UserCode)
-	if response.DeviceCode == "" || len(response.DeviceCode) > 2048 || response.UserCode == "" || response.ExpiresIn <= 0 {
+	if response.DeviceCode == "" || len(response.DeviceCode) > 2048 || response.UserCode == "" ||
+		response.ExpiresIn <= 0 {
 		return DeviceAuthorization{}, errors.New("GitHub returned an incomplete device authorization")
 	}
 	interval := response.Interval
@@ -233,7 +242,10 @@ func (c *HTTPClient) PollAccessToken(ctx context.Context, clientID, deviceCode s
 	return pollResult(response.Code, response.AccessToken)
 }
 
-func (c *HTTPClient) ExchangeAuthorizationCode(ctx context.Context, clientID, clientSecret, code, redirectURI, codeVerifier string) (OAuthToken, error) {
+func (c *HTTPClient) ExchangeAuthorizationCode(
+	ctx context.Context,
+	clientID, clientSecret, code, redirectURI, codeVerifier string,
+) (OAuthToken, error) {
 	if c == nil || c.HTTPClient == nil {
 		return OAuthToken{}, errors.New("GitHub web authorization client is not configured")
 	}
@@ -242,7 +254,14 @@ func (c *HTTPClient) ExchangeAuthorizationCode(ctx context.Context, clientID, cl
 	code = strings.TrimSpace(code)
 	redirectURI = strings.TrimSpace(redirectURI)
 	codeVerifier = strings.TrimSpace(codeVerifier)
-	if !validClientID(clientID) || clientSecret == "" || len(clientSecret) > 512 || strings.ContainsAny(clientSecret, "\x00\r\n") || code == "" || len(code) > 4096 || strings.ContainsAny(code, "\x00\r\n") || !validWebRedirectURI(redirectURI) || len(codeVerifier) < 43 || len(codeVerifier) > 128 || strings.ContainsAny(codeVerifier, "\x00\r\n") {
+	clientIDInvalid := !validClientID(clientID)
+	clientSecretInvalid := clientSecret == "" || len(clientSecret) > 512 ||
+		strings.ContainsAny(clientSecret, "\x00\r\n")
+	codeInvalid := code == "" || len(code) > 4096 || strings.ContainsAny(code, "\x00\r\n")
+	redirectInvalid := !validWebRedirectURI(redirectURI)
+	codeVerifierInvalid := len(codeVerifier) < 43 || len(codeVerifier) > 128 ||
+		strings.ContainsAny(codeVerifier, "\x00\r\n")
+	if clientIDInvalid || clientSecretInvalid || codeInvalid || redirectInvalid || codeVerifierInvalid {
 		return OAuthToken{}, errors.New("GitHub web authorization is incomplete")
 	}
 	form := url.Values{
@@ -259,7 +278,7 @@ func (c *HTTPClient) ExchangeAuthorizationCode(ctx context.Context, clientID, cl
 	setGitHubHeaders(request)
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	var response OAuthToken
-	responseError := providerError{}
+	var responseError providerError
 	var envelope struct {
 		OAuthToken
 		providerError
@@ -273,7 +292,8 @@ func (c *HTTPClient) ExchangeAuthorizationCode(ctx context.Context, clientID, cl
 		return OAuthToken{}, responseError
 	}
 	response.AccessToken = strings.TrimSpace(response.AccessToken)
-	if response.AccessToken == "" || len(response.AccessToken) > 4096 || strings.ContainsAny(response.AccessToken, "\x00\r\n") {
+	if response.AccessToken == "" || len(response.AccessToken) > 4096 ||
+		strings.ContainsAny(response.AccessToken, "\x00\r\n") {
 		return OAuthToken{}, errors.New("GitHub returned an incomplete web authorization token")
 	}
 	return response, nil
@@ -348,7 +368,9 @@ func setGitHubHeaders(request *http.Request) {
 
 func validWebRedirectURI(raw string) bool {
 	parsed, err := url.Parse(strings.TrimSpace(raw))
-	return err == nil && parsed.Scheme == "https" && parsed.Host != "" && parsed.User == nil && parsed.RawQuery == "" && parsed.Fragment == "" && !strings.ContainsAny(raw, "\x00\r\n")
+	return err == nil && parsed.Scheme == "https" && parsed.Host != "" && parsed.User == nil && parsed.RawQuery == "" &&
+		parsed.Fragment == "" &&
+		!strings.ContainsAny(raw, "\x00\r\n")
 }
 
 func (c *HTTPClient) doJSON(request *http.Request, target any) error {

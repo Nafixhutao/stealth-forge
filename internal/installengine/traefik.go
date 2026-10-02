@@ -97,7 +97,9 @@ func traefikPublicHost(plan Plan) (string, error) {
 		return "", errors.New("PUBLIC_APP_URL is required to render Traefik core routes")
 	}
 	parsed, err := url.Parse(raw)
-	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil ||
+		parsed.RawQuery != "" ||
+		parsed.Fragment != "" {
 		return "", errors.New("PUBLIC_APP_URL is invalid for Traefik core routes")
 	}
 	host := strings.ToLower(parsed.Hostname())
@@ -231,7 +233,8 @@ func validateTraefikStaticAsset(contents []byte) error {
 			return fmt.Errorf("missing Traefik static configuration marker %q", marker)
 		}
 	}
-	if strings.Contains(text, "providers:\n  docker:") || strings.Contains(text, "forwardedHeaders:\n      insecure: true") {
+	if strings.Contains(text, "providers:\n  docker:") ||
+		strings.Contains(text, "forwardedHeaders:\n      insecure: true") {
 		return errors.New("Traefik static configuration enables a forbidden provider or forwarded-header mode")
 	}
 	providers, ok := config["providers"].(map[string]any)
@@ -346,7 +349,8 @@ func validateTraefikCoreAsset(contents []byte) error {
 	if _, hasHSTS := securityHeaders.Headers.CustomResponseHeaders["Strict-Transport-Security"]; hasHSTS {
 		return errors.New("Traefik internal HTTP core routes must not emit unconditional HSTS")
 	}
-	if strings.Contains(text, "buffering:") || strings.Contains(text, "maxRequestBodyBytes") || strings.Contains(text, "stealth-request-body-limit") {
+	if strings.Contains(text, "buffering:") || strings.Contains(text, "maxRequestBodyBytes") ||
+		strings.Contains(text, "stealth-request-body-limit") {
 		return errors.New("Traefik core routes must not buffer complete request bodies")
 	}
 	for routerName, router := range config.HTTP.Routers {
@@ -357,14 +361,18 @@ func validateTraefikCoreAsset(contents []byte) error {
 			return fmt.Errorf("Traefik core router %q has no Host matcher", routerName)
 		}
 		if !slices.Contains(router.Middlewares, traefikSecurityHeadersMiddleware) {
-			return fmt.Errorf("Traefik core router %q is missing the release-managed security-header middleware", routerName)
+			return fmt.Errorf(
+				"Traefik core router %q is missing the release-managed security-header middleware",
+				routerName,
+			)
 		}
 		service, ok := config.HTTP.Services[router.Service]
 		if !ok || !service.LoadBalancer.PassHostHeader || len(service.LoadBalancer.Servers) != 1 {
 			return fmt.Errorf("Traefik core router %q references an invalid service", routerName)
 		}
 		backend, err := url.Parse(service.LoadBalancer.Servers[0].URL)
-		if err != nil || backend.Scheme != "http" || backend.Host == "" || backend.RawQuery != "" || backend.Fragment != "" {
+		if err != nil || backend.Scheme != "http" || backend.Host == "" || backend.RawQuery != "" ||
+			backend.Fragment != "" {
 			return fmt.Errorf("Traefik core router %q references an invalid backend", routerName)
 		}
 	}

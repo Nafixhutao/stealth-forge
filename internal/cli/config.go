@@ -30,7 +30,9 @@ func newInstallPlan(layout InstallLayout, version, publicURL string, dockerGID u
 
 func validatePublicURL(raw string) (string, error) {
 	parsed, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil || parsed.Scheme != "http" && parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if err != nil || parsed.Scheme != "http" && parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil ||
+		parsed.RawQuery != "" ||
+		parsed.Fragment != "" {
 		return "", fmt.Errorf("URL must be an absolute HTTP(S) URL without credentials, query, or fragment")
 	}
 	if strings.ContainsAny(raw, "\r\n\x00") {
@@ -62,7 +64,11 @@ func validateGitHubAppClientID(raw string) (string, error) {
 		return "", fmt.Errorf("GitHub App Client ID is required")
 	}
 	for _, character := range value {
-		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') || character == '.' || character == '-' || character == '_' {
+		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+			(character >= '0' && character <= '9') ||
+			character == '.' ||
+			character == '-' ||
+			character == '_' {
 			continue
 		}
 		return "", fmt.Errorf("GitHub App Client ID contains unsupported characters")
@@ -103,10 +109,12 @@ func hasRequiredConfig(values map[string]string) bool {
 			return false
 		}
 	}
-	if !strings.EqualFold(strings.TrimSpace(values["SETUP_MODE"]), "true") && strings.TrimSpace(values["GITHUB_APP_CLIENT_ID"]) == "" {
+	if !strings.EqualFold(strings.TrimSpace(values["SETUP_MODE"]), "true") &&
+		strings.TrimSpace(values["GITHUB_APP_CLIENT_ID"]) == "" {
 		return false
 	}
-	if strings.EqualFold(strings.TrimSpace(values["SETUP_MODE"]), "true") && strings.TrimSpace(values["STEALTH_SETUP_IMAGE"]) == "" {
+	if strings.EqualFold(strings.TrimSpace(values["SETUP_MODE"]), "true") &&
+		strings.TrimSpace(values["STEALTH_SETUP_IMAGE"]) == "" {
 		return false
 	}
 	return true
@@ -121,7 +129,23 @@ func configCheckDetail(path string, private bool) string {
 
 func validLogService(service string) bool {
 	switch service {
-	case "api", "worker", "console", "proxy", "postgres", "redis", "clickhouse", "otel-collector", "telemetry-host", "telemetry-docker-logs", "telemetry-docker-proxy", "telemetry-docker", "migrate", "setup", "setup-console", "setup-proxy", "cloudflared":
+	case "api",
+		"worker",
+		"console",
+		"proxy",
+		"postgres",
+		"redis",
+		"clickhouse",
+		"otel-collector",
+		"telemetry-host",
+		"telemetry-docker-logs",
+		"telemetry-docker-proxy",
+		"telemetry-docker",
+		"migrate",
+		"setup",
+		"setup-console",
+		"setup-proxy",
+		"cloudflared":
 		return true
 	default:
 		return false

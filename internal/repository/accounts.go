@@ -28,7 +28,11 @@ func (r *Repository) Signup(ctx context.Context, input SignupInput) (domain.Acco
 		return domain.Account{}, domain.Organization{}, err
 	}
 	account := domain.Account{ID: input.AccountID.String(), Email: input.Email, EmailVerified: false}
-	organization := domain.Organization{ID: input.OrganizationID.String(), Name: input.OrganizationName, Slug: input.OrganizationSlug}
+	organization := domain.Organization{
+		ID:   input.OrganizationID.String(),
+		Name: input.OrganizationName,
+		Slug: input.OrganizationSlug,
+	}
 	if err := tx.QueryRow(ctx, `INSERT INTO accounts (id,email,password_hash) VALUES ($1,$2,$3) RETURNING created_at`, input.AccountID, input.Email, input.PasswordHash).Scan(&account.CreatedAt); err != nil {
 		return domain.Account{}, domain.Organization{}, mapError(err)
 	}
@@ -103,7 +107,10 @@ func (r *Repository) AccountPassword(ctx context.Context, email string) (uuid.UU
 	return id, hash.String, nil
 }
 
-func populateGitHubIdentity(account *domain.Account, provider, providerUserID, providerLogin, displayName, avatarURL sql.NullString) {
+func populateGitHubIdentity(
+	account *domain.Account,
+	provider, providerUserID, providerLogin, displayName, avatarURL sql.NullString,
+) {
 	if provider.Valid {
 		account.Provider = provider.String
 	}
@@ -129,16 +136,22 @@ func nullableStringPointer(value sql.NullString) *string {
 	return &result
 }
 
-func (r *Repository) UpdateAccountPassword(ctx context.Context, accountID, currentSessionID uuid.UUID, passwordHash string) (int64, error) {
+func (r *Repository) UpdateAccountPassword(
+	ctx context.Context,
+	accountID, currentSessionID uuid.UUID,
+	passwordHash string,
+) (int64, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return 0, err
 	}
 	defer tx.Rollback(ctx)
 	var lockedAccountID uuid.UUID
-	if err := tx.QueryRow(ctx, `SELECT id FROM accounts WHERE id=$1 FOR UPDATE`, accountID).Scan(&lockedAccountID); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT id FROM accounts WHERE id=$1 FOR UPDATE`, accountID).Scan(&lockedAccountID)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return 0, err
 	}
 	if _, err := tx.Exec(ctx, `UPDATE accounts SET password_hash=$2,updated_at=now() WHERE id=$1`, accountID, passwordHash); err != nil {

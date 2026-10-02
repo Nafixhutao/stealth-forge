@@ -16,24 +16,46 @@ type RuntimeSecurityProfile struct {
 }
 
 func ContainerMatchesDesired(container Container, job repository.AppRuntimeJob, image Image, networkName string) bool {
-	return strings.TrimPrefix(container.Name, "/") == job.ContainerName && ContainerMatchesDesiredExceptName(container, job, image, networkName)
+	return strings.TrimPrefix(container.Name, "/") == job.ContainerName &&
+		ContainerMatchesDesiredExceptName(container, job, image, networkName)
 }
 
-func ContainerMatchesDesiredExceptName(container Container, job repository.AppRuntimeJob, image Image, networkName string) bool {
+func ContainerMatchesDesiredExceptName(
+	container Container,
+	job repository.AppRuntimeJob,
+	image Image,
+	networkName string,
+) bool {
 	labels, err := ContainerLabels(job)
-	if err != nil || !managedForApp(container, uuid.MustParse(job.App.ID), uuid.MustParse(job.App.ProjectID)) || !hasLabels(container.Config.Labels, labels) {
+	if err != nil || !managedForApp(container, uuid.MustParse(job.App.ID), uuid.MustParse(job.App.ProjectID)) ||
+		!hasLabels(container.Config.Labels, labels) {
 		return false
 	}
-	if !imageIDMatchesContainer(image, container.ImageID) || container.HostConfig.NetworkMode != networkName || container.HostConfig.Privileged || container.HostConfig.AutoRemove || len(container.HostConfig.CapAdd) != 0 || !container.HostConfig.ReadonlyRootfs ||
-		!slices.Contains(container.HostConfig.CapDrop, "ALL") || !slices.Contains(container.HostConfig.SecurityOpt, "no-new-privileges:true") ||
-		container.HostConfig.Memory != job.App.Workload.Resources.MemoryBytes || container.HostConfig.MemorySwap != job.App.Workload.Resources.MemoryBytes ||
-		container.HostConfig.NanoCpus != int64(job.App.Workload.Resources.CPUMillis)*1_000_000 || container.HostConfig.PidsLimit == nil || *container.HostConfig.PidsLimit != int64(job.App.Workload.Resources.PIDsLimit) ||
-		container.HostConfig.RestartPolicy.Name != "no" || container.HostConfig.LogConfig.Type != "json-file" ||
-		container.HostConfig.LogConfig.Config["max-size"] != "10m" || container.HostConfig.LogConfig.Config["max-file"] != "3" ||
-		container.HostConfig.NetworkMode == "host" || container.HostConfig.PidMode == "host" || container.HostConfig.IpcMode == "host" ||
-		container.HostConfig.UTSMode == "host" || container.HostConfig.UsernsMode == "host" || len(container.HostConfig.Binds) != 0 ||
-		len(container.HostConfig.VolumesFrom) != 0 || len(container.HostConfig.PortBindings) != 0 || len(container.HostConfig.Devices) != 0 ||
-		!exactTmpfs(container.HostConfig.Tmpfs) || !noUnexpectedMounts(container.Mounts) || !hasUlimits(container.HostConfig.Ulimits) || container.HostConfig.Init == nil || !*container.HostConfig.Init {
+	imageMatches := imageIDMatchesContainer(image, container.ImageID)
+	networkMatches := container.HostConfig.NetworkMode == networkName
+	securityOptionsMatch := !container.HostConfig.Privileged && !container.HostConfig.AutoRemove &&
+		len(container.HostConfig.CapAdd) == 0 && container.HostConfig.ReadonlyRootfs &&
+		slices.Contains(
+			container.HostConfig.CapDrop,
+			"ALL",
+		) && slices.Contains(container.HostConfig.SecurityOpt, "no-new-privileges:true")
+	resourceLimitsMatch := container.HostConfig.Memory == job.App.Workload.Resources.MemoryBytes &&
+		container.HostConfig.MemorySwap == job.App.Workload.Resources.MemoryBytes &&
+		container.HostConfig.NanoCpus == int64(job.App.Workload.Resources.CPUMillis)*1_000_000 &&
+		container.HostConfig.PidsLimit != nil && *container.HostConfig.PidsLimit == int64(job.App.Workload.Resources.PIDsLimit)
+	loggingMatches := container.HostConfig.RestartPolicy.Name == "no" &&
+		container.HostConfig.LogConfig.Type == "json-file" &&
+		container.HostConfig.LogConfig.Config["max-size"] == "10m" &&
+		container.HostConfig.LogConfig.Config["max-file"] == "3"
+	namespacesIsolated := container.HostConfig.NetworkMode != "host" && container.HostConfig.PidMode != "host" &&
+		container.HostConfig.IpcMode != "host" && container.HostConfig.UTSMode != "host" && container.HostConfig.UsernsMode != "host"
+	mountsMatch := len(container.HostConfig.Binds) == 0 && len(container.HostConfig.VolumesFrom) == 0 &&
+		len(container.HostConfig.PortBindings) == 0 && len(container.HostConfig.Devices) == 0
+	initEnabled := container.HostConfig.Init != nil && *container.HostConfig.Init
+	if !imageMatches || !networkMatches || !securityOptionsMatch || !resourceLimitsMatch || !loggingMatches || !namespacesIsolated || !mountsMatch ||
+		!exactTmpfs(container.HostConfig.Tmpfs) || !noUnexpectedMounts(container.Mounts) ||
+		!hasUlimits(container.HostConfig.Ulimits) ||
+		!initEnabled {
 		return false
 	}
 	if len(container.Networks) != 1 {
@@ -64,7 +86,8 @@ func managedAppContainer(container Container) bool {
 }
 
 func managedForApp(container Container, appID, projectID uuid.UUID) bool {
-	if !managedAppContainer(container) || container.Config.Labels["stealth.app_id"] != appID.String() || container.Config.Labels["stealth.project_id"] != projectID.String() {
+	if !managedAppContainer(container) || container.Config.Labels["stealth.app_id"] != appID.String() ||
+		container.Config.Labels["stealth.project_id"] != projectID.String() {
 		return false
 	}
 	return repository.ValidAppRuntimeContainerName(appID, strings.TrimPrefix(container.Name, "/"))
@@ -80,11 +103,17 @@ func validManagedAppContainerIdentity(container Container) (uuid.UUID, uuid.UUID
 	projectID, projectErr := uuid.Parse(labels["stealth.project_id"])
 	deploymentID, deploymentErr := uuid.Parse(labels["stealth.deployment_id"])
 	generation, generationErr := strconv.ParseInt(labels["stealth.generation"], 10, 64)
-	if labels["stealth.managed"] != "true" || labels["stealth.resource_type"] != "app" || labels["stealth.runtime_schema"] != runtimeSchema ||
-		appErr != nil || projectErr != nil || deploymentErr != nil ||
-		appID == uuid.Nil || projectID == uuid.Nil || deploymentID == uuid.Nil ||
-		labels["stealth.app_id"] != appID.String() || labels["stealth.project_id"] != projectID.String() || labels["stealth.deployment_id"] != deploymentID.String() ||
-		generation < 1 || generationErr != nil || strconv.FormatInt(generation, 10) != labels["stealth.generation"] ||
+	hasManagedLabels := labels["stealth.managed"] == "true" && labels["stealth.resource_type"] == "app" &&
+		labels["stealth.runtime_schema"] == runtimeSchema
+	hasValidIDs := appErr == nil && projectErr == nil && deploymentErr == nil && appID != uuid.Nil &&
+		projectID != uuid.Nil &&
+		deploymentID != uuid.Nil
+	labelsMatchIDs := labels["stealth.app_id"] == appID.String() &&
+		labels["stealth.project_id"] == projectID.String() &&
+		labels["stealth.deployment_id"] == deploymentID.String()
+	hasValidGeneration := generationErr == nil && generation >= 1 &&
+		strconv.FormatInt(generation, 10) == labels["stealth.generation"]
+	if !hasManagedLabels || !hasValidIDs || !labelsMatchIDs || !hasValidGeneration ||
 		!validWorkloadSpecDigest(labels["stealth.workload_spec_sha256"]) || !validRuntimeID(container.ID) ||
 		!validManagedDockerContainerName(container.Name) {
 		return uuid.Nil, uuid.Nil, false
@@ -168,8 +197,11 @@ func validDockerName(value string) bool {
 		return false
 	}
 	for index, character := range value {
-		valid := (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '_' || character == '-' || character == '.'
-		if !valid || (index == 0 && !((character >= 'a' && character <= 'z') || (character >= '0' && character <= '9'))) {
+		valid := (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '_' ||
+			character == '-' ||
+			character == '.'
+		if !valid ||
+			(index == 0 && !((character >= 'a' && character <= 'z') || (character >= '0' && character <= '9'))) {
 			return false
 		}
 	}

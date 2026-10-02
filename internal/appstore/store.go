@@ -84,11 +84,24 @@ func (n *Namespace) Ping(ctx context.Context) error {
 	return n.inner.Ping(ctx)
 }
 
-func (n *Namespace) BeginUpload(ctx context.Context, projectID, appID, artifactID uuid.UUID, src io.Reader, maxBytes int64) (PreparedArtifact, error) {
+func (n *Namespace) BeginUpload(
+	ctx context.Context,
+	projectID, appID, artifactID uuid.UUID,
+	src io.Reader,
+	maxBytes int64,
+) (PreparedArtifact, error) {
 	if n == nil || n.inner == nil {
 		return PreparedArtifact{}, ErrInvalidPath
 	}
-	prepared, err := n.inner.BeginUploadWithLimit(ctx, projectID, appID, artifactID, src, "application/octet-stream", maxBytes)
+	prepared, err := n.inner.BeginUploadWithLimit(
+		ctx,
+		projectID,
+		appID,
+		artifactID,
+		src,
+		"application/octet-stream",
+		maxBytes,
+	)
 	if err != nil {
 		return PreparedArtifact{}, err
 	}
@@ -99,7 +112,9 @@ func (n *Namespace) BeginUpload(ctx context.Context, projectID, appID, artifactI
 }
 
 func (n *Namespace) Commit(ctx context.Context, artifact *PreparedArtifact) error {
-	if n == nil || n.inner == nil || artifact == nil || artifact.committed {
+	namespaceUnavailable := n == nil || n.inner == nil
+	artifactUnavailable := artifact == nil || artifact.committed
+	if namespaceUnavailable || artifactUnavailable {
 		return ErrInvalidPath
 	}
 	if err := n.inner.Commit(ctx, &artifact.inner); err != nil {
@@ -110,7 +125,9 @@ func (n *Namespace) Commit(ctx context.Context, artifact *PreparedArtifact) erro
 }
 
 func (n *Namespace) Cleanup(artifact *PreparedArtifact) {
-	if n == nil || n.inner == nil || artifact == nil || artifact.committed {
+	namespaceUnavailable := n == nil || n.inner == nil
+	artifactUnavailable := artifact == nil || artifact.committed
+	if namespaceUnavailable || artifactUnavailable {
 		return
 	}
 	n.inner.Cleanup(&artifact.inner)
@@ -142,16 +159,20 @@ func (n *Namespace) RemoveProject(ctx context.Context, projectID uuid.UUID) erro
 // old regular files with the storage implementation's private prefix are
 // eligible; committed UUID paths and symlinks are never traversed.
 func (n *Namespace) CleanupStaleUploads(ctx context.Context, maxAge time.Duration) (int, error) {
-	if n == nil || n.inner == nil || maxAge <= 0 {
+	namespaceUnavailable := n == nil || n.inner == nil
+	if namespaceUnavailable || maxAge <= 0 {
 		return 0, ErrInvalidPath
 	}
 	root := n.inner.Root()
 	rootInfo, err := os.Lstat(root)
-	if err != nil || !rootInfo.IsDir() || rootInfo.Mode()&os.ModeSymlink != 0 {
+	if err != nil {
+		return 0, ErrInvalidPath
+	}
+	if !rootInfo.IsDir() || rootInfo.Mode()&os.ModeSymlink != 0 {
 		return 0, ErrInvalidPath
 	}
 	cutoff := time.Now().Add(-maxAge)
-	removed := 0
+	var removed int
 	err = filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			if errors.Is(walkErr, os.ErrNotExist) {
@@ -185,7 +206,9 @@ func (n *Namespace) CleanupStaleUploads(ctx context.Context, maxAge time.Duratio
 			return nil
 		}
 		relative, err := filepath.Rel(root, path)
-		if err != nil || filepath.IsAbs(relative) || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+		relativeEscapes := filepath.IsAbs(relative) || relative == ".." ||
+			strings.HasPrefix(relative, ".."+string(filepath.Separator))
+		if err != nil || relativeEscapes {
 			return ErrInvalidPath
 		}
 		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {

@@ -7,7 +7,12 @@ import (
 	"github.com/Stealth-deplover/stealth/internal/secretkey"
 )
 
-func MigrateReleaseConfig(values map[string]string, targetVersion, installedVersion string) (string, error) {
+// migrateReleaseConfig advances release-owned defaults while preserving
+// operator-selected values. Image values are updated only when they still
+// equal the canonical image for the installed release; custom registries,
+// digests, and custom tags are treated as operator overrides. Secret values
+// are never regenerated unless a required secret key is absent.
+func migrateReleaseConfig(values map[string]string, targetVersion, installedVersion string) (string, error) {
 	if err := ValidateReleaseVersion(targetVersion); err != nil {
 		return "", err
 	}

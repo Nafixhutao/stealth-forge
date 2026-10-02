@@ -173,7 +173,10 @@ func (a *App) printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  stealth rollback [--verbose]")
 	fmt.Fprintln(w, "  stealth status")
 	fmt.Fprintln(w, "  stealth doctor")
-	fmt.Fprintln(w, "  stealth logs [api|worker|console|proxy|postgres|redis|clickhouse|otel-collector|telemetry-host|telemetry-docker-logs|telemetry-docker-proxy|telemetry-docker]")
+	fmt.Fprintln(
+		w,
+		"  stealth logs [api|worker|console|proxy|postgres|redis|clickhouse|otel-collector|telemetry-host|telemetry-docker-logs|telemetry-docker-proxy|telemetry-docker]",
+	)
 	fmt.Fprintln(w, "  stealth ingress status|verify [--site-hostname HOST --site-sha256 DIGEST]|cutover|rollback")
 	fmt.Fprintln(w, "  stealth version [--json]")
 }
@@ -221,8 +224,14 @@ func (a *App) runInstall(args []string) int {
 		return 2
 	}
 	if *noWait {
-		fmt.Fprintln(a.errOut, "--no-wait is not supported for browser setup: the host CLI must remain running to execute install_requested")
-		fmt.Fprintln(a.errOut, "Use `stealth install --wait` or omit the flag. A future host supervisor may provide an explicit alternative.")
+		fmt.Fprintln(
+			a.errOut,
+			"--no-wait is not supported for browser setup: the host CLI must remain running to execute install_requested",
+		)
+		fmt.Fprintln(
+			a.errOut,
+			"Use `stealth install --wait` or omit the flag. A future host supervisor may provide an explicit alternative.",
+		)
 		return 2
 	}
 	a.verbose = *verbose
@@ -287,7 +296,11 @@ func (a *App) retargetRepairPlan(plan *InstallPlan) error {
 	}
 	comparison, comparable := compareReleaseVersions(plan.Version, current)
 	if comparable && comparison > 0 {
-		return fmt.Errorf("installed release %s is newer than this CLI %s; install the matching or newer CLI before repair", plan.Version, current)
+		return fmt.Errorf(
+			"installed release %s is newer than this CLI %s; install the matching or newer CLI before repair",
+			plan.Version,
+			current,
+		)
 	}
 	plan.InstalledVersion = plan.Version
 	plan.Version = current
@@ -313,7 +326,7 @@ func (a *App) runLogs(args []string) int {
 		fmt.Fprintln(a.errOut, "logs accepts at most one service")
 		return 2
 	}
-	service := ""
+	var service string
 	if fs.NArg() == 1 {
 		service = fs.Arg(0)
 		if !validLogService(service) {

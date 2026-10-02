@@ -40,9 +40,15 @@ type Persistence interface {
 	RequeueStaleMessagingDeliveries(context.Context, time.Duration) (int64, error)
 	ClaimNextMessagingDelivery(context.Context, string) (repository.MessagingDeliveryJob, error)
 	FinishMessagingDelivery(context.Context, uuid.UUID, string, bool, *int, string, *time.Time) error
-	MessagingProviderCredentialsForDelivery(context.Context, repository.MessagingDeliveryJob) (repository.MessagingProviderCredentials, error)
+	MessagingProviderCredentialsForDelivery(
+		context.Context,
+		repository.MessagingDeliveryJob,
+	) (repository.MessagingProviderCredentials, error)
 	MessagingDeliveryAddress(context.Context, repository.MessagingDeliveryJob) (string, error)
-	MessagingDeliveryPayload(context.Context, repository.MessagingDeliveryJob) (repository.MessagingMessagePayload, error)
+	MessagingDeliveryPayload(
+		context.Context,
+		repository.MessagingDeliveryJob,
+	) (repository.MessagingMessagePayload, error)
 }
 
 var _ Persistence = (*repository.Repository)(nil)
@@ -201,7 +207,8 @@ func (w *Worker) Run(ctx context.Context) error {
 	ticker := time.NewTicker(poll)
 	defer ticker.Stop()
 	for {
-		if _, err := w.Store.RequeueStaleMessagingDeliveries(ctx, leaseAge); err != nil && !errors.Is(err, context.Canceled) {
+		if _, err := w.Store.RequeueStaleMessagingDeliveries(ctx, leaseAge); err != nil &&
+			!errors.Is(err, context.Canceled) {
 			w.Logger.Error("requeue stale messaging deliveries failed", "error", err)
 		}
 		processed, err := w.RunOnce(ctx)
@@ -234,8 +241,21 @@ func (w *Worker) RunOnce(ctx context.Context) (processed bool, runErr error) {
 		return false, err
 	}
 	defer func() {
-		if runErr != nil && !errors.Is(runErr, context.Canceled) && !errors.Is(runErr, context.DeadlineExceeded) && w.Logger != nil {
-			w.Logger.Error("messaging delivery failed", "delivery_id", job.DeliveryID, "message_id", job.MessageID, "subscriber_id", job.SubscriberID, "project_id", job.ProjectID, "error", runErr)
+		if runErr != nil && !errors.Is(runErr, context.Canceled) && !errors.Is(runErr, context.DeadlineExceeded) &&
+			w.Logger != nil {
+			w.Logger.Error(
+				"messaging delivery failed",
+				"delivery_id",
+				job.DeliveryID,
+				"message_id",
+				job.MessageID,
+				"subscriber_id",
+				job.SubscriberID,
+				"project_id",
+				job.ProjectID,
+				"error",
+				runErr,
+			)
 		}
 	}()
 	maxAttempts := w.MaxAttempts
@@ -243,7 +263,15 @@ func (w *Worker) RunOnce(ctx context.Context) (processed bool, runErr error) {
 		maxAttempts = defaultMaxAttempts
 	}
 	if job.AttemptCount > maxAttempts {
-		return true, w.Store.FinishMessagingDelivery(ctx, job.DeliveryID, w.WorkerID, false, nil, "maximum delivery attempts exceeded", nil)
+		return true, w.Store.FinishMessagingDelivery(
+			ctx,
+			job.DeliveryID,
+			w.WorkerID,
+			false,
+			nil,
+			"maximum delivery attempts exceeded",
+			nil,
+		)
 	}
 	provider, err := w.Store.MessagingProviderCredentialsForDelivery(ctx, job)
 	if err != nil {
@@ -262,7 +290,14 @@ func (w *Worker) RunOnce(ctx context.Context) (processed bool, runErr error) {
 	}
 	adapter := w.Adapters.Resolve(provider.Channel, provider.Provider)
 	if adapter == nil {
-		return true, w.finishFailure(ctx, job, maxAttempts, fmt.Errorf("no adapter registered for %s/%s", provider.Channel, provider.Provider), false, 0)
+		return true, w.finishFailure(
+			ctx,
+			job,
+			maxAttempts,
+			fmt.Errorf("no adapter registered for %s/%s", provider.Channel, provider.Provider),
+			false,
+			0,
+		)
 	}
 	deliveryTimeout := w.DeliveryTimeout
 	if deliveryTimeout <= 0 {
@@ -270,7 +305,14 @@ func (w *Worker) RunOnce(ctx context.Context) (processed bool, runErr error) {
 	}
 	deliveryCtx, cancel := context.WithTimeout(ctx, deliveryTimeout)
 	defer cancel()
-	message := Message{Channel: job.Channel, Recipient: address, RecipientPreview: job.AddressPreview, Subject: payload.Subject, Body: payload.Body, Data: payload.Data}
+	message := Message{
+		Channel:          job.Channel,
+		Recipient:        address,
+		RecipientPreview: job.AddressPreview,
+		Subject:          payload.Subject,
+		Body:             payload.Body,
+		Data:             payload.Data,
+	}
 	err = adapter.Send(deliveryCtx, providerAdapterInput(provider), message)
 	if err == nil {
 		return true, w.Store.FinishMessagingDelivery(ctx, job.DeliveryID, w.WorkerID, true, nil, "", nil)
@@ -283,10 +325,22 @@ func (w *Worker) RunOnce(ctx context.Context) (processed bool, runErr error) {
 }
 
 func providerAdapterInput(provider repository.MessagingProviderCredentials) Provider {
-	return Provider{Channel: provider.Channel, Name: provider.Provider, Enabled: provider.Enabled, Credentials: provider.Values}
+	return Provider{
+		Channel:     provider.Channel,
+		Name:        provider.Provider,
+		Enabled:     provider.Enabled,
+		Credentials: provider.Values,
+	}
 }
 
-func (w *Worker) finishFailure(ctx context.Context, job repository.MessagingDeliveryJob, maxAttempts int, reason error, retryable bool, statusCode int) error {
+func (w *Worker) finishFailure(
+	ctx context.Context,
+	job repository.MessagingDeliveryJob,
+	maxAttempts int,
+	reason error,
+	retryable bool,
+	statusCode int,
+) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -317,7 +371,19 @@ func (a LogAdapter) Send(_ context.Context, provider Provider, message Message) 
 	if logger == nil {
 		logger = slog.Default()
 	}
-	logger.Info("messaging delivery in log mode", "channel", provider.Channel, "provider", provider.Name, "recipient_preview", message.RecipientPreview, "subject", message.Subject, "body_bytes", len(message.Body))
+	logger.Info(
+		"messaging delivery in log mode",
+		"channel",
+		provider.Channel,
+		"provider",
+		provider.Name,
+		"recipient_preview",
+		message.RecipientPreview,
+		"subject",
+		message.Subject,
+		"body_bytes",
+		len(message.Body),
+	)
 	return nil
 }
 
@@ -345,7 +411,15 @@ func (a SMTPAdapter) Send(ctx context.Context, provider Provider, message Messag
 	if timeout <= 0 {
 		timeout = defaultTimeout
 	}
-	sender := &mailer.SMTP{Host: host, Port: port, Username: credentials["username"], Password: credentials["password"], From: from, Timeout: timeout, DialContext: restrictedDialContext}
+	sender := &mailer.SMTP{
+		Host:        host,
+		Port:        port,
+		Username:    credentials["username"],
+		Password:    credentials["password"],
+		From:        from,
+		Timeout:     timeout,
+		DialContext: restrictedDialContext,
+	}
 	if err := sender.Send(ctx, mailer.Message{To: message.Recipient, Subject: message.Subject, TextBody: message.Body}); err != nil {
 		return &SendError{Retryable: true, Message: safeError(err)}
 	}
@@ -363,8 +437,12 @@ func (a TwilioAdapter) Send(ctx context.Context, provider Provider, message Mess
 	authToken := credentials["auth_token"]
 	from := strings.TrimSpace(credentials["from"])
 	serviceSID := strings.TrimSpace(credentials["messaging_service_sid"])
-	if !validTwilioToken(accountSID) || strings.TrimSpace(authToken) == "" || strings.ContainsAny(authToken, "\x00\r\n") || (from == "" && serviceSID == "") {
-		return &SendError{Message: "twilio provider requires account_sid, auth_token, and from or messaging_service_sid"}
+	if !validTwilioToken(accountSID) || strings.TrimSpace(authToken) == "" ||
+		strings.ContainsAny(authToken, "\x00\r\n") ||
+		(from == "" && serviceSID == "") {
+		return &SendError{
+			Message: "twilio provider requires account_sid, auth_token, and from or messaging_service_sid",
+		}
 	}
 	form := url.Values{"To": {message.Recipient}, "Body": {message.Body}}
 	if serviceSID != "" {
@@ -396,11 +474,15 @@ func (a TwilioAdapter) Send(ctx context.Context, provider Provider, message Mess
 	if response.StatusCode >= 200 && response.StatusCode <= 299 {
 		return nil
 	}
-	messageText := fmt.Sprintf("twilio returned HTTP %d", response.StatusCode)
+	messageText := "twilio returned HTTP " + strconv.Itoa(response.StatusCode)
 	if text := strings.TrimSpace(string(body)); text != "" {
 		messageText += ": " + safeError(errors.New(text))
 	}
-	return &SendError{Retryable: retryableStatus(response.StatusCode), StatusCode: response.StatusCode, Message: messageText}
+	return &SendError{
+		Retryable:  retryableStatus(response.StatusCode),
+		StatusCode: response.StatusCode,
+		Message:    messageText,
+	}
 }
 
 func validTwilioToken(value string) bool {
@@ -417,7 +499,9 @@ func validTwilioToken(value string) bool {
 }
 
 func retryableStatus(status int) bool {
-	return status == http.StatusRequestTimeout || status == http.StatusTooEarly || status == http.StatusTooManyRequests || status >= 500
+	return status == http.StatusRequestTimeout || status == http.StatusTooEarly ||
+		status == http.StatusTooManyRequests ||
+		status >= 500
 }
 
 func safeError(err error) string {
@@ -439,7 +523,11 @@ func validWorkerID(value string) bool {
 		return false
 	}
 	for _, character := range value {
-		if (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '.' || character == '_' || character == '-' {
+		if (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') ||
+			(character >= '0' && character <= '9') ||
+			character == '.' ||
+			character == '_' ||
+			character == '-' {
 			continue
 		}
 		return false
@@ -451,7 +539,10 @@ func newSafeHTTPClient(timeout time.Duration) *http.Client {
 	if timeout <= 0 {
 		timeout = defaultTimeout
 	}
-	return &http.Client{Timeout: timeout, CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }}
+	return &http.Client{
+		Timeout:       timeout,
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse },
+	}
 }
 
 // restrictedDialContext rejects private and link-local SMTP destinations and
@@ -504,5 +595,8 @@ func resolvePublicIPs(ctx context.Context, host string) ([]netip.Addr, error) {
 }
 
 func publicIP(address netip.Addr) bool {
-	return address.IsValid() && !address.IsLoopback() && !address.IsPrivate() && !address.IsLinkLocalUnicast() && !address.IsLinkLocalMulticast() && !address.IsMulticast() && !address.IsUnspecified()
+	return address.IsValid() && !address.IsLoopback() && !address.IsPrivate() && !address.IsLinkLocalUnicast() &&
+		!address.IsLinkLocalMulticast() &&
+		!address.IsMulticast() &&
+		!address.IsUnspecified()
 }

@@ -59,11 +59,20 @@ func NormalizeHostname(raw string) (string, error) {
 	}
 	labels := strings.Split(canonical, ".")
 	for _, label := range labels {
-		if label == "" || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
+		if label == "" {
+			return "", ErrInvalidHostname
+		}
+		labelTooLong := len(label) > 63
+		labelLeadingHyphen := label[0] == '-'
+		labelTrailingHyphen := label[len(label)-1] == '-'
+		if labelTooLong || labelLeadingHyphen || labelTrailingHyphen {
 			return "", ErrInvalidHostname
 		}
 		for _, character := range label {
-			if (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '-' {
+			isLower := character >= 'a' && character <= 'z'
+			isDigit := character >= '0' && character <= '9'
+			isHyphen := character == '-'
+			if isLower || isDigit || isHyphen {
 				continue
 			}
 			return "", ErrInvalidHostname

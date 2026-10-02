@@ -19,7 +19,7 @@ func (a *App) systemChecks(ctx context.Context, installRoot string) []SystemChec
 	checks = append(checks, preflight.ResourceChecks(ctx, probes, filepath.Dir(installRoot))...)
 	checks = append(checks, preflight.DockerChecks(ctx, probes, true, true)...)
 	layout := newInstallLayout(installRoot)
-	setupMode := false
+	var setupMode bool
 	if installationExists(layout) {
 		if values, err := readEnvFile(layout.EnvFile); err == nil {
 			setupMode = strings.EqualFold(strings.TrimSpace(values["SETUP_MODE"]), "true")
@@ -32,18 +32,18 @@ func (a *App) systemChecks(ctx context.Context, installRoot string) []SystemChec
 		name string
 		port string
 	}{
-		{"API port", "18080"},
-		{"Console port", "13000"},
-		{"Proxy port", "8080"},
+		{name: "API port", port: "18080"},
+		{name: "Console port", port: "13000"},
+		{name: "Proxy port", port: "8080"},
 	}
 	if setupMode {
 		portSet = []struct {
 			name string
 			port string
 		}{
-			{"Setup API port", "18081"},
-			{"Setup Console port", "13001"},
-			{"Setup proxy port", "8081"},
+			{name: "Setup API port", port: "18081"},
+			{name: "Setup Console port", port: "13001"},
+			{name: "Setup proxy port", port: "8081"},
 		}
 	}
 	for _, port := range portSet {

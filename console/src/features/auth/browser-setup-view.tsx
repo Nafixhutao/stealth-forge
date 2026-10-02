@@ -4,5 +4,5 @@
  * setup stage). Keep this barrel stable so route and test imports do not churn.
  */
 export { BrowserSetupView } from "./browser-setup/browser-setup-view";
-export { submitGitHubManifest } from "./browser-setup/helpers";
+export { safeError, submitGitHubManifest } from "./browser-setup/helpers";
 export { BrowserSetupField } from "./browser-setup/primitives";

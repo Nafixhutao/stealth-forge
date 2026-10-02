@@ -144,6 +144,19 @@ option and the inactive endpoint never redirects to Cloudflare or exchanges a
 callback code. A random `*.trycloudflare.com` setup hostname is never used as
 an OAuth redirect URI.
 
+### Rejected DNS step
+
+Token verification only calls account discovery, which needs no zone
+permission, so a token that can list accounts and zones can still fail later
+when the wizard writes the Console CNAME. If Continue returns
+`cloudflare_dns_failed`, the token is almost always missing `DNS` `Edit` for the
+selected zone, or that scope is limited to a different zone than the one
+selected. Grant `DNS` `Edit` on the Console zone, and on the workload zone when
+they differ, then retry the step. Provisioning is idempotent: a retry reuses the
+tunnel and DNS record already reserved for the installation instead of creating
+a duplicate. The setup API logs the underlying provider status and message for
+this stage, so an operator can confirm the cause without exposing the token.
+
 ## External infrastructure
 
 Connection strings and storage credentials are accepted only by setup API

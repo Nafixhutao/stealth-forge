@@ -63,17 +63,34 @@ func (s *Store) Root() string {
 
 // BeginUpload writes the opaque source bytes into a temporary file. The
 // temporary file is not visible at the final UUID path until Commit.
-func (s *Store) BeginUpload(ctx context.Context, projectID, functionID, deploymentID uuid.UUID, src io.Reader) (PreparedArtifact, error) {
+func (s *Store) BeginUpload(
+	ctx context.Context,
+	projectID, functionID, deploymentID uuid.UUID,
+	src io.Reader,
+) (PreparedArtifact, error) {
 	return s.BeginUploadWithLimit(ctx, projectID, functionID, deploymentID, src, 0)
 }
 
 // BeginUploadWithLimit enforces a per-request limit while retaining the
 // Store's configured maximum as a hard ceiling.
-func (s *Store) BeginUploadWithLimit(ctx context.Context, projectID, functionID, deploymentID uuid.UUID, src io.Reader, maxSize int64) (PreparedArtifact, error) {
+func (s *Store) BeginUploadWithLimit(
+	ctx context.Context,
+	projectID, functionID, deploymentID uuid.UUID,
+	src io.Reader,
+	maxSize int64,
+) (PreparedArtifact, error) {
 	if s == nil || s.inner == nil {
 		return PreparedArtifact{}, ErrInvalidPath
 	}
-	prepared, err := s.inner.BeginUploadWithLimit(ctx, projectID, functionID, deploymentID, src, "application/octet-stream", maxSize)
+	prepared, err := s.inner.BeginUploadWithLimit(
+		ctx,
+		projectID,
+		functionID,
+		deploymentID,
+		src,
+		"application/octet-stream",
+		maxSize,
+	)
 	if err != nil {
 		return PreparedArtifact{}, err
 	}
@@ -101,7 +118,9 @@ func (s *Store) Commit(ctx context.Context, artifact *PreparedArtifact) error {
 }
 
 func (s *Store) Cleanup(artifact *PreparedArtifact) {
-	if artifact == nil || artifact.committed || s == nil || s.inner == nil {
+	artifactUnavailable := artifact == nil || artifact.committed
+	storeUnavailable := s == nil || s.inner == nil
+	if artifactUnavailable || storeUnavailable {
 		return
 	}
 	s.inner.Cleanup(&artifact.inner)

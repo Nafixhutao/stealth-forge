@@ -63,8 +63,15 @@ func loadReportedImageID(output []byte) string {
 // EnsureImage verifies the selected OCI manifest and config identity before
 // creating a deterministic Moby tag. The container's image ID is the OCI
 // config digest; Moby's image lookup ID may be a manifest digest.
-func (m *Moby) EnsureImage(ctx context.Context, info ociartifact.ImageInfo, archive io.ReadSeeker, runtimeTag string) (Image, error) {
-	if archive == nil || !validImageTag(runtimeTag) || !validImageID(info.ManifestDigest) || !validImageID(info.ConfigDigest) || len(info.VolumePaths) != 0 {
+func (m *Moby) EnsureImage(
+	ctx context.Context,
+	info ociartifact.ImageInfo,
+	archive io.ReadSeeker,
+	runtimeTag string,
+) (Image, error) {
+	if archive == nil || !validImageTag(runtimeTag) || !validImageID(info.ManifestDigest) ||
+		!validImageID(info.ConfigDigest) ||
+		len(info.VolumePaths) != 0 {
 		return Image{}, ErrImageVerification
 	}
 	image, found, err := m.inspectImage(ctx, info.ConfigDigest)
@@ -127,7 +134,11 @@ func (m *Moby) EnsureImage(ctx context.Context, info ociartifact.ImageInfo, arch
 	return image, nil
 }
 
-func (m *Moby) inspectLoadedImage(ctx context.Context, info ociartifact.ImageInfo, result CommandResult) (Image, bool, error) {
+func (m *Moby) inspectLoadedImage(
+	ctx context.Context,
+	info ociartifact.ImageInfo,
+	result CommandResult,
+) (Image, bool, error) {
 	candidates := []string{loadReportedImageID(result.Stdout), info.ConfigDigest, info.ManifestDigest}
 	seen := make(map[string]struct{}, len(candidates))
 	for _, candidate := range candidates {
@@ -186,7 +197,9 @@ func (m *Moby) inspectImage(ctx context.Context, reference string) (Image, bool,
 func imageMatchesOCI(image Image, info ociartifact.ImageInfo) bool {
 	return validImageID(image.ID) && image.ID == image.EngineID && image.OS == info.OS && image.Architecture == info.Architecture &&
 		image.Variant == info.Variant && slices.Equal(image.Layers, info.LayerDiffIDs) &&
-		len(image.VolumePaths) == 0 && len(info.VolumePaths) == 0 && image.Config.Equal(info.RuntimeConfig)
+		len(image.VolumePaths) == 0 &&
+		len(info.VolumePaths) == 0 &&
+		image.Config.Equal(info.RuntimeConfig)
 }
 
 func imageIDMatchesContainer(image Image, containerImageID string) bool {
@@ -203,7 +216,8 @@ func validImageTag(value string) bool {
 		return false
 	}
 	for _, character := range value {
-		if !(character >= 'a' && character <= 'z') && !(character >= '0' && character <= '9') && !strings.ContainsRune("._:/-", character) {
+		if !(character >= 'a' && character <= 'z') && !(character >= '0' && character <= '9') &&
+			!strings.ContainsRune("._:/-", character) {
 			return false
 		}
 	}

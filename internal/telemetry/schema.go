@@ -57,7 +57,8 @@ func isIdentifier(value string) bool {
 		return false
 	}
 	for index, character := range value {
-		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || character == '_' || (index > 0 && character >= '0' && character <= '9') {
+		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || character == '_' ||
+			(index > 0 && character >= '0' && character <= '9') {
 			continue
 		}
 		return false

@@ -40,8 +40,25 @@ var (
 type Persistence interface {
 	RequeueStaleAgentRuns(context.Context, time.Duration) (int64, error)
 	ClaimNextAgentRunForProviders(context.Context, string, []string) (repository.AgentRunJob, error)
-	TransitionAgentRun(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, repository.AgentRunResult) (domain.AgentRun, error)
-	AppendAgentRunLog(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, uuid.UUID, int64, string, string) (domain.AgentRunLog, error)
+	TransitionAgentRun(
+		context.Context,
+		uuid.UUID,
+		uuid.UUID,
+		uuid.UUID,
+		string,
+		repository.AgentRunResult,
+	) (domain.AgentRun, error)
+	AppendAgentRunLog(
+		context.Context,
+		uuid.UUID,
+		uuid.UUID,
+		uuid.UUID,
+		string,
+		uuid.UUID,
+		int64,
+		string,
+		string,
+	) (domain.AgentRunLog, error)
 }
 
 var _ Persistence = (*repository.Repository)(nil)
@@ -189,7 +206,8 @@ func (w *Worker) Run(ctx context.Context) error {
 		if metrics := w.Metrics; metrics != nil {
 			metrics.AgentPolls.Inc()
 		}
-		if requeued, err := w.Store.RequeueStaleAgentRuns(ctx, leaseAge); err != nil && !errors.Is(err, context.Canceled) {
+		if requeued, err := w.Store.RequeueStaleAgentRuns(ctx, leaseAge); err != nil &&
+			!errors.Is(err, context.Canceled) {
 			w.observeError("requeue")
 			w.Logger.Error("requeue stale Agent runs failed", "error", err)
 		} else if requeued > 0 {
@@ -235,8 +253,19 @@ func (w *Worker) RunOnce(ctx context.Context) (processed bool, runErr error) {
 		return false, err
 	}
 	defer func() {
-		if runErr != nil && !errors.Is(runErr, context.Canceled) && !errors.Is(runErr, context.DeadlineExceeded) && w.Logger != nil {
-			w.Logger.Error("Agent run failed", "run_id", job.Run.ID, "agent_id", job.Run.AgentID, "project_id", job.Run.ProjectID, "error", runErr)
+		if runErr != nil && !errors.Is(runErr, context.Canceled) && !errors.Is(runErr, context.DeadlineExceeded) &&
+			w.Logger != nil {
+			w.Logger.Error(
+				"Agent run failed",
+				"run_id",
+				job.Run.ID,
+				"agent_id",
+				job.Run.AgentID,
+				"project_id",
+				job.Run.ProjectID,
+				"error",
+				runErr,
+			)
 		}
 	}()
 	if metrics := w.Metrics; metrics != nil {
@@ -257,7 +286,8 @@ func (w *Worker) RunOnce(ctx context.Context) (processed bool, runErr error) {
 		w.observeError("job_identity")
 		return true, err
 	}
-	if err := w.appendLog(ctx, job, "info", "trusted Agent worker claimed run"); err != nil && !errors.Is(err, context.Canceled) {
+	if err := w.appendLog(ctx, job, "info", "trusted Agent worker claimed run"); err != nil &&
+		!errors.Is(err, context.Canceled) {
 		w.observeError("log")
 		w.Logger.Error("append Agent run claim log failed", "error", err)
 	}
@@ -288,7 +318,8 @@ func (w *Worker) RunOnce(ctx context.Context) (processed bool, runErr error) {
 	if metrics := w.Metrics; metrics != nil {
 		metrics.AgentJobsCompleted.WithLabelValues(finished.Status).Inc()
 	}
-	if logErr := w.appendLog(ctx, job, "info", "trusted Agent worker persisted run result"); logErr != nil && !errors.Is(logErr, context.Canceled) {
+	if logErr := w.appendLog(ctx, job, "info", "trusted Agent worker persisted run result"); logErr != nil &&
+		!errors.Is(logErr, context.Canceled) {
 		w.observeError("log")
 		w.Logger.Error("append Agent run result log failed", "error", logErr)
 	}
@@ -298,7 +329,17 @@ func (w *Worker) RunOnce(ctx context.Context) (processed bool, runErr error) {
 func (w *Worker) finishFailure(ctx context.Context, job repository.AgentRunJob, cause error) (bool, error) {
 	message := publicFailure(cause)
 	if w.Logger != nil {
-		w.Logger.Error("Agent run terminal failure", "run_id", job.Run.ID, "agent_id", job.Run.AgentID, "project_id", job.Run.ProjectID, "error", message)
+		w.Logger.Error(
+			"Agent run terminal failure",
+			"run_id",
+			job.Run.ID,
+			"agent_id",
+			job.Run.AgentID,
+			"project_id",
+			job.Run.ProjectID,
+			"error",
+			message,
+		)
 	}
 	result := repository.AgentRunResult{Status: "failed", ErrorMessage: &message}
 	projectID, agentID, runID, err := parseJobIDs(job)
@@ -396,7 +437,11 @@ func validWorkerID(workerID string) bool {
 		return false
 	}
 	for _, character := range workerID {
-		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') || character == '.' || character == '_' || character == '-' {
+		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+			(character >= '0' && character <= '9') ||
+			character == '.' ||
+			character == '_' ||
+			character == '-' {
 			continue
 		}
 		return false

@@ -56,7 +56,7 @@ func Apply(state *setupstate.State, request Request) error {
 	if networkMode == "" {
 		networkMode = state.Draft.NetworkMode
 	}
-	if !ValidNetworkMode(networkMode) {
+	if !validNetworkMode(networkMode) {
 		return errors.New("network mode is invalid")
 	}
 
@@ -154,7 +154,8 @@ func Apply(state *setupstate.State, request Request) error {
 	if request.StorageS3PathStyle != nil {
 		storagePathStyle = *request.StorageS3PathStyle
 	}
-	if storageMode == "s3" && !ValidS3Settings(storageEndpoint, storageRegion, storageBucket, storageAccessKey, storageSecretKey) {
+	if storageMode == "s3" &&
+		!validS3Settings(storageEndpoint, storageRegion, storageBucket, storageAccessKey, storageSecretKey) {
 		return errors.New("S3-compatible storage settings are incomplete or invalid")
 	}
 	if err := validateCloudflareMutation(*state, networkMode, hostname); err != nil {
@@ -226,8 +227,8 @@ func validateCloudflareMutation(state setupstate.State, networkMode, hostname st
 	})
 }
 
-// ValidNetworkMode reports whether value is a supported production ingress.
-func ValidNetworkMode(value string) bool {
+// validNetworkMode reports whether value is a supported production ingress.
+func validNetworkMode(value string) bool {
 	switch value {
 	case "cloudflare_tunnel", "public_ip", "reverse_proxy", "local_only":
 		return true
@@ -239,21 +240,40 @@ func ValidNetworkMode(value string) bool {
 // ValidDatabaseURL reports whether raw is a PostgreSQL connection URL.
 func ValidDatabaseURL(raw string) bool {
 	parsed, err := url.Parse(strings.TrimSpace(raw))
-	return err == nil && (parsed.Scheme == "postgres" || parsed.Scheme == "postgresql") && parsed.Host != "" && parsed.User != nil && !strings.ContainsAny(raw, "\x00\r\n")
+	return err == nil && (parsed.Scheme == "postgres" || parsed.Scheme == "postgresql") && parsed.Host != "" &&
+		parsed.User != nil &&
+		!strings.ContainsAny(raw, "\x00\r\n")
 }
 
 // ValidRedisURL reports whether raw is a Redis connection URL.
 func ValidRedisURL(raw string) bool {
 	parsed, err := url.Parse(strings.TrimSpace(raw))
-	return err == nil && (parsed.Scheme == "redis" || parsed.Scheme == "rediss") && parsed.Host != "" && !strings.ContainsAny(raw, "\x00\r\n")
+	return err == nil && (parsed.Scheme == "redis" || parsed.Scheme == "rediss") && parsed.Host != "" &&
+		!strings.ContainsAny(raw, "\x00\r\n")
 }
 
-// ValidS3Settings reports whether the required S3-compatible inputs are safe
+// validS3Settings reports whether the required S3-compatible inputs are safe
 // and complete enough for the live storage check.
-func ValidS3Settings(endpoint, region, bucket, accessKey, secretKey string) bool {
+func validS3Settings(endpoint, region, bucket, accessKey, secretKey string) bool {
 	endpoint = strings.TrimSpace(endpoint)
 	parsed, err := url.Parse(endpoint)
-	return err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != "" && parsed.User == nil && parsed.Path == "" && parsed.RawQuery == "" && parsed.Fragment == "" && strings.TrimSpace(region) != "" && len(bucket) >= 3 && len(bucket) <= 63 && strings.TrimSpace(accessKey) != "" && strings.TrimSpace(secretKey) != "" && !strings.ContainsAny(endpoint+region+bucket+accessKey+secretKey, "\x00\r\n")
+	if err != nil {
+		return false
+	}
+	hasHTTPScheme := parsed.Scheme == "http" || parsed.Scheme == "https"
+	hasHost := parsed.Host != ""
+	hasNoUserInfo := parsed.User == nil
+	hasNoPath := parsed.Path == ""
+	hasNoQuery := parsed.RawQuery == ""
+	hasNoFragment := parsed.Fragment == ""
+	hasRegion := strings.TrimSpace(region) != ""
+	hasValidBucket := len(bucket) >= 3 && len(bucket) <= 63
+	hasAccessKey := strings.TrimSpace(accessKey) != ""
+	hasSecretKey := strings.TrimSpace(secretKey) != ""
+	hasSafeCharacters := !strings.ContainsAny(endpoint+region+bucket+accessKey+secretKey, "\x00\r\n")
+	endpointValid := hasHTTPScheme && hasHost && hasNoUserInfo && hasNoPath && hasNoQuery && hasNoFragment
+	settingsPresent := hasRegion && hasValidBucket && hasAccessKey && hasSecretKey
+	return endpointValid && settingsPresent && hasSafeCharacters
 }
 
 // ValidateInstallableSetup checks the durable state immediately before the
@@ -266,7 +286,7 @@ func ValidateInstallableSetup(state setupstate.State) error {
 	if _, err := setupstate.ValidatePublicURL(state.Draft.PublicURL); err != nil {
 		return errors.New("choose a valid public Console URL")
 	}
-	if !ValidNetworkMode(state.Draft.NetworkMode) {
+	if !validNetworkMode(state.Draft.NetworkMode) {
 		return errors.New("choose a valid networking mode")
 	}
 	if state.Draft.NetworkMode == "cloudflare_tunnel" {
@@ -277,7 +297,10 @@ func ValidateInstallableSetup(state setupstate.State) error {
 		if err := state.Cloudflare.Binding.ValidateDraft(state.Draft); err != nil {
 			return err
 		}
-		if binding.Hostname == "" || binding.AccountID == "" || binding.ZoneID == "" || binding.TunnelID == "" || binding.RecordID == "" || state.Secret("cloudflare_access_token") == "" || state.Secret("cloudflare_tunnel_token") == "" {
+		if binding.Hostname == "" || binding.AccountID == "" || binding.ZoneID == "" || binding.TunnelID == "" ||
+			binding.RecordID == "" ||
+			state.Secret("cloudflare_access_token") == "" ||
+			state.Secret("cloudflare_tunnel_token") == "" {
 			return errors.New("finish Cloudflare tunnel and DNS setup before installing")
 		}
 	}
@@ -292,7 +315,14 @@ func ValidateInstallableSetup(state setupstate.State) error {
 		}
 	}
 	if state.Draft.StorageMode == "s3" {
-		if !ValidS3Settings(state.Draft.StorageS3Endpoint, state.Draft.StorageS3Region, state.Draft.StorageS3Bucket, credentials.StorageS3AccessKey, credentials.StorageS3SecretKey) || !state.Draft.StorageTested {
+		if !validS3Settings(
+			state.Draft.StorageS3Endpoint,
+			state.Draft.StorageS3Region,
+			state.Draft.StorageS3Bucket,
+			credentials.StorageS3AccessKey,
+			credentials.StorageS3SecretKey,
+		) ||
+			!state.Draft.StorageTested {
 			return errors.New("test and save S3-compatible storage before installing")
 		}
 	}

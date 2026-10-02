@@ -41,7 +41,11 @@ func (w *Worker) RunBuildOnce(ctx context.Context) (bool, error) {
 		metrics.BuildsClaimed.Inc()
 		metrics.BuildInFlight.Inc()
 	}
-	spanContext, span := observability.StartWorkerSpan(ctx, "functions.build", attribute.String("stealth.function.runtime", job.Function.Runtime))
+	spanContext, span := observability.StartWorkerSpan(
+		ctx,
+		"functions.build",
+		attribute.String("stealth.function.runtime", job.Function.Runtime),
+	)
 	result, buildErr := w.buildDeployment(spanContext, job)
 	span.SetAttributes(attribute.String("stealth.operation.result", result))
 	if buildErr != nil {
@@ -50,7 +54,17 @@ func (w *Worker) RunBuildOnce(ctx context.Context) (bool, error) {
 		// carry the operator-facing detail.
 		span.RecordError(errors.New("function build failed"))
 		span.SetStatus(codes.Error, "function build failed")
-		w.Logger.Error("function build failed", "deployment_id", job.Deployment.ID, "function_id", job.Deployment.FunctionID, "project_id", job.Deployment.ProjectID, "error", buildErr)
+		w.Logger.Error(
+			"function build failed",
+			"deployment_id",
+			job.Deployment.ID,
+			"function_id",
+			job.Deployment.FunctionID,
+			"project_id",
+			job.Deployment.ProjectID,
+			"error",
+			buildErr,
+		)
 	} else {
 		span.SetStatus(codes.Ok, "")
 	}
@@ -105,23 +119,57 @@ func (w *Worker) buildDeployment(parent context.Context, job repository.Function
 		return w.failBuild(parent, projectID, functionID, deploymentID, "function source artifact is unavailable", nil)
 	}
 	checkedArchive := newChecksumReader(archive)
-	stats, extractErr := Extract(parent, checkedArchive, valueOr(job.Deployment.SourceName, ""), workspace, w.ArchiveLimit)
+	stats, extractErr := Extract(
+		parent,
+		checkedArchive,
+		valueOr(job.Deployment.SourceName, ""),
+		workspace,
+		w.ArchiveLimit,
+	)
 	_ = archive.Close()
 	if extractErr != nil {
 		return w.failBuild(parent, projectID, functionID, deploymentID, redactFailure(extractErr.Error(), nil), nil)
 	}
-	if expected := strings.TrimSpace(job.Deployment.ChecksumSHA256); expected == "" || !strings.EqualFold(expected, checkedArchive.SumHex()) {
-		return w.failBuild(parent, projectID, functionID, deploymentID, "function source artifact checksum mismatch", nil)
+	if expected := strings.TrimSpace(job.Deployment.ChecksumSHA256); expected == "" ||
+		!strings.EqualFold(expected, checkedArchive.SumHex()) {
+		return w.failBuild(
+			parent,
+			projectID,
+			functionID,
+			deploymentID,
+			"function source artifact checksum mismatch",
+			nil,
+		)
 	}
 	if stats.Files == 0 {
-		return w.failBuild(parent, projectID, functionID, deploymentID, "function source archive contains no files", nil)
+		return w.failBuild(
+			parent,
+			projectID,
+			functionID,
+			deploymentID,
+			"function source archive contains no files",
+			nil,
+		)
 	}
 	if err := validateEntrypointFile(workspace, job.Function.Entrypoint); err != nil {
 		return w.failBuild(parent, projectID, functionID, deploymentID, "function entrypoint is unavailable", nil)
 	}
-	variables, err := w.BuildStore.FunctionRuntimeVariablesForDeployment(parent, projectID, functionID, deploymentID, w.Cipher)
+	variables, err := w.BuildStore.FunctionRuntimeVariablesForDeployment(
+		parent,
+		projectID,
+		functionID,
+		deploymentID,
+		w.Cipher,
+	)
 	if err != nil {
-		return w.failBuild(parent, projectID, functionID, deploymentID, "function runtime variables are unavailable", nil)
+		return w.failBuild(
+			parent,
+			projectID,
+			functionID,
+			deploymentID,
+			"function runtime variables are unavailable",
+			nil,
+		)
 	}
 	secrets := make([]string, 0, len(variables))
 	for _, variable := range variables {
@@ -174,10 +222,24 @@ func (w *Worker) buildDeployment(parent context.Context, job repository.Function
 		w.Store.Cleanup(&prepared)
 		return w.failBuild(parent, projectID, functionID, deploymentID, redactFailure(message, secrets), nil)
 	}
-	validationErr := validateBuiltArtifact(parent, prepared.TempPath, w.StagingRoot, deploymentID.String(), job.Function.Entrypoint, w.ArchiveLimit)
+	validationErr := validateBuiltArtifact(
+		parent,
+		prepared.TempPath,
+		w.StagingRoot,
+		deploymentID.String(),
+		job.Function.Entrypoint,
+		w.ArchiveLimit,
+	)
 	if validationErr != nil {
 		w.Store.Cleanup(&prepared)
-		return w.failBuild(parent, projectID, functionID, deploymentID, redactFailure(validationErr.Error(), secrets), nil)
+		return w.failBuild(
+			parent,
+			projectID,
+			functionID,
+			deploymentID,
+			redactFailure(validationErr.Error(), secrets),
+			nil,
+		)
 	}
 	publishCleanup := repository.ArtifactCleanupInput{
 		ProjectID:    projectID,
@@ -187,15 +249,36 @@ func (w *Worker) buildDeployment(parent context.Context, job repository.Function
 	}
 	if err := w.BuildStore.ReserveArtifactPublishCleanup(parent, publishCleanup); err != nil {
 		w.Store.Cleanup(&prepared)
-		return w.failBuild(parent, projectID, functionID, deploymentID, "function build artifact publication could not be reserved", nil)
+		return w.failBuild(
+			parent,
+			projectID,
+			functionID,
+			deploymentID,
+			"function build artifact publication could not be reserved",
+			nil,
+		)
 	}
 	if err := w.Store.Commit(parent, &prepared); err != nil {
 		w.Store.Cleanup(&prepared)
-		return w.failBuild(parent, projectID, functionID, deploymentID, "function build artifact could not be committed", nil)
+		return w.failBuild(
+			parent,
+			projectID,
+			functionID,
+			deploymentID,
+			"function build artifact could not be committed",
+			nil,
+		)
 	}
 	if _, err := w.BuildStore.CompleteFunctionDeploymentBuildWithCleanup(parent, projectID, functionID, deploymentID, w.WorkerID, prepared.RelativePath, prepared.Size, prepared.Checksum, publishCleanup); err != nil {
 		if errors.Is(err, repository.ErrFunctionQuotaExceeded) {
-			return w.failBuild(parent, projectID, functionID, deploymentID, "function build artifact exceeds the remaining quota", secrets)
+			return w.failBuild(
+				parent,
+				projectID,
+				functionID,
+				deploymentID,
+				"function build artifact exceeds the remaining quota",
+				secrets,
+			)
 		}
 		return "error", err
 	}
@@ -205,7 +288,12 @@ func (w *Worker) buildDeployment(parent context.Context, job repository.Function
 	return "succeeded", nil
 }
 
-func (w *Worker) failBuild(ctx context.Context, projectID, functionID, deploymentID uuid.UUID, message string, secrets []string) (string, error) {
+func (w *Worker) failBuild(
+	ctx context.Context,
+	projectID, functionID, deploymentID uuid.UUID,
+	message string,
+	secrets []string,
+) (string, error) {
 	if errors.Is(ctx.Err(), context.Canceled) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return "error", ctx.Err()
 	}
@@ -213,15 +301,26 @@ func (w *Worker) failBuild(ctx context.Context, projectID, functionID, deploymen
 	if _, err := w.BuildStore.FailFunctionDeploymentBuild(ctx, projectID, functionID, deploymentID, w.WorkerID, message); err != nil {
 		return "error", err
 	}
-	job := repository.FunctionBuildJob{Deployment: domain.FunctionDeployment{ID: deploymentID.String(), FunctionID: functionID.String(), ProjectID: projectID.String()}}
+	job := repository.FunctionBuildJob{
+		Deployment: domain.FunctionDeployment{
+			ID:         deploymentID.String(),
+			FunctionID: functionID.String(),
+			ProjectID:  projectID.String(),
+		},
+	}
 	if err := w.appendBuildLog(ctx, job, "error", message); err != nil {
 		w.Logger.Error("append function build failure log failed", "deployment_id", deploymentID, "error", err)
 	}
 	return "failed", nil
 }
 
-func validateBuiltArtifact(ctx context.Context, tempPath, stagingRoot, deploymentID, entrypoint string, limits ArchiveLimits) error {
-	if strings.TrimSpace(tempPath) == "" || !safeVolumeSubpath(filepath.ToSlash(filepath.Join("build-validation", deploymentID))) {
+func validateBuiltArtifact(
+	ctx context.Context,
+	tempPath, stagingRoot, deploymentID, entrypoint string,
+	limits ArchiveLimits,
+) error {
+	if strings.TrimSpace(tempPath) == "" ||
+		!safeVolumeSubpath(filepath.ToSlash(filepath.Join("build-validation", deploymentID))) {
 		return ErrArchiveTraversal
 	}
 	validationSubpath := filepath.ToSlash(filepath.Join("build-validation", deploymentID))
@@ -286,7 +385,16 @@ func (w *Worker) appendBuildLog(ctx context.Context, job repository.FunctionBuil
 	if message == "" {
 		return nil
 	}
-	_, err := w.BuildStore.AppendFunctionBuildLog(ctx, mustUUID(job.Deployment.ProjectID), mustUUID(job.Deployment.FunctionID), mustUUID(job.Deployment.ID), uuid.Must(uuid.NewV7()), 0, level, message)
+	_, err := w.BuildStore.AppendFunctionBuildLog(
+		ctx,
+		mustUUID(job.Deployment.ProjectID),
+		mustUUID(job.Deployment.FunctionID),
+		mustUUID(job.Deployment.ID),
+		uuid.Must(uuid.NewV7()),
+		0,
+		level,
+		message,
+	)
 	return err
 }
 
@@ -337,7 +445,8 @@ func ensureWithin(root, candidate string) error {
 		return err
 	}
 	relative, err := filepath.Rel(root, candidate)
-	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || filepath.IsAbs(relative) {
+	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) ||
+		filepath.IsAbs(relative) {
 		return ErrArchiveTraversal
 	}
 	return nil

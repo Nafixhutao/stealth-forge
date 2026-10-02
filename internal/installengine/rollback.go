@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -76,7 +77,12 @@ func (e *Engine) RollbackLocked(ctx context.Context, plan Plan) error {
 			return e.finishPlatformRollback(ctx, plan, rollback)
 		}
 		if currentVersion != rollback.FromVersion {
-			return fmt.Errorf("interrupted platform rollback expects %s or %s, but VERSION records %s; inspect the installation before retrying", rollback.FromVersion, rollback.ToVersion, currentVersion)
+			return fmt.Errorf(
+				"interrupted platform rollback expects %s or %s, but VERSION records %s; inspect the installation before retrying",
+				rollback.FromVersion,
+				rollback.ToVersion,
+				currentVersion,
+			)
 		}
 		if err := e.verifyRollbackEligibility(ctx, plan, currentVersion, rollback.ToVersion, rollback.SchemaFingerprint, allowedPaths); err != nil {
 			schemaChanged := errors.Is(err, errRollbackSchemaChanged)
@@ -84,7 +90,10 @@ func (e *Engine) RollbackLocked(ctx context.Context, plan Plan) error {
 			if schemaChanged {
 				outcome = "refused_schema_change"
 			}
-			return errors.Join(err, appendRollbackAudit(plan.Layout, outcome, currentVersion, rollback.ToVersion, schemaChanged))
+			return errors.Join(
+				err,
+				appendRollbackAudit(plan.Layout, outcome, currentVersion, rollback.ToVersion, schemaChanged),
+			)
 		}
 	} else {
 		metadata, metadataErr := readManagedReleaseMetadata(plan.Layout, currentVersion, allowedPaths)
@@ -135,7 +144,12 @@ func (e *Engine) RollbackLocked(ctx context.Context, plan Plan) error {
 	return e.finishPlatformRollback(ctx, plan, rollback)
 }
 
-func (e *Engine) verifyRollbackEligibility(ctx context.Context, plan Plan, currentVersion, targetVersion, expectedFingerprint string, allowedPaths map[string]struct{}) error {
+func (e *Engine) verifyRollbackEligibility(
+	ctx context.Context,
+	plan Plan,
+	currentVersion, targetVersion, expectedFingerprint string,
+	allowedPaths map[string]struct{},
+) error {
 	metadata, err := readManagedReleaseMetadata(plan.Layout, currentVersion, allowedPaths)
 	if err != nil {
 		return fmt.Errorf("platform rollback is unsafe: %w; use the backup/restore runbook", err)
@@ -143,7 +157,8 @@ func (e *Engine) verifyRollbackEligibility(ctx context.Context, plan Plan, curre
 	if metadata.PreviousVersion != targetVersion || metadata.TargetVersion != currentVersion {
 		return errors.New("platform rollback metadata does not match the active and previous releases")
 	}
-	if metadata.SchemaFingerprint == "" || !schemaFingerprintPattern.MatchString(metadata.SchemaFingerprint) || metadata.SchemaFingerprint != expectedFingerprint {
+	if metadata.SchemaFingerprint == "" || !schemaFingerprintPattern.MatchString(metadata.SchemaFingerprint) ||
+		metadata.SchemaFingerprint != expectedFingerprint {
 		return errors.New("platform rollback metadata has no valid matching pre-migration schema snapshot")
 	}
 	currentFingerprint, err := e.querySchemaFingerprint(ctx, plan, plan.ExternalDatabase)
@@ -151,12 +166,22 @@ func (e *Engine) verifyRollbackEligibility(ctx context.Context, plan Plan, curre
 		return fmt.Errorf("cannot determine database schema compatibility for rollback: %w", err)
 	}
 	if currentFingerprint != expectedFingerprint {
-		return fmt.Errorf("%w: refusing platform rollback from %s to %s; restore PostgreSQL and object storage from verified backups before starting the older release", errRollbackSchemaChanged, currentVersion, targetVersion)
+		return fmt.Errorf(
+			"%w: refusing platform rollback from %s to %s; restore PostgreSQL and object storage from verified backups before starting the older release",
+			errRollbackSchemaChanged,
+			currentVersion,
+			targetVersion,
+		)
 	}
 	return nil
 }
 
-func (e *Engine) applyPlatformRollback(ctx context.Context, currentPlan Plan, rollback platformRollbackRecord, allowedPaths map[string]struct{}) error {
+func (e *Engine) applyPlatformRollback(
+	ctx context.Context,
+	currentPlan Plan,
+	rollback platformRollbackRecord,
+	allowedPaths map[string]struct{},
+) error {
 	targetPlan := currentPlan
 	targetPlan.Version = rollback.ToVersion
 	targetPlan.InstalledVersion = rollback.FromVersion
@@ -191,7 +216,11 @@ func (e *Engine) applyPlatformRollback(ctx context.Context, currentPlan Plan, ro
 	if err := prepared.commit(targetPlan); err != nil {
 		return fmt.Errorf("activate previous platform release: %w", err)
 	}
-	metadata, err := readManagedReleaseMetadataFromDirectory(prepared.assets.backupDir, rollback.ToVersion, allowedPaths)
+	metadata, err := readManagedReleaseMetadataFromDirectory(
+		prepared.assets.backupDir,
+		rollback.ToVersion,
+		allowedPaths,
+	)
 	if err != nil {
 		return fmt.Errorf("verify saved current release metadata: %w", err)
 	}
@@ -217,7 +246,11 @@ func (e *Engine) applyPlatformRollback(ctx context.Context, currentPlan Plan, ro
 	return nil
 }
 
-func (e *Engine) prepareRollbackInstallation(ctx context.Context, plan Plan, allowedPaths map[string]struct{}) (*preparedInstallation, error) {
+func (e *Engine) prepareRollbackInstallation(
+	ctx context.Context,
+	plan Plan,
+	allowedPaths map[string]struct{},
+) (*preparedInstallation, error) {
 	previousDir := filepath.Join(plan.Layout.StateDir, "managed-assets.previous")
 	metadata, err := readManagedReleaseMetadata(plan.Layout, plan.InstalledVersion, allowedPaths)
 	if err != nil {
@@ -234,7 +267,7 @@ func (e *Engine) prepareRollbackInstallation(ctx context.Context, plan Plan, all
 	if err != nil {
 		return nil, fmt.Errorf("parse active configuration: %w", err)
 	}
-	newEnv, err := MigrateReleaseConfig(values, plan.Version, plan.InstalledVersion)
+	newEnv, err := migrateReleaseConfig(values, plan.Version, plan.InstalledVersion)
 	if err != nil {
 		return nil, fmt.Errorf("retarget configuration while preserving operator values: %w", err)
 	}
@@ -258,14 +291,23 @@ func (e *Engine) prepareRollbackInstallation(ctx context.Context, plan Plan, all
 	for _, entry := range metadata.Assets {
 		byPath[entry.RelativePath] = entry
 	}
-	migration := &managedAssetMigration{layout: plan.Layout, stageDir: stageDir, allowedPaths: allowedPaths, hook: e.migrationHook}
+	migration := &managedAssetMigration{
+		layout:       plan.Layout,
+		stageDir:     stageDir,
+		allowedPaths: allowedPaths,
+		hook:         e.migrationHook,
+	}
 	for _, spec := range e.managedAssetSpecs(plan) {
 		entry, found := byPath[spec.Path]
 		if !found {
 			_ = removeAllAndSync(stageDir)
 			return nil, fmt.Errorf("previous release metadata is missing managed asset %q", spec.Path)
 		}
-		asset := stagedManagedAsset{spec: spec, targetPath: filepath.Join(plan.Layout.Root, filepath.FromSlash(spec.Path)), remove: !entry.Existed}
+		asset := stagedManagedAsset{
+			spec:       spec,
+			targetPath: filepath.Join(plan.Layout.Root, filepath.FromSlash(spec.Path)),
+			remove:     !entry.Existed,
+		}
 		if entry.Existed {
 			source := filepath.Join(previousDir, filepath.FromSlash(spec.Path))
 			contents, readErr := os.ReadFile(source)
@@ -274,7 +316,7 @@ func (e *Engine) prepareRollbackInstallation(ctx context.Context, plan Plan, all
 				return nil, fmt.Errorf("read previous managed asset %q: %w", spec.Path, readErr)
 			}
 			digest := sha256.Sum256(contents)
-			if fmt.Sprintf("%x", digest) != entry.SHA256 {
+			if hex.EncodeToString(digest[:]) != entry.SHA256 {
 				_ = removeAllAndSync(stageDir)
 				return nil, fmt.Errorf("previous managed asset %q failed its recorded checksum", spec.Path)
 			}
@@ -303,7 +345,11 @@ func (e *Engine) finishPlatformRollback(ctx context.Context, plan Plan, rollback
 		return fmt.Errorf("read active platform version while resuming rollback: %w", err)
 	}
 	if activeVersion != rollback.ToVersion {
-		return fmt.Errorf("platform rollback is not active: VERSION records %s, expected %s", activeVersion, rollback.ToVersion)
+		return fmt.Errorf(
+			"platform rollback is not active: VERSION records %s, expected %s",
+			activeVersion,
+			rollback.ToVersion,
+		)
 	}
 	targetPlan := plan
 	targetPlan.Version = rollback.ToVersion
@@ -371,7 +417,11 @@ func (e *Engine) verifyRollbackAPIVersion(ctx context.Context, plan Plan) error 
 		return fmt.Errorf("decode API version after rollback: %w", err)
 	}
 	if strings.TrimSpace(payload.Version) != strings.TrimSpace(plan.Version) {
-		return fmt.Errorf("API reports version %q after rollback, expected %s", strings.TrimSpace(payload.Version), plan.Version)
+		return fmt.Errorf(
+			"API reports version %q after rollback, expected %s",
+			strings.TrimSpace(payload.Version),
+			plan.Version,
+		)
 	}
 	return nil
 }
@@ -430,7 +480,17 @@ func (e *Engine) verifyRollbackServices(ctx context.Context, plan Plan) error {
 	if plan.Cloudflare {
 		args = append(args, "--profile", "cloudflare")
 	}
-	args = append(args, "--env-file", plan.Layout.EnvFile, "-f", plan.Layout.ComposeFile, "ps", "--all", "--format", "json")
+	args = append(
+		args,
+		"--env-file",
+		plan.Layout.EnvFile,
+		"-f",
+		plan.Layout.ComposeFile,
+		"ps",
+		"--all",
+		"--format",
+		"json",
+	)
 	output, err := e.runner.Output(ctx, plan.Layout.Root, "docker", args...)
 	if err != nil {
 		return fmt.Errorf("read previous release service status: %w", err)
@@ -439,7 +499,20 @@ func (e *Engine) verifyRollbackServices(ctx context.Context, plan Plan) error {
 	if err != nil {
 		return err
 	}
-	required := []string{"api", "worker", "buildkit", "console", "proxy", "traefik", "clickhouse", "otel-collector", "telemetry-host", "telemetry-docker-logs", "telemetry-docker-proxy", "telemetry-docker"}
+	required := []string{
+		"api",
+		"worker",
+		"buildkit",
+		"console",
+		"proxy",
+		"traefik",
+		"clickhouse",
+		"otel-collector",
+		"telemetry-host",
+		"telemetry-docker-logs",
+		"telemetry-docker-proxy",
+		"telemetry-docker",
+	}
 	if !plan.ExternalDatabase {
 		required = append(required, "postgres")
 	}
@@ -510,7 +583,20 @@ func (e *Engine) validateRollbackServiceTopology(ctx context.Context, plan Plan,
 }
 
 func checkRequiredRollbackServices(services map[string]bool, plan Plan) error {
-	required := []string{"api", "worker", "buildkit", "console", "proxy", "traefik", "clickhouse", "otel-collector", "telemetry-host", "telemetry-docker-logs", "telemetry-docker-proxy", "telemetry-docker"}
+	required := []string{
+		"api",
+		"worker",
+		"buildkit",
+		"console",
+		"proxy",
+		"traefik",
+		"clickhouse",
+		"otel-collector",
+		"telemetry-host",
+		"telemetry-docker-logs",
+		"telemetry-docker-proxy",
+		"telemetry-docker",
+	}
 	if !plan.ExternalDatabase {
 		required = append(required, "postgres")
 	}
@@ -523,7 +609,9 @@ func checkRequiredRollbackServices(services map[string]bool, plan Plan) error {
 		}
 	}
 	if plan.Cloudflare && !services["cloudflared"] {
-		return errors.New("refusing rollback because Cloudflare ingress is configured but absent from the previous release")
+		return errors.New(
+			"refusing rollback because Cloudflare ingress is configured but absent from the previous release",
+		)
 	}
 	return nil
 }
@@ -533,7 +621,17 @@ func (e *Engine) composeServices(ctx context.Context, plan Plan, composeFile, en
 	if plan.Cloudflare {
 		args = append(args, "--profile", "cloudflare")
 	}
-	args = append(args, "--project-directory", plan.Layout.Root, "--env-file", envFile, "-f", composeFile, "config", "--services")
+	args = append(
+		args,
+		"--project-directory",
+		plan.Layout.Root,
+		"--env-file",
+		envFile,
+		"-f",
+		composeFile,
+		"config",
+		"--services",
+	)
 	output, err := e.runner.Output(ctx, plan.Layout.Root, "docker", args...)
 	if err != nil {
 		return nil, fmt.Errorf("docker compose config --services: %w", err)

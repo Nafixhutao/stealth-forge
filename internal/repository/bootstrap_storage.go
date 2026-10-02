@@ -159,9 +159,17 @@ func (r *BootstrapRepository) VerifyBootstrapCode(ctx context.Context, codeHash 
 // StartGitHubDeviceFlow persists only encrypted GitHub device state. A
 // repeated click for the same verified setup session reuses the current
 // pending device flow instead of creating multiple GitHub authorizations.
-func (r *BootstrapRepository) StartGitHubDeviceFlow(ctx context.Context, input GitHubDeviceFlowInput) (GitHubDeviceFlow, error) {
+func (r *BootstrapRepository) StartGitHubDeviceFlow(
+	ctx context.Context,
+	input GitHubDeviceFlowInput,
+) (GitHubDeviceFlow, error) {
 	requestedIntervalSeconds := int(input.Interval / time.Second)
-	if len(input.CodeHash) != 32 || len(input.DeviceCodeCiphertext) == 0 || input.ID == uuid.Nil || input.ExpiresAt.Before(time.Now().UTC()) || input.GitHubExpiresAt.Before(time.Now().UTC()) || input.GitHubExpiresAt.After(input.ExpiresAt) || requestedIntervalSeconds < 1 || requestedIntervalSeconds > 300 {
+	if len(input.CodeHash) != 32 || len(input.DeviceCodeCiphertext) == 0 || input.ID == uuid.Nil ||
+		input.ExpiresAt.Before(time.Now().UTC()) ||
+		input.GitHubExpiresAt.Before(time.Now().UTC()) ||
+		input.GitHubExpiresAt.After(input.ExpiresAt) ||
+		requestedIntervalSeconds < 1 ||
+		requestedIntervalSeconds > 300 {
 		return GitHubDeviceFlow{}, ErrBootstrapDevice
 	}
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -170,11 +178,15 @@ func (r *BootstrapRepository) StartGitHubDeviceFlow(ctx context.Context, input G
 	}
 	defer tx.Rollback(ctx)
 	var sealed bool
-	if err := tx.QueryRow(ctx, `SELECT (sealed_at IS NOT NULL OR EXISTS (SELECT 1 FROM instance_roles WHERE role='instance_owner')) FROM instance_bootstrap WHERE id=TRUE FOR UPDATE`).Scan(&sealed); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT (sealed_at IS NOT NULL OR EXISTS (SELECT 1 FROM instance_roles WHERE role='instance_owner')) FROM instance_bootstrap WHERE id=TRUE FOR UPDATE`).
+		Scan(&sealed)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return GitHubDeviceFlow{}, ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return GitHubDeviceFlow{}, err
-	} else if sealed {
+	}
+	if sealed {
 		return GitHubDeviceFlow{}, ErrBootstrapSealed
 	}
 	var existing GitHubDeviceFlow
@@ -254,11 +266,15 @@ func (r *BootstrapRepository) ClaimGitHubDevicePoll(ctx context.Context, id uuid
 	}
 	defer tx.Rollback(ctx)
 	var sealed bool
-	if err := tx.QueryRow(ctx, `SELECT (sealed_at IS NOT NULL OR EXISTS (SELECT 1 FROM instance_roles WHERE role='instance_owner')) FROM instance_bootstrap WHERE id=TRUE FOR UPDATE`).Scan(&sealed); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT (sealed_at IS NOT NULL OR EXISTS (SELECT 1 FROM instance_roles WHERE role='instance_owner')) FROM instance_bootstrap WHERE id=TRUE FOR UPDATE`).
+		Scan(&sealed)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return GitHubDeviceFlow{}, false, ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return GitHubDeviceFlow{}, false, err
-	} else if sealed {
+	}
+	if sealed {
 		return GitHubDeviceFlow{}, false, ErrBootstrapSealed
 	}
 	var flow GitHubDeviceFlow
@@ -322,7 +338,13 @@ func (r *BootstrapRepository) ClaimGitHubDevicePoll(ctx context.Context, id uuid
 	return flow, true, nil
 }
 
-func (r *BootstrapRepository) UpdateGitHubDeviceFlow(ctx context.Context, id uuid.UUID, status string, interval time.Duration, nextPollAt time.Time) error {
+func (r *BootstrapRepository) UpdateGitHubDeviceFlow(
+	ctx context.Context,
+	id uuid.UUID,
+	status string,
+	interval time.Duration,
+	nextPollAt time.Time,
+) error {
 	intervalSeconds := int(interval / time.Second)
 	if id == uuid.Nil || intervalSeconds < 1 || intervalSeconds > 300 || nextPollAt.IsZero() {
 		return ErrBootstrapDevice
@@ -330,15 +352,30 @@ func (r *BootstrapRepository) UpdateGitHubDeviceFlow(ctx context.Context, id uui
 	if status != "pending" && status != "denied" && status != "expired" && status != "failed" {
 		return ErrBootstrapDevice
 	}
-	_, err := r.pool.Exec(ctx, `UPDATE bootstrap_sessions SET github_status=$2,github_interval_seconds=$3,github_next_poll_at=$4 WHERE id=$1 AND used_at IS NULL AND invalidated_at IS NULL`, id, status, intervalSeconds, nextPollAt)
+	_, err := r.pool.Exec(
+		ctx,
+		`UPDATE bootstrap_sessions SET github_status=$2,github_interval_seconds=$3,github_next_poll_at=$4 WHERE id=$1 AND used_at IS NULL AND invalidated_at IS NULL`,
+		id,
+		status,
+		intervalSeconds,
+		nextPollAt,
+	)
 	return err
 }
 
 // CreateGitHubInstanceOwner creates the account, identity, instance role and
 // normal Stealth session atomically. The singleton row and active bootstrap
 // session are locked before any insert, so only one authorization can win.
-func (r *BootstrapRepository) CreateGitHubInstanceOwner(ctx context.Context, input GitHubOwnerInput) (domain.Account, error) {
-	if input.BootstrapSessionID == uuid.Nil || input.AccountID == uuid.Nil || input.SessionID == uuid.Nil || len(input.BootstrapCodeHash) != 32 || len(input.TokenHash) != 32 || input.ProviderUserID == "" || input.ProviderLogin == "" || !input.SessionExpiresAt.After(time.Now().UTC()) {
+func (r *BootstrapRepository) CreateGitHubInstanceOwner(
+	ctx context.Context,
+	input GitHubOwnerInput,
+) (domain.Account, error) {
+	if input.BootstrapSessionID == uuid.Nil || input.AccountID == uuid.Nil || input.SessionID == uuid.Nil ||
+		len(input.BootstrapCodeHash) != 32 ||
+		len(input.TokenHash) != 32 ||
+		input.ProviderUserID == "" ||
+		input.ProviderLogin == "" ||
+		!input.SessionExpiresAt.After(time.Now().UTC()) {
 		return domain.Account{}, ErrGitHubIdentity
 	}
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -347,7 +384,8 @@ func (r *BootstrapRepository) CreateGitHubInstanceOwner(ctx context.Context, inp
 	}
 	defer tx.Rollback(ctx)
 	var sealed bool
-	err = tx.QueryRow(ctx, `SELECT (sealed_at IS NOT NULL OR EXISTS (SELECT 1 FROM instance_roles WHERE role='instance_owner')) FROM instance_bootstrap WHERE id=TRUE FOR UPDATE`).Scan(&sealed)
+	err = tx.QueryRow(ctx, `SELECT (sealed_at IS NOT NULL OR EXISTS (SELECT 1 FROM instance_roles WHERE role='instance_owner')) FROM instance_bootstrap WHERE id=TRUE FOR UPDATE`).
+		Scan(&sealed)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Account{}, ErrNotFound
 	}
@@ -359,7 +397,8 @@ func (r *BootstrapRepository) CreateGitHubInstanceOwner(ctx context.Context, inp
 	}
 	var storedHash []byte
 	var expiresAt time.Time
-	err = tx.QueryRow(ctx, `SELECT code_hash,expires_at FROM bootstrap_sessions WHERE id=$1 AND used_at IS NULL AND invalidated_at IS NULL AND expires_at > now() FOR UPDATE`, input.BootstrapSessionID).Scan(&storedHash, &expiresAt)
+	err = tx.QueryRow(ctx, `SELECT code_hash,expires_at FROM bootstrap_sessions WHERE id=$1 AND used_at IS NULL AND invalidated_at IS NULL AND expires_at > now() FOR UPDATE`, input.BootstrapSessionID).
+		Scan(&storedHash, &expiresAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Account{}, ErrInvalidBootstrapCode
 	}
@@ -400,7 +439,11 @@ func (r *BootstrapRepository) CreateGitHubInstanceOwner(ctx context.Context, inp
 	if _, err := tx.Exec(ctx, `UPDATE instance_bootstrap SET sealed_at=now(),sealed_reason='instance_owner_created' WHERE id=TRUE`); err != nil {
 		return domain.Account{}, err
 	}
-	identityMetadata := map[string]any{"provider": "github", "provider_user_id": input.ProviderUserID, "provider_login": input.ProviderLogin}
+	identityMetadata := map[string]any{
+		"provider":         "github",
+		"provider_user_id": input.ProviderUserID,
+		"provider_login":   input.ProviderLogin,
+	}
 	if err := writeAuditMetadata(ctx, tx, uuid.Nil, input.AccountID, "bootstrap.github.authorized", "account", input.AccountID, identityMetadata); err != nil {
 		return domain.Account{}, err
 	}
@@ -428,7 +471,10 @@ func (r *BootstrapRepository) ListBootstrapAdoptionAccounts(ctx context.Context)
 	if !sealedAt.Valid || sealedReason.String != "legacy_installation" {
 		return nil, ErrBootstrapSealed
 	}
-	rows, err := r.pool.Query(ctx, `SELECT a.id,a.email,ai.provider,ai.provider_login,a.created_at FROM accounts a LEFT JOIN account_identities ai ON ai.account_id=a.id AND ai.provider='github' ORDER BY a.created_at ASC,a.id ASC`)
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT a.id,a.email,ai.provider,ai.provider_login,a.created_at FROM accounts a LEFT JOIN account_identities ai ON ai.account_id=a.id AND ai.provider='github' ORDER BY a.created_at ASC,a.id ASC`,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -456,9 +502,12 @@ func (r *BootstrapRepository) AdoptInstanceOwner(ctx context.Context, accountID 
 	defer tx.Rollback(ctx)
 	var sealedAt sql.NullTime
 	var reason sql.NullString
-	if err := tx.QueryRow(ctx, `SELECT sealed_at,sealed_reason FROM instance_bootstrap WHERE id=TRUE FOR UPDATE`).Scan(&sealedAt, &reason); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT sealed_at,sealed_reason FROM instance_bootstrap WHERE id=TRUE FOR UPDATE`).
+		Scan(&sealedAt, &reason)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return err
 	}
 	if reason.String != "legacy_installation" {
