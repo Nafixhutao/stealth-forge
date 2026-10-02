@@ -14,8 +14,7 @@ export const objectName = z
   .min(1)
   .max(255)
   .refine(
-    (name) =>
-      name !== "." && name !== ".." && !INVALID_OBJECT_NAME.test(name),
+    (name) => name !== "." && name !== ".." && !INVALID_OBJECT_NAME.test(name),
     "Use a filename without path separators or control characters.",
   );
 

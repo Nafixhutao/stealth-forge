@@ -36,7 +36,9 @@ const schemaColumns: DataTableColumnDef<DatabaseColumn>[] = [
     cell: ({ row }) => (
       <span className="font-mono text-xs">
         {row.original.type}
-        {row.original.type === "varchar" ? `(${row.original.varchar_size})` : ""}
+        {row.original.type === "varchar"
+          ? `(${row.original.varchar_size})`
+          : ""}
       </span>
     ),
   },
