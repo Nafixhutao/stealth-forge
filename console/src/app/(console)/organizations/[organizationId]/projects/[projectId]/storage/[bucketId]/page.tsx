@@ -1,4 +1,4 @@
-import { BucketDetailView } from "@/features/resources/detail-views";
+import { BucketDetailView } from "@/features/storage/bucket-detail-view";
 
 export default async function BucketPage({
   params,

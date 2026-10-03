@@ -1,4 +1,4 @@
-import { FunctionDetailView } from "@/features/resources/detail-views";
+import { FunctionDetailView } from "@/features/functions/function-detail-view";
 
 export default async function FunctionPage({
   params,

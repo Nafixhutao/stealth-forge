@@ -1,4 +1,4 @@
-import { OrganizationsIndexView } from "@/features/organization/organization-views";
+import { OrganizationsIndexView } from "@/features/organization/organizations-view";
 
 export default function OrganizationsPage() {
   return <OrganizationsIndexView />;

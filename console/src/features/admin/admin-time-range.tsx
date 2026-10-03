@@ -31,11 +31,25 @@ type StoredPreferences = {
   customRange?: CustomRange;
 };
 
-const rangeStorageKey = "stealth.admin.time-range";
-const customFromStorageKey = "stealth.admin.custom-from";
-const customToStorageKey = "stealth.admin.custom-to";
-const refreshStorageKey = "stealth.admin.refresh-interval";
+const preferenceVersion = "v1";
+const rangeStorageKey = `stealth.admin.time-range:${preferenceVersion}`;
+const customFromStorageKey = `stealth.admin.custom-from:${preferenceVersion}`;
+const customToStorageKey = `stealth.admin.custom-to:${preferenceVersion}`;
+const refreshStorageKey = `stealth.admin.refresh-interval:${preferenceVersion}`;
+// Unversioned keys written by earlier releases. They are still read so an
+// existing install keeps its saved preferences after the version suffix was
+// added; new writes always use the versioned keys.
+const legacyRangeStorageKey = "stealth.admin.time-range";
+const legacyCustomFromStorageKey = "stealth.admin.custom-from";
+const legacyCustomToStorageKey = "stealth.admin.custom-to";
+const legacyRefreshStorageKey = "stealth.admin.refresh-interval";
 const preferenceEvent = "stealth-admin-preference-change";
+
+function readPreference(key: string, legacyKey: string) {
+  return (
+    window.localStorage.getItem(key) ?? window.localStorage.getItem(legacyKey)
+  );
+}
 
 function subscribeToPreferences(onChange: () => void) {
   if (typeof window === "undefined") return () => undefined;
@@ -50,7 +64,7 @@ function subscribeToPreferences(onChange: () => void) {
 function readStoredRange(): AnyRangeKey {
   if (typeof window === "undefined") return "1h";
   try {
-    const saved = window.localStorage.getItem(rangeStorageKey);
+    const saved = readPreference(rangeStorageKey, legacyRangeStorageKey);
     return saved === "custom" || adminRanges.some((item) => item.key === saved)
       ? (saved as AnyRangeKey)
       : "1h";
@@ -62,8 +76,11 @@ function readStoredRange(): AnyRangeKey {
 function readStoredCustomRange() {
   if (typeof window === "undefined") return undefined;
   try {
-    const from = window.localStorage.getItem(customFromStorageKey);
-    const to = window.localStorage.getItem(customToStorageKey);
+    const from = readPreference(
+      customFromStorageKey,
+      legacyCustomFromStorageKey,
+    );
+    const to = readPreference(customToStorageKey, legacyCustomToStorageKey);
     if (!from || !to) return undefined;
     const fromDate = new Date(from);
     const toDate = new Date(to);
@@ -109,7 +126,7 @@ function parseStoredPreferences(snapshot: string): StoredPreferences {
 function readStoredRefresh(): RefreshKey {
   if (typeof window === "undefined") return "off";
   try {
-    const saved = window.localStorage.getItem(refreshStorageKey);
+    const saved = readPreference(refreshStorageKey, legacyRefreshStorageKey);
     return adminRefreshIntervals.some((item) => item.key === saved)
       ? (saved as RefreshKey)
       : "off";

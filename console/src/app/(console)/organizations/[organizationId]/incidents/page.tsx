@@ -1,4 +1,4 @@
-import { OrganizationIncidentsView } from "@/features/organization/organization-views";
+import { OrganizationIncidentsView } from "@/features/organization/incidents-view";
 
 export default async function IncidentsPage({
   params,

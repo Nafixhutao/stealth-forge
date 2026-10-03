@@ -74,7 +74,9 @@ export function ConfirmDialog({
             }}
           >
             {pending ? (
-              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              <span className="inline-flex animate-spin" aria-hidden="true">
+                <Loader2 className="size-4" />
+              </span>
             ) : null}
             {pending ? "Working…" : confirmLabel}
           </Button>

@@ -26,6 +26,9 @@ import {
   type FunctionFormValues,
 } from "@/features/functions/function-form";
 
+const functionSearchable = (item: StealthFunction, term: string) =>
+  `${item.name} ${item.runtime} ${item.status}`.toLowerCase().includes(term);
+
 export function FunctionsView({
   organizationId,
   projectId,
@@ -132,11 +135,7 @@ export function FunctionsView({
       ) : query.data?.functions.length ? (
         <ResourceTableCard
           data={query.data.functions}
-          searchable={(item, term) =>
-            `${item.name} ${item.runtime} ${item.status}`
-              .toLowerCase()
-              .includes(term)
-          }
+          searchable={functionSearchable}
           serverPagination={pageControls(
             navigation,
             nextCursor(query.data),

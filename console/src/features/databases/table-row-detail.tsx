@@ -44,6 +44,7 @@ export function TableRowDetail({
   const update = useUpdateDatabaseRow(projectId, databaseId, tableId);
   const remove = useDeleteDatabaseRow(projectId, databaseId, tableId);
   const row = query.data?.row;
+  const columnByKey = new Map(columns.map((column) => [column.key, column]));
 
   return (
     <Dialog
@@ -87,7 +88,7 @@ export function TableRowDetail({
                   <dd className="min-w-0">
                     <RowValue
                       value={value}
-                      type={columns.find((column) => column.key === key)?.type}
+                      type={columnByKey.get(key)?.type}
                       expanded
                     />
                   </dd>

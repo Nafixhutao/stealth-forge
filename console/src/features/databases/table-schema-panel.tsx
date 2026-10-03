@@ -3,7 +3,7 @@
 import type { DatabaseColumn, DatabaseIndex } from "@/api/types";
 import { useCreateDatabaseColumn } from "@/api/mutations";
 import { CreateDialog } from "@/components/create-dialog";
-import { DataTable } from "@/components/data-table";
+import { DataTable, type DataTableColumnDef } from "@/components/data-table";
 import { ErrorState } from "@/components/feedback/error-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -26,6 +26,45 @@ type TableSchemaPanelProps = TableScope & {
   retryIndexes: () => void;
   canManage: boolean;
 };
+
+// Static column definitions: hoisted so they are not rebuilt on every render.
+const schemaColumns: DataTableColumnDef<DatabaseColumn>[] = [
+  { accessorKey: "key", header: "Column" },
+  {
+    accessorKey: "type",
+    header: "Type",
+    cell: ({ row }) => (
+      <span className="font-mono text-xs">
+        {row.original.type}
+        {row.original.type === "varchar"
+          ? `(${row.original.varchar_size})`
+          : ""}
+      </span>
+    ),
+  },
+  {
+    id: "nullable",
+    header: "Nullable",
+    cell: ({ row }) => (row.original.required ? "No" : "Yes"),
+  },
+  {
+    id: "default",
+    header: "Default",
+    cell: ({ row }) => (
+      <RowValue value={row.original.default} type={row.original.type} />
+    ),
+  },
+];
+
+const indexColumns: DataTableColumnDef<DatabaseIndex>[] = [
+  { accessorKey: "name", header: "Index" },
+  { accessorKey: "type", header: "Type" },
+  {
+    id: "keys",
+    header: "Columns",
+    cell: ({ row }) => row.original.column_keys.join(", "),
+  },
+];
 
 export function TableSchemaPanel({
   projectId,
@@ -76,36 +115,7 @@ export function TableSchemaPanel({
             data={schema}
             loading={columnsPending}
             empty="No columns yet. Create a column to define the table schema."
-            columns={[
-              { accessorKey: "key", header: "Column" },
-              {
-                accessorKey: "type",
-                header: "Type",
-                cell: ({ row }) => (
-                  <span className="font-mono text-xs">
-                    {row.original.type}
-                    {row.original.type === "varchar"
-                      ? `(${row.original.varchar_size})`
-                      : ""}
-                  </span>
-                ),
-              },
-              {
-                id: "nullable",
-                header: "Nullable",
-                cell: ({ row }) => (row.original.required ? "No" : "Yes"),
-              },
-              {
-                id: "default",
-                header: "Default",
-                cell: ({ row }) => (
-                  <RowValue
-                    value={row.original.default}
-                    type={row.original.type}
-                  />
-                ),
-              },
-            ]}
+            columns={schemaColumns}
           />
           <p className="mt-4 text-xs text-slate-500">
             Row ID and created/updated timestamps are managed automatically and
@@ -129,15 +139,7 @@ export function TableSchemaPanel({
             data={indexes}
             loading={indexesPending}
             empty="No indexes. Row ID ordering remains available."
-            columns={[
-              { accessorKey: "name", header: "Index" },
-              { accessorKey: "type", header: "Type" },
-              {
-                id: "keys",
-                header: "Columns",
-                cell: ({ row }) => row.original.column_keys.join(", "),
-              },
-            ]}
+            columns={indexColumns}
           />
         </CardContent>
       </Card>

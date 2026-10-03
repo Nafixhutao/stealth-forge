@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Activity, Plus, Trash2 } from "lucide-react";
 import { useCreateAdminMonitor, useDeleteAdminMonitor } from "@/api/mutations";
 import { useAdminMonitor, useAdminMonitors } from "@/api/queries";
@@ -42,10 +42,14 @@ export function AdminMonitorsView() {
     refetchInterval: timeRange.refreshInterval,
   });
 
-  const sortedMonitors = useMemo(
-    () => monitors.data?.items ?? [],
-    [monitors.data?.items],
-  );
+  const sortedMonitors = monitors.data?.items ?? [];
+  let healthyCount = 0;
+  let needsAttentionCount = 0;
+  for (const monitor of sortedMonitors) {
+    if (monitor.status === "healthy") healthyCount += 1;
+    else if (monitor.status === "failing" || monitor.status === "degraded")
+      needsAttentionCount += 1;
+  }
 
   return (
     <AdminShell>
@@ -126,19 +130,12 @@ export function AdminMonitorsView() {
             />
             <MonitorSummary
               label="Healthy"
-              value={
-                sortedMonitors.filter((item) => item.status === "healthy")
-                  .length
-              }
+              value={healthyCount}
               tone="success"
             />
             <MonitorSummary
               label="Needs attention"
-              value={
-                sortedMonitors.filter((item) =>
-                  ["failing", "degraded"].includes(item.status),
-                ).length
-              }
+              value={needsAttentionCount}
               tone="error"
             />
           </div>

@@ -61,28 +61,46 @@ export function useAdminLogTail(
       apiUrl(`/v1/admin/telemetry/logs/tail?${params}`),
       { withCredentials: true },
     );
+    // A busy tail can emit many events per frame. Buffer them in the effect
+    // closure and flush at most once per animation frame so each message does
+    // not trigger a re-render (and a full re-dedupe of the visible list).
+    const items: AdminTailLog[] = [];
+    const seen = new Set<string>();
+    const keyOf = (item: AdminTailLog) =>
+      `${item.timestamp}\u0000${item.trace_id ?? ""}\u0000${item.span_id ?? ""}\u0000${item.service}\u0000${item.message}`;
+    let frame: number | null = null;
+    const flush = () => {
+      frame = null;
+      setStream((current) => {
+        const base =
+          current.key === streamKey
+            ? current
+            : {
+                key: streamKey,
+                items: [],
+                error: null,
+                connected: false,
+              };
+        return { ...base, items: items.slice(), error: null };
+      });
+    };
+    const schedule = () => {
+      if (frame !== null) return;
+      frame = window.requestAnimationFrame(flush);
+    };
     const onLog = (event: Event) => {
       try {
         const item = JSON.parse((event as MessageEvent).data) as AdminTailLog;
-        setStream((current) => {
-          const base =
-            current.key === streamKey
-              ? current
-              : {
-                  key: streamKey,
-                  items: [],
-                  error: null,
-                  connected: false,
-                };
-          const seen = new Set<string>();
-          const next = [item, ...base.items].filter((candidate) => {
-            const candidateKey = `${candidate.timestamp}\u0000${candidate.trace_id ?? ""}\u0000${candidate.span_id ?? ""}\u0000${candidate.service}\u0000${candidate.message}`;
-            if (seen.has(candidateKey)) return false;
-            seen.add(candidateKey);
-            return true;
-          });
-          return { ...base, items: next.slice(0, 250), error: null };
-        });
+        const candidateKey = keyOf(item);
+        if (seen.has(candidateKey)) return;
+        seen.add(candidateKey);
+        items.unshift(item);
+        if (items.length > 250) {
+          for (const dropped of items.splice(250)) {
+            seen.delete(keyOf(dropped));
+          }
+        }
+        schedule();
       } catch {
         setStream((current) => ({
           ...(current.key === streamKey
@@ -134,6 +152,7 @@ export function useAdminLogTail(
       }));
     };
     return () => {
+      if (frame !== null) window.cancelAnimationFrame(frame);
       source.removeEventListener("log", onLog);
       source.removeEventListener("stream_error", onStreamError);
       source.onerror = null;

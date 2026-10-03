@@ -18,6 +18,8 @@ export type AdminLogQueryParseResult = {
 };
 
 const knownFields = new Set(["service", "level", "trace_id", "message"]);
+const WHITESPACE = /\s/;
+const SAFE_QUERY_VALUE = /^[A-Za-z0-9_./:@+-]+$/;
 
 type Token = {
   value: string;
@@ -35,7 +37,7 @@ function readToken(
 } {
   let index = start;
   let value = "";
-  while (index < input.length && !/\s/.test(input[index])) {
+  while (index < input.length && !WHITESPACE.test(input[index])) {
     if (input[index] !== '"') {
       value += input[index];
       index += 1;
@@ -97,7 +99,7 @@ export function parseAdminLogQuery(input: string): AdminLogQueryParseResult {
   let index = 0;
 
   while (index < input.length) {
-    while (index < input.length && /\s/.test(input[index])) index += 1;
+    while (index < input.length && WHITESPACE.test(input[index])) index += 1;
     if (index >= input.length) break;
 
     const result = readToken(input, index);
@@ -163,6 +165,6 @@ export function formatAdminLogQuery(filters: Partial<AdminLogFilters>): string {
 }
 
 function quoteQueryValue(value: string): string {
-  if (/^[A-Za-z0-9_./:@+-]+$/.test(value)) return value;
+  if (SAFE_QUERY_VALUE.test(value)) return value;
   return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
 }

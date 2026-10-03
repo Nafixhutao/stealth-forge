@@ -1,4 +1,4 @@
-import { OrganizationInvitationsView } from "@/features/organization/organization-views";
+import { OrganizationInvitationsView } from "@/features/organization/invitations-view";
 
 export default async function InvitationsPage({
   params,

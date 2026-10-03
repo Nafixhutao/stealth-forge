@@ -19,8 +19,8 @@ export function formatAPIKeyScope(scope: string) {
 }
 
 export function parseCommaSeparatedValues(value: string) {
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
+  return value.split(",").flatMap((item) => {
+    const trimmed = item.trim();
+    return trimmed ? [trimmed] : [];
+  });
 }

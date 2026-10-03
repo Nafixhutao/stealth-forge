@@ -1,4 +1,4 @@
-import { AuthSettingsView } from "@/features/resources/misc-views";
+import { AuthSettingsView } from "@/features/settings/auth-settings-view";
 
 export default async function AuthPage({
   params,

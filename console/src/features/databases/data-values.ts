@@ -3,6 +3,8 @@ import { DatabaseColumnType } from "@/api/generated/schema";
 import type { DatabaseColumn } from "@/api/types";
 import { formatDate } from "@/lib/format";
 
+const DATETIME_PREFIX = /^\d{4}-\d{2}-\d{2}T/;
+
 export const databaseName = z.string().trim().min(2).max(120);
 export const columnRequest = z
   .object({
@@ -47,7 +49,7 @@ function validateValue(
             ? typeof value === "number" && Number.isFinite(value)
             : column.type === "datetime"
               ? typeof value === "string" &&
-                /^\d{4}-\d{2}-\d{2}T/.test(value) &&
+                DATETIME_PREFIX.test(value) &&
                 Number.isFinite(Date.parse(value))
               : typeof value === "string" &&
                 (column.type !== "varchar" ||
@@ -72,8 +74,9 @@ export function parseRowData(
   if (!data || typeof data !== "object" || Array.isArray(data))
     throw new Error("Row data must be a JSON object.");
   const record = data as Record<string, unknown>;
+  const columnByKey = new Map(columns.map((column) => [column.key, column]));
   for (const [key, value] of Object.entries(record)) {
-    const column = columns.find((item) => item.key === key);
+    const column = columnByKey.get(key);
     if (!column)
       throw new Error(
         `Unknown column: ${key}. Create the column in Schema first.`,

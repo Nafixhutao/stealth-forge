@@ -8,7 +8,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useDeferredValue } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -217,15 +217,16 @@ export function LogViewer({
     }
   }, [autoFollow, lines]);
 
-  const visible = useMemo(
-    () =>
-      lines.filter((line) =>
-        `${line.level} ${line.message}`
-          .toLowerCase()
-          .includes(search.toLowerCase()),
-      ),
-    [lines, search],
-  );
+  // Defer the (potentially large) filter so the search input stays responsive
+  // while up to a few thousand lines are matched. `toLowerCase` is computed
+  // once for the term instead of once per line.
+  const deferredSearch = useDeferredValue(search);
+  const visible = useMemo(() => {
+    const term = deferredSearch.toLowerCase();
+    return lines.filter((line) =>
+      `${line.level} ${line.message}`.toLowerCase().includes(term),
+    );
+  }, [lines, deferredSearch]);
 
   const handleCopy = async () => {
     if (!lines.length) return;

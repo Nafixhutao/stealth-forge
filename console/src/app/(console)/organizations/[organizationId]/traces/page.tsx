@@ -1,4 +1,4 @@
-import { OrganizationTracesView } from "@/features/organization/organization-views";
+import { OrganizationTracesView } from "@/features/organization/traces-view";
 
 export default async function OrganizationTracesPage({
   params,

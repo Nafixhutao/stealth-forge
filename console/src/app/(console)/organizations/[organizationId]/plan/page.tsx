@@ -1,4 +1,4 @@
-import { OrganizationPlanView } from "@/features/organization/organization-views";
+import { OrganizationPlanView } from "@/features/organization/plan-view";
 
 export default async function PlanPage({
   params,

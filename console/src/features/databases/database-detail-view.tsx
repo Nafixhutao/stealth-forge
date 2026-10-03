@@ -132,12 +132,14 @@ export function DatabaseDetailView({
     !nextCursor(tables.data)
       ? tableData.length
       : undefined;
+  const backupItems = backups.data?.backups ?? [];
   const latestBackup =
-    backups.data && !nextCursor(backups.data)
-      ? [...backups.data.backups].sort(
-          (first, second) =>
-            Date.parse(second.created_at) - Date.parse(first.created_at),
-        )[0]
+    backups.data && !nextCursor(backups.data) && backupItems.length
+      ? backupItems.reduce((latest, candidate) =>
+          Date.parse(candidate.created_at) > Date.parse(latest.created_at)
+            ? candidate
+            : latest,
+        )
       : undefined;
   return (
     <>

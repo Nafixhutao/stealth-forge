@@ -1,4 +1,4 @@
-import { OrganizationMembersView } from "@/features/organization/organization-views";
+import { OrganizationMembersView } from "@/features/organization/members-view";
 
 export default async function MembersPage({
   params,

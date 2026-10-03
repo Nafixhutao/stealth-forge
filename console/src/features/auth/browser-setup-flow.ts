@@ -96,6 +96,12 @@ export function useBrowserSetupFlow() {
   const startInstall = useStartSetupInstall();
   const issueHandoff = useIssueSetupHandoffToken();
   const issueHandoffRef = useRef(issueHandoff.mutateAsync);
+  // TanStack Query keeps these function references stable across renders.
+  // Reading them once lets effects and callbacks depend on the function rather
+  // than the whole query/mutation result object, whose identity changes on
+  // every render.
+  const refetchSetupStatus = setupStatus.refetch;
+  const saveConfigMutate = saveConfig.mutateAsync;
   const watchedConfig = useWatch({ control: configForm.control });
   const networkMode = watchedConfig.network_mode ?? defaultConfig.network_mode;
   const databaseMode =
@@ -160,9 +166,9 @@ export function useBrowserSetupFlow() {
     const callback = callbackStatus;
     if (!callback || callbackHandled.current === callback) return;
     callbackHandled.current = callback;
-    void setupStatus.refetch();
+    void refetchSetupStatus();
     router.replace("/setup", { scroll: false });
-  }, [callbackStatus, router, setupStatus]);
+  }, [callbackStatus, router, refetchSetupStatus]);
 
   useEffect(() => {
     if (activeStep !== "install") return;
@@ -206,9 +212,9 @@ export function useBrowserSetupFlow() {
 
   useEffect(() => {
     if (activeStep !== "install") return;
-    const timer = window.setInterval(() => void setupStatus.refetch(), 2_000);
+    const timer = window.setInterval(() => void refetchSetupStatus(), 2_000);
     return () => window.clearInterval(timer);
-  }, [activeStep, setupStatus]);
+  }, [activeStep, refetchSetupStatus]);
 
   useEffect(() => {
     issueHandoffRef.current = issueHandoff.mutateAsync;
@@ -251,11 +257,11 @@ export function useBrowserSetupFlow() {
 
   const persistConfig = useCallback(
     async (values: ConfigValues) => {
-      const saved = await saveConfig.mutateAsync(toSetupRequest(values));
-      await setupStatus.refetch();
+      const saved = await saveConfigMutate(toSetupRequest(values));
+      await refetchSetupStatus();
       return saved;
     },
-    [saveConfig, setupStatus],
+    [saveConfigMutate, refetchSetupStatus],
   );
 
   const moveTo = (next: SetupStep) => {

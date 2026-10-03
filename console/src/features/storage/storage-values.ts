@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+const INVALID_OBJECT_NAME = /[\\/\u0000-\u001f\u007f]/;
+
 export const bucketName = z
   .string()
   .trim()
@@ -12,8 +14,7 @@ export const objectName = z
   .min(1)
   .max(255)
   .refine(
-    (name) =>
-      name !== "." && name !== ".." && !/[\\/\u0000-\u001f\u007f]/.test(name),
+    (name) => name !== "." && name !== ".." && !INVALID_OBJECT_NAME.test(name),
     "Use a filename without path separators or control characters.",
   );
 

@@ -1,4 +1,4 @@
-import { LogsView } from "@/features/resources/misc-views";
+import { LogsView } from "@/features/observability/logs-view";
 
 export default async function LogsPage({
   params,

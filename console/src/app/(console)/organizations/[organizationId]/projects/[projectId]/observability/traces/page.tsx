@@ -1,4 +1,4 @@
-import { TracesView } from "@/features/resources/misc-views";
+import { TracesView } from "@/features/observability/traces-view";
 
 export default async function TracesPage({
   params,

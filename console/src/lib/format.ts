@@ -1,5 +1,14 @@
 import { formatDistanceToNowStrict, format } from "date-fns";
 
+// Intl formatter construction is comparatively expensive and formatCount runs
+// during list rendering, so the two notations are built once at module scope.
+const compactCountFormat = new Intl.NumberFormat("en-US", {
+  notation: "compact",
+});
+const standardCountFormat = new Intl.NumberFormat("en-US", {
+  notation: "standard",
+});
+
 export function formatDate(value: string | null | undefined) {
   if (!value) return "Not available";
   const date = new Date(value);
@@ -30,9 +39,9 @@ export function formatBytes(value: number | null | undefined) {
 
 export function formatCount(value: number | null | undefined) {
   if (value === null || value === undefined) return "Not available";
-  return new Intl.NumberFormat("en-US", {
-    notation: value > 9999 ? "compact" : "standard",
-  }).format(value);
+  return (value > 9999 ? compactCountFormat : standardCountFormat).format(
+    value,
+  );
 }
 
 export function formatDuration(value: number | null | undefined) {

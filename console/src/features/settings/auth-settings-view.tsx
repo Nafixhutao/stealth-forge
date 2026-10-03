@@ -103,10 +103,10 @@ export function AuthSettingsView({ projectId }: { projectId: string }) {
               onClick={() =>
                 update.mutate(
                   {
-                    cors_origins: originValue
-                      .split("\n")
-                      .map((origin) => origin.trim())
-                      .filter(Boolean),
+                    cors_origins: originValue.split("\n").flatMap((origin) => {
+                      const trimmed = origin.trim();
+                      return trimmed ? [trimmed] : [];
+                    }),
                   },
                   { onSuccess: () => toast.success("Origins saved") },
                 )

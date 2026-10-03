@@ -1,4 +1,4 @@
-import { MessagingView } from "@/features/resources/misc-views";
+import { MessagingView } from "@/features/messaging/messaging-view";
 
 export default async function MessagingPage({
   params,

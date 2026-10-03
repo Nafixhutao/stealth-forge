@@ -1,4 +1,4 @@
-import { OrganizationAuditView } from "@/features/organization/organization-views";
+import { OrganizationAuditView } from "@/features/organization/audit-view";
 
 export default async function AuditPage({
   params,

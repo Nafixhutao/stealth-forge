@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { formatDate } from "@/lib/format";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { AdminLogVolumeChartLoader } from "./admin-log-volume-chart-loader";
 import { AdminShell } from "./admin-shell";
 import { AdminTimeRange, useAdminTimeRange } from "./admin-time-range";
@@ -25,9 +26,18 @@ export function AdminErrorsView() {
   const timeRange = useAdminTimeRange();
   const [service, setService] = useState("");
   const [search, setSearch] = useState("");
+  // Debounce the free-text filters so typing does not start one telemetry
+  // request per keystroke (the inputs still update immediately).
+  const debouncedService = useDebouncedValue(service);
+  const debouncedSearch = useDebouncedValue(search);
   const query = useMemo(
-    () => ({ ...timeRange.query, service, query: search, limit: 100 }),
-    [search, service, timeRange.query],
+    () => ({
+      ...timeRange.query,
+      service: debouncedService,
+      query: debouncedSearch,
+      limit: 100,
+    }),
+    [debouncedSearch, debouncedService, timeRange.query],
   );
   const errors = useAdminErrors(query, {
     refetchInterval: timeRange.refreshInterval,

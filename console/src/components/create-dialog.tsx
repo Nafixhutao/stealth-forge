@@ -255,7 +255,11 @@ export function CreateDialog<
               Cancel
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending ? <Loader2 className="size-4 animate-spin" /> : null}
+              {pending ? (
+                <span className="inline-flex animate-spin" aria-hidden="true">
+                  <Loader2 className="size-4" />
+                </span>
+              ) : null}
               {pending ? pendingLabel : submitLabel}
             </Button>
           </DialogFooter>
