@@ -73,7 +73,7 @@ To test a release candidate, pin it explicitly; the unpinned bootstrap path
 and `stealth update` never select prereleases automatically:
 
 ```bash
-STEALTH_VERSION=v0.2.6-rc.1 \
+STEALTH_VERSION=v0.2.6-rc.3 \
   sh bootstrap.sh
 ```
 

@@ -1,6 +1,6 @@
-# Stealth v0.2.6 Beta 1
+# Stealth v0.2.6 Beta 3
 
-This guide installs prerelease `v0.2.6-rc.1`. The bootstrap selects stable
+This guide installs prerelease `v0.2.6-rc.3`. The bootstrap selects stable
 releases by default, so pin this version to install the Beta.
 
 ## Install on a VPS
@@ -13,7 +13,7 @@ bootstrap_base='https://raw.githubusercontent.com/Nafixhutao/stealth-forge/'
 bootstrap_ref='main'
 bootstrap_url="${bootstrap_base}${bootstrap_ref}/scripts/bootstrap.sh"
 curl -fsSL "$bootstrap_url" -o /tmp/stealth-bootstrap.sh &&
-  STEALTH_VERSION=v0.2.6-rc.1 sh /tmp/stealth-bootstrap.sh
+  STEALTH_VERSION=v0.2.6-rc.3 sh /tmp/stealth-bootstrap.sh
 ```
 
 The `&&` ensures the installer runs only after the bootstrap script downloads
@@ -38,5 +38,5 @@ stealth status
 stealth doctor
 ```
 
-See the [Beta release](https://github.com/Nafixhutao/stealth-forge/releases/tag/v0.2.6-rc.1)
+See the [Beta release](https://github.com/Nafixhutao/stealth-forge/releases/tag/v0.2.6-rc.3)
 and the [CLI guide](docs/cli.md) for more detail.
