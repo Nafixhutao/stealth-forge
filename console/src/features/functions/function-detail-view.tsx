@@ -421,5 +421,3 @@ export function FunctionDetailView({
     </>
   );
 }
-
-export { FunctionDeploymentView } from "./function-deployment-view";

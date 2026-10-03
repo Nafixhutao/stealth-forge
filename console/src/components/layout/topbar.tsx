@@ -17,7 +17,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useLogout } from "@/api/mutations";
+import { useLogout } from "@/api/mutations/auth";
 import { toast } from "sonner";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { useConsoleRouteContext } from "@/components/navigation/console-route-context";

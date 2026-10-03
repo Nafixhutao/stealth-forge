@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCreateProjectUser } from "@/api/mutations";
 import { nextCursor } from "@/api/pagination";
@@ -51,72 +51,75 @@ export function UsersView({
       );
   };
   const canManage = query.data?.can_manage === true;
-  const columns: DataTableColumnDef<ProjectUser>[] = [
-    {
-      accessorKey: "email",
-      header: "Identity",
-      cell: ({ row }) => (
-        <div>
-          <Link
-            href={
-              "/organizations/" +
-              organizationId +
-              "/projects/" +
-              projectId +
-              "/users/" +
-              row.original.id
-            }
-            className="font-medium text-white hover:text-cyan-200"
-          >
-            {row.original.email}
-          </Link>
-          <p className="text-xs text-slate-500">
-            {row.original.name ?? "Unnamed user"}
-          </p>
-        </div>
-      ),
-    },
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: ({ row }) => <StatusBadge status={row.original.status} />,
-    },
-    {
-      accessorKey: "email_verified",
-      header: "Verified",
-      cell: ({ row }) =>
-        row.original.email_verified ? (
-          <Badge variant="success">Verified</Badge>
-        ) : (
-          <Badge variant="warning">Pending</Badge>
+  const columns = useMemo<DataTableColumnDef<ProjectUser>[]>(
+    () => [
+      {
+        accessorKey: "email",
+        header: "Identity",
+        cell: ({ row }) => (
+          <div>
+            <Link
+              href={
+                "/organizations/" +
+                organizationId +
+                "/projects/" +
+                projectId +
+                "/users/" +
+                row.original.id
+              }
+              className="font-medium text-white hover:text-cyan-200"
+            >
+              {row.original.email}
+            </Link>
+            <p className="text-xs text-slate-500">
+              {row.original.name ?? "Unnamed user"}
+            </p>
+          </div>
         ),
-    },
-    {
-      accessorKey: "created_at",
-      header: "Created",
-      cell: ({ row }) => formatDate(row.original.created_at),
-    },
-    {
-      id: "actions",
-      header: "",
-      cell: ({ row }) => (
-        <Button asChild variant="ghost" size="sm">
-          <Link
-            href={
-              "/organizations/" +
-              organizationId +
-              "/projects/" +
-              projectId +
-              "/users/" +
-              row.original.id
-            }
-          >
-            Open user
-          </Link>
-        </Button>
-      ),
-    },
-  ];
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => <StatusBadge status={row.original.status} />,
+      },
+      {
+        accessorKey: "email_verified",
+        header: "Verified",
+        cell: ({ row }) =>
+          row.original.email_verified ? (
+            <Badge variant="success">Verified</Badge>
+          ) : (
+            <Badge variant="warning">Pending</Badge>
+          ),
+      },
+      {
+        accessorKey: "created_at",
+        header: "Created",
+        cell: ({ row }) => formatDate(row.original.created_at),
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => (
+          <Button asChild variant="ghost" size="sm">
+            <Link
+              href={
+                "/organizations/" +
+                organizationId +
+                "/projects/" +
+                projectId +
+                "/users/" +
+                row.original.id
+              }
+            >
+              Open user
+            </Link>
+          </Button>
+        ),
+      },
+    ],
+    [organizationId, projectId],
+  );
   return (
     <>
       <PageHeader

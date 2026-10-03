@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useConsoleRouteContext } from "@/components/navigation/console-route-context";
-import { useCurrentAccount } from "@/api/queries";
+import { useCurrentAccount } from "@/api/queries/account";
 import { cn } from "@/lib/utils";
 import { sidebarNav, type NavSection } from "./sidebar-nav";
 

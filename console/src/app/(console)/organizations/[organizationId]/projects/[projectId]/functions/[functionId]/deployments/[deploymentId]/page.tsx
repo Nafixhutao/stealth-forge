@@ -1,4 +1,4 @@
-import { FunctionDeploymentView } from "@/features/functions/function-detail-view";
+import { FunctionDeploymentView } from "@/features/functions/function-deployment-view";
 
 export default async function FunctionDeploymentPage({
   params,

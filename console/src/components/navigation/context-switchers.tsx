@@ -10,12 +10,8 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  useOrganization,
-  useOrganizations,
-  useProject,
-  useProjects,
-} from "@/api/queries";
+import { useOrganization, useOrganizations } from "@/api/queries/organizations";
+import { useProject, useProjects } from "@/api/queries/projects";
 import type { Organization, Project } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/feedback/error-state";

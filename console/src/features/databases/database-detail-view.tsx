@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { nextCursor } from "@/api/pagination";
 import { useCreateDatabaseTable } from "@/api/mutations";
@@ -62,6 +62,55 @@ export function DatabaseDetailView({
       router.push(`${base}/databases/${databaseId}/tables/${result.table.id}`);
     else tablesNavigation.goFirst();
   };
+  const columns = useMemo<DataTableColumnDef<DatabaseTable>[]>(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Table",
+        cell: ({ row }) => (
+          <Link
+            href={`${base}/databases/${databaseId}/tables/${row.original.id}`}
+            className="font-medium text-white hover:text-amber-200"
+          >
+            {row.original.name}
+          </Link>
+        ),
+      },
+      {
+        accessorKey: "row_security",
+        header: "Row security",
+        cell: ({ row }) => (
+          <Badge variant="neutral">
+            {row.original.row_security ? "Enabled" : "Disabled"}
+          </Badge>
+        ),
+      },
+      {
+        accessorKey: "created_at",
+        header: "Created",
+        cell: ({ row }) => formatDate(row.original.created_at),
+      },
+      {
+        accessorKey: "updated_at",
+        header: "Updated",
+        cell: ({ row }) => formatDate(row.original.updated_at),
+      },
+      {
+        id: "open",
+        header: "",
+        cell: ({ row }) => (
+          <Button asChild size="sm" variant="ghost">
+            <Link
+              href={`${base}/databases/${databaseId}/tables/${row.original.id}`}
+            >
+              Open table
+            </Link>
+          </Button>
+        ),
+      },
+    ],
+    [base, databaseId],
+  );
   if (query.error && !database)
     return (
       <ErrorState
@@ -78,52 +127,6 @@ export function DatabaseDetailView({
         description="The database may have been removed or is outside this project."
       />
     );
-  const columns: DataTableColumnDef<DatabaseTable>[] = [
-    {
-      accessorKey: "name",
-      header: "Table",
-      cell: ({ row }) => (
-        <Link
-          href={`${base}/databases/${databaseId}/tables/${row.original.id}`}
-          className="font-medium text-white hover:text-amber-200"
-        >
-          {row.original.name}
-        </Link>
-      ),
-    },
-    {
-      accessorKey: "row_security",
-      header: "Row security",
-      cell: ({ row }) => (
-        <Badge variant="neutral">
-          {row.original.row_security ? "Enabled" : "Disabled"}
-        </Badge>
-      ),
-    },
-    {
-      accessorKey: "created_at",
-      header: "Created",
-      cell: ({ row }) => formatDate(row.original.created_at),
-    },
-    {
-      accessorKey: "updated_at",
-      header: "Updated",
-      cell: ({ row }) => formatDate(row.original.updated_at),
-    },
-    {
-      id: "open",
-      header: "",
-      cell: ({ row }) => (
-        <Button asChild size="sm" variant="ghost">
-          <Link
-            href={`${base}/databases/${databaseId}/tables/${row.original.id}`}
-          >
-            Open table
-          </Link>
-        </Button>
-      ),
-    },
-  ];
   const tableData = tables.data?.tables ?? [];
   const tableCount =
     tables.data &&

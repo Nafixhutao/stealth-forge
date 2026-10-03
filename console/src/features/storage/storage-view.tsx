@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { HardDrive } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCreateBucket } from "@/api/mutations";
 import { nextCursor } from "@/api/pagination";
@@ -46,45 +46,48 @@ export function StorageView({
       router.push(`${base}/storage/${result.bucket.id}`);
     }
   };
-  const columns: DataTableColumnDef<StorageBucket>[] = [
-    {
-      accessorKey: "name",
-      header: "Bucket",
-      cell: ({ row }) => (
-        <Link
-          href={`${base}/storage/${row.original.id}`}
-          className="font-medium text-white hover:text-emerald-200"
-        >
-          {row.original.name}
-        </Link>
-      ),
-    },
-    {
-      accessorKey: "used_bytes",
-      header: "Used",
-      cell: ({ row }) =>
-        `${formatBytes(row.original.used_bytes)} / ${formatBytes(row.original.quota_bytes)}`,
-    },
-    {
-      accessorKey: "file_security",
-      header: "File security",
-      cell: ({ row }) => (
-        <Badge variant={row.original.file_security ? "success" : "warning"}>
-          {row.original.file_security ? "Enabled" : "Disabled"}
-        </Badge>
-      ),
-    },
-    {
-      accessorKey: "created_at",
-      header: "Created",
-      cell: ({ row }) => formatDate(row.original.created_at),
-    },
-    {
-      accessorKey: "updated_at",
-      header: "Updated",
-      cell: ({ row }) => formatDate(row.original.updated_at),
-    },
-  ];
+  const columns = useMemo<DataTableColumnDef<StorageBucket>[]>(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Bucket",
+        cell: ({ row }) => (
+          <Link
+            href={`${base}/storage/${row.original.id}`}
+            className="font-medium text-white hover:text-emerald-200"
+          >
+            {row.original.name}
+          </Link>
+        ),
+      },
+      {
+        accessorKey: "used_bytes",
+        header: "Used",
+        cell: ({ row }) =>
+          `${formatBytes(row.original.used_bytes)} / ${formatBytes(row.original.quota_bytes)}`,
+      },
+      {
+        accessorKey: "file_security",
+        header: "File security",
+        cell: ({ row }) => (
+          <Badge variant={row.original.file_security ? "success" : "warning"}>
+            {row.original.file_security ? "Enabled" : "Disabled"}
+          </Badge>
+        ),
+      },
+      {
+        accessorKey: "created_at",
+        header: "Created",
+        cell: ({ row }) => formatDate(row.original.created_at),
+      },
+      {
+        accessorKey: "updated_at",
+        header: "Updated",
+        cell: ({ row }) => formatDate(row.original.updated_at),
+      },
+    ],
+    [base],
+  );
   return (
     <>
       <PageHeader

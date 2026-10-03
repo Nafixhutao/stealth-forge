@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import * as echarts from "echarts/core";
 import { type ComposeOption } from "echarts/core";
 import {
@@ -58,6 +58,10 @@ export type AdminMetricChartProps = { items: AdminMetric[] };
 export function AdminMetricChart({ items }: AdminMetricChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const descriptionId = useId();
+  // The data table can hold up to a thousand rows. Render it only once the
+  // user expands the <details> so a collapsed, auto-refreshing panel does not
+  // rebuild every row on each poll.
+  const [tableOpen, setTableOpen] = useState(false);
 
   useEffect(() => {
     const element = chartRef.current;
@@ -166,8 +170,20 @@ export function AdminMetricChart({ items }: AdminMetricChartProps) {
         chart shows up to eight scalar series. Expand the data table to inspect
         structured metric values.
       </p>
-      <details className="rounded-md border border-graphite bg-void">
-        <summary className="flex min-h-11 cursor-pointer items-center px-3 text-xs font-medium text-mist hover:text-paper">
+      <details
+        className="rounded-md border border-graphite bg-void"
+        open={tableOpen}
+      >
+        <summary
+          className="flex min-h-11 cursor-pointer items-center px-3 text-xs font-medium text-mist hover:text-paper"
+          onClick={(event) => {
+            // Keep <details> controlled so the row list is only built while it
+            // is open. jsdom does not dispatch the native toggle event, so the
+            // state is driven from the summary click instead.
+            event.preventDefault();
+            setTableOpen((value) => !value);
+          }}
+        >
           View data table
         </summary>
         <div className="overflow-x-auto border-t border-graphite p-3">
@@ -182,22 +198,26 @@ export function AdminMetricChart({ items }: AdminMetricChartProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-graphite">
-              {items.map((item, index) => (
-                <tr
-                  key={`${item.timestamp}-${item.name}-${item.service}-${index}`}
-                >
-                  <td className="whitespace-nowrap px-2 py-2 font-mono text-mist">
-                    <time dateTime={item.timestamp}>
-                      {formatDate(item.timestamp)}
-                    </time>
-                  </td>
-                  <td className="px-2 py-2 font-mono text-mist">{item.name}</td>
-                  <td className="px-2 py-2 text-mist">{item.service}</td>
-                  <td className="px-2 py-2 text-right font-mono tabular-nums text-mist">
-                    {metricValueLabel(item)}
-                  </td>
-                </tr>
-              ))}
+              {tableOpen
+                ? items.map((item, index) => (
+                    <tr
+                      key={`${item.timestamp}-${item.name}-${item.service}-${index}`}
+                    >
+                      <td className="whitespace-nowrap px-2 py-2 font-mono text-mist">
+                        <time dateTime={item.timestamp}>
+                          {formatDate(item.timestamp)}
+                        </time>
+                      </td>
+                      <td className="px-2 py-2 font-mono text-mist">
+                        {item.name}
+                      </td>
+                      <td className="px-2 py-2 text-mist">{item.service}</td>
+                      <td className="px-2 py-2 text-right font-mono tabular-nums text-mist">
+                        {metricValueLabel(item)}
+                      </td>
+                    </tr>
+                  ))
+                : null}
             </tbody>
           </table>
         </div>

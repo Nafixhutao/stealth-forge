@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { cn } from "@/lib/utils";
 
 export const adminRanges = [
@@ -49,16 +56,6 @@ function readPreference(key: string, legacyKey: string) {
   return (
     window.localStorage.getItem(key) ?? window.localStorage.getItem(legacyKey)
   );
-}
-
-function subscribeToPreferences(onChange: () => void) {
-  if (typeof window === "undefined") return () => undefined;
-  window.addEventListener("storage", onChange);
-  window.addEventListener(preferenceEvent, onChange);
-  return () => {
-    window.removeEventListener("storage", onChange);
-    window.removeEventListener(preferenceEvent, onChange);
-  };
 }
 
 function readStoredRange(): AnyRangeKey {
@@ -136,9 +133,34 @@ function readStoredRefresh(): RefreshKey {
 }
 
 export function useAdminTimeRange() {
+  // Reading four localStorage keys plus a JSON.stringify on every render (for
+  // example on every keystroke in the debounced telemetry filters) is
+  // needless. Cache the snapshot per hook instance and drop the cache whenever
+  // the store reports a change.
+  const snapshotCache = useRef<string | null>(null);
+  const subscribe = useCallback((onChange: () => void) => {
+    if (typeof window === "undefined") return () => undefined;
+    const handleChange = () => {
+      snapshotCache.current = null;
+      onChange();
+    };
+    snapshotCache.current = null;
+    window.addEventListener("storage", handleChange);
+    window.addEventListener(preferenceEvent, handleChange);
+    return () => {
+      window.removeEventListener("storage", handleChange);
+      window.removeEventListener(preferenceEvent, handleChange);
+    };
+  }, []);
+  const getSnapshot = useCallback(() => {
+    if (snapshotCache.current === null) {
+      snapshotCache.current = readStoredPreferencesSnapshot();
+    }
+    return snapshotCache.current;
+  }, []);
   const storedPreferencesSnapshot = useSyncExternalStore(
-    subscribeToPreferences,
-    readStoredPreferencesSnapshot,
+    subscribe,
+    getSnapshot,
     () => serverPreferencesSnapshot,
   );
   const storedPreferences = parseStoredPreferences(storedPreferencesSnapshot);

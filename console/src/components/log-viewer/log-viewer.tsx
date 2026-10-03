@@ -8,7 +8,14 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, useDeferredValue } from "react";
+import {
+  memo,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +33,19 @@ const LOG_LEVEL_CLASSES: Record<string, string> = {
 
 function getLogLevelClass(level: string) {
   return LOG_LEVEL_CLASSES[level.toLowerCase()] ?? LOG_LEVEL_CLASSES.info;
+}
+
+// Formatting a timestamp is comparatively expensive and is otherwise redone
+// for every retained line on every poll. Cache by the raw timestamp value and
+// bound the map so a long-lived session cannot grow it without limit.
+const formattedDateCache = new Map<string, string>();
+function formatLogDate(value: string) {
+  const cached = formattedDateCache.get(value);
+  if (cached !== undefined) return cached;
+  const formatted = formatDate(value);
+  if (formattedDateCache.size >= 5000) formattedDateCache.clear();
+  formattedDateCache.set(value, formatted);
+  return formatted;
 }
 
 function getScrollBehavior(): ScrollBehavior {
@@ -128,6 +148,22 @@ function LogToolbar({
   );
 }
 
+const LogLineRow = memo(function LogLineRow({ line }: { line: LogLine }) {
+  return (
+    <div className="stealth-log-line flex gap-3">
+      <span className="w-32 shrink-0 text-fog">
+        {formatLogDate(line.created_at)}
+      </span>
+      <span className={getLogLevelClass(line.level)}>
+        {line.level.padEnd(5, " ")}
+      </span>
+      <span className="min-w-0 flex-1 break-words whitespace-pre-wrap text-mist">
+        {line.message}
+      </span>
+    </div>
+  );
+});
+
 function LogBody({
   lines,
   error,
@@ -158,19 +194,7 @@ function LogBody({
           </div>
         ) : null}
         {lines.length ? (
-          lines.map((line) => (
-            <div key={line.id} className="stealth-log-line flex gap-3">
-              <span className="w-32 shrink-0 text-fog">
-                {formatDate(line.created_at)}
-              </span>
-              <span className={getLogLevelClass(line.level)}>
-                {line.level.padEnd(5, " ")}
-              </span>
-              <span className="min-w-0 flex-1 break-words whitespace-pre-wrap text-mist">
-                {line.message}
-              </span>
-            </div>
-          ))
+          lines.map((line) => <LogLineRow key={line.id} line={line} />)
         ) : error ? null : (
           <div className="py-16 text-center font-sans text-sm text-fog">
             {loading

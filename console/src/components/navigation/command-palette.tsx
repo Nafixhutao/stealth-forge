@@ -3,7 +3,8 @@
 import { Command, FolderKanban, Search, Waypoints } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useOrganizations, useProjects } from "@/api/queries";
+import { useOrganizations } from "@/api/queries/organizations";
+import { useProjects } from "@/api/queries/projects";
 import { useConsoleRouteContext } from "@/components/navigation/console-route-context";
 import {
   Dialog,
