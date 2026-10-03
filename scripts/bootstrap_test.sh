@@ -209,7 +209,7 @@ chmod 0755 "${latest_bin}/curl"
 cp "${mock_bin}/docker" "${latest_bin}/docker"
 cp "${mock_bin}/id" "${latest_bin}/id"
 
-if STEALTH_VERSION= STEALTH_TEST_LATEST_URL="https://github.com/Stealth-deplover/stealth/releases/tag/v0.1.0" \
+if STEALTH_VERSION= STEALTH_TEST_LATEST_URL="https://github.com/Nafixhutao/stealth-forge/releases/tag/v0.1.0" \
 	STEALTH_TEST_LATEST_FAIL=0 PATH="${latest_bin}:${PATH}" \
 	"$script" >"${temporary_dir}/latest-valid.out" 2>&1; then
 	printf '%s\n' 'valid latest redirect was not handled' >&2
@@ -229,7 +229,7 @@ if grep -q 'failed to determine latest release' "${temporary_dir}/latest-valid.o
 	exit 1
 fi
 
-if STEALTH_VERSION= STEALTH_TEST_LATEST_URL="https://github.com/Stealth-deplover/stealth/releases/tag/v0.3.0-rc.1" \
+if STEALTH_VERSION= STEALTH_TEST_LATEST_URL="https://github.com/Nafixhutao/stealth-forge/releases/tag/v0.3.0-rc.1" \
 	STEALTH_TEST_LATEST_FAIL=0 PATH="${latest_bin}:${PATH}" \
 	"$script" >"${temporary_dir}/latest-rc.out" 2>&1; then
 	printf '%s\n' 'latest release RC redirect was accepted' >&2
@@ -237,7 +237,7 @@ if STEALTH_VERSION= STEALTH_TEST_LATEST_URL="https://github.com/Stealth-deplover
 fi
 grep -q 'latest GitHub release is not stable' "${temporary_dir}/latest-rc.out"
 
-if STEALTH_VERSION= STEALTH_TEST_LATEST_URL="https://github.com/Stealth-deplover/stealth/releases/tag/v10.20.30" \
+if STEALTH_VERSION= STEALTH_TEST_LATEST_URL="https://github.com/Nafixhutao/stealth-forge/releases/tag/v10.20.30" \
 	STEALTH_TEST_LATEST_FAIL=0 PATH="${latest_bin}:${PATH}" \
 	"$script" >"${temporary_dir}/latest-multidigit.out" 2>&1; then
 	printf '%s\n' 'multi-digit latest redirect was not handled' >&2
@@ -245,7 +245,7 @@ if STEALTH_VERSION= STEALTH_TEST_LATEST_URL="https://github.com/Stealth-deplover
 fi
 grep -q 'could not download .* for v10\.20\.30' "${temporary_dir}/latest-multidigit.out"
 
-if STEALTH_VERSION= STEALTH_TEST_LATEST_URL="https://github.com/Stealth-deplover/stealth/releases" \
+if STEALTH_VERSION= STEALTH_TEST_LATEST_URL="https://github.com/Nafixhutao/stealth-forge/releases" \
 	STEALTH_TEST_LATEST_FAIL=0 PATH="${latest_bin}:${PATH}" \
 	"$script" >"${temporary_dir}/no-release.out" 2>&1; then
 	printf '%s\n' 'no-release redirect was accepted' >&2
@@ -257,7 +257,7 @@ if grep -q 'release version must match' "${temporary_dir}/no-release.out"; then
 	exit 1
 fi
 
-if STEALTH_VERSION= STEALTH_TEST_LATEST_URL="https://github.com/Stealth-deplover/stealth/releases/" \
+if STEALTH_VERSION= STEALTH_TEST_LATEST_URL="https://github.com/Nafixhutao/stealth-forge/releases/" \
 	STEALTH_TEST_LATEST_FAIL=0 PATH="${latest_bin}:${PATH}" \
 	"$script" >"${temporary_dir}/no-release-slash.out" 2>&1; then
 	printf '%s\n' 'trailing-slash no-release redirect was accepted' >&2
@@ -273,7 +273,7 @@ if STEALTH_VERSION= STEALTH_TEST_LATEST_URL="https://example.com/unexpected" \
 fi
 grep -q 'failed to determine latest release' "${temporary_dir}/malformed.out"
 
-if STEALTH_VERSION= STEALTH_TEST_LATEST_URL="https://github.com/Stealth-deplover/stealth/releases/tag/" \
+if STEALTH_VERSION= STEALTH_TEST_LATEST_URL="https://github.com/Nafixhutao/stealth-forge/releases/tag/" \
 	STEALTH_TEST_LATEST_FAIL=0 PATH="${latest_bin}:${PATH}" \
 	"$script" >"${temporary_dir}/empty-tag.out" 2>&1; then
 	printf '%s\n' 'empty tag redirect was accepted' >&2

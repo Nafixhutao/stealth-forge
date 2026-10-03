@@ -11,7 +11,7 @@ The bootstrap entrypoint is hosted on GitHub Raw through the repository's
 `HEAD` reference, so it follows the current default branch:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Stealth-deplover/stealth/HEAD/scripts/bootstrap.sh | sh
+curl -fsSL https://raw.githubusercontent.com/Nafixhutao/stealth-forge/HEAD/scripts/bootstrap.sh | sh
 ```
 
 The bootstrap detects Linux amd64/arm64, resolves the latest stable SemVer
@@ -57,7 +57,7 @@ root-equivalent access to the host, as described in Docker's
 For an inspect-first install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Stealth-deplover/stealth/HEAD/scripts/bootstrap.sh -o bootstrap.sh
+curl -fsSL https://raw.githubusercontent.com/Nafixhutao/stealth-forge/HEAD/scripts/bootstrap.sh -o bootstrap.sh
 less bootstrap.sh
 sh bootstrap.sh
 ```

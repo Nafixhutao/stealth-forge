@@ -53,7 +53,7 @@ func newHostInstallFixture(t *testing.T) *hostInstallFixture {
 		t.Fatal(err)
 	}
 	if err := installengine.WritePrivateFile(layout.EnvFile, strings.Join([]string{
-		"STEALTH_API_IMAGE=ghcr.io/stealth-deplover/stealth-api:v1.2.3",
+		"STEALTH_API_IMAGE=ghcr.io/nafixhutao/stealth-api:v1.2.3",
 		"API_HOST_PORT=" + port,
 		"CONSOLE_HOST_PORT=" + port,
 		"PROXY_HTTP_PORT=" + port,

@@ -77,14 +77,14 @@ claim a full browser/provider installation or run a full production stack.
 - [ ] On a clean Linux amd64 host, run the published bootstrap entrypoint:
 
   ```bash
-  curl -fsSL https://raw.githubusercontent.com/Stealth-deplover/stealth/HEAD/scripts/bootstrap.sh | sh
+  curl -fsSL https://raw.githubusercontent.com/Nafixhutao/stealth-forge/HEAD/scripts/bootstrap.sh | sh
   ```
 
   For an RC, use the explicit testing path so a normal stable install cannot
   follow the pre-release:
 
   ```bash
-  curl -fsSL https://raw.githubusercontent.com/Stealth-deplover/stealth/HEAD/scripts/bootstrap.sh -o bootstrap.sh
+  curl -fsSL https://raw.githubusercontent.com/Nafixhutao/stealth-forge/HEAD/scripts/bootstrap.sh -o bootstrap.sh
   STEALTH_VERSION=v0.3.0-rc.1 sh bootstrap.sh
   ```
 

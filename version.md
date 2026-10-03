@@ -9,7 +9,7 @@ Run this block in the same interactive Bash or SSH session. The URL is built
 from separate parts so it is not accidentally split at `/stealth/`:
 
 ```sh
-bootstrap_base='https://raw.githubusercontent.com/Stealth-deplover/stealth/'
+bootstrap_base='https://raw.githubusercontent.com/Nafixhutao/stealth-forge/'
 bootstrap_ref='main'
 bootstrap_url="${bootstrap_base}${bootstrap_ref}/scripts/bootstrap.sh"
 curl -fsSL "$bootstrap_url" -o /tmp/stealth-bootstrap.sh &&
@@ -38,5 +38,5 @@ stealth status
 stealth doctor
 ```
 
-See the [Beta release](https://github.com/Stealth-deplover/stealth/releases/tag/v0.2.6-rc.1)
+See the [Beta release](https://github.com/Nafixhutao/stealth-forge/releases/tag/v0.2.6-rc.1)
 and the [CLI guide](docs/cli.md) for more detail.

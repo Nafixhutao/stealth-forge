@@ -21,9 +21,9 @@ import (
 )
 
 const (
-	defaultRawBaseURL           = "https://raw.githubusercontent.com/Stealth-deplover/stealth"
-	defaultGitHubAPIBaseURL     = "https://api.github.com/repos/Stealth-deplover/stealth"
-	defaultGitHubReleaseBaseURL = "https://github.com/Stealth-deplover/stealth/releases/download"
+	defaultRawBaseURL           = "https://raw.githubusercontent.com/Nafixhutao/stealth-forge"
+	defaultGitHubAPIBaseURL     = "https://api.github.com/repos/Nafixhutao/stealth-forge"
+	defaultGitHubReleaseBaseURL = "https://github.com/Nafixhutao/stealth-forge/releases/download"
 	defaultHomeName             = ".stealth"
 )
 

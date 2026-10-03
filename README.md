@@ -1,6 +1,6 @@
 # Stealth
 
-[![CI](https://github.com/Stealth-deplover/stealth/actions/workflows/ci.yml/badge.svg)](https://github.com/Stealth-deplover/stealth/actions/workflows/ci.yml)
+[![CI](https://github.com/Nafixhutao/stealth-forge/actions/workflows/ci.yml/badge.svg)](https://github.com/Nafixhutao/stealth-forge/actions/workflows/ci.yml)
 [![Go 1.26](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](https://go.dev/dl/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
@@ -26,7 +26,7 @@ The CLI installer is the supported release path. The bootstrap script is
 read through GitHub Raw's `HEAD` reference, so it follows the repository's
 current default branch when that branch is renamed to `main`.
 
-The [latest stable release](https://github.com/Stealth-deplover/stealth/releases/latest)
+The [latest stable release](https://github.com/Nafixhutao/stealth-forge/releases/latest)
 is the supported install target. Read its release notes before installing, and
 use [Upgrade and rollback](docs/upgrade.md) for operational changes and recovery
 boundaries.
@@ -39,7 +39,7 @@ installed before running Stealth. Public deployments also need DNS and TLS
 termination in front of the bundled proxy.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Stealth-deplover/stealth/HEAD/scripts/bootstrap.sh | sh
+curl -fsSL https://raw.githubusercontent.com/Nafixhutao/stealth-forge/HEAD/scripts/bootstrap.sh | sh
 ```
 
 When Docker prerequisites are missing on a supported distribution, bootstrap
@@ -166,7 +166,7 @@ release workflow publishes coordinated GHCR images for API, setup, worker,
 migration, and Console plus Linux amd64/arm64 CLI archives and `checksums.txt`
 after production smoke checks. Release candidates are pre-releases; the
 unpinned installer and `stealth update` remain stable-only.
-The [latest stable release](https://github.com/Stealth-deplover/stealth/releases/latest)
+The [latest stable release](https://github.com/Nafixhutao/stealth-forge/releases/latest)
 is documented with [Release engineering](docs/release.md), the [release
 checklist](docs/RELEASING.md), and [Upgrade and rollback](docs/upgrade.md). The
 installer still requires a clean-host validation pass; `stealth update` is for

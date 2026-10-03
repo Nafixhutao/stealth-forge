@@ -156,7 +156,7 @@ services:
   otel-collector:
     # This release image is derived from the pinned upstream contrib image and
     # adds only the scratch-compatible live health probe.
-    image: "${OTEL_COLLECTOR_IMAGE:-ghcr.io/stealth-deplover/stealth-otel-collector:v0.2.2}"
+    image: "${OTEL_COLLECTOR_IMAGE:-ghcr.io/nafixhutao/stealth-otel-collector:v0.2.2}"
     restart: unless-stopped
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
     environment:
@@ -201,7 +201,7 @@ services:
       telemetry_ingest:
 
   telemetry-host:
-    image: "${OTEL_HOST_COLLECTOR_IMAGE:-ghcr.io/stealth-deplover/stealth-otel-collector:v0.2.2}"
+    image: "${OTEL_HOST_COLLECTOR_IMAGE:-ghcr.io/nafixhutao/stealth-otel-collector:v0.2.2}"
     restart: unless-stopped
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
     volumes:
@@ -235,7 +235,7 @@ services:
     networks: [telemetry_ingest]
 
   telemetry-docker-logs:
-    image: "${OTEL_DOCKER_LOGS_COLLECTOR_IMAGE:-ghcr.io/stealth-deplover/stealth-otel-docker-logs:v0.2.2}"
+    image: "${OTEL_DOCKER_LOGS_COLLECTOR_IMAGE:-ghcr.io/nafixhutao/stealth-otel-docker-logs:v0.2.2}"
     restart: unless-stopped
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
     volumes:
@@ -408,7 +408,7 @@ services:
     networks: [telemetry_docker]
 
   telemetry-docker:
-    image: "${OTEL_DOCKER_COLLECTOR_IMAGE:-ghcr.io/stealth-deplover/stealth-otel-collector:v0.2.2}"
+    image: "${OTEL_DOCKER_COLLECTOR_IMAGE:-ghcr.io/nafixhutao/stealth-otel-collector:v0.2.2}"
     restart: unless-stopped
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
     volumes:

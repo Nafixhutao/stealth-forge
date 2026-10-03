@@ -173,7 +173,7 @@ func TestProductionComposeUsesLiveScratchCompatibleCollectorCheckAndProxy(t *tes
 	if !strings.Contains(dockerMetrics, "telemetry_ingest:") || !strings.Contains(dockerMetrics, "telemetry_docker:") || strings.Contains(dockerMetrics, "telemetry_store") {
 		t.Fatal("Docker metrics Collector network boundary is incorrect")
 	}
-	if !strings.Contains(compose, `image: "${OTEL_DOCKER_COLLECTOR_IMAGE:-ghcr.io/stealth-deplover/stealth-otel-collector:v0.2.2}"`) {
+	if !strings.Contains(compose, `image: "${OTEL_DOCKER_COLLECTOR_IMAGE:-ghcr.io/nafixhutao/stealth-otel-collector:v0.2.2}"`) {
 		t.Fatal("isolated Docker metrics collector should use the capability-free wrapper image")
 	}
 	for _, service := range []string{"telemetry-host", "telemetry-docker-logs"} {
@@ -182,7 +182,7 @@ func TestProductionComposeUsesLiveScratchCompatibleCollectorCheckAndProxy(t *tes
 			t.Fatalf("%s does not probe the live health endpoint", service)
 		}
 	}
-	if !strings.Contains(compose, `image: "${OTEL_DOCKER_LOGS_COLLECTOR_IMAGE:-ghcr.io/stealth-deplover/stealth-otel-docker-logs:v0.2.2}"`) {
+	if !strings.Contains(compose, `image: "${OTEL_DOCKER_LOGS_COLLECTOR_IMAGE:-ghcr.io/nafixhutao/stealth-otel-docker-logs:v0.2.2}"`) {
 		t.Fatal("Docker log collector should use its dedicated image")
 	}
 	if !strings.Contains(compose, "otelcol-state-init:") || !strings.Contains(compose, "chown -R 10001:10001 /var/lib/otelcol") {

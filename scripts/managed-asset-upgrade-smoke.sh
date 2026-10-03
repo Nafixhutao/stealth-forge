@@ -69,9 +69,9 @@ for required_image in "$collector_image" "$docker_logs_image" "$docker_proxy_ima
 		exit 1
 	fi
 done
-docker tag "$collector_image" "ghcr.io/stealth-deplover/stealth-otel-collector:$target_version"
-docker tag "$docker_logs_image" "ghcr.io/stealth-deplover/stealth-otel-docker-logs:$target_version"
-docker tag "$docker_proxy_image" "ghcr.io/stealth-deplover/stealth-telemetry-docker-proxy:$target_version"
+docker tag "$collector_image" "ghcr.io/nafixhutao/stealth-otel-collector:$target_version"
+docker tag "$docker_logs_image" "ghcr.io/nafixhutao/stealth-otel-docker-logs:$target_version"
+docker tag "$docker_proxy_image" "ghcr.io/nafixhutao/stealth-telemetry-docker-proxy:$target_version"
 
 # Model an installation created before the PR #83 collector split and before
 # managed-asset migration. The configuration remains operator state; only
