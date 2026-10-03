@@ -27,7 +27,9 @@ func migrateReleaseConfig(values map[string]string, targetVersion, installedVers
 		switch {
 		case current == "":
 			updates[key] = target
-		case strings.TrimSpace(installedVersion) != "" && current == ImageName(imageName, installedVersion):
+		case strings.TrimSpace(installedVersion) != "" &&
+			(current == ImageName(imageName, installedVersion) ||
+				current == legacyImageName(imageName, installedVersion)):
 			updates[key] = target
 		}
 	}

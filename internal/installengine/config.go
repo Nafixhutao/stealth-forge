@@ -230,8 +230,24 @@ func GenerateConfig(options ConfigOptions) (string, error) {
 	return FormatEnvFile(values), nil
 }
 
+// imageRegistry is the canonical OCI registry namespace for release-managed
+// images. It must match the namespace the release workflow publishes to
+// (ghcr.io/<repository owner>).
+const imageRegistry = "ghcr.io/nafixhutao"
+
+// legacyImageRegistry is the previous registry namespace. Installations created
+// before the repository moved still reference it, so an upgrade re-homes their
+// release-managed images onto imageRegistry.
+const legacyImageRegistry = "ghcr.io/stealth-deplover"
+
 func ImageName(name, version string) string {
-	return "ghcr.io/stealth-deplover/" + name + ":" + strings.TrimSpace(version)
+	return imageRegistry + "/" + name + ":" + strings.TrimSpace(version)
+}
+
+// legacyImageName returns the canonical reference an installation created
+// before the registry move would hold for the installed release.
+func legacyImageName(name, version string) string {
+	return legacyImageRegistry + "/" + name + ":" + strings.TrimSpace(version)
 }
 
 var releaseManagedImageNames = map[string]string{

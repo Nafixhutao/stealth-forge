@@ -124,13 +124,13 @@ docker tag "$api_image" "stealth-api:v025-operator-override"
 # Release-owned v0.2.5 image tags are advanced by MigrateReleaseConfig. Make
 # the target release references resolve locally without changing the target
 # Compose or the migration policy.
-docker tag "$worker_image" "ghcr.io/stealth-deplover/stealth-worker:${target_version}"
-docker tag "$ingress_control_image" "ghcr.io/stealth-deplover/stealth-ingress-control:${target_version}"
-docker tag "$migrate_image" "ghcr.io/stealth-deplover/stealth-migrate:${target_version}"
-docker tag "$console_image" "ghcr.io/stealth-deplover/stealth-console:${target_version}"
-docker tag "$collector_image" "ghcr.io/stealth-deplover/stealth-otel-collector:${target_version}"
-docker tag "$logs_image" "ghcr.io/stealth-deplover/stealth-otel-docker-logs:${target_version}"
-docker tag "$proxy_image" "ghcr.io/stealth-deplover/stealth-telemetry-docker-proxy:${target_version}"
+docker tag "$worker_image" "ghcr.io/nafixhutao/stealth-worker:${target_version}"
+docker tag "$ingress_control_image" "ghcr.io/nafixhutao/stealth-ingress-control:${target_version}"
+docker tag "$migrate_image" "ghcr.io/nafixhutao/stealth-migrate:${target_version}"
+docker tag "$console_image" "ghcr.io/nafixhutao/stealth-console:${target_version}"
+docker tag "$collector_image" "ghcr.io/nafixhutao/stealth-otel-collector:${target_version}"
+docker tag "$logs_image" "ghcr.io/nafixhutao/stealth-otel-docker-logs:${target_version}"
+docker tag "$proxy_image" "ghcr.io/nafixhutao/stealth-telemetry-docker-proxy:${target_version}"
 
 python3 -c '
 import functools

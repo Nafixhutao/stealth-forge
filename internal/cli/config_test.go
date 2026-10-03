@@ -391,7 +391,7 @@ func TestLoadExistingPlanRejectsMalformedVersionState(t *testing.T) {
 		wantDetail string
 	}{
 		{name: "malformed version file", version: "v1.0", apiImage: imageName("stealth-api", "v1.0.0"), wantDetail: "VERSION"},
-		{name: "missing image tag", apiImage: "ghcr.io/stealth-deplover/stealth-api", wantDetail: "STEALTH_API_IMAGE"},
+		{name: "missing image tag", apiImage: "ghcr.io/nafixhutao/stealth-api", wantDetail: "STEALTH_API_IMAGE"},
 		{name: "invalid image tag", apiImage: imageName("stealth-api", "latest"), wantDetail: "STEALTH_API_IMAGE"},
 	}
 	for _, test := range tests {

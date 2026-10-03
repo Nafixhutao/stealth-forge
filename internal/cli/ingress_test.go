@@ -49,7 +49,7 @@ func ingressFixture(t *testing.T, databaseURL, statuses string) (*App, *ingressC
 	}
 	if err := installengine.WritePrivateFile(layout.EnvFile, strings.Join([]string{
 		"SETUP_MODE=false",
-		"STEALTH_INGRESS_CONTROL_IMAGE=ghcr.io/stealth-deplover/stealth-ingress-control:v1.2.3",
+		"STEALTH_INGRESS_CONTROL_IMAGE=ghcr.io/nafixhutao/stealth-ingress-control:v1.2.3",
 		"PUBLIC_APP_URL=https://cloud.example.com",
 		"DATABASE_URL=" + databaseURL,
 	}, "\n")+"\n"); err != nil {

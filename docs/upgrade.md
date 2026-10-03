@@ -14,7 +14,7 @@ API/worker/schema versions.
 
 ## Go module identity
 
-The canonical Go module path is now `github.com/Stealth-deplover/stealth`.
+The canonical Go module path is now `github.com/Nafixhutao/stealth-forge`.
 Consumers of the previous `github.com/nazxf/stealth-api` module must update
 their imports and `go.mod` requirements; Go does not automatically treat the
 two paths as the same module. No compatibility `replace` directive or
@@ -67,8 +67,8 @@ example:
 release=v0.2.6                 # the bridge named by that release's notes
 asset=stealth_Linux_x86_64.tar.gz
 workdir="$(mktemp -d)"
-curl -fsSLo "$workdir/$asset" "https://github.com/Stealth-deplover/stealth/releases/download/$release/$asset"
-curl -fsSLo "$workdir/checksums.txt" "https://github.com/Stealth-deplover/stealth/releases/download/$release/checksums.txt"
+curl -fsSLo "$workdir/$asset" "https://github.com/Nafixhutao/stealth-forge/releases/download/$release/$asset"
+curl -fsSLo "$workdir/checksums.txt" "https://github.com/Nafixhutao/stealth-forge/releases/download/$release/checksums.txt"
 (cd "$workdir" && grep "  $asset$" checksums.txt | sha256sum -c -)
 tar -xzf "$workdir/$asset" -C "$workdir"
 install -m 0755 "$workdir/stealth" "$(readlink -f "$(command -v stealth)")"

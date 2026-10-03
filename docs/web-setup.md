@@ -12,7 +12,7 @@ engine on the host.
 Run the supported bootstrap or invoke the installed CLI:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Stealth-deplover/stealth/HEAD/scripts/bootstrap.sh | sh
+curl -fsSL https://raw.githubusercontent.com/Nafixhutao/stealth-forge/HEAD/scripts/bootstrap.sh | sh
 stealth install
 ```
 

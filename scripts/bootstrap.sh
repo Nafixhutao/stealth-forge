@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-repository="Stealth-deplover/stealth"
+repository="Nafixhutao/stealth-forge"
 release_root="https://github.com/${repository}/releases/download"
 tmp_root="${TMPDIR:-/tmp}"
 temporary_dir=""

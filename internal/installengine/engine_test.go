@@ -410,17 +410,17 @@ func TestGenerateConfigAcceptsReleaseCandidateVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(config, "STEALTH_API_IMAGE=ghcr.io/stealth-deplover/stealth-api:v0.3.0-rc.1") {
+	if !strings.Contains(config, "STEALTH_API_IMAGE=ghcr.io/nafixhutao/stealth-api:v0.3.0-rc.1") {
 		t.Fatal("generated config did not retain the RC version in image tags")
 	}
-	if !strings.Contains(config, "STEALTH_TELEMETRY_DOCKER_PROXY_IMAGE=ghcr.io/stealth-deplover/stealth-telemetry-docker-proxy:v0.3.0-rc.1") {
+	if !strings.Contains(config, "STEALTH_TELEMETRY_DOCKER_PROXY_IMAGE=ghcr.io/nafixhutao/stealth-telemetry-docker-proxy:v0.3.0-rc.1") {
 		t.Fatal("generated config did not include the versioned telemetry Docker proxy image")
 	}
 	for _, expected := range []string{
-		"OTEL_COLLECTOR_IMAGE=ghcr.io/stealth-deplover/stealth-otel-collector:v0.3.0-rc.1",
-		"OTEL_HOST_COLLECTOR_IMAGE=ghcr.io/stealth-deplover/stealth-otel-collector:v0.3.0-rc.1",
-		"OTEL_DOCKER_COLLECTOR_IMAGE=ghcr.io/stealth-deplover/stealth-otel-collector:v0.3.0-rc.1",
-		"OTEL_DOCKER_LOGS_COLLECTOR_IMAGE=ghcr.io/stealth-deplover/stealth-otel-docker-logs:v0.3.0-rc.1",
+		"OTEL_COLLECTOR_IMAGE=ghcr.io/nafixhutao/stealth-otel-collector:v0.3.0-rc.1",
+		"OTEL_HOST_COLLECTOR_IMAGE=ghcr.io/nafixhutao/stealth-otel-collector:v0.3.0-rc.1",
+		"OTEL_DOCKER_COLLECTOR_IMAGE=ghcr.io/nafixhutao/stealth-otel-collector:v0.3.0-rc.1",
+		"OTEL_DOCKER_LOGS_COLLECTOR_IMAGE=ghcr.io/nafixhutao/stealth-otel-docker-logs:v0.3.0-rc.1",
 	} {
 		if !strings.Contains(config, expected) {
 			t.Fatalf("generated config did not include %q", expected)
@@ -936,7 +936,7 @@ func TestPrepareMigratesPrePR83ManagedAssets(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(layout.ProxyFile), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := WritePrivateFile(layout.EnvFile, "STEALTH_API_IMAGE=ghcr.io/stealth-deplover/stealth-api:v0.2.2\nPOSTGRES_PASSWORD=old-postgres-secret\nCLICKHOUSE_PASSWORD=old-clickhouse-secret\nPUBLIC_APP_URL=http://127.0.0.1:8080\nDOCKER_GID=999\n"); err != nil {
+	if err := WritePrivateFile(layout.EnvFile, "STEALTH_API_IMAGE=ghcr.io/nafixhutao/stealth-api:v0.2.2\nPOSTGRES_PASSWORD=old-postgres-secret\nCLICKHOUSE_PASSWORD=old-clickhouse-secret\nPUBLIC_APP_URL=http://127.0.0.1:8080\nDOCKER_GID=999\n"); err != nil {
 		t.Fatal(err)
 	}
 	oldCompose := "services:\n  otel-collector:\n    volumes:\n      - /:/hostfs:ro\n    cap_add:\n      - DAC_READ_SEARCH\nnetworks:\n  stealth:\n"
