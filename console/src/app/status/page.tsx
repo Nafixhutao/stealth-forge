@@ -1,6 +1,6 @@
 "use client";
 
-import { usePublicStatusPage } from "@/api/queries";
+import { usePublicStatusPage } from "@/api/queries/admin-control";
 import { ErrorState } from "@/components/feedback/error-state";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { Badge } from "@/components/ui/badge";

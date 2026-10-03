@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { useOrganization, useProject } from "@/api/queries";
+import { useOrganization } from "@/api/queries/organizations";
+import { useProject } from "@/api/queries/projects";
 import { useConsoleRouteContext } from "@/components/navigation/console-route-context";
 import { organizationProjectsPath, projectPath } from "@/lib/console-routes";
 import { cn } from "@/lib/utils";

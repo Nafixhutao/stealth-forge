@@ -164,44 +164,55 @@ export function TableRowsPanel({
     () => new Map(schema.map((column) => [column.key, column])),
     [schema],
   );
-
-  const rowColumns: DataTableColumnDef<DatabaseRow>[] = [
-    {
-      accessorKey: "id",
-      header: "Row ID",
-      cell: ({ row }) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => updateUrl({ row_id: row.original.id })}
-        >
-          Inspect {row.original.id.slice(0, 8)}…
-        </Button>
+  // The set of rendered columns is the union of the schema keys and the keys
+  // present in the current page of rows. Memoize it (and the column
+  // definitions) so DataTable/TanStack Table is not invalidated on every
+  // query-state change.
+  const rowKeys = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...schema.map((column) => column.key),
+          ...(rows.data?.rows ?? []).flatMap((row) =>
+            Object.keys(row.data ?? {}),
+          ),
+        ]),
       ),
-    },
-    ...Array.from(
-      new Set([
-        ...schema.map((column) => column.key),
-        ...(rows.data?.rows ?? []).flatMap((row) =>
-          Object.keys(row.data ?? {}),
+    [schema, rows.data],
+  );
+  const rowColumns = useMemo<DataTableColumnDef<DatabaseRow>[]>(
+    () => [
+      {
+        accessorKey: "id",
+        header: "Row ID",
+        cell: ({ row }) => (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => updateUrl({ row_id: row.original.id })}
+          >
+            Inspect {row.original.id.slice(0, 8)}…
+          </Button>
         ),
-      ]),
-    ).map((key): DataTableColumnDef<DatabaseRow> => ({
-      id: `data:${key}`,
-      header: key,
-      cell: ({ row }) => (
-        <RowValue
-          value={row.original.data?.[key]}
-          type={columnByKey.get(key)?.type}
-        />
-      ),
-    })),
-    {
-      accessorKey: "updated_at",
-      header: "Updated",
-      cell: ({ row }) => formatDate(row.original.updated_at),
-    },
-  ];
+      },
+      ...rowKeys.map((key): DataTableColumnDef<DatabaseRow> => ({
+        id: `data:${key}`,
+        header: key,
+        cell: ({ row }) => (
+          <RowValue
+            value={row.original.data?.[key]}
+            type={columnByKey.get(key)?.type}
+          />
+        ),
+      })),
+      {
+        accessorKey: "updated_at",
+        header: "Updated",
+        cell: ({ row }) => formatDate(row.original.updated_at),
+      },
+    ],
+    [columnByKey, rowKeys, updateUrl],
+  );
 
   return (
     <>

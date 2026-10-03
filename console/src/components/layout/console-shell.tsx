@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useCurrentAccount } from "@/api/queries";
+import { useCurrentAccount } from "@/api/queries/account";
 import { ApiError } from "@/api/client";
 import { ErrorState } from "@/components/feedback/error-state";
 import { LoadingState } from "@/components/feedback/loading-state";

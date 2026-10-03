@@ -75,51 +75,54 @@ export function AgentRunsView({
     }
   };
 
-  const columns: DataTableColumnDef<AgentRun>[] = [
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: ({ row }) => <AgentRunStatusBadge status={row.original.status} />,
-    },
-    {
-      accessorKey: "prompt",
-      header: "Task",
-      cell: ({ row }) => (
-        <Link
-          href={`${runBase}/${row.original.id}`}
-          className="block max-w-lg truncate text-slate-200 hover:text-cyan-200"
-          title={row.original.prompt}
-        >
-          {row.original.prompt}
-        </Link>
-      ),
-    },
-    {
-      accessorKey: "created_at",
-      header: "Created",
-      cell: ({ row }) => formatDate(row.original.created_at),
-    },
-    {
-      accessorKey: "started_at",
-      header: "Started",
-      cell: ({ row }) => formatDate(row.original.started_at),
-    },
-    {
-      accessorKey: "finished_at",
-      header: "Finished",
-      cell: ({ row }) => formatDate(row.original.finished_at),
-    },
-    {
-      id: "duration",
-      header: "Duration",
-      cell: ({ row }) => formatAgentRunDuration(row.original),
-    },
-    {
-      id: "run_id",
-      header: "Run ID",
-      cell: ({ row }) => <ResourceId id={row.original.id} label="Run ID" />,
-    },
-  ];
+  const columns = useMemo<DataTableColumnDef<AgentRun>[]>(
+    () => [
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => <AgentRunStatusBadge status={row.original.status} />,
+      },
+      {
+        accessorKey: "prompt",
+        header: "Task",
+        cell: ({ row }) => (
+          <Link
+            href={`${runBase}/${row.original.id}`}
+            className="block max-w-lg truncate text-slate-200 hover:text-cyan-200"
+            title={row.original.prompt}
+          >
+            {row.original.prompt}
+          </Link>
+        ),
+      },
+      {
+        accessorKey: "created_at",
+        header: "Created",
+        cell: ({ row }) => formatDate(row.original.created_at),
+      },
+      {
+        accessorKey: "started_at",
+        header: "Started",
+        cell: ({ row }) => formatDate(row.original.started_at),
+      },
+      {
+        accessorKey: "finished_at",
+        header: "Finished",
+        cell: ({ row }) => formatDate(row.original.finished_at),
+      },
+      {
+        id: "duration",
+        header: "Duration",
+        cell: ({ row }) => formatAgentRunDuration(row.original),
+      },
+      {
+        id: "run_id",
+        header: "Run ID",
+        cell: ({ row }) => <ResourceId id={row.original.id} label="Run ID" />,
+      },
+    ],
+    [runBase],
+  );
 
   const hasRows =
     (runs.data?.runs.length ?? 0) > 0 ||

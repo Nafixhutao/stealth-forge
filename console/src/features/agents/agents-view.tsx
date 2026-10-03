@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Activity, Bot, Play, Settings2, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   useCreateAgent,
@@ -96,51 +96,54 @@ export function AgentsView({
     router.push(`${base}/agents/${result.agent.id}`);
   };
 
-  const columns: DataTableColumnDef<Agent>[] = [
-    {
-      accessorKey: "name",
-      header: "Agent",
-      cell: ({ row }) => (
-        <Link
-          href={`${base}/agents/${row.original.id}`}
-          className="block min-w-48 font-medium text-white hover:text-orange-200"
-        >
-          <span className="block">{row.original.name}</span>
-          <span
-            className="mt-0.5 block max-w-sm truncate text-[11px] text-slate-500"
-            title={row.original.description}
+  const columns = useMemo<DataTableColumnDef<Agent>[]>(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Agent",
+        cell: ({ row }) => (
+          <Link
+            href={`${base}/agents/${row.original.id}`}
+            className="block min-w-48 font-medium text-white hover:text-orange-200"
           >
-            {row.original.description || "No description"}
+            <span className="block">{row.original.name}</span>
+            <span
+              className="mt-0.5 block max-w-sm truncate text-[11px] text-slate-500"
+              title={row.original.description}
+            >
+              {row.original.description || "No description"}
+            </span>
+          </Link>
+        ),
+      },
+      { accessorKey: "role", header: "Role" },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => <StatusBadge status={row.original.status} />,
+      },
+      {
+        id: "runtime",
+        header: "Runtime",
+        cell: ({ row }) => (
+          <span className="font-mono text-xs text-slate-400">
+            {row.original.provider}/{row.original.model}
           </span>
-        </Link>
-      ),
-    },
-    { accessorKey: "role", header: "Role" },
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: ({ row }) => <StatusBadge status={row.original.status} />,
-    },
-    {
-      id: "runtime",
-      header: "Runtime",
-      cell: ({ row }) => (
-        <span className="font-mono text-xs text-slate-400">
-          {row.original.provider}/{row.original.model}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "created_at",
-      header: "Created",
-      cell: ({ row }) => formatDate(row.original.created_at),
-    },
-    {
-      accessorKey: "updated_at",
-      header: "Updated",
-      cell: ({ row }) => formatDate(row.original.updated_at),
-    },
-  ];
+        ),
+      },
+      {
+        accessorKey: "created_at",
+        header: "Created",
+        cell: ({ row }) => formatDate(row.original.created_at),
+      },
+      {
+        accessorKey: "updated_at",
+        header: "Updated",
+        cell: ({ row }) => formatDate(row.original.updated_at),
+      },
+    ],
+    [base],
+  );
 
   const hasRows =
     agents.length > 0 || navigation.canFirst || Boolean(nextCursor(query.data));

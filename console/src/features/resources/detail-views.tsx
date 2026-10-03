@@ -1,7 +1,5 @@
-export {
-  FunctionDetailView,
-  FunctionDeploymentView,
-} from "@/features/functions/function-detail-view";
+export { FunctionDetailView } from "@/features/functions/function-detail-view";
+export { FunctionDeploymentView } from "@/features/functions/function-deployment-view";
 export { FunctionExecutionView } from "@/features/functions/function-execution-view";
 export {
   SiteDetailView,

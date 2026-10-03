@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { Database as DatabaseIcon, MoreHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCreateDatabase } from "@/api/mutations";
 import { nextCursor } from "@/api/pagination";
@@ -48,48 +48,51 @@ export function DatabasesView({
       router.push(`${base}/databases/${result.database.id}`);
     }
   };
-  const columns: DataTableColumnDef<Database>[] = [
-    {
-      accessorKey: "name",
-      header: "Database",
-      cell: ({ row }) => (
-        <Link
-          href={`${base}/databases/${row.original.id}`}
-          className="font-medium text-white hover:text-amber-200"
-        >
-          {row.original.name}
-        </Link>
-      ),
-    },
-    {
-      accessorKey: "id",
-      header: "Database ID",
-      cell: ({ row }) => (
-        <ResourceId id={row.original.id} label="Database ID" />
-      ),
-    },
-    {
-      accessorKey: "created_at",
-      header: "Created",
-      cell: ({ row }) => formatDate(row.original.created_at),
-    },
-    {
-      accessorKey: "updated_at",
-      header: "Updated",
-      cell: ({ row }) => formatDate(row.original.updated_at),
-    },
-    {
-      id: "open",
-      header: "",
-      cell: ({ row }) => (
-        <Button asChild size="sm" variant="ghost">
-          <Link href={`${base}/databases/${row.original.id}`}>
-            Browse <MoreHorizontal className="size-3.5" />
+  const columns = useMemo<DataTableColumnDef<Database>[]>(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Database",
+        cell: ({ row }) => (
+          <Link
+            href={`${base}/databases/${row.original.id}`}
+            className="font-medium text-white hover:text-amber-200"
+          >
+            {row.original.name}
           </Link>
-        </Button>
-      ),
-    },
-  ];
+        ),
+      },
+      {
+        accessorKey: "id",
+        header: "Database ID",
+        cell: ({ row }) => (
+          <ResourceId id={row.original.id} label="Database ID" />
+        ),
+      },
+      {
+        accessorKey: "created_at",
+        header: "Created",
+        cell: ({ row }) => formatDate(row.original.created_at),
+      },
+      {
+        accessorKey: "updated_at",
+        header: "Updated",
+        cell: ({ row }) => formatDate(row.original.updated_at),
+      },
+      {
+        id: "open",
+        header: "",
+        cell: ({ row }) => (
+          <Button asChild size="sm" variant="ghost">
+            <Link href={`${base}/databases/${row.original.id}`}>
+              Browse <MoreHorizontal className="size-3.5" />
+            </Link>
+          </Button>
+        ),
+      },
+    ],
+    [base],
+  );
   return (
     <>
       <PageHeader

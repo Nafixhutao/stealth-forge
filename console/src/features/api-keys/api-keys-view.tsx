@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCreateAPIKey, useRevokeAPIKey } from "@/api/mutations";
 import { nextCursor } from "@/api/pagination";
@@ -87,70 +87,75 @@ export function APIKeysView({
     toast.success("API key created");
   };
 
-  const columns: DataTableColumnDef<APIKey>[] = [
-    {
-      accessorKey: "name",
-      header: "Key",
-      cell: ({ row }) => (
-        <div>
-          <Link
-            href={`${base}/api-keys/${row.original.id}`}
-            className="font-medium text-white hover:text-cyan-200"
-          >
-            {row.original.name}
-          </Link>
-          <p className="font-mono text-xs text-slate-600">
-            {row.original.prefix}
-          </p>
-        </div>
-      ),
-    },
-    {
-      accessorKey: "scopes",
-      header: "Permissions",
-      cell: ({ row }) => {
-        const scopes = row.original.scopes.map(formatAPIKeyScope).join(", ");
-        return (
-          <span
-            className="block max-w-sm truncate text-xs text-slate-400"
-            title={scopes}
-          >
-            {scopes || "Not available"}
-          </span>
-        );
+  const columns = useMemo<DataTableColumnDef<APIKey>[]>(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Key",
+        cell: ({ row }) => (
+          <div>
+            <Link
+              href={`${base}/api-keys/${row.original.id}`}
+              className="font-medium text-white hover:text-cyan-200"
+            >
+              {row.original.name}
+            </Link>
+            <p className="font-mono text-xs text-slate-600">
+              {row.original.prefix}
+            </p>
+          </div>
+        ),
       },
-    },
-    {
-      accessorKey: "created_at",
-      header: "Created",
-      cell: ({ row }) => formatDate(row.original.created_at),
-    },
-    {
-      accessorKey: "last_used_at",
-      header: "Last used",
-      cell: ({ row }) => formatDate(row.original.last_used_at),
-    },
-    {
-      accessorKey: "expires_at",
-      header: "Expires",
-      cell: ({ row }) => formatDate(row.original.expires_at),
-    },
-    {
-      accessorKey: "revoked_at",
-      header: "State",
-      cell: ({ row }) => <StatusBadge status={getApiKeyStatus(row.original)} />,
-    },
-    {
-      id: "actions",
-      header: "",
-      cell: ({ row }) => {
-        const status = getApiKeyStatus(row.original);
-        return canManage && status !== "revoked" ? (
-          <APIKeyRevokeAction projectId={projectId} apiKey={row.original} />
-        ) : null;
+      {
+        accessorKey: "scopes",
+        header: "Permissions",
+        cell: ({ row }) => {
+          const scopes = row.original.scopes.map(formatAPIKeyScope).join(", ");
+          return (
+            <span
+              className="block max-w-sm truncate text-xs text-slate-400"
+              title={scopes}
+            >
+              {scopes || "Not available"}
+            </span>
+          );
+        },
       },
-    },
-  ];
+      {
+        accessorKey: "created_at",
+        header: "Created",
+        cell: ({ row }) => formatDate(row.original.created_at),
+      },
+      {
+        accessorKey: "last_used_at",
+        header: "Last used",
+        cell: ({ row }) => formatDate(row.original.last_used_at),
+      },
+      {
+        accessorKey: "expires_at",
+        header: "Expires",
+        cell: ({ row }) => formatDate(row.original.expires_at),
+      },
+      {
+        accessorKey: "revoked_at",
+        header: "State",
+        cell: ({ row }) => (
+          <StatusBadge status={getApiKeyStatus(row.original)} />
+        ),
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => {
+          const status = getApiKeyStatus(row.original);
+          return canManage && status !== "revoked" ? (
+            <APIKeyRevokeAction projectId={projectId} apiKey={row.original} />
+          ) : null;
+        },
+      },
+    ],
+    [base, canManage, projectId],
+  );
 
   const hasRows =
     keys.length > 0 || navigation.canFirst || nextCursor(query.data);
