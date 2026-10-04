@@ -300,7 +300,13 @@ export function useBrowserSetupFlow() {
       if (!result?.authorization_url) {
         throw new Error("GitHub authorization URL was not returned.");
       }
-      window.location.assign(result.authorization_url);
+      // The URL is server-generated, but only ever navigate to GitHub so a
+      // tampered or misconfigured response cannot redirect off-origin.
+      const authorizationURL = new URL(result.authorization_url);
+      if (authorizationURL.origin !== "https://github.com") {
+        throw new Error("GitHub authorization URL was not a GitHub origin.");
+      }
+      window.location.assign(authorizationURL.toString());
     } catch (error) {
       setActionError(error);
     }

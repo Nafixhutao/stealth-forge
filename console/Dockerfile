@@ -15,6 +15,7 @@ COPY console/ ./
 COPY openapi/ /app/openapi/
 ARG NEXT_PUBLIC_API_BASE_URL=
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+ENV NEXT_TELEMETRY_DISABLED=1
 RUN mkdir -p public && npm run build
 
 FROM node:24-alpine AS runner

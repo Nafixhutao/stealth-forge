@@ -169,15 +169,23 @@ export function PasswordRecoveryView() {
   });
 
   const requestRecovery = recoveryForm.handleSubmit(async (values) => {
-    await request.mutateAsync({ email: values.email });
-    setSent(true);
+    try {
+      await request.mutateAsync({ email: values.email });
+      setSent(true);
+    } catch {
+      // The mutation error is rendered by the view; handleSubmit re-throws.
+    }
   });
   const resetPassword = passwordForm.handleSubmit(async (values) => {
-    await confirm.mutateAsync({
-      ...tokenPayload(token ?? secret ?? "", secret),
-      password: values.password,
-    });
-    router.replace("/login?reset=success");
+    try {
+      await confirm.mutateAsync({
+        ...tokenPayload(token ?? secret ?? "", secret),
+        password: values.password,
+      });
+      router.replace("/login?reset=success");
+    } catch {
+      // The mutation error is rendered by the view; handleSubmit re-throws.
+    }
   });
 
   if (hasToken) {

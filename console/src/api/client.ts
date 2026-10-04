@@ -3,7 +3,23 @@ import type { QueryFunctionContext } from "@tanstack/react-query";
 import type { paths } from "@/api/generated/schema";
 import { isRecord } from "@/lib/utils";
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+// A trailing slash would produce a double slash in apiUrl and break the
+// realtime EventSource path, so normalize it once at module load.
+const rawApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+const apiBaseUrl = rawApiBaseUrl.replace(/\/+$/, "");
+
+if (apiBaseUrl && typeof window !== "undefined") {
+  try {
+    const parsed = new URL(apiBaseUrl, window.location.origin);
+    if (window.location.protocol === "https:" && parsed.protocol === "http:") {
+      console.warn(
+        "NEXT_PUBLIC_API_BASE_URL uses http on an https page; the browser will block the request as mixed content.",
+      );
+    }
+  } catch {
+    console.warn("NEXT_PUBLIC_API_BASE_URL is not a valid URL.");
+  }
+}
 
 export const api = createClient<paths>({
   baseUrl: apiBaseUrl,

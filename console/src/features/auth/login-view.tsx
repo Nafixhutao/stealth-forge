@@ -41,8 +41,13 @@ export function LoginView() {
     defaultValues: { email: "", password: "" },
   });
   const submit = form.handleSubmit(async (values) => {
-    await mutation.mutateAsync(values);
-    router.replace(destination);
+    try {
+      await mutation.mutateAsync(values);
+      router.replace(destination);
+    } catch {
+      // The mutation error is rendered below; handleSubmit re-throws, so
+      // swallowing here avoids an unhandled promise rejection.
+    }
   });
   return (
     <Card className="w-full max-w-md bg-carbon">
