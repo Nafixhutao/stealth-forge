@@ -480,9 +480,6 @@ services:
     expose: ["8082"]
     mem_limit: "${API_MEMORY_LIMIT:-1g}"
     cpus: "${API_CPUS:-2}"
-    read_only: true
-    tmpfs:
-      - /tmp
     cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true
@@ -592,9 +589,6 @@ services:
       - "${DOCKER_GID:?set DOCKER_GID to the group ID of /var/run/docker.sock}"
     mem_limit: "${WORKER_MEMORY_LIMIT:-2g}"
     cpus: "${WORKER_CPUS:-2}"
-    read_only: true
-    tmpfs:
-      - /tmp
     cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true
