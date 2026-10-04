@@ -8,6 +8,7 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/Stealth-deplover/stealth/internal/config"
 	"github.com/Stealth-deplover/stealth/internal/migrate"
@@ -44,6 +45,20 @@ func Open(ctx context.Context, cfg config.Config, options OpenOptions) (*Resourc
 	poolConfig.MinConns = cfg.DatabaseMinConns
 	poolConfig.MaxConnLifetime = cfg.DatabaseMaxConnLifetime
 	poolConfig.MaxConnIdleTime = cfg.DatabaseMaxConnIdleTime
+	// Bound a stuck statement or an idle transaction so one operation cannot
+	// pin a pooled connection indefinitely. Zero leaves the PostgreSQL default
+	// in place.
+	if cfg.DatabaseStatementTimeout > 0 || cfg.DatabaseIdleInTransactionTimeout > 0 {
+		if poolConfig.ConnConfig.RuntimeParams == nil {
+			poolConfig.ConnConfig.RuntimeParams = map[string]string{}
+		}
+		if cfg.DatabaseStatementTimeout > 0 {
+			poolConfig.ConnConfig.RuntimeParams["statement_timeout"] = strconv.FormatInt(cfg.DatabaseStatementTimeout.Milliseconds(), 10)
+		}
+		if cfg.DatabaseIdleInTransactionTimeout > 0 {
+			poolConfig.ConnConfig.RuntimeParams["idle_in_transaction_session_timeout"] = strconv.FormatInt(cfg.DatabaseIdleInTransactionTimeout.Milliseconds(), 10)
+		}
+	}
 	resources.Pool, err = pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
 		resources.Close()

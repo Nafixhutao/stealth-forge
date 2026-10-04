@@ -15,6 +15,29 @@ import (
 
 var ErrInvalidHTTPTrace = errors.New("invalid HTTP trace")
 
+// PruneHTTPTraces removes at most batch rows older than olderThan. The request
+// trace table is an unbounded durable index, so a bounded periodic prune keeps
+// its size and write amplification predictable.
+func (r *Repository) PruneHTTPTraces(ctx context.Context, olderThan time.Duration, batch int) (int64, error) {
+	if r == nil || r.pool == nil {
+		return 0, ErrNotFound
+	}
+	if olderThan <= 0 || batch < 1 || batch > 100000 {
+		return 0, fmt.Errorf("%w: invalid HTTP trace prune bounds", ErrInvalidQuery)
+	}
+	tag, err := r.pool.Exec(ctx, `
+		DELETE FROM http_traces WHERE id IN (
+			SELECT id FROM http_traces
+			WHERE created_at < now() - ($1::double precision * interval '1 second')
+			ORDER BY created_at
+			LIMIT $2
+		)`, olderThan.Seconds(), batch)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
 type HTTPTraceInput struct {
 	TraceID        string
 	SpanID         string
