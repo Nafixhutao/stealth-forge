@@ -33,7 +33,7 @@ export function Topbar({
   const logout = useLogout();
   const { organizationId, projectId } = useConsoleRouteContext();
   return (
-    <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between gap-2 border-b border-graphite bg-void/95 px-2.5 sm:gap-3 sm:px-6">
+    <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between gap-2 border-b border-graphite bg-void/95 px-2.5 pt-[env(safe-area-inset-top)] sm:gap-3 sm:px-6">
       <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
         <Button
           ref={menuButtonRef}

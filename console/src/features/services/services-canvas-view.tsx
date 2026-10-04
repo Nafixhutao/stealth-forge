@@ -26,6 +26,7 @@ import {
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { pluralize } from "@/lib/format";
 import {
   useCanvasDatabases,
   useCanvasFunctions,
@@ -326,8 +327,8 @@ export function ServicesCanvasView({
         }
       />
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Badge variant="neutral">
-          <Waypoints className="size-3" /> {nodes.length} nodes
+        <Badge variant="neutral" className="tabular-nums">
+          <Waypoints className="size-3" /> {pluralize(nodes.length, "node")}
         </Badge>
         <span className="text-xs text-slate-600">
           Resource layout only. Drag, zoom, pan, and fit view; no synthetic

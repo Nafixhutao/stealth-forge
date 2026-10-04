@@ -151,7 +151,7 @@ export function AppDeploymentDialog({
               checked={select}
               disabled={pending}
               onChange={(event) => setSelect(event.target.checked)}
-              className="mt-0.5 size-4 accent-lime-300"
+              className="mt-0.5 size-4 accent-acid-lime"
             />
             <span>
               Select as desired image after a verified build

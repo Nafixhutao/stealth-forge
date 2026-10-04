@@ -196,7 +196,7 @@ export function CreateDialog<
                         key={option.value}
                         className="flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 text-xs text-mist hover:bg-white/[0.04]"
                       >
-                        <Input
+                        <input
                           name={field.name}
                           type="checkbox"
                           aria-label={option.label}
@@ -212,7 +212,7 @@ export function CreateDialog<
                             else next.delete(option.value);
                             updateValue(field.name, Array.from(next).join(","));
                           }}
-                          className="mt-0.5 size-4 accent-acid-lime"
+                          className="mt-0.5 size-4 shrink-0 accent-acid-lime"
                         />
                         <span className="min-w-0">
                           <span className="block text-mist">

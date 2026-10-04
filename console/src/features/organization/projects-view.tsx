@@ -13,6 +13,7 @@ import { DataTable } from "@/components/data-table";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/page-header";
+import { ResourceId } from "@/components/resource-id";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -120,9 +121,7 @@ export function OrganizationProjectList({
                 accessorKey: "id",
                 header: "Project ID",
                 cell: ({ row }) => (
-                  <span className="font-mono text-xs text-slate-500">
-                    {row.original.id.slice(0, 8)}…
-                  </span>
+                  <ResourceId id={row.original.id} label="Project ID" />
                 ),
               },
               {

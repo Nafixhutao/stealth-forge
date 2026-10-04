@@ -41,7 +41,7 @@ function ConsoleShellContent({
 
   if (account.isPending)
     return (
-      <div className="flex min-h-screen items-center justify-center bg-void">
+      <div className="flex min-h-dvh items-center justify-center bg-void">
         <LoadingState label="Loading account…" className="w-72">
           <Skeleton className="mx-auto size-12 rounded-2xl" />
           <Skeleton className="mx-auto h-4 w-40" />
@@ -51,7 +51,7 @@ function ConsoleShellContent({
     );
   if (unauthorized)
     return (
-      <div className="flex min-h-screen items-center justify-center bg-void">
+      <div className="flex min-h-dvh items-center justify-center bg-void">
         <LoadingState
           label="Session expired. Returning to sign in…"
           className="w-72"
@@ -65,7 +65,7 @@ function ConsoleShellContent({
     );
   if (account.error && !account.data)
     return (
-      <main className="mx-auto flex min-h-screen max-w-2xl items-center px-6">
+      <main className="mx-auto flex min-h-dvh max-w-2xl items-center px-6">
         <ErrorState
           title="Could not load account"
           error={account.error}
@@ -75,7 +75,7 @@ function ConsoleShellContent({
     );
 
   return (
-    <div className="min-h-screen bg-void">
+    <div className="min-h-dvh bg-void">
       <ProjectRealtimeListener projectId={projectId} />
       {(account.data?.account.instance_role === "instance_owner" ||
         account.data?.account.instance_role === "instance_admin") && (
@@ -87,14 +87,14 @@ function ConsoleShellContent({
       >
         Skip to content
       </a>
-      <div className="flex min-h-screen">
+      <div className="flex min-h-dvh">
         <Sidebar
           collapsed={sidebarCollapsed}
           onToggle={() => setSidebarCollapsed((value) => !value)}
         />
         <Dialog open={mobileOpen} onOpenChange={setMobileOpen}>
           <DialogContent
-            className="left-0 top-0 h-full max-h-full w-72 max-w-none translate-x-0 translate-y-0 rounded-none border-y-0 border-l-0 p-0"
+            className="left-0 top-0 h-dvh max-h-dvh w-72 max-w-none translate-x-0 translate-y-0 rounded-none border-y-0 border-l-0 p-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] data-[state=open]:animate-drawer-in data-[state=closed]:animate-drawer-out"
             onCloseAutoFocus={(event) => {
               event.preventDefault();
               mobileMenuTriggerRef.current?.focus();

@@ -95,7 +95,7 @@ export function Sidebar({
     <aside
       aria-label="Primary navigation"
       className={cn(
-        "scrollbar-thin shrink-0 flex-col overflow-y-auto border-r border-graphite bg-carbon py-5 transition-[width] duration-200",
+        "scrollbar-thin shrink-0 flex-col overflow-y-auto border-r border-graphite bg-carbon py-5 transition-[width] duration-200 ease-in-out-strong",
         mobile
           ? "flex w-72 px-3"
           : cn("hidden lg:flex", collapsed ? "w-[4.5rem] px-2" : "w-60 px-3"),

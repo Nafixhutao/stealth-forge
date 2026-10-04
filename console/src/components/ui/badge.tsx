@@ -3,7 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center gap-1.5 rounded-xs border px-1.5 py-0.5 text-xs font-medium tracking-[-0.01em]",
+  "inline-flex items-center gap-1.5 whitespace-nowrap rounded-xs border px-1.5 py-0.5 text-xs font-medium tracking-[-0.01em]",
   {
     variants: {
       variant: {
@@ -123,7 +123,7 @@ export function HttpStatusBadge({
           : undefined
       }
     >
-      <span className="size-1.5 rounded-full bg-current" />
+      <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
       {status ?? "Unknown"}
     </Badge>
   );

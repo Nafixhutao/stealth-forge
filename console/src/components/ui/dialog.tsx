@@ -12,15 +12,29 @@ export const DialogContent = ({
   className,
   children,
   showClose = true,
+  animated = true,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showClose?: boolean;
+  /**
+   * Dialogs are "occasional" and earn an entrance. Set false for keyboard-
+   * initiated surfaces (the command palette) that must never animate.
+   */
+  animated?: boolean;
 }) => (
   <DialogPrimitive.Portal>
-    <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-void/80" />
+    <DialogPrimitive.Overlay
+      className={cn(
+        "fixed inset-0 z-50 bg-void/80",
+        animated &&
+          "data-[state=open]:animate-overlay-in data-[state=closed]:animate-overlay-out",
+      )}
+    />
     <DialogPrimitive.Content
       className={cn(
-        "fixed left-1/2 top-1/2 z-50 max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain rounded-xl border border-graphite bg-obsidian p-6 shadow-xl",
+        "fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain rounded-xl border border-graphite bg-obsidian p-6 shadow-xl",
+        animated &&
+          "data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out",
         className,
       )}
       {...props}
@@ -28,7 +42,7 @@ export const DialogContent = ({
       {children}
       {showClose ? (
         <DialogPrimitive.Close
-          className="absolute right-3 top-3 flex size-11 items-center justify-center rounded-md text-fog transition-colors duration-150 hover:bg-white/[0.06] hover:text-paper"
+          className="absolute right-3 top-3 flex size-11 items-center justify-center rounded-md text-fog transition-colors duration-150 hover:bg-white/[0.06] hover:text-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acid-lime/50"
           aria-label="Close dialog"
         >
           <X className="size-4" aria-hidden="true" />

@@ -28,6 +28,7 @@ import {
   CursorPaginationControls,
   type CursorPaginationControlsProps,
 } from "@/components/cursor-pagination-controls";
+import { pluralize } from "@/lib/format";
 
 export type ServerPagination = CursorPaginationControlsProps;
 
@@ -114,11 +115,13 @@ export function DataTable<T extends RowData>({
                   <TableHead
                     key={header.id}
                     aria-sort={
-                      sorted === "asc"
-                        ? "ascending"
-                        : sorted === "desc"
-                          ? "descending"
-                          : "none"
+                      header.column.getCanSort()
+                        ? sorted === "asc"
+                          ? "ascending"
+                          : sorted === "desc"
+                            ? "descending"
+                            : "none"
+                        : undefined
                     }
                   >
                     {header.isPlaceholder ? null : header.column.getCanSort() ? (
@@ -175,7 +178,8 @@ export function DataTable<T extends RowData>({
         <CursorPaginationControls
           {...serverPagination}
           label={
-            serverPagination.label ?? `${data.length} records on this page`
+            serverPagination.label ??
+            `${pluralize(data.length, "record")} on this page`
           }
         />
       ) : !loading && table.getPageCount() > 1 ? (

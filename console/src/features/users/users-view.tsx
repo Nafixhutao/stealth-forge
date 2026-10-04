@@ -57,7 +57,7 @@ export function UsersView({
         accessorKey: "email",
         header: "Identity",
         cell: ({ row }) => (
-          <div>
+          <div className="min-w-0">
             <Link
               href={
                 "/organizations/" +
@@ -67,7 +67,8 @@ export function UsersView({
                 "/users/" +
                 row.original.id
               }
-              className="font-medium text-white hover:text-cyan-200"
+              className="wrap-anywhere font-medium text-white hover:text-cyan-200"
+              title={row.original.email}
             >
               {row.original.email}
             </Link>

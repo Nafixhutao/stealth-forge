@@ -268,7 +268,10 @@ export function AdminStatusPageView() {
                         className="mt-0.5 accent-acid-lime"
                       />
                       <span className="min-w-0">
-                        <span className="block truncate text-sm text-mist">
+                        <span
+                          className="block truncate text-sm text-mist"
+                          title={incident.title}
+                        >
                           {incident.title}
                         </span>
                         <span className="mt-1 flex flex-wrap items-center gap-2">

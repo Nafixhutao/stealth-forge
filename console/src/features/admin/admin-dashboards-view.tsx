@@ -120,10 +120,16 @@ export function AdminDashboardsView() {
                     aria-hidden="true"
                   />
                   <span className="min-w-0">
-                    <span className="block truncate text-sm text-mist">
+                    <span
+                      className="block truncate text-sm text-mist"
+                      title={dashboard.name}
+                    >
                       {dashboard.name}
                     </span>
-                    <span className="mt-1 block truncate text-xs text-fog">
+                    <span
+                      className="mt-1 block truncate text-xs text-fog"
+                      title={`Updated ${formatDate(dashboard.updated_at)}`}
+                    >
                       Updated {formatDate(dashboard.updated_at)}
                     </span>
                   </span>

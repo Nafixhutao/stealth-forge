@@ -53,11 +53,17 @@ export function OrganizationMembersView({
       accessorKey: "email",
       header: "Identity",
       cell: ({ row }) => (
-        <div>
-          <p className="font-medium text-white">
+        <div className="min-w-0">
+          <p
+            className="wrap-anywhere font-medium text-white"
+            title={membershipIdentity(row.original)}
+          >
             {membershipIdentity(row.original)}
           </p>
-          <p className="font-mono text-[10px] text-slate-600">
+          <p
+            className="wrap-anywhere font-mono text-[10px] text-slate-600"
+            title={row.original.account_id}
+          >
             {row.original.account_id}
           </p>
         </div>

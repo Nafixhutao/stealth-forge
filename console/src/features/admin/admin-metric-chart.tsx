@@ -16,7 +16,7 @@ import {
 import { LineChart, type LineSeriesOption } from "echarts/charts";
 import { CanvasRenderer } from "echarts/renderers";
 import type { components } from "@/api/generated/schema";
-import { formatDate } from "@/lib/format";
+import { formatDate, pluralize } from "@/lib/format";
 
 echarts.use([
   DataZoomComponent,
@@ -164,11 +164,11 @@ export function AdminMetricChart({ items }: AdminMetricChartProps) {
         aria-label={seriesLabel}
         aria-describedby={descriptionId}
       />
-      <p id={descriptionId} className="sr-only">
-        {items.length} metric points are available, including{" "}
-        {scalarItems.length} scalar points across {totalSeriesCount} series. The
-        chart shows up to eight scalar series. Expand the data table to inspect
-        structured metric values.
+      <p id={descriptionId} className="sr-only tabular-nums">
+        {pluralize(items.length, "metric point")} are available, including{" "}
+        {pluralize(scalarItems.length, "scalar point")} across{" "}
+        {totalSeriesCount} series. The chart shows up to eight scalar series.
+        Expand the data table to inspect structured metric values.
       </p>
       <details
         className="rounded-md border border-graphite bg-void"

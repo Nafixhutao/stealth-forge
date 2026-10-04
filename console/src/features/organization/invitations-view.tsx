@@ -62,7 +62,12 @@ export function OrganizationInvitationsView({
       accessorKey: "email",
       header: "Email",
       cell: ({ row }) => (
-        <span className="font-medium text-white">{row.original.email}</span>
+        <span
+          className="block min-w-0 wrap-anywhere font-medium text-white"
+          title={row.original.email}
+        >
+          {row.original.email}
+        </span>
       ),
     },
     {

@@ -15,9 +15,10 @@ import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { formatDate } from "@/lib/format";
+import { formatDate, pluralize } from "@/lib/format";
 import { useCursorPagination } from "@/hooks/use-cursor-pagination";
 import { pageControls } from "@/lib/pagination";
+import { getInitials } from "@/lib/utils";
 import {
   organizationFields,
   organizationPayload,
@@ -91,7 +92,7 @@ export function OrganizationsIndexView() {
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between">
                     <span className="flex size-10 items-center justify-center rounded-md border border-graphite bg-white/[0.05] text-sm font-semibold text-mist">
-                      {organization.name.slice(0, 1).toUpperCase()}
+                      {getInitials(organization.name)}
                     </span>
                     <Badge variant="neutral">Workspace</Badge>
                   </div>
@@ -123,7 +124,7 @@ export function OrganizationsIndexView() {
               nextCursor(query.data),
               query.isFetching,
             )}
-            label={`${organizations.length} organizations on this page`}
+            label={`${pluralize(organizations.length, "organization")} on this page`}
           />
         </>
       ) : (

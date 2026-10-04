@@ -16,7 +16,7 @@ export const DropdownMenuContent = ({
     <DropdownMenuPrimitive.Content
       sideOffset={sideOffset}
       className={cn(
-        "z-50 min-w-44 rounded-lg border border-graphite bg-obsidian p-1.5 text-sm shadow-xl",
+        "z-50 min-w-44 origin-[var(--radix-dropdown-menu-content-transform-origin)] rounded-lg border border-graphite bg-obsidian p-1.5 text-sm shadow-xl data-[state=open]:animate-menu-in data-[state=closed]:animate-menu-out",
         className,
       )}
       {...props}
