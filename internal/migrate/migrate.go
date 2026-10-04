@@ -17,6 +17,33 @@ var files embed.FS
 
 const advisoryLockID int64 = 8_105_202_601
 
+// noTransactionDirective marks a migration that must run outside a transaction.
+// CREATE INDEX CONCURRENTLY cannot run inside one, and such a migration is
+// intentionally not atomic: if it fails partway the operator re-runs it after
+// correcting the cause, so it must be written idempotently (for example with
+// IF NOT EXISTS). The directive must appear on a leading comment line before
+// any SQL statement.
+const noTransactionDirective = "-- migrate:no-transaction"
+
+// runsInTransaction reports whether a migration file should be wrapped in a
+// transaction. It inspects only the leading comment block, so a directive in
+// the middle of the file is ignored.
+func runsInTransaction(sql string) bool {
+	for _, line := range strings.Split(sql, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		if !strings.HasPrefix(trimmed, "--") {
+			return true
+		}
+		if strings.EqualFold(trimmed, noTransactionDirective) {
+			return false
+		}
+	}
+	return true
+}
+
 func Apply(ctx context.Context, pool *pgxpool.Pool) error {
 	conn, err := pool.Acquire(ctx)
 	if err != nil {
@@ -54,6 +81,18 @@ func Apply(ctx context.Context, pool *pgxpool.Pool) error {
 		sql, err := files.ReadFile("migrations/" + name)
 		if err != nil {
 			return fmt.Errorf("read migration %s: %w", name, err)
+		}
+		if !runsInTransaction(string(sql)) {
+			// Non-transactional path: run the statements directly, then record
+			// the ledger row. The migration is responsible for being idempotent
+			// because a partial failure is not rolled back.
+			if _, err = conn.Exec(ctx, string(sql)); err != nil {
+				return fmt.Errorf("apply migration %s: %w", name, err)
+			}
+			if _, err = conn.Exec(ctx, `INSERT INTO schema_migrations (name) VALUES ($1)`, name); err != nil {
+				return fmt.Errorf("record migration %s: %w", name, err)
+			}
+			continue
 		}
 		tx, err := conn.Begin(ctx)
 		if err != nil {

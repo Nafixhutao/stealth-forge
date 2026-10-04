@@ -258,10 +258,13 @@ features by itself:
   release waits for human approval before publication. Without protection
   rules the environment is a no-op.
 
-Release artifacts are integrity-checked with `checksums.txt` but are not yet
-signed or attested (no cosign/SLSA provenance, no SBOM). Treat artifact signing
-as future hardening; until then, protect the release tag and the publishing
-workflow as the trust root.
+Release images and the `checksums.txt` manifest are signed with keyless cosign,
+and a `stealth-cli.spdx.json` software bill of materials is attached. Verify an
+image with `cosign verify <image>@<digest>` and the manifest with
+`cosign verify-blob --signature checksums.txt.sig --certificate checksums.txt.pem checksums.txt`.
+Keyless verification is bound to this repository's release workflow identity.
+SLSA build provenance is not yet emitted; treat the protected release tag, the
+`release` environment approval, and the signed artifacts as the trust root.
 
 ## Repository settings
 
