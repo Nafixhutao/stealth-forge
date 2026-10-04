@@ -458,7 +458,10 @@ jobs:
 
   dependency-review:
     name: Dependency review
-    if: github.event_name == 'pull_request'
+    # Requires the repository dependency graph (a manual GitHub setting) and the
+    # `DEPENDENCY_REVIEW_ENABLED` repository variable. Enable both to turn this
+    # into a hard gate; otherwise the job is skipped.
+    if: github.event_name == 'pull_request' && vars.DEPENDENCY_REVIEW_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

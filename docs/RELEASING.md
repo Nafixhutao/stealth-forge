@@ -250,8 +250,10 @@ features by itself:
 - [ ] Dependabot security updates are enabled.
 - [ ] Dependabot version updates are enabled.
 - [ ] Code scanning is enabled and CodeQL results are being uploaded.
-- [ ] The CI `Dependency review`, `Vulnerability scan` (govulncheck), and
-  `Dependency audit` (`npm audit`) checks are required on `main`.
+- [ ] The CI `Vulnerability scan` (govulncheck) and `Dependency audit`
+  (`npm audit`) checks are required on `main`. To also enable the optional
+  `Dependency review` job, turn on the repository dependency graph and set the
+  `DEPENDENCY_REVIEW_ENABLED` repository variable to `true`.
 - [ ] The `release` environment exists and has required reviewers so a stable
   release waits for human approval before publication. Without protection
   rules the environment is a no-op.
