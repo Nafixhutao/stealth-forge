@@ -1,7 +1,13 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { BrowserSetupView } from "@/features/auth/browser-setup-view";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { Skeleton } from "@/components/ui/skeleton";
+
+export const metadata: Metadata = {
+  title: "Browser setup",
+  description: "Continue the Stealth browser installation.",
+};
 
 export default function SetupPage() {
   return (

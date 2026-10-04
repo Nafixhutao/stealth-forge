@@ -19,21 +19,30 @@ The workflow:
    time;
 4. builds Linux amd64 and arm64 `stealth` CLI archives and a `checksums.txt`
    file;
-5. pushes version and 12-character `sha-<short sha>` tags to GHCR; and
-6. creates a stable or pre-release GitHub Release with the CLI archives, checksums, migration,
-   configuration, upgrade, and known limitation headings.
+5. pushes version and 12-character `sha-<short sha>` tags to GHCR;
+6. signs every published image with keyless cosign;
+7. signs `checksums.txt` with `cosign sign-blob` and attaches an SPDX
+   `stealth-cli.spdx.json` software bill of materials; and
+8. creates a stable or pre-release GitHub Release with the CLI archives,
+   checksums, signatures, SBOM, migration, configuration, upgrade, and known
+   limitation headings.
 
 The workflow uses `GITHUB_TOKEN` with `contents: write` and `packages: write`
-only for the publishing jobs. It does not put registry credentials or
-application secrets in image layers. Production should pin one release across
-API, worker, migrate, and Console. The setup image is used only by fresh
-browser setup or setup repair; production installation is always executed by
-the host CLI. `latest` is not used by the deployment documentation.
+only for the publishing jobs, plus `id-token: write` for keyless signing. It
+does not put registry credentials or application secrets in image layers.
+Production should pin one release across API, worker, migrate, and Console. The
+setup image is used only by fresh browser setup or setup repair; production
+installation is always executed by the host CLI. `latest` is not used by the
+deployment documentation.
 
 The CLI archives are published as `stealth_Linux_x86_64.tar.gz` and
 `stealth_Linux_arm64.tar.gz`. The bootstrap verifies the corresponding
 `checksums.txt` entry before executing the binary. Container publication and
 the GitHub Release both depend on the production Compose HTTP smoke job.
+Verify a release image with `cosign verify <image>@<digest>` and the checksum
+manifest with
+`cosign verify-blob --signature checksums.txt.sig --certificate checksums.txt.pem checksums.txt`.
+SLSA build provenance is not yet emitted.
 
 The Console image is Next.js `output: "standalone"` and contains only the
 standalone runtime plus static/public assets. It is not a Vercel deployment.

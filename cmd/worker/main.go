@@ -546,6 +546,9 @@ const (
 	retentionInterval = time.Hour
 	// retentionAge is how long request traces and admin monitor checks are kept.
 	retentionAge = 30 * 24 * time.Hour
+	// alertRetentionAge keeps alert-event history longer; it is low volume and
+	// useful for operator review.
+	alertRetentionAge = 90 * 24 * time.Hour
 	// retentionBatch bounds each delete so a pass stays short and does not hold
 	// long locks on the request path.
 	retentionBatch = 10000
@@ -572,6 +575,13 @@ func runRetentionMaintenance(ctx context.Context, repo *repository.Repository, l
 			}
 		} else if rows > 0 {
 			logger.Info("pruned admin monitor checks", "rows", rows)
+		}
+		if rows, err := repo.PruneAdminAlertEvents(ctx, alertRetentionAge, retentionBatch); err != nil {
+			if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+				logger.Error("prune admin alert events failed", "error", err)
+			}
+		} else if rows > 0 {
+			logger.Info("pruned admin alert events", "rows", rows)
 		}
 	}
 	prune()

@@ -367,6 +367,15 @@ jobs:
           done < release-managed-assets.txt
           rm -rf dist/amd64 dist/arm64
 
+      - name: Generate CLI software bill of materials
+        uses: anchore/sbom-action@v0
+        with:
+          path: dist
+          format: spdx-json
+          output-file: dist/stealth-cli.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
       - name: Upload CLI artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -383,6 +392,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      # Keyless cosign signing uses the workflow OIDC identity.
+      id-token: write
     env:
       IMAGE_NAMESPACE: ${{ needs.metadata.outputs.image_namespace }}
       VERSION: ${{ needs.metadata.outputs.version }}
@@ -585,6 +596,22 @@ jobs:
             org.opencontainers.image.created=${{ env.BUILD_TIME }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
 
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign published images
+        shell: bash
+        run: |
+          set -euo pipefail
+          images=(
+            stealth-api stealth-worker stealth-setup stealth-migrate
+            stealth-ingress-control stealth-telemetry-docker-proxy
+            stealth-otel-collector stealth-otel-docker-logs stealth-console
+          )
+          for image in "${images[@]}"; do
+            cosign sign --yes "${IMAGE_NAMESPACE}/${image}:${VERSION}"
+          done
+
   github-release:
     name: Create GitHub Release
     needs: [metadata, images, cli-artifacts]
@@ -595,6 +622,8 @@ jobs:
     environment: release
     permissions:
       contents: write
+      # Keyless cosign signing of checksums.txt uses the workflow OIDC identity.
+      id-token: write
     steps:
       - name: Check out source
         uses: actions/checkout@v7
@@ -606,6 +635,17 @@ jobs:
         with:
           name: stealth-cli-${{ needs.metadata.outputs.version }}
           path: dist
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign the checksums manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          cosign sign-blob --yes dist/checksums.txt \
+            --output-signature dist/checksums.txt.sig \
+            --output-certificate dist/checksums.txt.pem
 
       - name: Create release notes and release
         env:
@@ -645,6 +685,12 @@ jobs:
           - Run improved preflight checks and preserve Cloudflare binding consistency during retries and reconfiguration attempts.
           - Publish coordinated API, setup, worker, migration, and standalone Console images plus verified Linux CLI archives.
 
+          ## Supply chain
+
+          - Release images are signed with keyless cosign; verify with `cosign verify`.
+          - `checksums.txt` is signed with `cosign sign-blob`; verify with `cosign verify-blob`.
+          - A `stealth-cli.spdx.json` software bill of materials is attached.
+
           ## Known limitations
 
           - Cloudflare OAuth remains inactive; the supported setup path is the scoped API Token flow.
@@ -660,6 +706,12 @@ jobs:
           - Published coordinated API, setup, worker, migration, and standalone Console images for $RELEASE_VERSION.
           - Image tags: \`$RELEASE_VERSION\` and \`sha-$SHORT_SHA\`.
           - Attached verified Linux amd64 and arm64 Stealth CLI archives.
+
+          ## Supply chain
+
+          - Release images are signed with keyless cosign; verify with `cosign verify`.
+          - `checksums.txt` is signed with `cosign sign-blob`; verify with `cosign verify-blob`.
+          - A `stealth-cli.spdx.json` software bill of materials is attached.
 
           ## Breaking changes
 
@@ -691,6 +743,9 @@ jobs:
             dist/stealth_Linux_x86_64.tar.gz
             dist/stealth_Linux_arm64.tar.gz
             dist/checksums.txt
+            dist/checksums.txt.sig
+            dist/checksums.txt.pem
+            dist/stealth-cli.spdx.json
           )
           if gh release view "$RELEASE_VERSION" >/dev/null 2>&1; then
             echo "GitHub Release $RELEASE_VERSION already exists; refreshing its generated assets."

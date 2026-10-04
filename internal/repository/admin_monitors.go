@@ -14,6 +14,33 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// PruneAdminAlertEvents removes at most batch alert events older than
+// olderThan that are not referenced by a durable notification delivery. The
+// delivery foreign key is ON DELETE RESTRICT, so an event that produced a
+// notification is retained as delivery history.
+func (r *Repository) PruneAdminAlertEvents(ctx context.Context, olderThan time.Duration, batch int) (int64, error) {
+	if r == nil || r.pool == nil {
+		return 0, ErrNotFound
+	}
+	if olderThan <= 0 || batch < 1 || batch > 100000 {
+		return 0, fmt.Errorf("%w: invalid admin alert prune bounds", ErrInvalidQuery)
+	}
+	tag, err := r.pool.Exec(ctx, `
+		DELETE FROM admin_alert_events WHERE id IN (
+			SELECT e.id FROM admin_alert_events e
+			WHERE e.occurred_at < now() - ($1::double precision * interval '1 second')
+			  AND NOT EXISTS (
+			    SELECT 1 FROM admin_notification_deliveries d WHERE d.alert_event_id = e.id
+			  )
+			ORDER BY e.occurred_at
+			LIMIT $2
+		)`, olderThan.Seconds(), batch)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
 const (
 	adminMonitorMaxLimit  = 100
 	adminMonitorMaxConfig = 64 << 10

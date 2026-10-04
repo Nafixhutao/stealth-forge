@@ -38,7 +38,8 @@ claiming the same eligible row concurrently.
 - The trusted worker bounds two append-only tables on an hourly pass:
   per-request `http_traces` and `admin_monitor_checks` are retained for 30 days
   and pruned in batches of 10,000 so growth and write amplification stay
-  predictable.
+  predictable. `admin_alert_events` are retained for 90 days; events that
+  produced a notification delivery are kept as delivery history.
 - `PROJECT_OPERATION_RATE_LIMIT` and `PROJECT_OPERATION_RATE_WINDOW` apply a
   per-project/per-authenticated-actor safety budget to function and site
   deployments, function executions, Agent runs, message sends, storage

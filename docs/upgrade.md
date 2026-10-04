@@ -193,6 +193,20 @@ docker compose --env-file .env.production -f compose.production.yaml up -d --for
 The migration runner is deterministic and protected by a PostgreSQL advisory
 lock. It fails loudly; it does not perform destructive automatic rollback.
 
+Most migrations run inside one transaction. A migration that must run outside a
+transaction (for example `CREATE INDEX CONCURRENTLY` on a large existing table)
+opts out with a leading directive line:
+
+```sql
+-- migrate:no-transaction
+CREATE INDEX CONCURRENTLY IF NOT EXISTS example_idx ON example (id);
+```
+
+A non-transactional migration is not atomic: if it fails partway, re-run it
+after correcting the cause. Write it idempotently (`IF NOT EXISTS`, guarded
+`DROP`, and so on). Use this only when a single-transaction migration would hold
+a blocking lock for too long.
+
 When upgrading an installation that already has accounts, migration seals
 public first-owner bootstrap as `legacy_installation` without assigning an
 arbitrary account the privileged `instance_owner` role. This prevents an

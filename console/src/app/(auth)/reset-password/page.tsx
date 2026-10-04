@@ -1,7 +1,13 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PasswordRecoveryView } from "@/features/auth/auth-flow-views";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { Skeleton } from "@/components/ui/skeleton";
+
+export const metadata: Metadata = {
+  title: "Reset password",
+  description: "Choose a new Stealth Console password.",
+};
 
 export default function ResetPasswordPage() {
   return (

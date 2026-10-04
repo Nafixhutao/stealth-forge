@@ -1,7 +1,13 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { InvitationAcceptanceView } from "@/features/auth/invitation-acceptance-view";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { Skeleton } from "@/components/ui/skeleton";
+
+export const metadata: Metadata = {
+  title: "Accept invitation",
+  description: "Accept your Stealth Console invitation.",
+};
 
 export default function AcceptInvitationPage() {
   return (
