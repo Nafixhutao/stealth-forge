@@ -283,8 +283,12 @@ body {
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  /* The console is an app shell, not a scrolling document: keep the page from
-     rubber-banding or triggering pull-to-refresh behind inner scrollers. */
+}
+
+/* The console is an app shell, not a scrolling document. Suppress page-level
+   rubber-band and pull-to-refresh only while it is mounted, so public routes
+   such as /status keep the browser's native pull-to-refresh. */
+html:has([data-app-shell]) {
   overscroll-behavior: none;
 }
 

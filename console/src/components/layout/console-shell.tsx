@@ -75,7 +75,7 @@ function ConsoleShellContent({
     );
 
   return (
-    <div className="min-h-dvh bg-void">
+    <div data-app-shell className="min-h-dvh bg-void">
       <ProjectRealtimeListener projectId={projectId} />
       {(account.data?.account.instance_role === "instance_owner" ||
         account.data?.account.instance_role === "instance_admin") && (
