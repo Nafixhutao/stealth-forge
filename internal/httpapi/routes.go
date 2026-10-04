@@ -25,6 +25,15 @@ func (s *Server) routes() http.Handler {
 		s.limitRequestBody,
 		s.cors,
 	)
+	// Unmatched routes and unsupported methods must use the same JSON error
+	// envelope as every handled error so generated clients can rely on
+	// error.error.code instead of a plain-text chi fallback.
+	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusNotFound, "not_found", "resource not found")
+	})
+	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
+	})
 	r.Get("/healthz", s.health)
 	r.Get("/readyz", s.ready)
 	r.Get("/version", s.version)

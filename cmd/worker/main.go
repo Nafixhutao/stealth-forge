@@ -70,6 +70,10 @@ func main() {
 		logger.Error("App environment encryption configuration error", "error", err)
 		os.Exit(1)
 	}
+	if err := cfg.ValidateProductionSecrets(); err != nil {
+		logger.Error("production secret configuration error", "error", err)
+		os.Exit(1)
+	}
 	appSecretsCipher, err := appsecret.New(cfg.AppsSecretKey)
 	if err != nil {
 		logger.Error("App environment encryption configuration error", "error", err)

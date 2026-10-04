@@ -64,6 +64,25 @@ func loadExecutionSettings() (executionSettings, error) {
 	if err != nil || agentRunnerExecutionTimeout < time.Minute || agentRunnerExecutionTimeout > 24*time.Hour {
 		return executionSettings{}, fmt.Errorf("AGENT_RUNNER_EXECUTION_TIMEOUT must be between 1m and 24h")
 	}
+	// A stale-lease requeue must never re-run healthy in-flight work. The shared
+	// lease must outlast the longest allowed run: the build timeout, the maximum
+	// per-function execution timeout (900s, enforced by the functions API), or
+	// the Agent execution timeout when the Agent runner is enabled. The App
+	// build path already enforces the same invariant for its own lease.
+	const maxFunctionExecutionTimeout = 15 * time.Minute
+	requiredLease := functionsRunnerBuildTimeout
+	if maxFunctionExecutionTimeout > requiredLease {
+		requiredLease = maxFunctionExecutionTimeout
+	}
+	if agentRunnerEnabled && agentRunnerExecutionTimeout > requiredLease {
+		requiredLease = agentRunnerExecutionTimeout
+	}
+	if functionsRunnerLeaseAge < requiredLease {
+		return executionSettings{}, fmt.Errorf(
+			"FUNCTIONS_RUNNER_LEASE_AGE must be at least the largest configured execution timeout (%s)",
+			requiredLease,
+		)
+	}
 	workerID := value("FUNCTIONS_WORKER_ID", "")
 	if workerID == "" {
 		workerID, _ = os.Hostname()

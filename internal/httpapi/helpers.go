@@ -56,6 +56,10 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, target any) bool {
 }
 func writeJSON(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	// API responses are credentialed control-plane data; a shared intermediary
+	// must never heuristically cache an account, organization, or project body.
+	// Endpoints that stream files set their own explicit cache policy.
+	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(value)
 }

@@ -19,6 +19,10 @@ const (
 	defaultPollInterval = 500 * time.Millisecond
 	defaultLeaseAge     = 20 * time.Minute
 	maxErrorLength      = 240
+	// maxAttempts bounds a permanently unremovable artifact (for example a
+	// permission error that cannot recover) so it stops retrying forever and
+	// stops accumulating durable rows and daily error logs.
+	maxAttempts = 20
 )
 
 var ErrStoreUnavailable = errors.New("artifact cleanup store is unavailable")
@@ -166,8 +170,15 @@ func (w *Worker) RunOnce(ctx context.Context) (processed bool, runErr error) {
 }
 
 func (w *Worker) retry(ctx context.Context, job repository.ArtifactCleanupJob, cause error) error {
-	retryAt := time.Now().UTC().Add(retryDelay(job.Attempts))
 	message := safeError(cause)
+	if job.Attempts >= maxAttempts {
+		if err := w.Store.FailArtifactCleanup(ctx, job.ID, w.WorkerID, message); err != nil {
+			return errors.Join(cause, err)
+		}
+		w.logError("artifact cleanup job exhausted its retry budget", cause)
+		return cause
+	}
+	retryAt := time.Now().UTC().Add(retryDelay(job.Attempts))
 	if err := w.Store.RetryArtifactCleanup(ctx, job.ID, w.WorkerID, retryAt, message); err != nil {
 		return errors.Join(cause, err)
 	}

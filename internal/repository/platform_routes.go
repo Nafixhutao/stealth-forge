@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 
 	"github.com/Stealth-deplover/stealth/internal/domain"
@@ -186,16 +187,34 @@ func (r *Repository) GetActiveSiteArtifactByPlatformHostname(
 	if err != nil {
 		return SitePublicArtifact{}, ErrNotFound
 	}
-	var siteID, platformLabel, workloadBaseDomain string
+	var workloadBaseDomain string
 	err = r.pool.QueryRow(ctx, `
-		SELECT s.id::text,s.platform_label,d.workload_base_domain
-		FROM project_sites s
-		JOIN instance_domain_settings d ON d.id=TRUE
-		WHERE d.workload_base_domain IS NOT NULL
-		  AND s.platform_label IS NOT NULL
-		  AND s.enabled=TRUE
-		  AND s.status='active'
-		  AND s.platform_label || '.' || d.workload_base_domain = $1`, normalizedHostname).Scan(&siteID, &platformLabel, &workloadBaseDomain)
+		SELECT workload_base_domain
+		FROM instance_domain_settings
+		WHERE id=TRUE AND workload_base_domain IS NOT NULL`).Scan(&workloadBaseDomain)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return SitePublicArtifact{}, ErrNotFound
+	}
+	if err != nil {
+		return SitePublicArtifact{}, err
+	}
+	// Resolve the single platform label from the requested hostname before the
+	// indexed lookup. Concatenating the label and base domain inside the WHERE
+	// clause would prevent PostgreSQL from using the partial platform-label
+	// index and force a sequential scan of project_sites on every request.
+	suffix := "." + workloadBaseDomain
+	if !strings.HasSuffix(normalizedHostname, suffix) {
+		return SitePublicArtifact{}, ErrNotFound
+	}
+	label := strings.TrimSuffix(normalizedHostname, suffix)
+	if label == "" || strings.Contains(label, ".") {
+		return SitePublicArtifact{}, ErrNotFound
+	}
+	var siteID, platformLabel string
+	err = r.pool.QueryRow(ctx, `
+		SELECT id::text,platform_label
+		FROM project_sites
+		WHERE platform_label=$1 AND enabled=TRUE AND status='active'`, label).Scan(&siteID, &platformLabel)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return SitePublicArtifact{}, ErrNotFound
 	}

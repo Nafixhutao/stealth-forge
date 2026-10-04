@@ -67,9 +67,8 @@ func (s *Server) requireProjectManagement(next http.Handler) http.Handler {
 		}
 
 		if cookie, err := r.Cookie(s.config.SessionCookieName); err == nil && cookie.Value != "" {
-			account, sessionID, err := s.repo.AccountBySession(r.Context(), auth.HashSessionToken(cookie.Value))
-			if err != nil {
-				writeError(w, http.StatusUnauthorized, "unauthorized", "authentication is required")
+			account, sessionID, ok := s.lookupSession(w, r, cookie.Value)
+			if !ok {
 				return
 			}
 			ctx := context.WithValue(r.Context(), accountContextKey, account)
@@ -147,9 +146,8 @@ func (s *Server) requireFunctionExecutionActor(next http.Handler) http.Handler {
 			return
 		}
 		if cookie, err := r.Cookie(s.config.SessionCookieName); err == nil && cookie.Value != "" {
-			account, sessionID, err := s.repo.AccountBySession(r.Context(), auth.HashSessionToken(cookie.Value))
-			if err != nil {
-				writeError(w, http.StatusUnauthorized, "unauthorized", "authentication is required")
+			account, sessionID, ok := s.lookupSession(w, r, cookie.Value)
+			if !ok {
 				return
 			}
 			ctx := context.WithValue(r.Context(), accountContextKey, account)
@@ -495,9 +493,8 @@ func (s *Server) requireSession(next http.Handler) http.Handler {
 			writeError(w, 401, "unauthorized", "authentication is required")
 			return
 		}
-		account, sessionID, err := s.repo.AccountBySession(r.Context(), auth.HashSessionToken(cookie.Value))
-		if err != nil {
-			writeError(w, 401, "unauthorized", "authentication is required")
+		account, sessionID, ok := s.lookupSession(w, r, cookie.Value)
+		if !ok {
 			return
 		}
 		ctx := context.WithValue(r.Context(), accountContextKey, account)
@@ -506,6 +503,24 @@ func (s *Server) requireSession(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
+
+// lookupSession resolves a session cookie to an account. A missing, expired,
+// or revoked session is a 401, but any other repository failure is an
+// infrastructure error that is logged and returned as a 500, so a database
+// outage is never silently reported to clients as a mass logout.
+func (s *Server) lookupSession(w http.ResponseWriter, r *http.Request, token string) (domain.Account, uuid.UUID, bool) {
+	account, sessionID, err := s.repo.AccountBySession(r.Context(), auth.HashSessionToken(token))
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			writeError(w, http.StatusUnauthorized, "unauthorized", "authentication is required")
+			return domain.Account{}, uuid.Nil, false
+		}
+		internalError(s, w, err)
+		return domain.Account{}, uuid.Nil, false
+	}
+	return account, sessionID, true
+}
+
 func accountFrom(r *http.Request) domain.Account {
 	return r.Context().Value(accountContextKey).(domain.Account)
 }

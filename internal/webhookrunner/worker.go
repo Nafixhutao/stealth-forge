@@ -519,30 +519,37 @@ func safeDialContext(ctx context.Context, network, address string) (net.Conn, er
 // allocation, so shared, documentation, benchmarking, reserved, and non-global
 // ranges are denied explicitly here.
 var publicDestinationDeniedPrefixes = []netip.Prefix{
-	netip.MustParsePrefix("0.0.0.0/8"),       // IPv4 "this network".
-	netip.MustParsePrefix("10.0.0.0/8"),      // RFC 1918 private.
-	netip.MustParsePrefix("100.64.0.0/10"),   // RFC 6598 shared address space.
-	netip.MustParsePrefix("127.0.0.0/8"),     // IPv4 loopback.
-	netip.MustParsePrefix("169.254.0.0/16"),  // IPv4 link-local and metadata.
-	netip.MustParsePrefix("172.16.0.0/12"),   // RFC 1918 private.
-	netip.MustParsePrefix("192.0.0.0/24"),    // IETF protocol assignments.
-	netip.MustParsePrefix("192.0.2.0/24"),    // TEST-NET-1 documentation.
-	netip.MustParsePrefix("192.88.99.0/24"),  // 6to4 relay anycast.
-	netip.MustParsePrefix("192.168.0.0/16"),  // RFC 1918 private.
-	netip.MustParsePrefix("198.18.0.0/15"),   // Benchmarking.
-	netip.MustParsePrefix("198.51.100.0/24"), // TEST-NET-2 documentation.
-	netip.MustParsePrefix("203.0.113.0/24"),  // TEST-NET-3 documentation.
-	netip.MustParsePrefix("224.0.0.0/4"),     // IPv4 multicast.
-	netip.MustParsePrefix("240.0.0.0/4"),     // IPv4 reserved and future use.
-	netip.MustParsePrefix("::/128"),          // IPv6 unspecified.
-	netip.MustParsePrefix("::1/128"),         // IPv6 loopback.
-	netip.MustParsePrefix("100::/64"),        // IPv6 discard-only.
-	netip.MustParsePrefix("2001::/23"),       // IETF protocol assignments.
-	netip.MustParsePrefix("2001:db8::/32"),   // IPv6 documentation.
-	netip.MustParsePrefix("2002::/16"),       // 6to4.
-	netip.MustParsePrefix("fc00::/7"),        // IPv6 unique local.
-	netip.MustParsePrefix("fe80::/10"),       // IPv6 link-local.
-	netip.MustParsePrefix("ff00::/8"),        // IPv6 multicast.
+	netip.MustParsePrefix("0.0.0.0/8"),         // IPv4 "this network".
+	netip.MustParsePrefix("10.0.0.0/8"),        // RFC 1918 private.
+	netip.MustParsePrefix("100.64.0.0/10"),     // RFC 6598 shared address space.
+	netip.MustParsePrefix("127.0.0.0/8"),       // IPv4 loopback.
+	netip.MustParsePrefix("169.254.0.0/16"),    // IPv4 link-local and metadata.
+	netip.MustParsePrefix("172.16.0.0/12"),     // RFC 1918 private.
+	netip.MustParsePrefix("192.0.0.0/24"),      // IETF protocol assignments.
+	netip.MustParsePrefix("192.0.2.0/24"),      // TEST-NET-1 documentation.
+	netip.MustParsePrefix("192.31.196.0/24"),   // AS112-v4.
+	netip.MustParsePrefix("192.52.193.0/24"),   // AMT.
+	netip.MustParsePrefix("192.88.99.0/24"),    // 6to4 relay anycast.
+	netip.MustParsePrefix("192.168.0.0/16"),    // RFC 1918 private.
+	netip.MustParsePrefix("192.175.48.0/24"),   // Direct Delegation AS112.
+	netip.MustParsePrefix("198.18.0.0/15"),     // Benchmarking.
+	netip.MustParsePrefix("198.51.100.0/24"),   // TEST-NET-2 documentation.
+	netip.MustParsePrefix("203.0.113.0/24"),    // TEST-NET-3 documentation.
+	netip.MustParsePrefix("224.0.0.0/4"),       // IPv4 multicast.
+	netip.MustParsePrefix("240.0.0.0/4"),       // IPv4 reserved and future use.
+	netip.MustParsePrefix("::/128"),            // IPv6 unspecified.
+	netip.MustParsePrefix("::1/128"),           // IPv6 loopback.
+	netip.MustParsePrefix("100::/64"),          // IPv6 discard-only.
+	netip.MustParsePrefix("100:0:0:1::/64"),    // IPv6 dummy prefix.
+	netip.MustParsePrefix("2001::/23"),         // IETF protocol assignments.
+	netip.MustParsePrefix("2001:db8::/32"),     // IPv6 documentation.
+	netip.MustParsePrefix("2002::/16"),         // 6to4.
+	netip.MustParsePrefix("2620:4f:8000::/48"), // Direct Delegation AS112.
+	netip.MustParsePrefix("3fff::/20"),         // IPv6 documentation.
+	netip.MustParsePrefix("5f00::/16"),         // Segment Routing SIDs.
+	netip.MustParsePrefix("fc00::/7"),          // IPv6 unique local.
+	netip.MustParsePrefix("fe80::/10"),         // IPv6 link-local.
+	netip.MustParsePrefix("ff00::/8"),          // IPv6 multicast.
 }
 
 func blockedAddress(address netip.Addr) bool {
