@@ -18,7 +18,7 @@ import { LoadingState } from "@/components/feedback/loading-state";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { formatDuration } from "@/lib/format";
+import { formatDuration, pluralize } from "@/lib/format";
 import { AdminShell } from "./admin-shell";
 import { AdminTimeRange, useAdminTimeRange } from "./admin-time-range";
 
@@ -129,8 +129,12 @@ export function AdminServiceMapView() {
       ) : null}
       {serviceMap.data?.items.length ? (
         <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-fog">
-          <Badge variant="neutral">{nodes.length} services</Badge>
-          <Badge variant="neutral">{edges.length} dependencies</Badge>
+          <Badge variant="neutral" className="tabular-nums">
+            {pluralize(nodes.length, "service")}
+          </Badge>
+          <Badge variant="neutral" className="tabular-nums">
+            {pluralize(edges.length, "dependency", "dependencies")}
+          </Badge>
           <span>
             Metrics are aggregated by the telemetry backend for the selected
             window.

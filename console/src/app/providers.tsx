@@ -34,6 +34,7 @@ export function Providers({
       <Toaster
         theme="dark"
         position="bottom-right"
+        mobileOffset={{ bottom: "calc(env(safe-area-inset-bottom) + 16px)" }}
         toastOptions={{
           className: "!border-graphite !bg-obsidian !text-mist",
         }}

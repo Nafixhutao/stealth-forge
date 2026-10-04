@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCursorPagination } from "@/hooks/use-cursor-pagination";
+import { formatCount, pluralize } from "@/lib/format";
 
 export function MessagingView({ projectId }: { projectId: string }) {
   const providersNavigation = useCursorPagination("providers_cursor");
@@ -52,8 +53,8 @@ export function MessagingView({ projectId }: { projectId: string }) {
         <Card>
           <CardContent className="p-5">
             <p className="text-xs text-slate-500">Providers on this page</p>
-            <p className="mt-2 text-2xl font-semibold text-white">
-              {providers.data?.providers.length ?? "Not available"}
+            <p className="mt-2 text-2xl font-semibold tabular-nums text-white">
+              {formatCount(providers.data?.providers.length)}
             </p>
             <p className="mt-2 text-xs text-slate-600">
               Encrypted credentials are never returned.
@@ -76,8 +77,8 @@ export function MessagingView({ projectId }: { projectId: string }) {
         <Card>
           <CardContent className="p-5">
             <p className="text-xs text-slate-500">Topics on this page</p>
-            <p className="mt-2 text-2xl font-semibold text-white">
-              {topics.data?.topics.length ?? "Not available"}
+            <p className="mt-2 text-2xl font-semibold tabular-nums text-white">
+              {formatCount(topics.data?.topics.length)}
             </p>
             <CursorPaginationControls
               {...{
@@ -96,8 +97,8 @@ export function MessagingView({ projectId }: { projectId: string }) {
         <Card>
           <CardContent className="p-5">
             <p className="text-xs text-slate-500">Messages on this page</p>
-            <p className="mt-2 text-2xl font-semibold text-white">
-              {messages.data?.messages.length ?? "Not available"}
+            <p className="mt-2 text-2xl font-semibold tabular-nums text-white">
+              {formatCount(messages.data?.messages.length)}
             </p>
             <p className="mt-2 text-xs text-slate-600">
               Metadata only; content remains encrypted.
@@ -131,8 +132,8 @@ export function MessagingView({ projectId }: { projectId: string }) {
               >
                 <div>
                   <p className="font-medium text-white">{topic.name}</p>
-                  <p className="text-xs text-slate-600">
-                    {topic.subscriber_count} subscribers
+                  <p className="text-xs text-slate-600 tabular-nums">
+                    {pluralize(topic.subscriber_count, "subscriber")}
                   </p>
                 </div>
                 <StatusBadge status={topic.enabled ? "active" : "inactive"} />

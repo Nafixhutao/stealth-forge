@@ -16,6 +16,11 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   colorScheme: "dark",
   themeColor: "#171718",
+  // Let the app paint under the notch/home indicator; the shell pads content
+  // back out with env(safe-area-inset-*). resizes-content keeps 100dvh honest
+  // when the Android software keyboard opens.
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({

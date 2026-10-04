@@ -59,10 +59,13 @@ export function AppsView({
       cell: ({ row }) => (
         <Link
           href={`${base}/apps/${row.original.id}`}
-          className="font-medium text-white hover:text-amber-200"
+          className="min-w-0 font-medium text-white hover:text-amber-200"
         >
           <span className="block">{row.original.name}</span>
-          <span className="mt-0.5 block font-mono text-[11px] text-fog">
+          <span
+            className="mt-0.5 block wrap-anywhere font-mono text-[11px] text-fog"
+            title={row.original.platform_hostname ?? undefined}
+          >
             {row.original.platform_hostname ?? "Hostname not configured"}
           </span>
         </Link>

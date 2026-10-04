@@ -12,14 +12,14 @@ export default function PublicStatusPage() {
 
   if (statusPage.isPending) {
     return (
-      <main className="mx-auto min-h-screen max-w-4xl bg-void px-5 py-16 text-paper sm:px-8">
+      <main className="mx-auto min-h-dvh max-w-4xl bg-void px-5 py-16 text-paper sm:px-8">
         <LoadingState rows={4} />
       </main>
     );
   }
   if (statusPage.error) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-4xl items-center bg-void px-5 py-16 sm:px-8">
+      <main className="mx-auto flex min-h-dvh max-w-4xl items-center bg-void px-5 py-16 sm:px-8">
         <ErrorState
           title="Status page unavailable"
           error={statusPage.error}
@@ -32,7 +32,7 @@ export default function PublicStatusPage() {
   if (!data) return null;
 
   return (
-    <main className="min-h-screen bg-void px-5 py-16 text-paper sm:px-8">
+    <main className="min-h-dvh bg-void px-5 py-16 text-paper sm:px-8">
       <div className="mx-auto max-w-4xl">
         <header className="mb-10 border-b border-graphite pb-8">
           <p className="text-xs uppercase tracking-[0.14em] text-fog">

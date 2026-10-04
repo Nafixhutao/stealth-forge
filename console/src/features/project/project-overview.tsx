@@ -379,7 +379,10 @@ export function ProjectOverviewView({
                 <div key={event.id} className="flex gap-3">
                   <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-acid-lime" />
                   <div className="min-w-0">
-                    <p className="truncate text-sm text-slate-200">
+                    <p
+                      className="truncate text-sm text-slate-200"
+                      title={event.action}
+                    >
                       {event.action}
                     </p>
                     <p className="mt-0.5 text-xs text-slate-600">

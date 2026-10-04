@@ -158,7 +158,10 @@ export function CommandPalette() {
     ? Math.min(activeIndex, commands.length - 1)
     : 0;
   useEffect(() => {
-    buttons.current[selectedIndex]?.scrollIntoView({ block: "nearest" });
+    buttons.current[selectedIndex]?.scrollIntoView({
+      block: "nearest",
+      behavior: "instant",
+    });
   }, [selectedIndex]);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -203,7 +206,11 @@ export function CommandPalette() {
         else close();
       }}
     >
-      <DialogContent className="max-w-xl p-3" onKeyDown={handleKeyDown}>
+      <DialogContent
+        animated={false}
+        className="max-w-xl p-3"
+        onKeyDown={handleKeyDown}
+      >
         <DialogHeader className="sr-only">
           <DialogTitle>Command palette</DialogTitle>
           <DialogDescription>

@@ -2,7 +2,7 @@ export default function AuthLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <main className="grid min-h-screen bg-void lg:grid-cols-[1.05fr_.95fr]">
+    <main className="grid min-h-dvh bg-void lg:grid-cols-[1.05fr_.95fr]">
       <a
         href="#auth-main-content"
         className="sr-only fixed left-4 top-4 z-[60] rounded-md bg-acid-lime px-3 py-2 text-sm font-medium text-void focus:not-sr-only"

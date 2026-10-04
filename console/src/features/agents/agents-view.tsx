@@ -58,7 +58,9 @@ function AgentRunSummary({ run, base }: { run: AgentRun; base: string }) {
           {formatDate(run.created_at)}
         </span>
       </div>
-      <p className="mt-2 truncate text-sm text-slate-200">{run.prompt}</p>
+      <p className="mt-2 truncate text-sm text-slate-200" title={run.prompt}>
+        {run.prompt}
+      </p>
       <p className="mt-1 text-xs text-slate-600">
         {formatAgentRunDuration(run)} · {run.id}
       </p>

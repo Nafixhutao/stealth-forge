@@ -20,6 +20,11 @@ export function formatRelative(value: string | null | undefined) {
   if (!value) return "Not available";
   const date = new Date(value);
   if (Number.isNaN(date.valueOf())) return "Not available";
+  // Under 45s reads better as "just now" than "0 seconds ago"; past a week a
+  // relative phrase ("2 months ago") is less useful than an absolute date.
+  const elapsed = Date.now() - date.getTime();
+  if (elapsed >= 0 && elapsed < 45 * 1000) return "just now";
+  if (elapsed > 7 * 24 * 60 * 60 * 1000) return formatDate(value);
   return `${formatDistanceToNowStrict(date, { addSuffix: true })}`;
 }
 
@@ -42,6 +47,15 @@ export function formatCount(value: number | null | undefined) {
   return (value > 9999 ? compactCountFormat : standardCountFormat).format(
     value,
   );
+}
+
+/** "1 record" / "12 records", with locale-formatted counts. */
+export function pluralize(
+  count: number,
+  singular: string,
+  plural = `${singular}s`,
+) {
+  return `${formatCount(count)} ${count === 1 ? singular : plural}`;
 }
 
 export function formatDuration(value: number | null | undefined) {

@@ -61,19 +61,21 @@ export function DeploymentsView({
                   href={`${base}/functions/${item.id}`}
                   className="flex items-center justify-between rounded-lg border border-stealth-border p-3 hover:border-cyan-300/30"
                 >
-                  <span>
-                    <span className="block text-sm font-medium text-white">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-white">
                       {item.name}
                     </span>
-                    <span className="text-xs text-slate-600">
+                    <span className="block truncate text-xs text-slate-600">
                       {item.active_deployment_id
                         ? "Active deployment available"
                         : "No active deployment"}
                     </span>
                   </span>
-                  <StatusBadge
-                    status={item.active_deployment_id ? "active" : "inactive"}
-                  />
+                  <span className="shrink-0">
+                    <StatusBadge
+                      status={item.active_deployment_id ? "active" : "inactive"}
+                    />
+                  </span>
                 </Link>
               ))
             ) : (
@@ -110,19 +112,21 @@ export function DeploymentsView({
                   href={`${base}/sites/${item.id}`}
                   className="flex items-center justify-between rounded-lg border border-stealth-border p-3 hover:border-violet-300/30"
                 >
-                  <span>
-                    <span className="block text-sm font-medium text-white">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-white">
                       {item.name}
                     </span>
-                    <span className="text-xs text-slate-600">
+                    <span className="block truncate text-xs text-slate-600">
                       {item.active_deployment_id
                         ? "Active deployment available"
                         : "No active deployment"}
                     </span>
                   </span>
-                  <StatusBadge
-                    status={item.active_deployment_id ? "active" : "inactive"}
-                  />
+                  <span className="shrink-0">
+                    <StatusBadge
+                      status={item.active_deployment_id ? "active" : "inactive"}
+                    />
+                  </span>
                 </Link>
               ))
             ) : (

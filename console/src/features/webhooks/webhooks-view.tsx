@@ -19,7 +19,7 @@ import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useCursorPagination } from "@/hooks/use-cursor-pagination";
-import { formatDate } from "@/lib/format";
+import { formatCount, formatDate } from "@/lib/format";
 import { pageControls } from "@/lib/pagination";
 import {
   webhookFields,
@@ -107,7 +107,11 @@ export function WebhooksView({
     {
       accessorKey: "failure_count",
       header: "Failures",
-      cell: ({ row }) => row.original.failure_count,
+      cell: ({ row }) => (
+        <span className="tabular-nums">
+          {formatCount(row.original.failure_count)}
+        </span>
+      ),
     },
     {
       accessorKey: "last_delivery_at",
