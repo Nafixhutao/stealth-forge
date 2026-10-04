@@ -3,9 +3,12 @@ set -Eeuo pipefail
 
 api_url="${API_URL:-http://127.0.0.1:18080}"
 console_url="${CONSOLE_URL:-http://127.0.0.1:13000}"
-proxy_url="${PROXY_URL:-}"
+proxy_url="${PROXY_URL:-http://127.0.0.1:${PROXY_HTTP_PORT:-8080}}"
 attempts="${SMOKE_ATTEMPTS:-60}"
 interval="${SMOKE_INTERVAL_SECONDS:-2}"
+compose_file="${COMPOSE_FILE:-}"
+env_file="${ENV_FILE:-.env.production}"
+compose_services="${SMOKE_COMPOSE_SERVICES:-worker buildkit traefik clickhouse}"
 
 if ! [[ "$attempts" =~ ^[1-9][0-9]*$ && "$interval" =~ ^[1-9][0-9]*$ ]]; then
 	printf 'SMOKE_ATTEMPTS and SMOKE_INTERVAL_SECONDS must be positive integers\n' >&2
@@ -52,6 +55,27 @@ wait_for "Console" "${console_url%/}/"
 if [ -n "$proxy_url" ]; then
 	wait_for "Reverse proxy" "${proxy_url%/}/"
 	expect_status "Reverse proxy API route" "${proxy_url%/}/v1/account" "401"
+fi
+
+# A passing HTTP check does not prove the worker, BuildKit, Traefik, or
+# ClickHouse are healthy. Assert the Compose health status for those services
+# when a Compose file is supplied, so a stalled queue or build plane fails the
+# documented post-upgrade smoke instead of reporting a false success.
+if [ -n "$compose_file" ] && [ -f "$compose_file" ] && command -v docker >/dev/null 2>&1; then
+	compose_args=(docker compose --env-file "$env_file" -f "$compose_file")
+	for service in $compose_services; do
+		container="$("${compose_args[@]}" ps -q "$service" 2>/dev/null || true)"
+		if [ -z "$container" ]; then
+			printf 'compose service %s is not running\n' "$service" >&2
+			exit 1
+		fi
+		status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container" 2>/dev/null || true)"
+		if [ "$status" != "healthy" ] && [ "$status" != "running" ]; then
+			printf 'compose service %s is not healthy: %s\n' "$service" "$status" >&2
+			exit 1
+		fi
+		printf '%s: %s\n' "$service" "$status"
+	done
 fi
 
 printf 'HTTP production smoke checks passed\n'

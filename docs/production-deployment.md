@@ -469,6 +469,14 @@ Strongly recommended values:
 - `STORAGE_DRIVER=s3` with provider-specific `STORAGE_S3_*` credentials for a
   production object-store service. The bundled local mode is a persistent
   single-host volume, not highly available object storage.
+- Per-service Compose resource bounds (`POSTGRES_MEMORY_LIMIT`, `API_CPUS`,
+  `WORKER_MEMORY_LIMIT`, and the other `*_MEMORY_LIMIT`/`*_CPUS` values in
+  [`.env.production.example`](../.env.production.example)) so one runaway
+  service cannot exhaust the host and OOM the whole single-host stack. Raise
+  them on larger hosts.
+- Digest-pinned infrastructure images (`POSTGRES_IMAGE`, `REDIS_IMAGE`,
+  `NGINX_IMAGE`) for reproducible rollbacks; the bundled baseline keeps
+  readable tags so it starts without a digest.
 
 App runtime bounds have validated defaults in
 [`.env.production.example`](../.env.production.example): network name
@@ -602,6 +610,18 @@ The official OpenTelemetry Collector Contrib image is scratch-based and runs
 as UID 10001. The main Collector, host-metrics Collector, and Docker-metrics
 Collector use a capability-free Stealth wrapper with a static Go probe for the
 live `health_check` endpoint and retain `no-new-privileges:true`.
+
+`telemetry-host` mounts the host filesystem read-only at `/hostfs` to collect
+host metrics. Only `<install-root>/private` is masked with a read-only tmpfs,
+so the Collector can read every other world-readable host path (for example
+`/etc`, other users' home directories, and service configuration outside the
+masked tree). This is a deliberate host-metrics trade-off on a single-host
+baseline: treat the host filesystem as readable by the telemetry boundary, keep
+installation secrets inside the masked `private/` tree, and set
+`STEALTH_INSTALL_ROOT` to the exact installation root so the mask covers the
+BuildKit CA and leaf keys. A hardened deployment that cannot accept this
+exposure should disable the host-metrics Collector or replace it with a
+narrower allowlisted mount set.
 
 Docker file logs use a dedicated scratch wrapper with the pinned binary's
 narrow `DAC_READ_SEARCH` file capability. Only `telemetry-docker-logs` uses
