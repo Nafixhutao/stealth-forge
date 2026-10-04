@@ -194,18 +194,28 @@ func (r *Repository) AdminOperationSummary(ctx context.Context) (domain.AdminOpe
 	err := r.pool.QueryRow(ctx, `
 		SELECT
 		  (SELECT count(*) FROM function_deployments WHERE status IN ('queued','building')) +
-		  (SELECT count(*) FROM site_deployments WHERE status='queued'),
+		  (SELECT count(*) FROM site_deployments WHERE status='queued') +
+		  (SELECT count(*) FROM app_deployments WHERE build_status IN ('queued','building')),
 		  (SELECT count(*) FROM function_executions WHERE status='accepted') +
 		  (SELECT count(*) FROM agent_runs WHERE status='queued') +
-		  (SELECT count(*) FROM artifact_cleanup_jobs WHERE status='pending'),
+		  (SELECT count(*) FROM artifact_cleanup_jobs WHERE status='pending') +
+		  (SELECT count(*) FROM app_deployments WHERE build_status='queued') +
+		  (SELECT count(*) FROM webhook_deliveries WHERE status='pending') +
+		  (SELECT count(*) FROM project_messaging_deliveries WHERE status='pending'),
 		  (SELECT count(*) FROM function_executions WHERE status='running') +
 		  (SELECT count(*) FROM agent_runs WHERE status='running') +
-		  (SELECT count(*) FROM function_deployments WHERE status='building'),
+		  (SELECT count(*) FROM function_deployments WHERE status='building') +
+		  (SELECT count(*) FROM app_deployments WHERE build_status='building') +
+		  (SELECT count(*) FROM webhook_deliveries WHERE status='running') +
+		  (SELECT count(*) FROM project_messaging_deliveries WHERE status='running'),
 		  (SELECT count(*) FROM function_executions WHERE status='failed') +
 		  (SELECT count(*) FROM agent_runs WHERE status='failed') +
 		  (SELECT count(*) FROM function_deployments WHERE status='failed') +
 		  (SELECT count(*) FROM site_deployments WHERE status='failed') +
-		  (SELECT count(*) FROM artifact_cleanup_jobs WHERE status='failed')`,
+		  (SELECT count(*) FROM app_deployments WHERE build_status='failed') +
+		  (SELECT count(*) FROM artifact_cleanup_jobs WHERE status='failed') +
+		  (SELECT count(*) FROM webhook_deliveries WHERE status='failed') +
+		  (SELECT count(*) FROM project_messaging_deliveries WHERE status='failed')`,
 	).Scan(&result.ActiveDeployments, &result.QueuedJobs, &result.RunningJobs, &result.FailedJobs)
 	return result, err
 }

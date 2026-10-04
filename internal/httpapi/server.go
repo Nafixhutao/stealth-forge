@@ -313,6 +313,9 @@ func NewWithDependenciesAndPlatformSiteHandler(
 		telemetry:                        deps.TelemetryStore,
 		redis:                            deps.Redis,
 	}
+	// Export database-pool saturation on the API metrics registry so pool
+	// exhaustion is visible and alertable.
+	s.metrics.Registry.MustRegister(observability.NewPoolCollector(s.repo.Pool()))
 	return s.routes(), s.platformSiteRoutes()
 }
 

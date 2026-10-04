@@ -53,6 +53,7 @@ The API contract is the detailed reference for each product surface. Operational
 - [Release and maintainer checklist](RELEASING.md)
 - [Upgrade and rollback](upgrade.md)
 - [Backup and restore](backup-restore.md)
+- [Observability alerts and failure runbook](observability-alerting.md)
 - [Production smoke checks](production-deployment.md#smoke-and-troubleshooting)
 
 ## Investigations

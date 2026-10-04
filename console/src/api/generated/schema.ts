@@ -6578,7 +6578,12 @@ export interface components {
         };
         DatabaseRowsPage: {
             rows: components["schemas"]["DatabaseRow"][];
-            pagination: components["schemas"]["Pagination"];
+            pagination: components["schemas"]["DatabaseRowsPagination"];
+        };
+        DatabaseRowsPagination: {
+            limit: number;
+            /** @description Opaque base64 cursor. Ordered row pages encode the sort key */
+            next_cursor: string | null;
         };
         DatabaseRowsExport: {
             rows: components["schemas"]["DatabaseRow"][];
@@ -10461,6 +10466,7 @@ export interface operations {
             413: components["responses"]["PayloadTooLarge"];
             415: components["responses"]["UnsupportedMediaType"];
             422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -11651,6 +11657,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -12307,6 +12314,7 @@ export interface operations {
             413: components["responses"]["PayloadTooLarge"];
             415: components["responses"]["UnsupportedMediaType"];
             422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -14423,6 +14431,7 @@ export interface operations {
             413: components["responses"]["PayloadTooLarge"];
             415: components["responses"]["UnsupportedMediaType"];
             422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
         };
     };
     createGitSiteDeployment: {
@@ -15039,6 +15048,7 @@ export interface operations {
             413: components["responses"]["PayloadTooLarge"];
             415: components["responses"]["UnsupportedMediaType"];
             422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
         };
     };
     getFunctionDeployment: {
@@ -15219,6 +15229,7 @@ export interface operations {
             413: components["responses"]["PayloadTooLarge"];
             415: components["responses"]["UnsupportedMediaType"];
             422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
         };
     };
     getFunctionExecution: {

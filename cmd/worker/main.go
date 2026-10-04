@@ -337,6 +337,13 @@ func main() {
 		appBuildWorker.Metrics = observability.NewWorkerMetrics()
 		appRuntimeWorker.Metrics = appBuildWorker.Metrics
 		realtimePublisher.Metrics = appBuildWorker.Metrics
+		queueMetrics := appBuildWorker.Metrics
+		queueMetrics.Registry.MustRegister(observability.NewPoolCollector(pool))
+		artifactCleanupWorker.Metrics = queueMetrics.ArtifactCleanupQueue
+		webhookWorker.Metrics = queueMetrics.WebhookQueue
+		messagingWorker.Metrics = queueMetrics.MessagingQueue
+		monitorWorker.Metrics = queueMetrics.MonitorQueue
+		notificationWorker.Metrics = queueMetrics.NotificationQueue
 		metricsServer := &http.Server{
 			Addr:              cfg.FunctionsRunnerMetricsAddress,
 			Handler:           workerMetricsHandler(appBuildWorker.Metrics.Handler(), cfg.MetricsToken),
@@ -419,6 +426,12 @@ func main() {
 		agentWorker.Metrics = worker.Metrics
 	}
 	realtimePublisher.Metrics = worker.Metrics
+	worker.Metrics.Registry.MustRegister(observability.NewPoolCollector(pool))
+	artifactCleanupWorker.Metrics = worker.Metrics.ArtifactCleanupQueue
+	webhookWorker.Metrics = worker.Metrics.WebhookQueue
+	messagingWorker.Metrics = worker.Metrics.MessagingQueue
+	monitorWorker.Metrics = worker.Metrics.MonitorQueue
+	notificationWorker.Metrics = worker.Metrics.NotificationQueue
 	workerContext, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	metricsServer := &http.Server{

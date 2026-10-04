@@ -22,6 +22,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/Stealth-deplover/stealth/internal/functionsecret"
+	"github.com/Stealth-deplover/stealth/internal/observability"
 	"github.com/Stealth-deplover/stealth/internal/repository"
 	"github.com/Stealth-deplover/stealth/internal/retry"
 	"github.com/google/uuid"
@@ -67,6 +68,7 @@ type Worker struct {
 	MaxAttempts     int
 	PruneInterval   time.Duration
 	Logger          *slog.Logger
+	Metrics         *observability.QueueMetrics
 }
 
 func New(store Persistence, cipher *functionsecret.Cipher, workerID string, logger *slog.Logger) (*Worker, error) {
@@ -123,18 +125,32 @@ func (w *Worker) Run(ctx context.Context) error {
 			w.pruneExpiredEvents(ctx)
 		default:
 		}
-		if _, err := w.Store.RequeueStaleWebhookDeliveries(ctx, leaseAge); err != nil &&
+		if requeued, err := w.Store.RequeueStaleWebhookDeliveries(ctx, leaseAge); err != nil &&
 			!errors.Is(err, context.Canceled) {
 			w.Logger.Error("requeue stale webhook deliveries failed", "error", err)
+			w.Metrics.Error("requeue_stale")
+		} else {
+			w.Metrics.Requeue(requeued)
 		}
 		if _, err := w.Store.ExpireWebhookDeliveries(ctx); err != nil && !errors.Is(err, context.Canceled) {
 			w.Logger.Error("expire webhook deliveries failed", "error", err)
 		}
+		w.Metrics.Poll()
+		started := time.Now()
 		processed, err := w.RunOnce(ctx)
+		if processed {
+			w.Metrics.Claim()
+			result := "succeeded"
+			if err != nil {
+				result = "failed"
+			}
+			w.Metrics.Complete(result, time.Since(started))
+		}
 		if err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return nil
 			}
+			w.Metrics.Error("run_once")
 			w.Logger.Error("webhook delivery failed", "error", err)
 		}
 		if processed {

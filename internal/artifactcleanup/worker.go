@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Stealth-deplover/stealth/internal/observability"
 	"github.com/Stealth-deplover/stealth/internal/repository"
 	"github.com/google/uuid"
 )
@@ -51,6 +52,7 @@ type Worker struct {
 	PollInterval time.Duration
 	LeaseAge     time.Duration
 	Logger       *slog.Logger
+	Metrics      *observability.QueueMetrics
 }
 
 func New(
@@ -97,14 +99,28 @@ func (w *Worker) Run(ctx context.Context) error {
 	ticker := time.NewTicker(poll)
 	defer ticker.Stop()
 	for {
-		if _, err := w.Store.RequeueStaleArtifactCleanup(ctx, leaseAge); err != nil && !isContextError(err) {
+		if requeued, err := w.Store.RequeueStaleArtifactCleanup(ctx, leaseAge); err != nil && !isContextError(err) {
 			w.logError("requeue stale artifact cleanup jobs failed", err)
+			w.Metrics.Error("requeue_stale")
+		} else {
+			w.Metrics.Requeue(requeued)
 		}
+		w.Metrics.Poll()
+		started := time.Now()
 		processed, err := w.RunOnce(ctx)
+		if processed {
+			w.Metrics.Claim()
+			result := "succeeded"
+			if err != nil {
+				result = "failed"
+			}
+			w.Metrics.Complete(result, time.Since(started))
+		}
 		if err != nil {
 			if isContextError(err) {
 				return nil
 			}
+			w.Metrics.Error("run_once")
 			w.logError("artifact cleanup job failed", err)
 		}
 		if processed && err == nil {

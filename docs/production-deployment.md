@@ -786,6 +786,9 @@ docker compose --env-file .env.production -f compose.production.yaml logs api wo
 curl --fail http://127.0.0.1:18080/healthz
 ```
 
+See [Observability alerts and failure runbook](observability-alerting.md) for
+the recommended alert set, dashboard, and first response to common failures.
+
 Health is intentionally probed directly: the same-origin proxy sends `/` to
 Next.js and `/v1/*` to the API, so it does not expose a public liveness route.
 Probe the API's loopback port from the host or run `curl` inside the API
