@@ -81,6 +81,12 @@ jobs:
         with:
           version: v2.14.0
 
+      - name: Vulnerability scan
+        run: |
+          set -Eeuo pipefail
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
       - name: Unit tests
         run: go test ./... -count=1
 
@@ -408,6 +414,10 @@ jobs:
         working-directory: console
         run: npm ci
 
+      - name: Dependency audit
+        working-directory: console
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Generate OpenAPI client
         working-directory: console
         run: npm run api:generate
@@ -445,3 +455,23 @@ jobs:
 
       - name: Docker image build
         run: docker build -f console/Dockerfile -t stealth-console:test .
+
+  dependency-review:
+    name: Dependency review
+    # Requires the repository dependency graph (a manual GitHub setting) and the
+    # `DEPENDENCY_REVIEW_ENABLED` repository variable. Enable both to turn this
+    # into a hard gate; otherwise the job is skipped.
+    if: github.event_name == 'pull_request' && vars.DEPENDENCY_REVIEW_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high

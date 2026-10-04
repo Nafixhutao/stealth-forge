@@ -60,6 +60,14 @@ func firstCipher(primary, fallback *functionsecret.Cipher) *functionsecret.Ciphe
 	return fallback
 }
 
+// Pool exposes the shared connection pool for read-only process metrics.
+func (r *Repository) Pool() *pgxpool.Pool {
+	if r == nil {
+		return nil
+	}
+	return r.pool
+}
+
 // BootstrapStore returns the first-run persistence capability exposed by the
 // repository. Callers should depend on the capability rather than the broad
 // Repository when they only need setup and owner onboarding.

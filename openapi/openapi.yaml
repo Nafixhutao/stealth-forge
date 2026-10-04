@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Stealth Console API
-  version: 0.1.0
+  version: 0.2.6
   description: Control-plane API for Stealth Console. Browser sessions are opaque HttpOnly cookies and are never returned in JSON.
 servers:
   - url: http://localhost:8080
@@ -1214,7 +1214,7 @@ paths:
       security: [{ sessionCookie: [] }]
       parameters: [{ $ref: '#/components/parameters/AgentID' }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateAgentRunRequest' } } } }
-      responses: { '202': { description: Run accepted, content: { application/json: { schema: { $ref: '#/components/schemas/AgentRunResponse' } } } }, '400': { $ref: '#/components/responses/BadRequest' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' }, '413': { $ref: '#/components/responses/PayloadTooLarge' }, '415': { $ref: '#/components/responses/UnsupportedMediaType' }, '422': { $ref: '#/components/responses/ValidationError' }, '500': { $ref: '#/components/responses/InternalError' } }
+      responses: { '202': { description: Run accepted, content: { application/json: { schema: { $ref: '#/components/schemas/AgentRunResponse' } } } }, '400': { $ref: '#/components/responses/BadRequest' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' }, '413': { $ref: '#/components/responses/PayloadTooLarge' }, '415': { $ref: '#/components/responses/UnsupportedMediaType' }, '422': { $ref: '#/components/responses/ValidationError' }, '500': { $ref: '#/components/responses/InternalError' } , '429': { $ref: '#/components/responses/RateLimited' } }
   /v1/agents/{agentID}/runs/{runID}:
     get:
       operationId: getAgentRun
@@ -1721,6 +1721,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
   /v1/projects/{projectID}/auth/settings:
     get:
@@ -2018,6 +2019,7 @@ paths:
         '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
   /v1/projects/{projectID}/storage/buckets/{bucketID}/files/{fileID}:
     get:
@@ -2783,7 +2785,7 @@ paths:
       security: [{ sessionCookie: [] }, { projectApiKey: [] }]
       parameters: [{ $ref: '#/components/parameters/ProjectID' }, { $ref: '#/components/parameters/SiteID' }]
       requestBody: { required: true, content: { multipart/form-data: { schema: { $ref: '#/components/schemas/SiteDeploymentUploadRequest' } } } }
-      responses: { '201': { description: Immutable deployment stored and optionally activated, content: { application/json: { schema: { $ref: '#/components/schemas/SiteDeploymentResponse' } } } }, '400': { $ref: '#/components/responses/BadRequest' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' }, '409': { $ref: '#/components/responses/Conflict' }, '413': { $ref: '#/components/responses/PayloadTooLarge' }, '415': { $ref: '#/components/responses/UnsupportedMediaType' }, '422': { $ref: '#/components/responses/ValidationError' } }
+      responses: { '201': { description: Immutable deployment stored and optionally activated, content: { application/json: { schema: { $ref: '#/components/schemas/SiteDeploymentResponse' } } } }, '400': { $ref: '#/components/responses/BadRequest' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' }, '409': { $ref: '#/components/responses/Conflict' }, '413': { $ref: '#/components/responses/PayloadTooLarge' }, '415': { $ref: '#/components/responses/UnsupportedMediaType' }, '422': { $ref: '#/components/responses/ValidationError' } , '429': { $ref: '#/components/responses/RateLimited' } }
   /v1/projects/{projectID}/sites/{siteID}/deployments/git:
     post:
       operationId: createGitSiteDeployment
@@ -2932,7 +2934,7 @@ paths:
       security: [{ sessionCookie: [] }, { projectApiKey: [] }]
       parameters: [{ $ref: '#/components/parameters/ProjectID' }, { $ref: '#/components/parameters/FunctionID' }]
       requestBody: { required: true, content: { multipart/form-data: { schema: { $ref: '#/components/schemas/FunctionDeploymentUploadRequest' } } } }
-      responses: { '201': { description: Deployment source stored and build queued; poll the deployment until build_status is succeeded before expecting execution, content: { application/json: { schema: { $ref: '#/components/schemas/FunctionDeploymentResponse' } } } }, '400': { $ref: '#/components/responses/BadRequest' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' }, '409': { $ref: '#/components/responses/Conflict' }, '413': { $ref: '#/components/responses/PayloadTooLarge' }, '415': { $ref: '#/components/responses/UnsupportedMediaType' }, '422': { $ref: '#/components/responses/ValidationError' } }
+      responses: { '201': { description: Deployment source stored and build queued; poll the deployment until build_status is succeeded before expecting execution, content: { application/json: { schema: { $ref: '#/components/schemas/FunctionDeploymentResponse' } } } }, '400': { $ref: '#/components/responses/BadRequest' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' }, '409': { $ref: '#/components/responses/Conflict' }, '413': { $ref: '#/components/responses/PayloadTooLarge' }, '415': { $ref: '#/components/responses/UnsupportedMediaType' }, '422': { $ref: '#/components/responses/ValidationError' } , '429': { $ref: '#/components/responses/RateLimited' } }
   /v1/projects/{projectID}/functions/{functionID}/deployments/{deploymentID}:
     get:
       operationId: getFunctionDeployment
@@ -2966,7 +2968,7 @@ paths:
       security: [{ sessionCookie: [] }, { projectApiKey: [] }, { projectAppCookie: [] }, {}]
       parameters: [{ $ref: '#/components/parameters/ProjectID' }, { $ref: '#/components/parameters/FunctionID' }]
       requestBody: { required: false, content: { application/json: { schema: { $ref: '#/components/schemas/CreateFunctionExecutionRequest' } } } }
-      responses: { '202': { description: Execution accepted, content: { application/json: { schema: { $ref: '#/components/schemas/FunctionExecutionResponse' } } } }, '400': { $ref: '#/components/responses/BadRequest' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' }, '409': { $ref: '#/components/responses/Conflict' }, '413': { $ref: '#/components/responses/PayloadTooLarge' }, '415': { $ref: '#/components/responses/UnsupportedMediaType' }, '422': { $ref: '#/components/responses/ValidationError' } }
+      responses: { '202': { description: Execution accepted, content: { application/json: { schema: { $ref: '#/components/schemas/FunctionExecutionResponse' } } } }, '400': { $ref: '#/components/responses/BadRequest' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' }, '409': { $ref: '#/components/responses/Conflict' }, '413': { $ref: '#/components/responses/PayloadTooLarge' }, '415': { $ref: '#/components/responses/UnsupportedMediaType' }, '422': { $ref: '#/components/responses/ValidationError' } , '429': { $ref: '#/components/responses/RateLimited' } }
     get:
       operationId: listFunctionExecutions
       description: List execution metadata produced by the trusted runtime worker.
@@ -3404,7 +3406,8 @@ components:
     DatabaseBackupsPage: { type: object, additionalProperties: false, required: [backups, pagination, can_manage], properties: { backups: { type: array, items: { $ref: '#/components/schemas/DatabaseBackup' } }, pagination: { $ref: '#/components/schemas/Pagination' }, can_manage: { type: boolean, description: Whether the current project membership may create, restore, or delete database backups. } } }
     DatabaseBackupRestoreResult: { type: object, additionalProperties: false, required: [tables, columns, indexes, rows, relationships], properties: { tables: { type: integer, minimum: 0 }, columns: { type: integer, minimum: 0 }, indexes: { type: integer, minimum: 0 }, rows: { type: integer, minimum: 0 }, relationships: { type: integer, minimum: 0 } } }
     DatabaseBackupRestoreResponse: { type: object, additionalProperties: false, required: [backup_id, result], properties: { backup_id: { type: string, format: uuid }, result: { $ref: '#/components/schemas/DatabaseBackupRestoreResult' } } }
-    DatabaseRowsPage: { type: object, additionalProperties: false, required: [rows, pagination], properties: { rows: { type: array, items: { $ref: '#/components/schemas/DatabaseRow' } }, pagination: { $ref: '#/components/schemas/Pagination' } } }
+    DatabaseRowsPage: { type: object, additionalProperties: false, required: [rows, pagination], properties: { rows: { type: array, items: { $ref: '#/components/schemas/DatabaseRow' } }, pagination: { $ref: '#/components/schemas/DatabaseRowsPagination' } } }
+    DatabaseRowsPagination: { type: object, required: [limit, next_cursor], properties: { limit: { type: integer }, next_cursor: { type: [string, 'null'], description: Opaque base64 cursor. Ordered row pages encode the sort key, so it is not a UUID. } } }
     DatabaseRowsExport: { type: object, additionalProperties: false, required: [rows, count], properties: { rows: { type: array, items: { $ref: '#/components/schemas/DatabaseRow' } }, count: { type: integer, minimum: 0, maximum: 10000 } } }
     DatabaseRowsImportResponse: { type: object, additionalProperties: false, required: [rows, count], properties: { rows: { type: array, items: { $ref: '#/components/schemas/DatabaseRow' } }, count: { type: integer, minimum: 1, maximum: 1000 } } }
     DatabaseRowsTransactionResponse: { type: object, additionalProperties: false, required: [rows, deleted_ids, count], properties: { rows: { type: array, items: { $ref: '#/components/schemas/DatabaseRow' } }, deleted_ids: { type: array, items: { type: string, format: uuid } }, count: { type: integer, minimum: 1, maximum: 100 } } }

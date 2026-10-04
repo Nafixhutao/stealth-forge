@@ -471,12 +471,15 @@ EOF
 		-CA "$buildkit_wrong_identity_dir/wrong-ca.pem" -CAkey "$buildkit_wrong_identity_dir/wrong-ca-key.pem" \
 		-CAcreateserial -days 2 -sha256 -extfile "$buildkit_wrong_identity_dir/client-ext.cnf" \
 		-out "$buildkit_wrong_identity_dir/wrong-client-cert.pem" >/dev/null 2>&1
+	# The worker now drops all Linux capabilities, so prepare a world-readable
+	# throwaway identity on the host and copy it in without an in-container
+	# chown/chmod. The negative test only needs the worker user to read the files.
+	chmod 0755 "$buildkit_wrong_identity_dir"
+	chmod 0444 "$buildkit_wrong_identity_dir/wrong-ca.pem" "$buildkit_wrong_identity_dir/wrong-client-cert.pem" "$buildkit_wrong_identity_dir/wrong-client-key.pem"
 	docker exec --user 0 "$worker_container" mkdir -p /tmp/stealth-buildkit-mtls-negative-test
 	docker cp "$buildkit_wrong_identity_dir/wrong-ca.pem" "$worker_container:/tmp/stealth-buildkit-mtls-negative-test/wrong-ca.pem"
 	docker cp "$buildkit_wrong_identity_dir/wrong-client-cert.pem" "$worker_container:/tmp/stealth-buildkit-mtls-negative-test/wrong-client-cert.pem"
 	docker cp "$buildkit_wrong_identity_dir/wrong-client-key.pem" "$worker_container:/tmp/stealth-buildkit-mtls-negative-test/wrong-client-key.pem"
-	docker exec --user 0 "$worker_container" sh -ec \
-		'chown -R 10001:10001 /tmp/stealth-buildkit-mtls-negative-test && chmod 0700 /tmp/stealth-buildkit-mtls-negative-test && chmod 0444 /tmp/stealth-buildkit-mtls-negative-test/*.pem && chmod 0400 /tmp/stealth-buildkit-mtls-negative-test/wrong-client-key.pem'
 
 	local -a base_args=(buildctl --addr tcp://buildkit:1234)
 	local -a proper_ca=(--tlscacert /run/secrets/stealth-buildkit/ca.pem)

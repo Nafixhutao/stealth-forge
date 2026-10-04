@@ -32,6 +32,18 @@ jobs:
       short_sha: ${{ steps.metadata.outputs.short_sha }}
       build_time: ${{ steps.metadata.outputs.build_time }}
     steps:
+      - name: Validate requested release ref
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]; then
+            echo "release_tag must match vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N" >&2
+            exit 1
+          fi
+
       - name: Check out release source
         uses: actions/checkout@v7
         with:
@@ -577,6 +589,10 @@ jobs:
     name: Create GitHub Release
     needs: [metadata, images, cli-artifacts]
     runs-on: ubuntu-latest
+    # The `release` environment lets maintainers require reviewers before a
+    # stable release is published. With no protection rules configured it is a
+    # no-op; see docs/RELEASING.md.
+    environment: release
     permissions:
       contents: write
     steps:

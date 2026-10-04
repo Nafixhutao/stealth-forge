@@ -30,6 +30,15 @@ claiming the same eligible row concurrently.
 - `DATABASE_MAX_CONNS`, `DATABASE_MIN_CONNS`,
   `DATABASE_MAX_CONN_LIFETIME`, and `DATABASE_MAX_CONN_IDLE_TIME` bound the
   PostgreSQL pool in both API and worker processes.
+- `DATABASE_STATEMENT_TIMEOUT` (default `15m`) and
+  `DATABASE_IDLE_IN_TRANSACTION_TIMEOUT` (default `60s`) are applied as
+  PostgreSQL session settings so a stuck statement or an idle transaction
+  cannot pin a pooled connection indefinitely. `0` disables either setting. The
+  statement default is above the 10-minute migration apply cap.
+- The trusted worker bounds two append-only tables on an hourly pass:
+  per-request `http_traces` and `admin_monitor_checks` are retained for 30 days
+  and pruned in batches of 10,000 so growth and write amplification stay
+  predictable.
 - `PROJECT_OPERATION_RATE_LIMIT` and `PROJECT_OPERATION_RATE_WINDOW` apply a
   per-project/per-authenticated-actor safety budget to function and site
   deployments, function executions, Agent runs, message sends, storage
@@ -45,7 +54,10 @@ claiming the same eligible row concurrently.
   `/metrics` requires `X-Metrics-Token`; the production Compose worker
   listener binds only to the private Compose network so the OTel Collector can
   scrape it. It has no host port. `/healthz` on the worker listener remains
-  the process liveness probe.
+  the process liveness probe. The worker registry includes bounded-label
+  delivery-queue metrics for the webhook, messaging, monitor, notification, and
+  artifact-cleanup loops, and both the API and worker registries export
+  PostgreSQL pool saturation.
 - Every API request gets a validated or generated `X-Request-ID`. The value is
   returned in the response and is present in request, panic, internal-error,
   and trace-index logs. Client-IP forwarding is disabled unless the direct

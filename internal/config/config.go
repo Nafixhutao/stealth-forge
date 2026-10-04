@@ -17,8 +17,12 @@ type Config struct {
 	DatabaseMinConns        int32
 	DatabaseMaxConnLifetime time.Duration
 	DatabaseMaxConnIdleTime time.Duration
-	RedisURL                string
-	HTTPAddress             string
+	// DatabaseStatementTimeout and DatabaseIdleInTransactionTimeout are applied
+	// as PostgreSQL session settings. Zero disables the setting.
+	DatabaseStatementTimeout         time.Duration
+	DatabaseIdleInTransactionTimeout time.Duration
+	RedisURL                         string
+	HTTPAddress                      string
 	// PlatformSiteAddress is a private listener containing only the public
 	// static Site-serving surface. Traefik platform routers never target the
 	// control-plane HTTP listener.

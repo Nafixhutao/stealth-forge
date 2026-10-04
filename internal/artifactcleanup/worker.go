@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Stealth-deplover/stealth/internal/observability"
 	"github.com/Stealth-deplover/stealth/internal/repository"
 	"github.com/google/uuid"
 )
@@ -19,6 +20,10 @@ const (
 	defaultPollInterval = 500 * time.Millisecond
 	defaultLeaseAge     = 20 * time.Minute
 	maxErrorLength      = 240
+	// maxAttempts bounds a permanently unremovable artifact (for example a
+	// permission error that cannot recover) so it stops retrying forever and
+	// stops accumulating durable rows and daily error logs.
+	maxAttempts = 20
 )
 
 var ErrStoreUnavailable = errors.New("artifact cleanup store is unavailable")
@@ -47,6 +52,7 @@ type Worker struct {
 	PollInterval time.Duration
 	LeaseAge     time.Duration
 	Logger       *slog.Logger
+	Metrics      *observability.QueueMetrics
 }
 
 func New(
@@ -93,14 +99,28 @@ func (w *Worker) Run(ctx context.Context) error {
 	ticker := time.NewTicker(poll)
 	defer ticker.Stop()
 	for {
-		if _, err := w.Store.RequeueStaleArtifactCleanup(ctx, leaseAge); err != nil && !isContextError(err) {
+		if requeued, err := w.Store.RequeueStaleArtifactCleanup(ctx, leaseAge); err != nil && !isContextError(err) {
 			w.logError("requeue stale artifact cleanup jobs failed", err)
+			w.Metrics.Error("requeue_stale")
+		} else {
+			w.Metrics.Requeue(requeued)
 		}
+		w.Metrics.Poll()
+		started := time.Now()
 		processed, err := w.RunOnce(ctx)
+		if processed {
+			w.Metrics.Claim()
+			result := "succeeded"
+			if err != nil {
+				result = "failed"
+			}
+			w.Metrics.Complete(result, time.Since(started))
+		}
 		if err != nil {
 			if isContextError(err) {
 				return nil
 			}
+			w.Metrics.Error("run_once")
 			w.logError("artifact cleanup job failed", err)
 		}
 		if processed && err == nil {
@@ -166,8 +186,15 @@ func (w *Worker) RunOnce(ctx context.Context) (processed bool, runErr error) {
 }
 
 func (w *Worker) retry(ctx context.Context, job repository.ArtifactCleanupJob, cause error) error {
-	retryAt := time.Now().UTC().Add(retryDelay(job.Attempts))
 	message := safeError(cause)
+	if job.Attempts >= maxAttempts {
+		if err := w.Store.FailArtifactCleanup(ctx, job.ID, w.WorkerID, message); err != nil {
+			return errors.Join(cause, err)
+		}
+		w.logError("artifact cleanup job exhausted its retry budget", cause)
+		return cause
+	}
+	retryAt := time.Now().UTC().Add(retryDelay(job.Attempts))
 	if err := w.Store.RetryArtifactCleanup(ctx, job.ID, w.WorkerID, retryAt, message); err != nil {
 		return errors.Join(cause, err)
 	}

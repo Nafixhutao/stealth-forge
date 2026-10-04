@@ -19,6 +19,29 @@ const (
 	adminMonitorMaxConfig = 64 << 10
 )
 
+// PruneAdminMonitorChecks removes at most batch monitor-check rows older than
+// olderThan. Monitor checks run at the configured interval, so this history is
+// the high-volume admin table and must be bounded.
+func (r *Repository) PruneAdminMonitorChecks(ctx context.Context, olderThan time.Duration, batch int) (int64, error) {
+	if r == nil || r.pool == nil {
+		return 0, ErrNotFound
+	}
+	if olderThan <= 0 || batch < 1 || batch > 100000 {
+		return 0, fmt.Errorf("%w: invalid admin monitor prune bounds", ErrInvalidQuery)
+	}
+	tag, err := r.pool.Exec(ctx, `
+		DELETE FROM admin_monitor_checks WHERE id IN (
+			SELECT id FROM admin_monitor_checks
+			WHERE checked_at < now() - ($1::double precision * interval '1 second')
+			ORDER BY checked_at
+			LIMIT $2
+		)`, olderThan.Seconds(), batch)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
 var (
 	ErrInvalidAdminMonitor = errors.New("invalid admin monitor")
 	ErrNoAdminMonitor      = errors.New("no admin monitor available")

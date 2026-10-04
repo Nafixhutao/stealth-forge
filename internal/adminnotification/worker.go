@@ -20,6 +20,7 @@ import (
 	"github.com/Stealth-deplover/stealth/internal/functionsecret"
 	"github.com/Stealth-deplover/stealth/internal/mailer"
 	"github.com/Stealth-deplover/stealth/internal/monitoring"
+	"github.com/Stealth-deplover/stealth/internal/observability"
 	"github.com/Stealth-deplover/stealth/internal/repository"
 	"github.com/google/uuid"
 )
@@ -53,6 +54,7 @@ type Worker struct {
 	Timeout      time.Duration
 	MaxAttempts  int
 	Logger       *slog.Logger
+	Metrics      *observability.QueueMetrics
 }
 
 func New(
@@ -94,13 +96,27 @@ func (w *Worker) Run(ctx context.Context) error {
 	ticker := time.NewTicker(poll)
 	defer ticker.Stop()
 	for {
-		if _, err := w.Store.RequeueStaleAdminNotificationDeliveries(ctx, leaseAge); err != nil &&
+		if requeued, err := w.Store.RequeueStaleAdminNotificationDeliveries(ctx, leaseAge); err != nil &&
 			!errors.Is(err, context.Canceled) &&
 			!errors.Is(err, context.DeadlineExceeded) {
 			w.Logger.Error("admin notification lease recovery failed", "error", safeError(err))
+			w.Metrics.Error("requeue_stale")
+		} else {
+			w.Metrics.Requeue(requeued)
 		}
+		w.Metrics.Poll()
+		started := time.Now()
 		processed, err := w.RunOnce(ctx, leaseAge)
+		if processed {
+			w.Metrics.Claim()
+			result := "succeeded"
+			if err != nil {
+				result = "failed"
+			}
+			w.Metrics.Complete(result, time.Since(started))
+		}
 		if err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+			w.Metrics.Error("run_once")
 			w.Logger.Error("admin notification delivery failed", "error", safeError(err))
 		}
 		if processed && err == nil {

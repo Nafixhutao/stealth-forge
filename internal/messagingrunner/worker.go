@@ -20,6 +20,7 @@ import (
 
 	"github.com/Stealth-deplover/stealth/internal/functionsecret"
 	"github.com/Stealth-deplover/stealth/internal/mailer"
+	"github.com/Stealth-deplover/stealth/internal/observability"
 	"github.com/Stealth-deplover/stealth/internal/repository"
 	"github.com/Stealth-deplover/stealth/internal/retry"
 	"github.com/google/uuid"
@@ -171,6 +172,7 @@ type Worker struct {
 	DeliveryTimeout time.Duration
 	MaxAttempts     int
 	Logger          *slog.Logger
+	Metrics         *observability.QueueMetrics
 }
 
 func New(store Persistence, cipher *functionsecret.Cipher, workerID string, logger *slog.Logger) (*Worker, error) {
@@ -208,15 +210,29 @@ func (w *Worker) Run(ctx context.Context) error {
 	ticker := time.NewTicker(poll)
 	defer ticker.Stop()
 	for {
-		if _, err := w.Store.RequeueStaleMessagingDeliveries(ctx, leaseAge); err != nil &&
+		if requeued, err := w.Store.RequeueStaleMessagingDeliveries(ctx, leaseAge); err != nil &&
 			!errors.Is(err, context.Canceled) {
 			w.Logger.Error("requeue stale messaging deliveries failed", "error", err)
+			w.Metrics.Error("requeue_stale")
+		} else {
+			w.Metrics.Requeue(requeued)
 		}
+		w.Metrics.Poll()
+		started := time.Now()
 		processed, err := w.RunOnce(ctx)
+		if processed {
+			w.Metrics.Claim()
+			result := "succeeded"
+			if err != nil {
+				result = "failed"
+			}
+			w.Metrics.Complete(result, time.Since(started))
+		}
 		if err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return nil
 			}
+			w.Metrics.Error("run_once")
 			w.Logger.Error("messaging delivery failed", "error", err)
 		}
 		if processed {

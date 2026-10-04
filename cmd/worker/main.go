@@ -70,6 +70,10 @@ func main() {
 		logger.Error("App environment encryption configuration error", "error", err)
 		os.Exit(1)
 	}
+	if err := cfg.ValidateProductionSecrets(); err != nil {
+		logger.Error("production secret configuration error", "error", err)
+		os.Exit(1)
+	}
 	appSecretsCipher, err := appsecret.New(cfg.AppsSecretKey)
 	if err != nil {
 		logger.Error("App environment encryption configuration error", "error", err)
@@ -333,6 +337,13 @@ func main() {
 		appBuildWorker.Metrics = observability.NewWorkerMetrics()
 		appRuntimeWorker.Metrics = appBuildWorker.Metrics
 		realtimePublisher.Metrics = appBuildWorker.Metrics
+		queueMetrics := appBuildWorker.Metrics
+		queueMetrics.Registry.MustRegister(observability.NewPoolCollector(pool))
+		artifactCleanupWorker.Metrics = queueMetrics.ArtifactCleanupQueue
+		webhookWorker.Metrics = queueMetrics.WebhookQueue
+		messagingWorker.Metrics = queueMetrics.MessagingQueue
+		monitorWorker.Metrics = queueMetrics.MonitorQueue
+		notificationWorker.Metrics = queueMetrics.NotificationQueue
 		metricsServer := &http.Server{
 			Addr:              cfg.FunctionsRunnerMetricsAddress,
 			Handler:           workerMetricsHandler(appBuildWorker.Metrics.Handler(), cfg.MetricsToken),
@@ -342,6 +353,9 @@ func main() {
 		registrations := []workersupervisor.Registration{
 			{Name: "Cloudflare routing reconciler", Runner: cloudflareReconciler},
 			{Name: "platform route reconciler", Runner: platformRouteReconciler},
+			{Name: "retention maintenance", Runner: workersupervisor.RunnerFunc(func(ctx context.Context) error {
+				return runRetentionMaintenance(ctx, repo, logger)
+			})},
 			{Name: "artifact cleanup worker", Runner: artifactCleanupWorker},
 			{Name: "App build worker", Runner: appBuildWorker},
 			{Name: "App runtime reconciler", Runner: appRuntimeWorker},
@@ -415,6 +429,12 @@ func main() {
 		agentWorker.Metrics = worker.Metrics
 	}
 	realtimePublisher.Metrics = worker.Metrics
+	worker.Metrics.Registry.MustRegister(observability.NewPoolCollector(pool))
+	artifactCleanupWorker.Metrics = worker.Metrics.ArtifactCleanupQueue
+	webhookWorker.Metrics = worker.Metrics.WebhookQueue
+	messagingWorker.Metrics = worker.Metrics.MessagingQueue
+	monitorWorker.Metrics = worker.Metrics.MonitorQueue
+	notificationWorker.Metrics = worker.Metrics.NotificationQueue
 	workerContext, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	metricsServer := &http.Server{
@@ -427,6 +447,9 @@ func main() {
 		{Name: "Cloudflare routing reconciler", Runner: cloudflareReconciler},
 		{Name: "platform route reconciler", Runner: platformRouteReconciler},
 		{Name: "artifact cleanup worker", Runner: artifactCleanupWorker},
+		{Name: "retention maintenance", Runner: workersupervisor.RunnerFunc(func(ctx context.Context) error {
+			return runRetentionMaintenance(ctx, repo, logger)
+		})},
 		{Name: "function worker", Runner: worker},
 		{Name: "site worker", Runner: siteWorker},
 		{Name: "App build worker", Runner: appBuildWorker},
@@ -516,6 +539,52 @@ func firstNonEmpty(value, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+const (
+	// retentionInterval controls how often bounded retention pruning runs.
+	retentionInterval = time.Hour
+	// retentionAge is how long request traces and admin monitor checks are kept.
+	retentionAge = 30 * 24 * time.Hour
+	// retentionBatch bounds each delete so a pass stays short and does not hold
+	// long locks on the request path.
+	retentionBatch = 10000
+)
+
+// runRetentionMaintenance bounds the two append-only tables that previously grew
+// without limit: per-request traces and admin monitor checks. Each pass deletes
+// a bounded batch so it does not contend with live traffic.
+func runRetentionMaintenance(ctx context.Context, repo *repository.Repository, logger *slog.Logger) error {
+	if repo == nil {
+		return errors.New("retention maintenance requires a repository")
+	}
+	prune := func() {
+		if rows, err := repo.PruneHTTPTraces(ctx, retentionAge, retentionBatch); err != nil {
+			if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+				logger.Error("prune HTTP traces failed", "error", err)
+			}
+		} else if rows > 0 {
+			logger.Info("pruned HTTP traces", "rows", rows)
+		}
+		if rows, err := repo.PruneAdminMonitorChecks(ctx, retentionAge, retentionBatch); err != nil {
+			if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+				logger.Error("prune admin monitor checks failed", "error", err)
+			}
+		} else if rows > 0 {
+			logger.Info("pruned admin monitor checks", "rows", rows)
+		}
+	}
+	prune()
+	ticker := time.NewTicker(retentionInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			prune()
+		}
+	}
 }
 
 // workerMetricsHandler keeps the private Prometheus listener useful to an

@@ -5,7 +5,16 @@ import { ApiError } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+const NETWORK_ERROR_PATTERN =
+  /failed to fetch|networkerror|load failed|network request failed|fetch failed|the operation was aborted/i;
+
 export function errorMessage(error: unknown) {
+  if (
+    error instanceof TypeError ||
+    (error instanceof Error && NETWORK_ERROR_PATTERN.test(error.message))
+  ) {
+    return "Could not reach the Stealth API. Check your connection and retry.";
+  }
   if (error instanceof ApiError) {
     if (error.status === 401)
       return "Your session has expired. Sign in again to continue.";

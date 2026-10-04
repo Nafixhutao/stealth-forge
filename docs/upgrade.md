@@ -174,9 +174,9 @@ command so managed assets and the runtime are migrated as one lifecycle.
 4. Pull the images and validate the rendered Compose file.
 5. Stop or coordinate workers if the release notes require a quiet queue.
 6. Start PostgreSQL/Redis if needed, then run the one-shot migration command.
-7. Recreate API, worker, Console, proxy, the main Collector, host-metrics
-   Collector, Docker-log Collector, Docker-metrics Collector, and proxy from
-   the same release configuration.
+7. Recreate API, worker, Console, proxy, Traefik, BuildKit, the main Collector,
+   host-metrics Collector, Docker-log Collector, Docker-metrics Collector, and
+   proxy from the same release configuration.
 8. Verify `/healthz`, `/readyz`, `/version`, worker health, and the HTTP smoke
    script. Check logs for migration and worker claim errors.
 
@@ -186,7 +186,7 @@ docker compose --env-file .env.production -f compose.production.yaml up -d postg
 docker compose --env-file .env.production -f compose.production.yaml up migrate
 docker compose --env-file .env.production -f compose.production.yaml run --rm --no-deps cloudflare-setup-state-init
 docker compose --env-file .env.production -f compose.production.yaml run --rm --no-deps cloudflare-state-init
-docker compose --env-file .env.production -f compose.production.yaml up -d --force-recreate api worker console proxy otel-collector telemetry-host telemetry-docker-logs telemetry-docker-proxy telemetry-docker
+docker compose --env-file .env.production -f compose.production.yaml up -d --force-recreate api worker console proxy traefik buildkit otel-collector telemetry-host telemetry-docker-logs telemetry-docker-proxy telemetry-docker
 ./scripts/production-smoke.sh
 ```
 

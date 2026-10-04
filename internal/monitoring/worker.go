@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Stealth-deplover/stealth/internal/functionsecret"
+	"github.com/Stealth-deplover/stealth/internal/observability"
 	"github.com/Stealth-deplover/stealth/internal/repository"
 	"github.com/google/uuid"
 )
@@ -33,6 +34,7 @@ type Worker struct {
 	AlertPollInterval time.Duration
 	TelemetryAlerts   *TelemetryAlertEvaluator
 	Logger            *slog.Logger
+	Metrics           *observability.QueueMetrics
 }
 
 func NewWorker(
@@ -78,15 +80,29 @@ func (w *Worker) Run(ctx context.Context) error {
 	}
 	nextAlertPoll := time.Time{}
 	for {
-		if _, err := w.Store.RequeueStaleAdminMonitors(ctx, leaseAge); err != nil &&
+		if requeued, err := w.Store.RequeueStaleAdminMonitors(ctx, leaseAge); err != nil &&
 			!errors.Is(err, context.Canceled) &&
 			!errors.Is(err, context.DeadlineExceeded) {
 			if w.Logger != nil {
 				w.Logger.Error("admin monitor lease recovery failed", "error", safeWorkerError(err))
 			}
+			w.Metrics.Error("requeue_stale")
+		} else {
+			w.Metrics.Requeue(requeued)
 		}
+		w.Metrics.Poll()
+		started := time.Now()
 		processed, err := w.RunOnce(ctx, leaseAge)
+		if processed {
+			w.Metrics.Claim()
+			result := "succeeded"
+			if err != nil {
+				result = "failed"
+			}
+			w.Metrics.Complete(result, time.Since(started))
+		}
 		if err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+			w.Metrics.Error("run_once")
 			if w.Logger != nil {
 				w.Logger.Error("admin monitor check failed", "error", safeWorkerError(err))
 			}

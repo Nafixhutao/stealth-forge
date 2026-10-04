@@ -250,6 +250,18 @@ features by itself:
 - [ ] Dependabot security updates are enabled.
 - [ ] Dependabot version updates are enabled.
 - [ ] Code scanning is enabled and CodeQL results are being uploaded.
+- [ ] The CI `Vulnerability scan` (govulncheck) and `Dependency audit`
+  (`npm audit`) checks are required on `main`. To also enable the optional
+  `Dependency review` job, turn on the repository dependency graph and set the
+  `DEPENDENCY_REVIEW_ENABLED` repository variable to `true`.
+- [ ] The `release` environment exists and has required reviewers so a stable
+  release waits for human approval before publication. Without protection
+  rules the environment is a no-op.
+
+Release artifacts are integrity-checked with `checksums.txt` but are not yet
+signed or attested (no cosign/SLSA provenance, no SBOM). Treat artifact signing
+as future hardening; until then, protect the release tag and the publishing
+workflow as the trust root.
 
 ## Repository settings
 

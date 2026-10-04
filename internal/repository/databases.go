@@ -324,7 +324,7 @@ func (r *Repository) DeleteProjectDatabase(ctx context.Context, projectID, datab
 	if err := r.requireDatabaseWriteTx(ctx, tx, projectID, actor, "databases.write"); err != nil {
 		return err
 	}
-	if err := lockDatabaseNamespace(ctx, tx, projectID); err != nil {
+	if err := lockDatabaseNamespace(ctx, tx, databaseID); err != nil {
 		return err
 	}
 	var exists bool

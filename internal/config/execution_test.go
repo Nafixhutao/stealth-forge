@@ -11,7 +11,7 @@ func TestLoadExecutionSettingsOwnsRuntimeEnvironment(t *testing.T) {
 	t.Setenv("FUNCTIONS_RUNNER_ENABLED", "false")
 	t.Setenv("FUNCTIONS_WORKER_ID", "worker.test")
 	t.Setenv("FUNCTIONS_RUNNER_POLL", "2s")
-	t.Setenv("FUNCTIONS_RUNNER_LEASE_AGE", "5m")
+	t.Setenv("FUNCTIONS_RUNNER_LEASE_AGE", "20m")
 	t.Setenv("FUNCTIONS_RUNNER_BUILD_TIMEOUT", "3m")
 	t.Setenv("FUNCTIONS_RUNNER_STAGING_ROOT", "/tmp/stealth-runner")
 	t.Setenv("FUNCTIONS_RUNNER_STAGING_VOLUME", "runner-volume")
@@ -42,6 +42,17 @@ func TestLoadExecutionSettingsRejectsInvalidRunnerImage(t *testing.T) {
 
 	if _, err := loadExecutionSettings(); err == nil {
 		t.Fatal("loadExecutionSettings accepted an invalid runner image")
+	}
+}
+
+func TestLoadExecutionSettingsRejectsLeaseShorterThanExecution(t *testing.T) {
+	// A lease shorter than the longest possible execution would let a second
+	// worker reclaim and re-run healthy in-flight work.
+	t.Setenv("FUNCTIONS_RUNNER_LEASE_AGE", "5m")
+	t.Setenv("FUNCTIONS_RUNNER_BUILD_TIMEOUT", "3m")
+
+	if _, err := loadExecutionSettings(); err == nil {
+		t.Fatal("loadExecutionSettings accepted a lease shorter than the maximum function execution timeout")
 	}
 }
 
