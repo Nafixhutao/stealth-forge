@@ -146,7 +146,6 @@ func main() {
 	// Overview keeps its CPU/memory/disk/network cards without the telemetry
 	// stack. A 120-sample ring at 5s covers the short history charts.
 	hostMetrics := hostmetrics.New(5*time.Second, 120, "/")
-	go hostMetrics.Start(ctx)
 
 	handler, platformSiteHandler := httpapi.NewWithDependenciesAndPlatformSiteHandler(
 		cfg,
@@ -165,6 +164,10 @@ func main() {
 	// r.Context().Done() instead of blocking Shutdown until its deadline.
 	signalContext, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	// The host metrics collector must outlive startup: it samples for the whole
+	// process lifetime, so it uses the signal context (canceled only on
+	// shutdown), never the bounded startup context.
+	go hostMetrics.Start(signalContext)
 	baseContext, cancelBaseContext := context.WithCancel(signalContext)
 	defer cancelBaseContext()
 	// The control-plane servers intentionally omit WriteTimeout: the realtime,
