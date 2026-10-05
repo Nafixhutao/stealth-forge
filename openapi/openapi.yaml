@@ -238,6 +238,8 @@ paths:
       operationId: getAdminHostMetrics
       description: Return the in-process host resource snapshot (CPU, memory, disk, network) and its short in-memory history for the admin Overview. Requires Instance Owner or Instance Admin and does not depend on the telemetry backend.
       security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: window_minutes, in: query, schema: { type: integer, minimum: 1, maximum: 1440 }, description: Return history from the last N minutes; omit for the full retained window. }
       responses:
         '200': { description: Host resource snapshot and history, content: { application/json: { schema: { $ref: '#/components/schemas/AdminHostMetricsSnapshot' } } } }
         '401': { $ref: '#/components/responses/Unauthorized' }

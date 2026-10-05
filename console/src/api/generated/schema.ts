@@ -7274,7 +7274,10 @@ export interface operations {
     };
     getAdminHostMetrics: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Return history from the last N minutes; omit for the full retained window. */
+                window_minutes?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;

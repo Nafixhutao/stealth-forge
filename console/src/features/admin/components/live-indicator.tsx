@@ -3,15 +3,36 @@
 import { RefreshCw } from "lucide-react";
 import { useElapsedSeconds } from "../hooks/use-live-updates";
 
-/** Pulsing "Live" marker — pure CSS pulse so it never re-renders the page. */
-export function LiveIndicator({ label = "Live" }: { label?: string }) {
+/** Pulsing "Live" marker — pure CSS pulse so it never re-renders the page.
+ * `live` reflects real query connectivity: green while data is flowing, amber
+ * while a query is failing, so the badge never lies about the connection. */
+export function LiveIndicator({
+  label,
+  live = true,
+}: {
+  label?: string;
+  live?: boolean;
+}) {
+  const text = label ?? (live ? "Live" : "Reconnecting");
+  const color = live
+    ? "text-[var(--projects-accent)]"
+    : "text-[var(--projects-warning)]";
+  const dot = live
+    ? "bg-[var(--projects-accent)]"
+    : "bg-[var(--projects-warning)]";
   return (
-    <span className="inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--projects-border)] bg-[#141416] px-3 text-[12.5px] font-medium text-[var(--projects-accent)]">
+    <span
+      className={`inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--projects-border)] bg-[#141416] px-3 text-[12.5px] font-medium ${color}`}
+      role="status"
+      aria-live="polite"
+    >
       <span className="relative flex size-2">
-        <span className="absolute inline-flex size-full animate-ping rounded-full bg-[var(--projects-accent)] opacity-50" />
-        <span className="relative inline-flex size-2 rounded-full bg-[var(--projects-accent)]" />
+        {live && (
+          <span className="absolute inline-flex size-full animate-ping rounded-full bg-[var(--projects-accent)] opacity-50" />
+        )}
+        <span className={`relative inline-flex size-2 rounded-full ${dot}`} />
       </span>
-      {label}
+      {text}
     </span>
   );
 }

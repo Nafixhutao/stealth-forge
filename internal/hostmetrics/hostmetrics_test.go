@@ -49,6 +49,21 @@ func TestParseNet(t *testing.T) {
 	}
 }
 
+func TestParseNetExcludesVirtual(t *testing.T) {
+	// Physical ens34 is summed; veth/br/docker/lo are skipped.
+	dev := strings.Join([]string{
+		"    lo: 100000     100    0    0    0     0          0         0   100000     100    0    0    0     0       0          0",
+		"  ens34: 1000       10    0    0    0     0          0         0      200      2    0    0    0     0       0          0",
+		"veth123: 999999     99    0    0    0     0          0         0   999999     99    0    0    0     0       0          0",
+		"docker0: 55555     55    0    0    0     0          0         0    55555     55    0    0    0     0       0          0",
+		"br-abcd: 77777     77    0    0    0     0          0         0    77777     77    0    0    0     0       0          0",
+	}, "\n")
+	rx, tx := parseNet(strings.NewReader(dev))
+	if rx != 1000 || tx != 200 {
+		t.Fatalf("parseNet = rx %d tx %d, want 1000/200", rx, tx)
+	}
+}
+
 func TestSnapshotEmpty(t *testing.T) {
 	c := New(0, 0, "/")
 	snapshot := c.Snapshot()

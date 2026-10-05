@@ -1,18 +1,21 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Cpu, HardDrive, MemoryStick, Network } from "lucide-react";
+import { Clock, Cpu, HardDrive, MemoryStick, Network } from "lucide-react";
 import {
   useAdminHostMetrics,
   useAdminIncidents,
   useAdminOverview,
 } from "@/api/queries";
-import { TIME_RANGES, type TimeRange } from "../types/telemetry";
 import { AdminHeader, AdminPageBody } from "../components/admin-panel";
+import { AdminSelect } from "../components/admin-select";
 import { MetricCard } from "../components/metric-card";
 import { StatTile } from "../components/stat-tile";
-import { LiveIndicator, RefreshButton } from "../components/live-indicator";
-import { TimeRangeSelect } from "../components/time-range-select";
+import {
+  LiveIndicator,
+  RefreshButton,
+  UpdatedLabel,
+} from "../components/live-indicator";
 import { formatBytes } from "@/lib/format";
 import { toIncident } from "../data/admin-adapters";
 import { SystemStatus } from "./system-status";
@@ -22,7 +25,16 @@ import { RecentIncidents } from "./recent-incidents";
 import type { MetricPoint } from "../types/telemetry";
 
 const GIB = 1024 ** 3;
-const MIB = 1024 ** 2;
+const KIB = 1024;
+
+// The host metrics collector retains one hour, so only ranges within that
+// window are offered — a wider choice would silently show the same data.
+const OVERVIEW_RANGES = [
+  { value: "5m", label: "Last 5 minutes", minutes: 5, noun: "5 minutes" },
+  { value: "15m", label: "Last 15 minutes", minutes: 15, noun: "15 minutes" },
+  { value: "1h", label: "Last 1 hour", minutes: 60, noun: "hour" },
+] as const;
+type OverviewRange = (typeof OVERVIEW_RANGES)[number]["value"];
 
 type ChartSeriesMap = Record<OverviewTab, MetricPoint[]>;
 
@@ -34,15 +46,22 @@ type ChartSeriesMap = Record<OverviewTab, MetricPoint[]>;
  * Stealth does not expose those resources.
  */
 export function AdminOverview() {
-  const [range, setRange] = useState<TimeRange>("1h");
+  const [range, setRange] = useState<OverviewRange>("1h");
   const [tab, setTab] = useState<OverviewTab>("cpu");
 
+  const rangeMeta = OVERVIEW_RANGES.find((option) => option.value === range);
+
   const overview = useAdminOverview();
-  const host = useAdminHostMetrics();
+  const host = useAdminHostMetrics(rangeMeta?.minutes);
   const incidentsQuery = useAdminIncidents(
     { limit: 20 },
     { refetchInterval: 30_000 },
   );
+
+  // The "Live" badge reflects real connectivity: any failing/again-loading
+  // query flips it to amber instead of claiming a live connection.
+  const connected =
+    !overview.isError && !host.isError && !incidentsQuery.isError;
 
   const components = overview.data?.components ?? [];
   const operations = overview.data?.operations;
@@ -62,7 +81,7 @@ export function AdminOverview() {
     [history],
   );
   const networkHistory = useMemo(
-    () => history.map((sample) => sample.network_rx_bytes_per_sec / MIB),
+    () => history.map((sample) => sample.network_rx_bytes_per_sec / KIB),
     [history],
   );
 
@@ -78,7 +97,7 @@ export function AdminOverview() {
       })),
       network: history.map((sample) => ({
         timestamp: sample.timestamp,
-        value: sample.network_rx_bytes_per_sec / MIB,
+        value: sample.network_rx_bytes_per_sec / KIB,
       })),
     }),
     [history],
@@ -90,8 +109,8 @@ export function AdminOverview() {
   );
 
   const rangeLabel = useMemo(
-    () => TIME_RANGES.find((option) => option.value === range)?.label ?? range,
-    [range],
+    () => rangeMeta?.label ?? range,
+    [rangeMeta, range],
   );
 
   // Deltas for the metric-card change indicators, computed from the retained
@@ -139,8 +158,8 @@ export function AdminOverview() {
       ? signed(
           (current.network_rx_bytes_per_sec -
             netBaseline.network_rx_bytes_per_sec) /
-            MIB,
-          " MB/s",
+            KIB,
+          " KB/s",
         )
       : undefined;
 
@@ -150,7 +169,13 @@ export function AdminOverview() {
         title="Admin Overview"
         subtitle="Monitor platform health, host resources, and telemetry."
       >
-        <TimeRangeSelect value={range} onChange={setRange} />
+        <AdminSelect
+          label="Time range"
+          icon={<Clock size={13} strokeWidth={1.8} aria-hidden="true" />}
+          value={range}
+          options={OVERVIEW_RANGES}
+          onChange={setRange}
+        />
         <RefreshButton
           onClick={() => {
             void overview.refetch();
@@ -158,7 +183,7 @@ export function AdminOverview() {
             void incidentsQuery.refetch();
           }}
         />
-        <LiveIndicator />
+        <LiveIndicator live={connected} />
       </AdminHeader>
 
       <SystemStatus components={components} />
@@ -170,7 +195,7 @@ export function AdminOverview() {
           label="CPU Usage"
           value={current ? `${Math.round(current.cpu_percent)}%` : "—"}
           change={cpuDelta}
-          changeLabel="from previous hour"
+          changeLabel={`from previous ${rangeMeta?.noun ?? "hour"}`}
           changeTone="danger"
           history={cpuHistory}
           sparkTone="accent"
@@ -206,16 +231,16 @@ export function AdminOverview() {
           label="Network"
           value={
             current
-              ? `${(current.network_rx_bytes_per_sec / MIB).toFixed(1)} MB/s`
+              ? `${(current.network_rx_bytes_per_sec / KIB).toFixed(1)} KB/s`
               : "—"
           }
           hint={
             current
-              ? `↑ ${(current.network_tx_bytes_per_sec / MIB).toFixed(1)} MB/s out`
+              ? `↑ ${(current.network_tx_bytes_per_sec / KIB).toFixed(1)} KB/s out`
               : undefined
           }
           change={networkDelta}
-          changeLabel="ingress, from previous hour"
+          changeLabel={`ingress, from previous ${rangeMeta?.noun ?? "hour"}`}
           changeTone="neutral"
           history={networkHistory}
           sparkTone="warning"
@@ -228,6 +253,10 @@ export function AdminOverview() {
           <h2 className="m-0 text-[12px] font-semibold uppercase tracking-[0.08em] text-[var(--projects-muted)]">
             Platform
           </h2>
+          <UpdatedLabel
+            resetKey={overview.data?.checked_at}
+            className="admin-mono text-[11px] text-[var(--projects-muted)]"
+          />
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatTile

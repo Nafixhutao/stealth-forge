@@ -19,6 +19,9 @@ const (
 	procStat   = "/proc/stat"
 	procMem    = "/proc/meminfo"
 	procNetDev = "/proc/net/dev"
+	// hostProcNetDev is the host network counters bind-mounted by Compose. It
+	// exposes host-wide traffic when the API runs in a container.
+	hostProcNetDev = "/host/proc/net/dev"
 )
 
 // Sample is one host resource observation. Byte counters are absolute; the
@@ -40,6 +43,28 @@ type Snapshot struct {
 	History []Sample `json:"history"`
 }
 
+// windowed returns the retained samples at or after `since`. An empty `since`
+// (or one older than the ring) returns the whole buffer.
+func (c *Collector) windowed(since time.Time) Snapshot {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	history := c.history
+	if !since.IsZero() {
+		index := 0
+		for index < len(history) && history[index].Timestamp.Before(since) {
+			index++
+		}
+		history = history[index:]
+	}
+	out := make([]Sample, len(history))
+	copy(out, history)
+	snapshot := Snapshot{History: out}
+	if len(out) > 0 {
+		snapshot.Current = out[len(out)-1]
+	}
+	return snapshot
+}
+
 // Collector samples host metrics on an interval and retains a bounded history.
 type Collector struct {
 	mu       sync.Mutex
@@ -47,6 +72,11 @@ type Collector struct {
 	max      int
 	interval time.Duration
 	diskPath string
+	// netPath points at the network interface counters to read. Inside a
+	// container, /proc/net/dev is the container's own namespace; the production
+	// Compose bind-mounts the host file at /host/proc/net/dev so the Overview
+	// reports host traffic. Falls back to /proc/net/dev when the mount is absent.
+	netPath string
 
 	prevBusy, prevIdle uint64
 	prevRx, prevTx     uint64
@@ -66,7 +96,13 @@ func New(interval time.Duration, maxHistory int, diskPath string) *Collector {
 	if strings.TrimSpace(diskPath) == "" {
 		diskPath = "/"
 	}
-	return &Collector{max: maxHistory, interval: interval, diskPath: diskPath}
+	netPath := procNetDev
+	// Prefer the host bind mount when the Compose stack provides it, so the
+	// reported network rate is host traffic rather than the container's.
+	if _, err := os.Stat(hostProcNetDev); err == nil {
+		netPath = hostProcNetDev
+	}
+	return &Collector{max: maxHistory, interval: interval, diskPath: diskPath, netPath: netPath}
 }
 
 // Start samples immediately and then on the configured interval until ctx ends.
@@ -87,7 +123,7 @@ func (c *Collector) Start(ctx context.Context) {
 func (c *Collector) sampleOnce() {
 	now := time.Now().UTC()
 	busy, idle := readCPU()
-	rx, tx := readNet()
+	rx, tx := c.readNet()
 
 	sample := Sample{Timestamp: now}
 	sample.MemoryUsedBytes, sample.MemoryTotalBytes = readMem()
@@ -118,15 +154,13 @@ func (c *Collector) sampleOnce() {
 
 // Snapshot returns the latest sample and a copy of the retained history.
 func (c *Collector) Snapshot() Snapshot {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	history := make([]Sample, len(c.history))
-	copy(history, c.history)
-	snapshot := Snapshot{History: history}
-	if len(history) > 0 {
-		snapshot.Current = history[len(history)-1]
-	}
-	return snapshot
+	return c.windowed(time.Time{})
+}
+
+// SnapshotSince returns the retained samples at or after `since`, with the
+// newest sample as Current. It backs the Overview time-range selector.
+func (c *Collector) SnapshotSince(since time.Time) Snapshot {
+	return c.windowed(since)
 }
 
 func readCPU() (busy, idle uint64) {
@@ -216,8 +250,14 @@ func parseMem(r io.Reader) (used, total uint64) {
 	return usedKB * 1024, totalKB * 1024
 }
 
-func readNet() (rx, tx uint64) {
-	file, err := os.Open(procNetDev)
+// readNet reads the configured interface counters (host bind mount when
+// present, otherwise the local namespace).
+func (c *Collector) readNet() (rx, tx uint64) {
+	path := c.netPath
+	if path == "" {
+		path = procNetDev
+	}
+	file, err := os.Open(path)
 	if err != nil {
 		return 0, 0
 	}
@@ -225,7 +265,9 @@ func readNet() (rx, tx uint64) {
 	return parseNet(file)
 }
 
-// parseNet sums received/transmitted bytes across non-loopback interfaces.
+// parseNet sums received/transmitted bytes across physical interfaces. Virtual
+// interfaces (loopback, container veth pairs, docker bridges, taps) are skipped
+// so host traffic is not double-counted across a veth and its bridge.
 func parseNet(r io.Reader) (rx, tx uint64) {
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
@@ -235,7 +277,7 @@ func parseNet(r io.Reader) (rx, tx uint64) {
 			continue
 		}
 		name := strings.TrimSpace(line[:colon])
-		if name == "lo" || name == "" {
+		if name == "" || isVirtualInterface(name) {
 			continue
 		}
 		fields := strings.Fields(line[colon+1:])
@@ -254,6 +296,22 @@ func parseNet(r io.Reader) (rx, tx uint64) {
 		tx += txBytes
 	}
 	return rx, tx
+}
+
+// isVirtualInterface reports whether an interface name is a loopback or a
+// virtual/bridge device that would double-count host traffic.
+func isVirtualInterface(name string) bool {
+	if name == "lo" {
+		return true
+	}
+	for _, prefix := range []string{
+		"veth", "br-", "docker", "virbr", "vnet", "tap", "tun", "dummy", "flannel", "cni",
+	} {
+		if strings.HasPrefix(name, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func readDisk(path string) (used, total uint64) {

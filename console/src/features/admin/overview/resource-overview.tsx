@@ -20,19 +20,19 @@ const TAB_META: Record<
     label: "CPU",
     unit: "%",
     tone: "accent",
-    hint: "Fleet-wide average across all hosts",
+    hint: "Host CPU across all cores",
   },
   memory: {
     label: "Memory",
     unit: " GB",
     tone: "info",
-    hint: "Resident memory across all hosts",
+    hint: "Host resident memory",
   },
   network: {
     label: "Network",
-    unit: " MB/s",
+    unit: " KB/s",
     tone: "warning",
-    hint: "Ingress + egress combined",
+    hint: "Host receive rate",
   },
 };
 

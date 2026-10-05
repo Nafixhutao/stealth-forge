@@ -144,8 +144,8 @@ func main() {
 	}
 	// Host resource metrics are sampled in-process (no ClickHouse) so the admin
 	// Overview keeps its CPU/memory/disk/network cards without the telemetry
-	// stack. A 120-sample ring at 5s covers the short history charts.
-	hostMetrics := hostmetrics.New(5*time.Second, 120, "/")
+	// stack. A 1-hour ring at 5s backs the Overview time-range selector.
+	hostMetrics := hostmetrics.New(5*time.Second, 720, "/")
 
 	handler, platformSiteHandler := httpapi.NewWithDependenciesAndPlatformSiteHandler(
 		cfg,

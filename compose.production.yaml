@@ -475,6 +475,11 @@ services:
       GITHUB_APP_CLIENT_ID: "${GITHUB_APP_CLIENT_ID:-}"
     volumes:
       - stealth_storage:/var/lib/stealth/storage
+      # Host-wide network counters for the admin Overview. Inside the container
+      # /proc/net/dev is the container's own namespace; /proc/1/net/dev resolves
+      # to the host's network namespace, so bind-mount that read-only at the
+      # path the host metrics collector prefers.
+      - /proc/1/net/dev:/host/proc/net/dev:ro
     ports:
       - "127.0.0.1:${API_HOST_PORT:-18080}:8080"
     expose: ["8082"]
