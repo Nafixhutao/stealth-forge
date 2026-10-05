@@ -6,11 +6,14 @@ import { Sparkline, type SparkTone } from "./sparkline";
 /**
  * Compact metric card: icon, label, current value, delta, mini sparkline.
  * Kept intentionally small — a full row of these sits above the charts.
+ * `unit` renders beside the value as a smaller baseline-aligned span (used by
+ * the Network card) so long rates stay on one line instead of wrapping.
  */
 export function MetricCard({
   icon: Icon,
   label,
   value,
+  unit,
   hint,
   change,
   changeLabel,
@@ -21,6 +24,7 @@ export function MetricCard({
   icon: LucideIcon;
   label: string;
   value: string;
+  unit?: string;
   hint?: string;
   change?: string;
   changeLabel?: string;
@@ -52,12 +56,26 @@ export function MetricCard({
       </header>
 
       <div className="flex items-end justify-between gap-2">
-        <p className="m-0 min-w-0 text-[18px] font-semibold leading-5 tracking-[-0.02em] text-[var(--projects-text)] sm:text-[22px] sm:leading-6">
-          {value}
+        {/* Number + unit sit on one shared baseline and never wrap: the value
+            span is nowrap and scales down via clamp() on narrow screens, and
+            overflow-hidden is only a last-resort clip against pathological
+            inputs so the card grid can never be pushed out of shape. */}
+        <p className="admin-tnum m-0 flex min-w-0 items-baseline gap-1 overflow-hidden">
+          <span className="metric-value-num font-semibold tracking-[-0.02em] text-[var(--projects-text)]">
+            {value}
+          </span>
+          {unit && (
+            <span className="metric-value-unit shrink-0 font-medium text-[var(--projects-muted)]">
+              {unit}
+            </span>
+          )}
         </p>
         {change && (
           <p
-            className={cn("m-0 text-right text-[11px] leading-4", changeClass)}
+            className={cn(
+              "metric-change m-0 text-right leading-4",
+              changeClass,
+            )}
           >
             {change}
             {changeLabel && (

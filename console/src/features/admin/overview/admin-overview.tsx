@@ -26,6 +26,17 @@ import type { MetricPoint } from "../types/telemetry";
 
 const GIB = 1024 ** 3;
 const KIB = 1024;
+const MIB = 1024 ** 2;
+
+/** Network rates render as a big number with a smaller unit beside it, so the
+    pair stays on one line at any card width. MB/s kicks in above 1 MiB/s to
+    keep the number itself short. */
+function rateParts(bytesPerSec: number): { value: string; unit: string } {
+  if (bytesPerSec >= MIB) {
+    return { value: (bytesPerSec / MIB).toFixed(2), unit: "MB/s" };
+  }
+  return { value: (bytesPerSec / KIB).toFixed(1), unit: "KB/s" };
+}
 
 // The host metrics collector retains one hour, so only ranges within that
 // window are offered — a wider choice would silently show the same data.
@@ -67,6 +78,9 @@ export function AdminOverview() {
   const operations = overview.data?.operations;
   const current = host.data?.current;
   const history = useMemo(() => host.data?.history ?? [], [host.data]);
+  const network = current
+    ? rateParts(current.network_rx_bytes_per_sec)
+    : undefined;
 
   const cpuHistory = useMemo(
     () => history.map((sample) => sample.cpu_percent),
@@ -232,11 +246,8 @@ export function AdminOverview() {
         <MetricCard
           icon={Network}
           label="Network"
-          value={
-            current
-              ? `${(current.network_rx_bytes_per_sec / KIB).toFixed(1)} KB/s`
-              : "—"
-          }
+          value={network?.value ?? "—"}
+          unit={network?.unit}
           hint={
             current
               ? `↑ ${(current.network_tx_bytes_per_sec / KIB).toFixed(1)} KB/s out`
