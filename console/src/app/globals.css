@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "../styles/admin.css";
 
 @theme {
   /* Stealth's visual language: a quiet operations surface with one action accent. */
@@ -253,6 +254,27 @@
   --section-gap: 96px;
   --card-padding: 24px;
   --element-gap: 8px;
+
+  /* Redesigned admin console palette (ported from stealth-console). Scoped by
+     usage to the /admin area; the rest of the console keeps the Inlark tokens. */
+  --projects-bg: #131316;
+  --projects-surface: #131316;
+  --projects-card-bg: #1b1b1e;
+  --projects-control: #1b1b1e;
+  --projects-border: #303033;
+  --projects-border-hover: #46464b;
+  --projects-divider: #2b2b2e;
+  --projects-ring: #55555b;
+  --projects-text: #f4f4f5;
+  --projects-muted: #a1a1aa;
+  --projects-progress-track: #303033;
+  --projects-accent: #3ecf8e;
+  --projects-accent-strong: #00734b;
+  --projects-accent-border: #078153;
+  --projects-accent-hover: #087f55;
+  --projects-warning: #f59e0b;
+  --projects-danger: #ff7a82;
+  --admin-info: #6ea8fe;
 }
 
 * {

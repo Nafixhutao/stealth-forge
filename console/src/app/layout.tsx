@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import "@fontsource-variable/geist";
+import "@fontsource-variable/source-code-pro";
 import "./globals.css";
 import { Providers } from "./providers";
 import { APP_NAME } from "@/lib/constants";
