@@ -57,6 +57,10 @@ export function AdminOverview() {
     () => history.map((sample) => sample.memory_used_bytes / GIB),
     [history],
   );
+  const diskHistory = useMemo(
+    () => history.map((sample) => sample.disk_used_bytes / GIB),
+    [history],
+  );
   const networkHistory = useMemo(
     () => history.map((sample) => sample.network_rx_bytes_per_sec / MIB),
     [history],
@@ -194,7 +198,7 @@ export function AdminOverview() {
             current ? `of ${formatBytes(current.disk_total_bytes)}` : undefined
           }
           changeTone="neutral"
-          history={[]}
+          history={diskHistory}
           sparkTone="neutral"
         />
         <MetricCard

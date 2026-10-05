@@ -36,11 +36,14 @@ export function Sparkline({
 
   const min = Math.min(...data);
   const max = Math.max(...data);
-  const span = max - min || 1;
+  // A flat series (no change over the window, e.g. stable disk usage) would
+  // otherwise pin to the baseline; center it instead.
+  const flat = max === min;
+  const span = flat ? 1 : max - min;
   const step = 100 / (data.length - 1);
   const points = data.map(
     (value, index) =>
-      [index * step, 100 - ((value - min) / span) * 100] as const,
+      [index * step, flat ? 50 : 100 - ((value - min) / span) * 100] as const,
   );
   const line = points
     .map(([x, y], index) => `${index === 0 ? "M" : "L"}${round(x)},${round(y)}`)
