@@ -278,19 +278,19 @@ export const INCIDENTS: Incident[] = [
     updates: [
       {
         time: "12m ago",
-        status: "investigating",
+        kind: "investigating",
         message:
           "p95 latency elevated to 820 ms on POST endpoints; investigating database connection pool saturation.",
       },
       {
         time: "9m ago",
-        status: "identified",
+        kind: "identified",
         message:
           "Slow query on agent_runs identified; EXPLAIN shows a missing index after the last migration.",
       },
       {
         time: "4m ago",
-        status: "monitoring",
+        kind: "monitoring",
         message:
           "Index applied on staging replica; latency recovering. Staying in monitoring until p95 < 400 ms for 10 minutes.",
       },
@@ -307,19 +307,19 @@ export const INCIDENTS: Incident[] = [
     updates: [
       {
         time: "50m ago",
-        status: "investigating",
+        kind: "investigating",
         message:
           "Tool execution timeouts climbing on worker-01 (71% CPU, 6 active jobs).",
       },
       {
         time: "40m ago",
-        status: "identified",
+        kind: "identified",
         message:
           "Runaway npm install loop in sandbox snapshot cache; caching layer pinned to previous image.",
       },
       {
         time: "32m ago",
-        status: "resolved",
+        kind: "resolved",
         message:
           "Cache rolled back, timeouts back to baseline. Incident resolved.",
       },
@@ -336,18 +336,18 @@ export const INCIDENTS: Incident[] = [
     updates: [
       {
         time: "2h ago",
-        status: "investigating",
+        kind: "investigating",
         message:
           "2% of sandbox provisions fail with image pull timeouts from the registry.",
       },
       {
         time: "1h ago",
-        status: "identified",
+        kind: "identified",
         message: "Registry CDN node degraded in sgp-1; traffic rerouted.",
       },
       {
         time: "35m ago",
-        status: "monitoring",
+        kind: "monitoring",
         message: "Failure rate back under 0.2%; monitoring overnight.",
       },
     ],
@@ -363,13 +363,13 @@ export const INCIDENTS: Incident[] = [
     updates: [
       {
         time: "Yesterday",
-        status: "monitoring",
+        kind: "monitoring",
         message:
           "Planned failover drill to the standby region; brief write pauses expected.",
       },
       {
         time: "Yesterday",
-        status: "resolved",
+        kind: "resolved",
         message: "Drill completed, promotion took 22s. No action required.",
       },
     ],

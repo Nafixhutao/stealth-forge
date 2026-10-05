@@ -3,7 +3,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Incident, IncidentSeverity } from "../types/incidents";
+import type { components } from "@/api/generated/schema";
+import type { IncidentSeverity } from "../types/incidents";
 
 const fieldClass =
   "h-10 w-full rounded-md border border-[var(--projects-border)] bg-[var(--projects-control)] px-3 text-[13px] leading-4 text-[var(--projects-text)] outline-none transition-colors focus:border-[var(--projects-border-hover)]";
@@ -17,25 +18,29 @@ const SERVICES = [
   "Redis",
   "Agent Worker",
   "Sandbox Service",
-  "OpenAI",
+  "[OI]",
   "Anthropic",
   "Gateway",
 ];
 
 /**
- * Mock "Create incident" dialog — appends a locally-stored investigating
- * incident so the board reacts without any backend.
+ * "Create incident" dialog — opens a real investigating incident through the
+ * admin incidents API.
  */
 export function CreateIncidentDialog({
   open,
+  pending,
+  error,
   onClose,
-  onCreate,
-  existingIds,
+  onSubmit,
 }: {
   open: boolean;
+  pending: boolean;
+  error?: string | null;
   onClose: () => void;
-  onCreate: (incident: Incident) => void;
-  existingIds: string[];
+  onSubmit: (
+    input: components["schemas"]["CreateAdminIncidentRequest"],
+  ) => void | Promise<void>;
 }) {
   const [title, setTitle] = useState("");
   const [severity, setSeverity] = useState<IncidentSeverity>("warning");
@@ -73,29 +78,15 @@ export function CreateIncidentDialog({
       setTitleError("Title is required.");
       return;
     }
-    const nextNumber =
-      existingIds.reduce((max, id) => {
-        const parsed = Number.parseInt(id.replace("INC-", ""), 10);
-        return Number.isNaN(parsed) ? max : Math.max(max, parsed);
-      }, 1000) + 1;
-
-    onCreate({
-      id: `INC-${nextNumber}`,
+    void onSubmit({
       title: title.trim(),
-      severity,
+      severity:
+        severity as components["schemas"]["CreateAdminIncidentRequest"]["severity"],
+      status:
+        "investigating" as components["schemas"]["CreateAdminIncidentRequest"]["status"],
       services: services.length > 0 ? services : ["API"],
-      status: "investigating",
-      startedAt: "Just now",
-      duration: "Ongoing for 0m",
-      updates: [
-        {
-          time: "Just now",
-          status: "investigating",
-          message:
-            message.trim() ||
-            "Incident opened manually from the admin console.",
-        },
-      ],
+      message:
+        message.trim() || "Incident opened manually from the admin console.",
     });
   };
 
@@ -124,8 +115,7 @@ export function CreateIncidentDialog({
               Create incident
             </h2>
             <p className="m-0 mt-0.5 text-[13px] leading-5 text-[var(--projects-muted)]">
-              Opens a new investigating incident on the board (mock, local
-              only).
+              Opens a new investigating incident on the board.
             </p>
           </div>
         </div>
@@ -217,6 +207,15 @@ export function CreateIncidentDialog({
               className="w-full resize-none rounded-md border border-[var(--projects-border)] bg-[var(--projects-control)] px-3 py-2 text-[13px] leading-5 text-[var(--projects-text)] outline-none transition-colors placeholder:text-[var(--projects-muted)] focus:border-[var(--projects-border-hover)]"
             />
           </label>
+
+          {error ? (
+            <p
+              className="m-0 text-[12px] text-[var(--projects-danger)]"
+              role="alert"
+            >
+              {error}
+            </p>
+          ) : null}
         </form>
 
         <div className="flex items-center justify-end gap-2 border-t border-[var(--projects-divider)] px-5 py-3.5">
@@ -230,9 +229,10 @@ export function CreateIncidentDialog({
           <button
             type="submit"
             form="create-incident-form"
-            className="inline-flex h-10 items-center rounded-[10px] border border-[var(--projects-accent-border)] bg-[var(--projects-accent-strong)] px-4 text-[13px] font-semibold leading-none text-white transition-colors hover:bg-[var(--projects-accent-hover)]"
+            disabled={pending}
+            className="inline-flex h-10 items-center rounded-[10px] border border-[var(--projects-accent-border)] bg-[var(--projects-accent-strong)] px-4 text-[13px] font-semibold leading-none text-white transition-colors hover:bg-[var(--projects-accent-hover)] disabled:opacity-60"
           >
-            Open Incident
+            {pending ? "Opening…" : "Open Incident"}
           </button>
         </div>
       </div>

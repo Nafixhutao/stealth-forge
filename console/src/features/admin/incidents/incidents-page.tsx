@@ -1,15 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { INCIDENTS } from "../data/admin-mock-data";
+import { useAdminIncidents } from "@/api/queries";
+import { useCreateAdminIncident } from "@/api/mutations";
+import type { components } from "@/api/generated/schema";
 import { AdminHeader, AdminPageBody, Mono } from "../components/admin-panel";
 import { DetailDrawer, DetailField } from "../components/detail-drawer";
 import {
   IncidentStatusBadge,
   SeverityBadge,
 } from "../components/domain-badges";
+import { StatusBadge } from "../components/status-badge";
 import { AdminSelect } from "../components/admin-select";
 import { CreateIncidentDialog } from "./create-incident-dialog";
+import { toIncident } from "../data/admin-adapters";
 import type {
   Incident,
   IncidentSeverity,
@@ -19,17 +23,25 @@ import type {
 type SeverityFilter = "all" | IncidentSeverity;
 type StatusFilter = "all" | IncidentStatus;
 
+type CreateIncidentInput = components["schemas"]["CreateAdminIncidentRequest"];
+
 /**
- * Incidents — board of platform incidents with severity/status filters, a
- * detail drawer per incident (timeline), and a mock "Create incident" dialog
- * that appends locally.
+ * Incidents — board of platform incidents with severity/status filters and a
+ * detail drawer per incident. Backed by the Stealth admin incidents API.
  */
 export function IncidentsPage() {
-  const [incidents, setIncidents] = useState<Incident[]>(() => INCIDENTS);
+  const query = useAdminIncidents({ limit: 100 }, { refetchInterval: 30_000 });
+  const create = useCreateAdminIncident();
   const [severity, setSeverity] = useState<SeverityFilter>("all");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [selected, setSelected] = useState<Incident | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const incidents = useMemo<Incident[]>(
+    () => (query.data?.items ?? []).map(toIncident),
+    [query.data],
+  );
 
   const visible = useMemo(
     () =>
@@ -45,10 +57,18 @@ export function IncidentsPage() {
     (incident) => incident.status !== "resolved",
   ).length;
 
-  const createIncident = (incident: Incident) => {
-    setIncidents((prev) => [incident, ...prev]);
-    setCreateOpen(false);
-    setSelected(incident);
+  const createIncident = async (input: CreateIncidentInput) => {
+    setCreateError(null);
+    try {
+      await create.mutateAsync(input);
+      setCreateOpen(false);
+    } catch (error) {
+      setCreateError(
+        error instanceof Error
+          ? error.message
+          : "Could not create the incident.",
+      );
+    }
   };
 
   return (
@@ -62,7 +82,10 @@ export function IncidentsPage() {
         </Mono>
         <button
           type="button"
-          onClick={() => setCreateOpen(true)}
+          onClick={() => {
+            setCreateError(null);
+            setCreateOpen(true);
+          }}
           className="inline-flex h-9 items-center rounded-lg border border-[var(--projects-accent-border)] bg-[var(--projects-accent-strong)] px-3.5 text-[12.5px] font-semibold text-white transition-colors hover:bg-[var(--projects-accent-hover)]"
         >
           Create Incident
@@ -99,57 +122,68 @@ export function IncidentsPage() {
       </div>
 
       <div className="overflow-hidden rounded-lg border border-[var(--projects-border)] bg-[#141416]">
-        <ul className="m-0 list-none p-0">
-          {visible.length === 0 ? (
-            <li className="px-4 py-12 text-center text-[13px] text-[var(--projects-muted)]">
-              No incidents match the current filters.
-            </li>
-          ) : (
-            visible.map((incident) => (
-              <li
-                key={incident.id}
-                className="border-b border-[var(--projects-divider)] last:border-b-0"
-              >
-                <button
-                  type="button"
-                  onClick={() => setSelected(incident)}
-                  aria-label={`Inspect incident ${incident.id}`}
-                  aria-expanded={selected?.id === incident.id}
-                  className="block w-full px-4 py-3 text-left transition-colors hover:bg-white/[0.03]"
-                >
-                  <div className="flex flex-wrap items-center gap-2.5">
-                    <SeverityBadge severity={incident.severity} />
-                    <span className="text-[13.5px] font-medium text-[var(--projects-text)]">
-                      {incident.title}
-                    </span>
-                    <span className="ml-auto">
-                      <IncidentStatusBadge status={incident.status} />
-                    </span>
-                  </div>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-[var(--projects-muted)]">
-                    <Mono>{incident.id}</Mono>
-                    <span>
-                      {incident.services.length} service
-                      {incident.services.length === 1 ? "" : "s"}:{" "}
-                      {incident.services.join(", ")}
-                    </span>
-                    <span>started {incident.startedAt}</span>
-                    <span>{incident.duration}</span>
-                  </div>
-                </button>
+        {query.isPending ? (
+          <p className="px-4 py-12 text-center text-[13px] text-[var(--projects-muted)]">
+            Loading incidents…
+          </p>
+        ) : query.error ? (
+          <p className="px-4 py-12 text-center text-[13px] text-[var(--projects-danger)]">
+            Could not load incidents. Retry shortly.
+          </p>
+        ) : (
+          <ul className="m-0 list-none p-0">
+            {visible.length === 0 ? (
+              <li className="px-4 py-12 text-center text-[13px] text-[var(--projects-muted)]">
+                No incidents match the current filters.
               </li>
-            ))
-          )}
-        </ul>
+            ) : (
+              visible.map((incident) => (
+                <li
+                  key={incident.id}
+                  className="border-b border-[var(--projects-divider)] last:border-b-0"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setSelected(incident)}
+                    aria-label={`Inspect incident ${incident.title}`}
+                    aria-expanded={selected?.id === incident.id}
+                    className="block w-full px-4 py-3 text-left transition-colors hover:bg-white/[0.03]"
+                  >
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <SeverityBadge severity={incident.severity} />
+                      <span className="text-[13.5px] font-medium text-[var(--projects-text)]">
+                        {incident.title}
+                      </span>
+                      <span className="ml-auto">
+                        <IncidentStatusBadge status={incident.status} />
+                      </span>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-[var(--projects-muted)]">
+                      <Mono>{incident.id}</Mono>
+                      <span>
+                        {incident.services.length} service
+                        {incident.services.length === 1 ? "" : "s"}:{" "}
+                        {incident.services.join(", ")}
+                      </span>
+                      <span>started {incident.startedAt}</span>
+                      <span>{incident.duration}</span>
+                    </div>
+                  </button>
+                </li>
+              ))
+            )}
+          </ul>
+        )}
       </div>
 
       <IncidentDetail incident={selected} onClose={() => setSelected(null)} />
 
       <CreateIncidentDialog
         open={createOpen}
+        pending={create.isPending}
+        error={createError}
         onClose={() => setCreateOpen(false)}
-        onCreate={createIncident}
-        existingIds={incidents.map((incident) => incident.id)}
+        onSubmit={createIncident}
       />
     </AdminPageBody>
   );
@@ -216,18 +250,12 @@ function IncidentDetail({
                     />
                   )}
                   <span
-                    className={
-                      update.status === "resolved"
-                        ? "mt-1 size-[11px] shrink-0 rounded-full bg-[var(--projects-accent)]"
-                        : update.status === "investigating"
-                          ? "mt-1 size-[11px] shrink-0 rounded-full bg-[var(--projects-warning)]"
-                          : "mt-1 size-[11px] shrink-0 rounded-full bg-[var(--admin-info)]"
-                    }
+                    className="mt-1 size-[11px] shrink-0 rounded-full bg-[var(--admin-info)]"
                     aria-hidden="true"
                   />
                   <div className="min-w-0">
                     <p className="m-0 flex flex-wrap items-center gap-2 text-[12px] leading-4">
-                      <IncidentStatusBadge status={update.status} />
+                      <StatusBadge tone="neutral" label={update.kind} />
                       <Mono className="text-[11px] text-[var(--projects-muted)]">
                         {update.time}
                       </Mono>
