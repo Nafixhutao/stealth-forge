@@ -189,7 +189,10 @@ export function AdminOverview() {
       <SystemStatus components={components} />
 
       {/* Primary host resource metrics */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {/* 2×2 on phones so all four host metrics read at a glance; the tall
+          single-column stack pushed Platform and the charts far below the
+          fold. Desktop stays one row of four. */}
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
         <MetricCard
           icon={Cpu}
           label="CPU Usage"

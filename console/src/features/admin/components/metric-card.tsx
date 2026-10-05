@@ -36,7 +36,7 @@ export function MetricCard({
         : "text-[var(--projects-muted)]";
 
   return (
-    <article className="flex flex-col gap-2.5 rounded-lg border border-[var(--projects-border)] bg-[#141416] p-3.5">
+    <article className="flex flex-col gap-2.5 rounded-lg border border-[var(--projects-border)] bg-[#141416] p-3 sm:p-3.5">
       <header className="flex items-center gap-2">
         <span className="flex size-6 shrink-0 items-center justify-center rounded-md border border-[var(--projects-border)] bg-[var(--projects-control)] text-[var(--projects-muted)]">
           <Icon size={13} strokeWidth={1.8} aria-hidden="true" />
@@ -45,14 +45,14 @@ export function MetricCard({
           {label}
         </h3>
         {hint && (
-          <span className="admin-mono ml-auto shrink-0 text-[11px] leading-4 text-[var(--projects-muted)]/80">
+          <span className="admin-mono ml-auto hidden shrink-0 text-[11px] leading-4 text-[var(--projects-muted)]/80 sm:inline">
             {hint}
           </span>
         )}
       </header>
 
       <div className="flex items-end justify-between gap-2">
-        <p className="m-0 text-[22px] font-semibold leading-6 tracking-[-0.02em] text-[var(--projects-text)]">
+        <p className="m-0 min-w-0 text-[18px] font-semibold leading-5 tracking-[-0.02em] text-[var(--projects-text)] sm:text-[22px] sm:leading-6">
           {value}
         </p>
         {change && (
@@ -61,7 +61,7 @@ export function MetricCard({
           >
             {change}
             {changeLabel && (
-              <span className="block text-[10.5px] text-[var(--projects-muted)]/70">
+              <span className="hidden text-[10.5px] text-[var(--projects-muted)]/70 sm:block">
                 {changeLabel}
               </span>
             )}
