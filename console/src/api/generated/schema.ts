@@ -274,6 +274,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/host-metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Return the in-process host resource snapshot (CPU, memory, disk, network) and its short in-memory history for the admin Overview. Requires Instance Owner or Instance Admin and does not depend on the telemetry backend. */
+        get: operations["getAdminHostMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/telemetry/sources": {
         parameters: {
             query?: never;
@@ -3522,6 +3539,25 @@ export interface components {
         };
         AdminInfrastructureMetricsResponse: {
             items: components["schemas"]["AdminInfrastructureMetric"][];
+        };
+        AdminHostMetricsSample: {
+            /** Format: date-time */
+            timestamp: string;
+            cpu_percent: number;
+            /** Format: int64 */
+            memory_used_bytes: number;
+            /** Format: int64 */
+            memory_total_bytes: number;
+            /** Format: int64 */
+            disk_used_bytes: number;
+            /** Format: int64 */
+            disk_total_bytes: number;
+            network_rx_bytes_per_sec: number;
+            network_tx_bytes_per_sec: number;
+        };
+        AdminHostMetricsSnapshot: {
+            current: components["schemas"]["AdminHostMetricsSample"];
+            history: components["schemas"]["AdminHostMetricsSample"][];
         };
         AdminTelemetrySource: {
             service: string;
@@ -7231,6 +7267,29 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    getAdminHostMetrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Host resource snapshot and history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminHostMetricsSnapshot"];
+                };
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             503: components["responses"]["ServiceUnavailable"];

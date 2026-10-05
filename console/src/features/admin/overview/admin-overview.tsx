@@ -1,119 +1,89 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Cpu, HardDrive, MemoryStick, Network } from "lucide-react";
 import {
-  PRIMARY_METRICS,
-  PLATFORM_STATS,
-  overviewSeries,
-} from "../data/admin-mock-data";
+  useAdminHostMetrics,
+  useAdminIncidents,
+  useAdminOverview,
+} from "@/api/queries";
 import { TIME_RANGES, type TimeRange } from "../types/telemetry";
 import { AdminHeader, AdminPageBody } from "../components/admin-panel";
 import { MetricCard } from "../components/metric-card";
 import { StatTile } from "../components/stat-tile";
-import {
-  LiveIndicator,
-  RefreshButton,
-  UpdatedLabel,
-} from "../components/live-indicator";
+import { LiveIndicator, RefreshButton } from "../components/live-indicator";
 import { TimeRangeSelect } from "../components/time-range-select";
-import { nudge, pushHistory, useLiveTick } from "../hooks/use-live-updates";
+import { formatBytes } from "@/lib/format";
+import { toIncident } from "../data/admin-adapters";
 import { SystemStatus } from "./system-status";
 import { ResourceOverview, type OverviewTab } from "./resource-overview";
 import { ServiceHealthTable } from "./service-health-table";
 import { RecentIncidents } from "./recent-incidents";
-import { RecentRuns } from "./recent-runs";
+import type { MetricPoint } from "../types/telemetry";
 
-interface LiveValues {
-  cpu: number;
-  memoryGb: number;
-  netIn: number;
-  netOut: number;
-  running: number;
-  queue: number;
-  latency: number;
-  errorRate: number;
-}
+const GIB = 1024 ** 3;
+const MIB = 1024 ** 2;
 
-const INITIAL_LIVE: LiveValues = {
-  cpu: 34,
-  memoryGb: 9.2,
-  netIn: 24,
-  netOut: 8,
-  running: 8,
-  queue: 14,
-  latency: 182,
-  errorRate: 0.42,
-};
-
-type ChartSeriesMap = Record<
-  OverviewTab,
-  { timestamp: string; value: number }[]
->;
+type ChartSeriesMap = Record<OverviewTab, MetricPoint[]>;
 
 /**
- * Admin Overview — platform health, agent workloads, and telemetry.
- * All numbers are mock; the live feel comes from a 4s local interval
- * (cleaned up on unmount) that nudges values after hydration.
+ * Admin Overview — platform health, host resources, and telemetry. Host
+ * CPU/memory/disk/network come from the in-process host metrics endpoint (no
+ * ClickHouse); component status, operations, and incidents come from the admin
+ * API. Sandboxes/latency/error-rate tiles are intentionally absent because
+ * Stealth does not expose those resources.
  */
 export function AdminOverview() {
   const [range, setRange] = useState<TimeRange>("1h");
-  // Bumped on refresh; chart regeneration stays deterministic per (range, seed).
-  const [seed, setSeed] = useState(0);
   const [tab, setTab] = useState<OverviewTab>("cpu");
-  const [live, setLive] = useState<LiveValues>(INITIAL_LIVE);
-  const [chart, setChart] = useState<ChartSeriesMap>(() =>
-    overviewSeries("1h"),
-  );
-  const [history, setHistory] = useState<Record<string, number[]>>(() =>
-    Object.fromEntries(
-      PRIMARY_METRICS.map((metric) => [metric.id, metric.history]),
-    ),
-  );
-  const tick = useLiveTick(4000);
 
-  // Live nudge pass — never runs on the server or the first client render.
-  useEffect(() => {
-    if (tick === 0) return;
-    setLive((prev) => {
-      const next: LiveValues = {
-        cpu: nudge(prev.cpu, 1.8, 22, 58),
-        memoryGb: nudge(prev.memoryGb, 0.16, 8.4, 10.8),
-        netIn: nudge(prev.netIn, 3, 12, 40),
-        netOut: nudge(prev.netOut, 1.2, 4, 14),
-        running:
-          Math.random() > 0.6
-            ? Math.min(
-                10,
-                Math.max(6, prev.running + (Math.random() > 0.5 ? 1 : -1)),
-              )
-            : prev.running,
-        queue: Math.round(nudge(prev.queue, 2, 10, 18)),
-        latency: Math.round(nudge(prev.latency, 9, 150, 240)),
-        errorRate:
-          Math.round(nudge(prev.errorRate, 0.03, 0.28, 0.66) * 100) / 100,
-      };
-      // Keep sparks and the active chart in sync with the same sample.
-      setHistory((prevHistory) => ({
-        ...prevHistory,
-        cpu: pushHistory(prevHistory.cpu, next.cpu),
-        memory: pushHistory(prevHistory.memory, next.memoryGb),
-        network: pushHistory(prevHistory.network, next.netIn),
-      }));
-      setChart((prevChart) => ({
-        ...prevChart,
-        cpu: replaceLast(prevChart.cpu, next.cpu),
-        memory: replaceLast(prevChart.memory, next.memoryGb),
-        network: replaceLast(prevChart.network, next.netIn),
-      }));
-      return next;
-    });
-  }, [tick]);
+  const overview = useAdminOverview();
+  const host = useAdminHostMetrics();
+  const incidentsQuery = useAdminIncidents(
+    { limit: 20 },
+    { refetchInterval: 30_000 },
+  );
 
-  // Range/refresh changes regenerate the chart deterministically.
-  useEffect(() => {
-    setChart(overviewSeries(range));
-  }, [range, seed]);
+  const components = overview.data?.components ?? [];
+  const operations = overview.data?.operations;
+  const current = host.data?.current;
+  const history = useMemo(() => host.data?.history ?? [], [host.data]);
+
+  const cpuHistory = useMemo(
+    () => history.map((sample) => sample.cpu_percent),
+    [history],
+  );
+  const memoryHistory = useMemo(
+    () => history.map((sample) => sample.memory_used_bytes / GIB),
+    [history],
+  );
+  const networkHistory = useMemo(
+    () => history.map((sample) => sample.network_rx_bytes_per_sec / MIB),
+    [history],
+  );
+
+  const chart = useMemo<ChartSeriesMap>(
+    () => ({
+      cpu: history.map((sample) => ({
+        timestamp: sample.timestamp,
+        value: sample.cpu_percent,
+      })),
+      memory: history.map((sample) => ({
+        timestamp: sample.timestamp,
+        value: sample.memory_used_bytes / GIB,
+      })),
+      network: history.map((sample) => ({
+        timestamp: sample.timestamp,
+        value: sample.network_rx_bytes_per_sec / MIB,
+      })),
+    }),
+    [history],
+  );
+
+  const incidents = useMemo(
+    () => (incidentsQuery.data?.items ?? []).map(toIncident),
+    [incidentsQuery.data],
+  );
 
   const rangeLabel = useMemo(
     () => TIME_RANGES.find((option) => option.value === range)?.label ?? range,
@@ -124,56 +94,72 @@ export function AdminOverview() {
     <AdminPageBody>
       <AdminHeader
         title="Admin Overview"
-        subtitle="Monitor platform health, agent workloads, and telemetry."
+        subtitle="Monitor platform health, host resources, and telemetry."
       >
         <TimeRangeSelect value={range} onChange={setRange} />
-        <RefreshButton onClick={() => setSeed((value) => value + 1)} />
+        <RefreshButton
+          onClick={() => {
+            void overview.refetch();
+            void host.refetch();
+            void incidentsQuery.refetch();
+          }}
+        />
         <LiveIndicator />
       </AdminHeader>
 
-      <SystemStatus resetKey={`${range}-${seed}`} />
+      <SystemStatus components={components} />
 
-      {/* Primary resource metrics */}
+      {/* Primary host resource metrics */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           icon={Cpu}
           label="CPU Usage"
-          value={`${Math.round(live.cpu)}%`}
-          change={PRIMARY_METRICS[0].change}
-          changeLabel={PRIMARY_METRICS[0].changeLabel}
-          changeTone="danger"
-          history={history.cpu}
+          value={current ? `${Math.round(current.cpu_percent)}%` : "—"}
+          changeLabel="across all cores"
+          changeTone="neutral"
+          history={cpuHistory}
           sparkTone="accent"
         />
         <MetricCard
           icon={MemoryStick}
           label="Memory"
-          value={`${live.memoryGb.toFixed(1)} GB`}
-          change={PRIMARY_METRICS[1].change}
-          changeLabel="of 16 GB"
+          value={current ? formatBytes(current.memory_used_bytes) : "—"}
+          changeLabel={
+            current
+              ? `of ${formatBytes(current.memory_total_bytes)}`
+              : undefined
+          }
           changeTone="success"
-          history={history.memory}
+          history={memoryHistory}
           sparkTone="info"
         />
         <MetricCard
           icon={HardDrive}
           label="Storage"
-          value="124 GB"
-          change={PRIMARY_METRICS[2].change}
-          changeLabel="of 250 GB"
+          value={current ? formatBytes(current.disk_used_bytes) : "—"}
+          changeLabel={
+            current ? `of ${formatBytes(current.disk_total_bytes)}` : undefined
+          }
           changeTone="neutral"
-          history={history.storage}
+          history={[]}
           sparkTone="neutral"
         />
         <MetricCard
           icon={Network}
           label="Network"
-          value={`${Math.round(live.netIn)} MB/s`}
-          hint={`↑ ${Math.round(live.netOut)} MB/s out`}
-          change={PRIMARY_METRICS[3].change}
-          changeLabel="ingress, from previous hour"
+          value={
+            current
+              ? `${(current.network_rx_bytes_per_sec / MIB).toFixed(1)} MB/s`
+              : "—"
+          }
+          hint={
+            current
+              ? `↑ ${(current.network_tx_bytes_per_sec / MIB).toFixed(1)} MB/s out`
+              : undefined
+          }
+          changeLabel="ingress"
           changeTone="neutral"
-          history={history.network}
+          history={networkHistory}
           sparkTone="warning"
         />
       </div>
@@ -184,26 +170,29 @@ export function AdminOverview() {
           <h2 className="m-0 text-[12px] font-semibold uppercase tracking-[0.08em] text-[var(--projects-muted)]">
             Platform
           </h2>
-          <UpdatedLabel className="text-[11px] text-[var(--projects-muted)]" />
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {PLATFORM_STATS.map((stat) => (
-            <StatTile
-              key={stat.id}
-              label={stat.label}
-              value={liveStatValue(stat.id, stat.value, live)}
-              hint={stat.hint}
-              tone={
-                stat.id === "running"
-                  ? "success"
-                  : stat.id === "failed"
-                    ? "danger"
-                    : stat.id === "queue" || stat.id === "error-rate"
-                      ? "warning"
-                      : "neutral"
-              }
-            />
-          ))}
+          <StatTile
+            label="Active deployments"
+            value={String(operations?.active_deployments ?? 0)}
+          />
+          <StatTile
+            label="Running jobs"
+            value={String(operations?.running_jobs ?? 0)}
+            tone="success"
+          />
+          <StatTile
+            label="Failed jobs"
+            value={String(operations?.failed_jobs ?? 0)}
+            tone={
+              operations && operations.failed_jobs > 0 ? "danger" : "neutral"
+            }
+          />
+          <StatTile
+            label="Queued jobs"
+            value={String(operations?.queued_jobs ?? 0)}
+            tone="warning"
+          />
         </div>
       </div>
 
@@ -215,40 +204,10 @@ export function AdminOverview() {
           rangeLabel={rangeLabel}
           className="lg:col-span-2"
         />
-        <RecentIncidents />
+        <RecentIncidents incidents={incidents} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <ServiceHealthTable />
-        <RecentRuns />
-      </div>
+      <ServiceHealthTable components={components} />
     </AdminPageBody>
   );
-}
-
-/** Replace the newest chart point with a fresh live sample. */
-function replaceLast(
-  points: ChartSeriesMap[OverviewTab],
-  value: number,
-): ChartSeriesMap[OverviewTab] {
-  if (points.length === 0) return points;
-  return points.map((point, index) =>
-    index === points.length - 1 ? { ...point, value } : point,
-  );
-}
-
-/** Swap the live-updatable stat values into their display strings. */
-function liveStatValue(id: string, base: string, live: LiveValues): string {
-  switch (id) {
-    case "running":
-      return String(live.running);
-    case "queue":
-      return String(live.queue);
-    case "latency":
-      return `${live.latency} ms`;
-    case "error-rate":
-      return `${live.errorRate.toFixed(2)}%`;
-    default:
-      return base;
-  }
 }

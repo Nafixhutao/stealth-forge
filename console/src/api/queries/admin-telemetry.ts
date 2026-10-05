@@ -198,6 +198,21 @@ export function useAdminOperations(
   });
 }
 
+// Host resource metrics are sampled in-process by the API (no telemetry
+// backend). Poll a little faster than the heavier admin queries so the Overview
+// resource cards and chart stay close to live.
+export function useAdminHostMetrics(options?: {
+  refetchInterval?: number | false;
+}) {
+  return useQuery({
+    queryKey: queryKeys.adminHostMetrics,
+    queryFn: cancellableQuery((signal) =>
+      api.GET("/v1/admin/host-metrics", { signal }),
+    ),
+    refetchInterval: options?.refetchInterval ?? 5_000,
+  });
+}
+
 export function useAdminAuditEvents(
   query: { before?: string; limit?: number } = {},
   options?: { refetchInterval?: number | false },

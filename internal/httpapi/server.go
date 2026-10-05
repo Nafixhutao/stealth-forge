@@ -18,6 +18,7 @@ import (
 	"github.com/Stealth-deplover/stealth/internal/functionstore"
 	"github.com/Stealth-deplover/stealth/internal/gitarchive"
 	"github.com/Stealth-deplover/stealth/internal/githubauth"
+	"github.com/Stealth-deplover/stealth/internal/hostmetrics"
 	"github.com/Stealth-deplover/stealth/internal/mailer"
 	"github.com/Stealth-deplover/stealth/internal/observability"
 	"github.com/Stealth-deplover/stealth/internal/ratelimit"
@@ -67,6 +68,7 @@ type Server struct {
 	cloudflareOAuth   CloudflareOAuthClient
 	cloudflareFactory CloudflareClientFactory
 	telemetry         telemetry.Store
+	hostMetrics       *hostmetrics.Collector
 	redis             *redis.Client
 
 	adminRealtimeAuthRecheckInterval time.Duration
@@ -98,6 +100,7 @@ type Dependencies struct {
 	CloudflareOAuth   CloudflareOAuthClient
 	CloudflareFactory CloudflareClientFactory
 	TelemetryStore    telemetry.Store
+	HostMetrics       *hostmetrics.Collector
 	Redis             *redis.Client
 
 	// AdminRealtimeAuthRecheckInterval is primarily useful for deterministic
@@ -311,6 +314,7 @@ func NewWithDependenciesAndPlatformSiteHandler(
 		cloudflareOAuth:                  cloudflareOAuth,
 		cloudflareFactory:                cloudflareFactory,
 		telemetry:                        deps.TelemetryStore,
+		hostMetrics:                      deps.HostMetrics,
 		redis:                            deps.Redis,
 	}
 	// Export database-pool saturation on the API metrics registry so pool

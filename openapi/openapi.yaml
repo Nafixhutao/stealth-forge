@@ -233,6 +233,16 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /v1/admin/host-metrics:
+    get:
+      operationId: getAdminHostMetrics
+      description: Return the in-process host resource snapshot (CPU, memory, disk, network) and its short in-memory history for the admin Overview. Requires Instance Owner or Instance Admin and does not depend on the telemetry backend.
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { description: Host resource snapshot and history, content: { application/json: { schema: { $ref: '#/components/schemas/AdminHostMetricsSnapshot' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
   /v1/admin/telemetry/sources:
     get:
       operationId: listAdminTelemetrySources
@@ -3087,6 +3097,8 @@ components:
     AdminServiceMapResponse: { type: object, additionalProperties: false, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/AdminServiceMapEdge' } } } }
     AdminInfrastructureMetric: { type: object, additionalProperties: false, required: [timestamp, scope, name, service, value], properties: { timestamp: { type: string, format: date-time }, scope: { type: string, enum: [host, containers, postgres, redis, services] }, name: { type: string }, service: { type: string }, value: { type: number }, attributes: { type: object, additionalProperties: { type: string } }, resource_attributes: { type: object, additionalProperties: { type: string } } } }
     AdminInfrastructureMetricsResponse: { type: object, additionalProperties: false, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/AdminInfrastructureMetric' } } } }
+    AdminHostMetricsSample: { type: object, additionalProperties: false, required: [timestamp, cpu_percent, memory_used_bytes, memory_total_bytes, disk_used_bytes, disk_total_bytes, network_rx_bytes_per_sec, network_tx_bytes_per_sec], properties: { timestamp: { type: string, format: date-time }, cpu_percent: { type: number }, memory_used_bytes: { type: integer, format: int64 }, memory_total_bytes: { type: integer, format: int64 }, disk_used_bytes: { type: integer, format: int64 }, disk_total_bytes: { type: integer, format: int64 }, network_rx_bytes_per_sec: { type: number }, network_tx_bytes_per_sec: { type: number } } }
+    AdminHostMetricsSnapshot: { type: object, additionalProperties: false, required: [current, history], properties: { current: { $ref: '#/components/schemas/AdminHostMetricsSample' }, history: { type: array, items: { $ref: '#/components/schemas/AdminHostMetricsSample' } } } }
     AdminTelemetrySource: { type: object, additionalProperties: false, required: [service, signal, last_received, volume], properties: { service: { type: string }, signal: { type: string, enum: [logs, traces, metrics] }, last_received: { type: string, format: date-time }, volume: { type: integer, format: int64, minimum: 0 } } }
     AdminSourcesResponse: { type: object, additionalProperties: false, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/AdminTelemetrySource' } } } }
     AdminMonitor: { type: object, additionalProperties: false, required: [id, name, kind, target, interval_seconds, timeout_ms, enabled, config, status, next_check_at, secret_configured, created_at, updated_at], properties: { id: { type: string, format: uuid }, name: { type: string }, kind: { type: string, enum: [http, tcp, dns, tls, heartbeat] }, target: { type: string }, interval_seconds: { type: integer, minimum: 5, maximum: 86400 }, timeout_ms: { type: integer, minimum: 100, maximum: 120000 }, enabled: { type: boolean }, config: { type: object, additionalProperties: true }, status: { type: string, enum: [unknown, healthy, degraded, failing, paused] }, last_checked_at: { type: [string, 'null'], format: date-time }, last_success_at: { type: [string, 'null'], format: date-time }, last_failure_at: { type: [string, 'null'], format: date-time }, last_latency_ms: { type: [integer, 'null'], minimum: 0 }, last_status_code: { type: [integer, 'null'], minimum: 100, maximum: 599 }, last_error: { type: [string, 'null'], maxLength: 1000 }, last_heartbeat_at: { type: [string, 'null'], format: date-time }, next_check_at: { type: string, format: date-time }, secret_configured: { type: boolean }, created_by_account_id: { type: [string, 'null'], format: uuid }, created_at: { type: string, format: date-time }, updated_at: { type: string, format: date-time } } }

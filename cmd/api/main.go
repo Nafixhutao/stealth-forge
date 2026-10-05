@@ -16,6 +16,7 @@ import (
 	"github.com/Stealth-deplover/stealth/internal/buildinfo"
 	"github.com/Stealth-deplover/stealth/internal/config"
 	"github.com/Stealth-deplover/stealth/internal/functionsecret"
+	"github.com/Stealth-deplover/stealth/internal/hostmetrics"
 	"github.com/Stealth-deplover/stealth/internal/httpapi"
 	"github.com/Stealth-deplover/stealth/internal/observability"
 	"github.com/Stealth-deplover/stealth/internal/ratelimit"
@@ -141,6 +142,12 @@ func main() {
 			logger.Warn("telemetry schema registry unavailable", "error", err)
 		}
 	}
+	// Host resource metrics are sampled in-process (no ClickHouse) so the admin
+	// Overview keeps its CPU/memory/disk/network cards without the telemetry
+	// stack. A 120-sample ring at 5s covers the short history charts.
+	hostMetrics := hostmetrics.New(5*time.Second, 120, "/")
+	go hostMetrics.Start(ctx)
+
 	handler, platformSiteHandler := httpapi.NewWithDependenciesAndPlatformSiteHandler(
 		cfg,
 		repo,
@@ -149,6 +156,7 @@ func main() {
 			AuthLimiter:    ratelimit.NewRedisLimiter(redisClient),
 			RealtimeBroker: realtime.NewBroker(redisClient),
 			TelemetryStore: telemetryStore,
+			HostMetrics:    hostMetrics,
 			Redis:          redisClient,
 		},
 	)

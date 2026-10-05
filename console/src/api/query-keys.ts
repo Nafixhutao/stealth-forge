@@ -143,6 +143,7 @@ export const queryKeys = {
   adminDashboard: (dashboardId: string) =>
     ["admin", "dashboard", dashboardId] as const,
   adminStatusPage: ["admin", "status-page"] as const,
+  adminHostMetrics: ["admin", "host-metrics"] as const,
   publicStatusPage: ["public", "status-page"] as const,
   adminTelemetry: (signal: string, query: unknown) =>
     ["admin", "telemetry", signal, query] as const,
