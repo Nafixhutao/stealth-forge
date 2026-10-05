@@ -4,10 +4,17 @@ import { useMemo, useState } from "react";
 import { INCIDENTS } from "../data/admin-mock-data";
 import { AdminHeader, AdminPageBody, Mono } from "../components/admin-panel";
 import { DetailDrawer, DetailField } from "../components/detail-drawer";
-import { IncidentStatusBadge, SeverityBadge } from "../components/domain-badges";
+import {
+  IncidentStatusBadge,
+  SeverityBadge,
+} from "../components/domain-badges";
 import { AdminSelect } from "../components/admin-select";
 import { CreateIncidentDialog } from "./create-incident-dialog";
-import type { Incident, IncidentSeverity, IncidentStatus } from "../types/incidents";
+import type {
+  Incident,
+  IncidentSeverity,
+  IncidentStatus,
+} from "../types/incidents";
 
 type SeverityFilter = "all" | IncidentSeverity;
 type StatusFilter = "all" | IncidentStatus;
@@ -34,7 +41,9 @@ export function IncidentsPage() {
     [incidents, severity, status],
   );
 
-  const active = incidents.filter((incident) => incident.status !== "resolved").length;
+  const active = incidents.filter(
+    (incident) => incident.status !== "resolved",
+  ).length;
 
   const createIncident = (incident: Incident) => {
     setIncidents((prev) => [incident, ...prev]);
@@ -44,7 +53,10 @@ export function IncidentsPage() {
 
   return (
     <AdminPageBody>
-      <AdminHeader title="Incidents" subtitle="Track, triage, and resolve platform incidents.">
+      <AdminHeader
+        title="Incidents"
+        subtitle="Track, triage, and resolve platform incidents."
+      >
         <Mono className="hidden h-9 items-center rounded-lg border border-[var(--projects-border)] bg-[#141416] px-3 text-[12px] text-[var(--projects-muted)] sm:inline-flex">
           {active} active
         </Mono>
@@ -81,7 +93,9 @@ export function IncidentsPage() {
             { value: "resolved", label: "Resolved" },
           ]}
         />
-        <Mono className="ml-auto text-[11.5px] text-[var(--projects-muted)]">{visible.length} incidents</Mono>
+        <Mono className="ml-auto text-[11.5px] text-[var(--projects-muted)]">
+          {visible.length} incidents
+        </Mono>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-[var(--projects-border)] bg-[#141416]">
@@ -92,7 +106,10 @@ export function IncidentsPage() {
             </li>
           ) : (
             visible.map((incident) => (
-              <li key={incident.id} className="border-b border-[var(--projects-divider)] last:border-b-0">
+              <li
+                key={incident.id}
+                className="border-b border-[var(--projects-divider)] last:border-b-0"
+              >
                 <button
                   type="button"
                   onClick={() => setSelected(incident)}
@@ -102,7 +119,9 @@ export function IncidentsPage() {
                 >
                   <div className="flex flex-wrap items-center gap-2.5">
                     <SeverityBadge severity={incident.severity} />
-                    <span className="text-[13.5px] font-medium text-[var(--projects-text)]">{incident.title}</span>
+                    <span className="text-[13.5px] font-medium text-[var(--projects-text)]">
+                      {incident.title}
+                    </span>
                     <span className="ml-auto">
                       <IncidentStatusBadge status={incident.status} />
                     </span>
@@ -110,7 +129,9 @@ export function IncidentsPage() {
                   <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-[var(--projects-muted)]">
                     <Mono>{incident.id}</Mono>
                     <span>
-                      {incident.services.length} service{incident.services.length === 1 ? "" : "s"}: {incident.services.join(", ")}
+                      {incident.services.length} service
+                      {incident.services.length === 1 ? "" : "s"}:{" "}
+                      {incident.services.join(", ")}
                     </span>
                     <span>started {incident.startedAt}</span>
                     <span>{incident.duration}</span>
@@ -134,7 +155,13 @@ export function IncidentsPage() {
   );
 }
 
-function IncidentDetail({ incident, onClose }: { incident: Incident | null; onClose: () => void }) {
+function IncidentDetail({
+  incident,
+  onClose,
+}: {
+  incident: Incident | null;
+  onClose: () => void;
+}) {
   return (
     <DetailDrawer
       open={incident !== null}
@@ -142,7 +169,11 @@ function IncidentDetail({ incident, onClose }: { incident: Incident | null; onCl
       title={
         <>
           <span className="truncate">{incident?.title}</span>
-          {incident && <span className="ml-2"><SeverityBadge severity={incident.severity} /></span>}
+          {incident && (
+            <span className="ml-2">
+              <SeverityBadge severity={incident.severity} />
+            </span>
+          )}
         </>
       }
       subtitle={incident ? `${incident.id} · ${incident.duration}` : undefined}
@@ -174,9 +205,15 @@ function IncidentDetail({ incident, onClose }: { incident: Incident | null; onCl
             </p>
             <ol className="m-0 list-none p-0">
               {incident.updates.map((update, index) => (
-                <li key={`${update.time}-${index}`} className="relative flex gap-3 pb-4 last:pb-0">
-                  {!((incident.updates.length - 1) === index) && (
-                    <span aria-hidden="true" className="absolute left-[5px] top-4 h-[calc(100%-14px)] w-px bg-[var(--projects-divider)]" />
+                <li
+                  key={`${update.time}-${index}`}
+                  className="relative flex gap-3 pb-4 last:pb-0"
+                >
+                  {!(incident.updates.length - 1 === index) && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute left-[5px] top-4 h-[calc(100%-14px)] w-px bg-[var(--projects-divider)]"
+                    />
                   )}
                   <span
                     className={
@@ -191,9 +228,13 @@ function IncidentDetail({ incident, onClose }: { incident: Incident | null; onCl
                   <div className="min-w-0">
                     <p className="m-0 flex flex-wrap items-center gap-2 text-[12px] leading-4">
                       <IncidentStatusBadge status={update.status} />
-                      <Mono className="text-[11px] text-[var(--projects-muted)]">{update.time}</Mono>
+                      <Mono className="text-[11px] text-[var(--projects-muted)]">
+                        {update.time}
+                      </Mono>
                     </p>
-                    <p className="m-0 mt-1 text-[12.5px] leading-5 text-[var(--projects-text)]">{update.message}</p>
+                    <p className="m-0 mt-1 text-[12.5px] leading-5 text-[var(--projects-text)]">
+                      {update.message}
+                    </p>
                   </div>
                 </li>
               ))}

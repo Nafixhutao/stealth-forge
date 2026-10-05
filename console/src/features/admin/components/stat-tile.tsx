@@ -42,10 +42,21 @@ export function StatTile({
         </span>
       )}
       <div className="min-w-0">
-        <p className="m-0 truncate text-[11px] leading-4 text-[var(--projects-muted)]">{label}</p>
-        <p className={cn("m-0 truncate text-[17px] font-semibold leading-6 tracking-[-0.01em]", valueClass)}>
+        <p className="m-0 truncate text-[11px] leading-4 text-[var(--projects-muted)]">
+          {label}
+        </p>
+        <p
+          className={cn(
+            "m-0 truncate text-[17px] font-semibold leading-6 tracking-[-0.01em]",
+            valueClass,
+          )}
+        >
           {value}
-          {hint && <span className="ml-1.5 text-[11.5px] font-normal text-[var(--projects-muted)]">{hint}</span>}
+          {hint && (
+            <span className="ml-1.5 text-[11.5px] font-normal text-[var(--projects-muted)]">
+              {hint}
+            </span>
+          )}
         </p>
       </div>
     </article>

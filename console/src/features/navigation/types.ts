@@ -29,4 +29,7 @@ export type NavRowProps = {
   collapsed?: boolean;
 };
 
-export type NavItem = Pick<NavRowProps, "icon" | "label" | "badge" | "expandable" | "labelClassName">;
+export type NavItem = Pick<
+  NavRowProps,
+  "icon" | "label" | "badge" | "expandable" | "labelClassName"
+>;

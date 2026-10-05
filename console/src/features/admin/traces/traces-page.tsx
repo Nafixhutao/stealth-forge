@@ -19,7 +19,12 @@ const TRACE_STATS = [
   { id: "p50", label: "P50 Latency", value: "82 ms" },
   { id: "p95", label: "P95 Latency", value: "340 ms" },
   { id: "p99", label: "P99 Latency", value: "821 ms" },
-  { id: "error-rate", label: "Error Rate", value: "0.42%", tone: "warning" as const },
+  {
+    id: "error-rate",
+    label: "Error Rate",
+    value: "0.42%",
+    tone: "warning" as const,
+  },
 ];
 
 type TraceFilter = "all" | "success" | "error";
@@ -43,27 +48,46 @@ export function TracesPage() {
       if (status !== "all" && trace.status !== status) return false;
       if (service !== "all" && trace.service !== service) return false;
       if (!normalizedQuery) return true;
-      return [trace.id, trace.operation, trace.service].join(" ").toLowerCase().includes(normalizedQuery);
+      return [trace.id, trace.operation, trace.service]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedQuery);
     });
   }, [query, status, service]);
 
   return (
     <AdminPageBody>
-      <AdminHeader title="Traces" subtitle="Distributed request traces across api, workers, and sandboxes." />
+      <AdminHeader
+        title="Traces"
+        subtitle="Distributed request traces across api, workers, and sandboxes."
+      />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
         {TRACE_STATS.map((stat) => (
-          <StatTile key={stat.id} label={stat.label} value={stat.value} tone={stat.tone} />
+          <StatTile
+            key={stat.id}
+            label={stat.label}
+            value={stat.value}
+            tone={stat.tone}
+          />
         ))}
       </div>
 
       <div className="flex flex-wrap items-center gap-2.5">
-        <ToolbarSearch value={query} onChange={setQuery} placeholder="Search traces..." label="Search traces" />
+        <ToolbarSearch
+          value={query}
+          onChange={setQuery}
+          placeholder="Search traces..."
+          label="Search traces"
+        />
         <AdminSelect
           label="Filter by service"
           value={service}
           onChange={(value) => setService(value as ServiceFilter)}
-          options={[{ value: "all", label: "All services" }, ...TRACE_SERVICES.map((item) => ({ value: item, label: item }))]}
+          options={[
+            { value: "all", label: "All services" },
+            ...TRACE_SERVICES.map((item) => ({ value: item, label: item })),
+          ]}
         />
         <AdminSelect
           label="Filter by status"
@@ -97,7 +121,10 @@ export function TracesPage() {
             </li>
           ) : (
             visible.map((trace) => (
-              <li key={trace.id} className="border-b border-[var(--projects-divider)] last:border-b-0">
+              <li
+                key={trace.id}
+                className="border-b border-[var(--projects-divider)] last:border-b-0"
+              >
                 <button
                   type="button"
                   onClick={() => setSelected(trace)}
@@ -105,13 +132,28 @@ export function TracesPage() {
                   className="block w-full px-3.5 py-2 text-left transition-colors hover:bg-white/[0.03]"
                 >
                   <span className="hidden items-center gap-3 lg:grid lg:grid-cols-[110px_90px_minmax(0,1.6fr)_90px_80px_100px_70px]">
-                    <Mono className="text-[12px] font-medium text-[var(--projects-text)]">{trace.id}</Mono>
-                    <Mono className="text-[11.5px] text-[#b3b0ba]">{trace.service}</Mono>
-                    <Mono className="truncate text-[12px] text-[var(--projects-text)]">{trace.operation}</Mono>
-                    <Mono className={cn("text-[11.5px]", trace.status === "error" ? "text-[var(--projects-danger)]" : "text-[var(--projects-text)]")}>
+                    <Mono className="text-[12px] font-medium text-[var(--projects-text)]">
+                      {trace.id}
+                    </Mono>
+                    <Mono className="text-[11.5px] text-[#b3b0ba]">
+                      {trace.service}
+                    </Mono>
+                    <Mono className="truncate text-[12px] text-[var(--projects-text)]">
+                      {trace.operation}
+                    </Mono>
+                    <Mono
+                      className={cn(
+                        "text-[11.5px]",
+                        trace.status === "error"
+                          ? "text-[var(--projects-danger)]"
+                          : "text-[var(--projects-text)]",
+                      )}
+                    >
                       {formatDuration(trace.duration)}
                     </Mono>
-                    <Mono className="text-[11.5px] text-[var(--projects-muted)]">{trace.spanList.length} spans</Mono>
+                    <Mono className="text-[11.5px] text-[var(--projects-muted)]">
+                      {trace.spanList.length} spans
+                    </Mono>
                     <span>
                       {trace.status === "success" ? (
                         <StatusBadge tone="success" label="Success" />
@@ -119,12 +161,18 @@ export function TracesPage() {
                         <StatusBadge tone="danger" label="Error" />
                       )}
                     </span>
-                    <Mono className="text-[11px] text-[var(--projects-muted)]">{trace.timestamp}</Mono>
+                    <Mono className="text-[11px] text-[var(--projects-muted)]">
+                      {trace.timestamp}
+                    </Mono>
                   </span>
                   <span className="block lg:hidden">
                     <span className="flex items-center gap-2">
-                      <Mono className="text-[12px] font-medium text-[var(--projects-text)]">{trace.id}</Mono>
-                      <Mono className="truncate text-[11px] text-[#b3b0ba]">{trace.operation}</Mono>
+                      <Mono className="text-[12px] font-medium text-[var(--projects-text)]">
+                        {trace.id}
+                      </Mono>
+                      <Mono className="truncate text-[11px] text-[#b3b0ba]">
+                        {trace.operation}
+                      </Mono>
                       <span className="ml-auto shrink-0">
                         {trace.status === "success" ? (
                           <StatusBadge tone="success" label="Success" />
@@ -134,7 +182,8 @@ export function TracesPage() {
                       </span>
                     </span>
                     <Mono className="mt-1 block text-[11px] text-[var(--projects-muted)]">
-                      {trace.service} · {formatDuration(trace.duration)} · {trace.spanList.length} spans · {trace.timestamp}
+                      {trace.service} · {formatDuration(trace.duration)} ·{" "}
+                      {trace.spanList.length} spans · {trace.timestamp}
                     </Mono>
                   </span>
                 </button>
@@ -149,7 +198,13 @@ export function TracesPage() {
   );
 }
 
-function TraceDetail({ trace, onClose }: { trace: Trace | null; onClose: () => void }) {
+function TraceDetail({
+  trace,
+  onClose,
+}: {
+  trace: Trace | null;
+  onClose: () => void;
+}) {
   return (
     <DetailDrawer
       open={trace !== null}
@@ -168,12 +223,18 @@ function TraceDetail({ trace, onClose }: { trace: Trace | null; onClose: () => v
           )}
         </>
       }
-      subtitle={trace ? `${trace.service} · ${trace.operation} · ${trace.timestamp}` : undefined}
+      subtitle={
+        trace
+          ? `${trace.service} · ${trace.operation} · ${trace.timestamp}`
+          : undefined
+      }
     >
       {trace && (
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-x-4">
-            <DetailField label="Duration">{formatDuration(trace.duration)}</DetailField>
+            <DetailField label="Duration">
+              {formatDuration(trace.duration)}
+            </DetailField>
             <DetailField label="Spans">{trace.spanList.length}</DetailField>
             <DetailField label="Root service">{trace.service}</DetailField>
             <DetailField label="Trace ID">
@@ -187,7 +248,10 @@ function TraceDetail({ trace, onClose }: { trace: Trace | null; onClose: () => v
             <p className="m-0 mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--projects-muted)]">
               Span waterfall
             </p>
-            <TraceWaterfall spans={trace.spanList} totalDuration={trace.duration} />
+            <TraceWaterfall
+              spans={trace.spanList}
+              totalDuration={trace.duration}
+            />
           </div>
         </div>
       )}
@@ -197,6 +261,8 @@ function TraceDetail({ trace, onClose }: { trace: Trace | null; onClose: () => v
 
 function ColumnLabel({ children }: { children: ReactNode }) {
   return (
-    <span className="text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)]">{children}</span>
+    <span className="text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)]">
+      {children}
+    </span>
   );
 }

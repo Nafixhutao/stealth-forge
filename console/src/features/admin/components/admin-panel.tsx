@@ -48,8 +48,12 @@ export function AdminPanelHeader({
         className,
       )}
     >
-      <h2 className="m-0 text-[12px] font-semibold uppercase tracking-[0.08em] text-[var(--projects-muted)]">{title}</h2>
-      {right ? <div className="ml-auto flex items-center gap-2">{right}</div> : null}
+      <h2 className="m-0 text-[12px] font-semibold uppercase tracking-[0.08em] text-[var(--projects-muted)]">
+        {title}
+      </h2>
+      {right ? (
+        <div className="ml-auto flex items-center gap-2">{right}</div>
+      ) : null}
       {subtitle ? (
         <p className="m-0 w-full text-[12px] leading-4 font-normal normal-case tracking-normal text-[var(--projects-muted)]/80">
           {subtitle}
@@ -100,9 +104,15 @@ export function AdminHeader({
         <h1 className="m-0 text-[22px] font-semibold leading-7 tracking-[-0.03em] text-[var(--projects-text)]">
           {title}
         </h1>
-        <p className="m-0 mt-1 text-[13px] leading-5 text-[var(--projects-muted)]">{subtitle}</p>
+        <p className="m-0 mt-1 text-[13px] leading-5 text-[var(--projects-muted)]">
+          {subtitle}
+        </p>
       </div>
-      {children ? <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto">{children}</div> : null}
+      {children ? (
+        <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto">
+          {children}
+        </div>
+      ) : null}
     </header>
   );
 }
@@ -117,6 +127,12 @@ export function AdminPageBody({ children }: { children: ReactNode }) {
 }
 
 /** Mono text helper — technical metadata, ids, timestamps. */
-export function Mono({ children, className }: { children: ReactNode; className?: string }) {
+export function Mono({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return <span className={cn("admin-mono", className)}>{children}</span>;
 }

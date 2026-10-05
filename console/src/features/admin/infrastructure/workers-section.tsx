@@ -27,7 +27,9 @@ export function WorkersSection({ className }: { className?: string }) {
       Object.fromEntries(
         Object.entries(prev).map(([id, value]) => {
           const base = WORKERS.find((worker) => worker.id === id);
-          const [min, max] = base ? [Math.max(5, base.cpu - 18), Math.min(96, base.cpu + 18)] : [5, 96];
+          const [min, max] = base
+            ? [Math.max(5, base.cpu - 18), Math.min(96, base.cpu + 18)]
+            : [5, 96];
           return [id, Math.round(nudge(value, 2.4, min, max))];
         }),
       ),
@@ -52,7 +54,9 @@ export function WorkersSection({ className }: { className?: string }) {
             worker={worker}
             cpu={cpuValues[worker.id] ?? worker.cpu}
             selected={worker.id === selectedId}
-            onSelect={() => setSelectedId((prev) => (prev === worker.id ? null : worker.id))}
+            onSelect={() =>
+              setSelectedId((prev) => (prev === worker.id ? null : worker.id))
+            }
           />
         ))}
       </div>
@@ -71,7 +75,12 @@ function WorkerCard({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const statusLabel = worker.status === "busy" ? "Busy" : worker.status === "online" ? "Online" : "Offline";
+  const statusLabel =
+    worker.status === "busy"
+      ? "Busy"
+      : worker.status === "online"
+        ? "Online"
+        : "Offline";
   const memoryPct = (parseInt(worker.memoryUsed, 10) / 8) * 100;
 
   return (
@@ -88,9 +97,17 @@ function WorkerCard({
         aria-expanded={selected}
         className="flex w-full flex-wrap items-center gap-2 text-left"
       >
-        <Mono className="text-[13px] font-medium text-[var(--projects-text)]">{worker.name}</Mono>
-        <StatusBadge tone={worker.status === "busy" ? "warning" : "success"} label={statusLabel} pulse={worker.status !== "offline"} />
-        <Mono className="ml-auto text-[11px] text-[var(--projects-muted)]">♥ {worker.heartbeat}</Mono>
+        <Mono className="text-[13px] font-medium text-[var(--projects-text)]">
+          {worker.name}
+        </Mono>
+        <StatusBadge
+          tone={worker.status === "busy" ? "warning" : "success"}
+          label={statusLabel}
+          pulse={worker.status !== "offline"}
+        />
+        <Mono className="ml-auto text-[11px] text-[var(--projects-muted)]">
+          ♥ {worker.heartbeat}
+        </Mono>
       </button>
 
       <div className="mt-3 grid grid-cols-1 gap-x-5 gap-y-2 sm:grid-cols-2">
@@ -100,14 +117,19 @@ function WorkerCard({
 
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11.5px] text-[var(--projects-muted)]">
         <span>
-          Jobs <Mono className="text-[var(--projects-text)]">{worker.jobs}</Mono>
+          Jobs{" "}
+          <Mono className="text-[var(--projects-text)]">{worker.jobs}</Mono>
         </span>
         <span>
-          Queue <Mono className="text-[var(--projects-text)]">{worker.queue}</Mono>
+          Queue{" "}
+          <Mono className="text-[var(--projects-text)]">{worker.queue}</Mono>
         </span>
         {worker.currentRun && (
           <span>
-            Run <Mono className="text-[var(--projects-text)]">{worker.currentRun}</Mono>
+            Run{" "}
+            <Mono className="text-[var(--projects-text)]">
+              {worker.currentRun}
+            </Mono>
           </span>
         )}
       </div>
@@ -117,7 +139,11 @@ function WorkerCard({
           <p className="m-0 mb-1 text-[10.5px] font-medium uppercase tracking-[0.07em] text-[var(--projects-muted)]">
             CPU · last 30 min
           </p>
-          <Sparkline data={WORKER_CPU_HISTORY[worker.id] ?? []} tone={worker.status === "busy" ? "warning" : "accent"} height={32} />
+          <Sparkline
+            data={WORKER_CPU_HISTORY[worker.id] ?? []}
+            tone={worker.status === "busy" ? "warning" : "accent"}
+            height={32}
+          />
         </div>
       )}
     </article>

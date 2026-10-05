@@ -29,7 +29,9 @@ export function HostList() {
             key={host.id}
             host={host}
             selected={host.id === selectedId}
-            onSelect={() => setSelectedId((prev) => (prev === host.id ? null : host.id))}
+            onSelect={() =>
+              setSelectedId((prev) => (prev === host.id ? null : host.id))
+            }
           />
         ))}
       </ul>
@@ -59,15 +61,31 @@ function HostRow({
         className="block w-full px-3 py-3 text-left transition-colors hover:bg-white/[0.02] aria-expanded:bg-white/[0.03]"
       >
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <Mono className="text-[13px] font-medium leading-5 text-[var(--projects-text)]">{host.name}</Mono>
+          <Mono className="text-[13px] font-medium leading-5 text-[var(--projects-text)]">
+            {host.name}
+          </Mono>
           <StatusBadge
-            tone={host.status === "online" ? "success" : host.status === "maintenance" ? "warning" : "danger"}
-            label={host.status === "online" ? "Online" : host.status === "maintenance" ? "Maintenance" : "Offline"}
+            tone={
+              host.status === "online"
+                ? "success"
+                : host.status === "maintenance"
+                  ? "warning"
+                  : "danger"
+            }
+            label={
+              host.status === "online"
+                ? "Online"
+                : host.status === "maintenance"
+                  ? "Maintenance"
+                  : "Offline"
+            }
             pulse={host.status === "online"}
           />
           <span className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-[var(--projects-muted)]">
             <span>{host.os}</span>
-            <span aria-hidden="true" className="hidden sm:inline">·</span>
+            <span aria-hidden="true" className="hidden sm:inline">
+              ·
+            </span>
             <span className="hidden sm:inline">uptime {host.uptime}</span>
             <span aria-hidden="true">·</span>
             <span>{host.workers} workers</span>
@@ -75,8 +93,16 @@ function HostRow({
         </div>
         <div className="mt-2.5 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-3">
           <ResourceBar label="CPU" value={host.cpu} />
-          <ResourceBar label="Memory" value={host.memory} detail={`${memoryUsedGb.toFixed(1)} / ${host.memoryTotalGb} GB`} />
-          <ResourceBar label="Storage" value={host.storage} detail={`${Math.round(storageUsedGb)} / ${host.storageTotalGb} GB`} />
+          <ResourceBar
+            label="Memory"
+            value={host.memory}
+            detail={`${memoryUsedGb.toFixed(1)} / ${host.memoryTotalGb} GB`}
+          />
+          <ResourceBar
+            label="Storage"
+            value={host.storage}
+            detail={`${Math.round(storageUsedGb)} / ${host.storageTotalGb} GB`}
+          />
         </div>
       </button>
     </li>
@@ -89,14 +115,28 @@ function HostDetail({ host }: { host: Host }) {
   return (
     <div className="border-t border-[var(--projects-divider)] bg-white/[0.02] px-3 py-3">
       <div className="flex flex-wrap items-center gap-2">
-        <Mono className="text-[12px] font-medium text-[var(--projects-text)]">{host.name}</Mono>
-        <Mono className="text-[11.5px] text-[var(--projects-muted)]">{host.ip}</Mono>
-        <Mono className="text-[11.5px] text-[var(--projects-muted)]">{host.region}</Mono>
+        <Mono className="text-[12px] font-medium text-[var(--projects-text)]">
+          {host.name}
+        </Mono>
+        <Mono className="text-[11.5px] text-[var(--projects-muted)]">
+          {host.ip}
+        </Mono>
+        <Mono className="text-[11.5px] text-[var(--projects-muted)]">
+          {host.region}
+        </Mono>
       </div>
       <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
         <Detail icon={Cpu} label="CPU now" value={`${host.cpu}%`} />
-        <Detail icon={MemoryStick} label="Memory" value={`${Math.round((host.memory / 100) * host.memoryTotalGb * 10) / 10} / ${host.memoryTotalGb} GB`} />
-        <Detail icon={HardDrive} label="Storage" value={`${Math.round((host.storage / 100) * host.storageTotalGb)} / ${host.storageTotalGb} GB`} />
+        <Detail
+          icon={MemoryStick}
+          label="Memory"
+          value={`${Math.round((host.memory / 100) * host.memoryTotalGb * 10) / 10} / ${host.memoryTotalGb} GB`}
+        />
+        <Detail
+          icon={HardDrive}
+          label="Storage"
+          value={`${Math.round((host.storage / 100) * host.storageTotalGb)} / ${host.storageTotalGb} GB`}
+        />
         <Detail label="Active jobs" value={String(host.jobs)} />
       </dl>
       {cpuHistory.length > 0 && (
@@ -111,13 +151,32 @@ function HostDetail({ host }: { host: Host }) {
   );
 }
 
-function Detail({ icon: Icon, label, value }: { icon?: typeof Cpu; label: string; value: string }) {
+function Detail({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon?: typeof Cpu;
+  label: string;
+  value: string;
+}) {
   return (
     <div className="flex items-center gap-2.5">
-      {Icon && <Icon size={14} strokeWidth={1.8} className="shrink-0 text-[var(--projects-muted)]" aria-hidden="true" />}
+      {Icon && (
+        <Icon
+          size={14}
+          strokeWidth={1.8}
+          className="shrink-0 text-[var(--projects-muted)]"
+          aria-hidden="true"
+        />
+      )}
       <div className="min-w-0">
-        <dt className="m-0 truncate text-[10.5px] uppercase tracking-[0.06em] text-[var(--projects-muted)]">{label}</dt>
-        <dd className="m-0 truncate text-[12.5px] font-medium text-[var(--projects-text)]">{value}</dd>
+        <dt className="m-0 truncate text-[10.5px] uppercase tracking-[0.06em] text-[var(--projects-muted)]">
+          {label}
+        </dt>
+        <dd className="m-0 truncate text-[12.5px] font-medium text-[var(--projects-text)]">
+          {value}
+        </dd>
       </div>
     </div>
   );

@@ -4,7 +4,10 @@ import Link from "next/link";
 import { INCIDENTS, STATUS_SERVICES } from "../data/admin-mock-data";
 import { AdminHeader, AdminPageBody, Mono } from "../components/admin-panel";
 import { AdminPanel, AdminPanelHeader } from "../components/admin-panel";
-import { IncidentStatusBadge, SeverityBadge } from "../components/domain-badges";
+import {
+  IncidentStatusBadge,
+  SeverityBadge,
+} from "../components/domain-badges";
 import { cn } from "@/lib/utils";
 
 /**
@@ -13,11 +16,16 @@ import { cn } from "@/lib/utils";
  * printed so color never carries the data alone.
  */
 export function StatusPage() {
-  const degraded = STATUS_SERVICES.filter((service) => service.status !== "healthy");
+  const degraded = STATUS_SERVICES.filter(
+    (service) => service.status !== "healthy",
+  );
 
   return (
     <AdminPageBody>
-      <AdminHeader title="Status Page" subtitle="Public-style view of platform availability and history." />
+      <AdminHeader
+        title="Status Page"
+        subtitle="Public-style view of platform availability and history."
+      />
 
       <section
         aria-label="Overall status"
@@ -35,7 +43,9 @@ export function StatusPage() {
           <span
             className={cn(
               "relative inline-flex size-2.5 rounded-full",
-              degraded.length === 0 ? "bg-[var(--projects-accent)]" : "bg-[var(--projects-warning)]",
+              degraded.length === 0
+                ? "bg-[var(--projects-accent)]"
+                : "bg-[var(--projects-warning)]",
             )}
           />
         </span>
@@ -50,17 +60,29 @@ export function StatusPage() {
       </section>
 
       <AdminPanel>
-        <AdminPanelHeader title="Service availability" subtitle="Last 45 days · percent of successful checks per day." />
+        <AdminPanelHeader
+          title="Service availability"
+          subtitle="Last 45 days · percent of successful checks per day."
+        />
         <ul className="m-0 list-none p-0">
           {STATUS_SERVICES.map((service) => (
-            <li key={service.id} className="flex flex-col gap-2 border-b border-[var(--projects-divider)] py-3 last:border-b-0 lg:flex-row lg:items-center lg:gap-4">
+            <li
+              key={service.id}
+              className="flex flex-col gap-2 border-b border-[var(--projects-divider)] py-3 last:border-b-0 lg:flex-row lg:items-center lg:gap-4"
+            >
               <div className="flex w-full min-w-0 items-center gap-2.5 lg:w-[220px] lg:shrink-0">
-                <span className="truncate text-[13px] font-medium text-[var(--projects-text)]">{service.name}</span>
+                <span className="truncate text-[13px] font-medium text-[var(--projects-text)]">
+                  {service.name}
+                </span>
                 <Mono className="ml-auto shrink-0 text-[11.5px] text-[var(--projects-muted)] lg:ml-0">
                   {service.uptime}
                 </Mono>
               </div>
-              <div className="flex h-8 min-w-0 flex-1 items-stretch gap-[2px]" role="img" aria-label={`${service.name} uptime ${service.uptime} over the last 45 days`}>
+              <div
+                className="flex h-8 min-w-0 flex-1 items-stretch gap-[2px]"
+                role="img"
+                aria-label={`${service.name} uptime ${service.uptime} over the last 45 days`}
+              >
                 {service.history.map((value, index) => (
                   <span
                     key={index}
@@ -85,18 +107,28 @@ export function StatusPage() {
         <AdminPanelHeader
           title="Recent incidents"
           right={
-            <Link href="/admin/incidents" className="text-[12px] font-medium text-[var(--projects-muted)] transition-colors hover:text-[var(--projects-text)]">
+            <Link
+              href="/admin/incidents"
+              className="text-[12px] font-medium text-[var(--projects-muted)] transition-colors hover:text-[var(--projects-text)]"
+            >
               Manage
             </Link>
           }
         />
         <ul className="m-0 list-none p-0">
           {INCIDENTS.slice(0, 3).map((incident) => (
-            <li key={incident.id} className="flex flex-wrap items-center gap-2.5 border-b border-[var(--projects-divider)] py-2.5 last:border-b-0">
+            <li
+              key={incident.id}
+              className="flex flex-wrap items-center gap-2.5 border-b border-[var(--projects-divider)] py-2.5 last:border-b-0"
+            >
               <SeverityBadge severity={incident.severity} />
-              <span className="text-[13px] text-[var(--projects-text)]">{incident.title}</span>
+              <span className="text-[13px] text-[var(--projects-text)]">
+                {incident.title}
+              </span>
               <span className="ml-auto flex items-center gap-3">
-                <Mono className="text-[11px] text-[var(--projects-muted)]">{incident.startedAt}</Mono>
+                <Mono className="text-[11px] text-[var(--projects-muted)]">
+                  {incident.startedAt}
+                </Mono>
                 <IncidentStatusBadge status={incident.status} />
               </span>
             </li>

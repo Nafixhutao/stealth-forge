@@ -2,12 +2,20 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Cpu, HardDrive, MemoryStick, Network } from "lucide-react";
-import { PRIMARY_METRICS, PLATFORM_STATS, overviewSeries } from "../data/admin-mock-data";
+import {
+  PRIMARY_METRICS,
+  PLATFORM_STATS,
+  overviewSeries,
+} from "../data/admin-mock-data";
 import { TIME_RANGES, type TimeRange } from "../types/telemetry";
 import { AdminHeader, AdminPageBody } from "../components/admin-panel";
 import { MetricCard } from "../components/metric-card";
 import { StatTile } from "../components/stat-tile";
-import { LiveIndicator, RefreshButton, UpdatedLabel } from "../components/live-indicator";
+import {
+  LiveIndicator,
+  RefreshButton,
+  UpdatedLabel,
+} from "../components/live-indicator";
 import { TimeRangeSelect } from "../components/time-range-select";
 import { nudge, pushHistory, useLiveTick } from "../hooks/use-live-updates";
 import { SystemStatus } from "./system-status";
@@ -38,7 +46,10 @@ const INITIAL_LIVE: LiveValues = {
   errorRate: 0.42,
 };
 
-type ChartSeriesMap = Record<OverviewTab, { timestamp: string; value: number }[]>;
+type ChartSeriesMap = Record<
+  OverviewTab,
+  { timestamp: string; value: number }[]
+>;
 
 /**
  * Admin Overview — platform health, agent workloads, and telemetry.
@@ -51,9 +62,13 @@ export function AdminOverview() {
   const [seed, setSeed] = useState(0);
   const [tab, setTab] = useState<OverviewTab>("cpu");
   const [live, setLive] = useState<LiveValues>(INITIAL_LIVE);
-  const [chart, setChart] = useState<ChartSeriesMap>(() => overviewSeries("1h"));
+  const [chart, setChart] = useState<ChartSeriesMap>(() =>
+    overviewSeries("1h"),
+  );
   const [history, setHistory] = useState<Record<string, number[]>>(() =>
-    Object.fromEntries(PRIMARY_METRICS.map((metric) => [metric.id, metric.history])),
+    Object.fromEntries(
+      PRIMARY_METRICS.map((metric) => [metric.id, metric.history]),
+    ),
   );
   const tick = useLiveTick(4000);
 
@@ -68,11 +83,15 @@ export function AdminOverview() {
         netOut: nudge(prev.netOut, 1.2, 4, 14),
         running:
           Math.random() > 0.6
-            ? Math.min(10, Math.max(6, prev.running + (Math.random() > 0.5 ? 1 : -1)))
+            ? Math.min(
+                10,
+                Math.max(6, prev.running + (Math.random() > 0.5 ? 1 : -1)),
+              )
             : prev.running,
         queue: Math.round(nudge(prev.queue, 2, 10, 18)),
         latency: Math.round(nudge(prev.latency, 9, 150, 240)),
-        errorRate: Math.round(nudge(prev.errorRate, 0.03, 0.28, 0.66) * 100) / 100,
+        errorRate:
+          Math.round(nudge(prev.errorRate, 0.03, 0.28, 0.66) * 100) / 100,
       };
       // Keep sparks and the active chart in sync with the same sample.
       setHistory((prevHistory) => ({
@@ -103,7 +122,10 @@ export function AdminOverview() {
 
   return (
     <AdminPageBody>
-      <AdminHeader title="Admin Overview" subtitle="Monitor platform health, agent workloads, and telemetry.">
+      <AdminHeader
+        title="Admin Overview"
+        subtitle="Monitor platform health, agent workloads, and telemetry."
+      >
         <TimeRangeSelect value={range} onChange={setRange} />
         <RefreshButton onClick={() => setSeed((value) => value + 1)} />
         <LiveIndicator />
@@ -186,7 +208,13 @@ export function AdminOverview() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <ResourceOverview series={chart} tab={tab} onTabChange={setTab} rangeLabel={rangeLabel} className="lg:col-span-2" />
+        <ResourceOverview
+          series={chart}
+          tab={tab}
+          onTabChange={setTab}
+          rangeLabel={rangeLabel}
+          className="lg:col-span-2"
+        />
         <RecentIncidents />
       </div>
 
@@ -199,9 +227,14 @@ export function AdminOverview() {
 }
 
 /** Replace the newest chart point with a fresh live sample. */
-function replaceLast(points: ChartSeriesMap[OverviewTab], value: number): ChartSeriesMap[OverviewTab] {
+function replaceLast(
+  points: ChartSeriesMap[OverviewTab],
+  value: number,
+): ChartSeriesMap[OverviewTab] {
   if (points.length === 0) return points;
-  return points.map((point, index) => (index === points.length - 1 ? { ...point, value } : point));
+  return points.map((point, index) =>
+    index === points.length - 1 ? { ...point, value } : point,
+  );
 }
 
 /** Swap the live-updatable stat values into their display strings. */

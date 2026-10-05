@@ -22,7 +22,12 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { PANEL_CLOSE_TRANSITION, PANEL_TRANSITION, SPRING_LAYOUT, SPRING_PRESS } from "@/lib/ease";
+import {
+  PANEL_CLOSE_TRANSITION,
+  PANEL_TRANSITION,
+  SPRING_LAYOUT,
+  SPRING_PRESS,
+} from "@/lib/ease";
 import { cn } from "@/lib/utils";
 
 interface AdminNavItem {
@@ -119,8 +124,20 @@ function AdminNavRow({
             className="absolute inset-0 -z-10 bg-[color-mix(in_srgb,var(--projects-accent)_10%,transparent)]"
           />
         )}
-        {active && <span aria-hidden="true" className="absolute inset-y-[7px] left-0 w-[2px] rounded-full bg-[var(--projects-accent)]" />}
-        <Icon size={15} strokeWidth={1.8} className={cn("shrink-0", active ? "text-[var(--projects-accent)]" : "text-[#AAA6AE]")} />
+        {active && (
+          <span
+            aria-hidden="true"
+            className="absolute inset-y-[7px] left-0 w-[2px] rounded-full bg-[var(--projects-accent)]"
+          />
+        )}
+        <Icon
+          size={15}
+          strokeWidth={1.8}
+          className={cn(
+            "shrink-0",
+            active ? "text-[var(--projects-accent)]" : "text-[#AAA6AE]",
+          )}
+        />
         <span className="truncate">{item.label}</span>
       </motion.button>
     </motion.div>
@@ -167,10 +184,15 @@ function AdminSidebarBody({
         </button>
       </header>
 
-      <nav aria-label="Admin navigation" className="sidebar-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-2">
+      <nav
+        aria-label="Admin navigation"
+        className="sidebar-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-2"
+      >
         {ADMIN_NAV.map((group, groupIndex) => (
           <div key={group.label}>
-            {groupIndex > 0 && <div aria-hidden="true" className="mx-4 my-2 h-px bg-[#26242b]" />}
+            {groupIndex > 0 && (
+              <div aria-hidden="true" className="mx-4 my-2 h-px bg-[#26242b]" />
+            )}
             <p className="m-0 px-4 pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6d6a74]">
               {group.label}
             </p>
@@ -214,7 +236,13 @@ function AdminSidebarBody({
 
 /** Desktop rail (fixed panel) + mobile slide-in sheet, mirroring the
  * customer sidebar's behavior but with admin-only navigation. */
-export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function AdminSidebar({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
   const [mounted, setMounted] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const reduce = useReducedMotion() ?? false;
@@ -224,7 +252,10 @@ export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => 
   // Mobile sheet effect: scroll lock, focus handoff, Escape, focus trap.
   useEffect(() => {
     if (!open) return;
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const opener =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     const body = document.body;
     const scrollY = window.scrollY;
     const previous = {
@@ -284,7 +315,10 @@ export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => 
             transition={open ? PANEL_TRANSITION : PANEL_CLOSE_TRANSITION}
             onClick={onClose}
             aria-hidden="true"
-            className={cn("absolute inset-0 bg-black/50", open ? "pointer-events-auto" : "pointer-events-none")}
+            className={cn(
+              "absolute inset-0 bg-black/50",
+              open ? "pointer-events-auto" : "pointer-events-none",
+            )}
           />
           <motion.div
             ref={panelRef}
@@ -294,7 +328,10 @@ export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => 
             aria-hidden={!open}
             tabIndex={-1}
             initial={false}
-            animate={{ opacity: reduce ? (open ? 1 : 0) : 1, x: reduce ? 0 : open ? "0%" : "-108%" }}
+            animate={{
+              opacity: reduce ? (open ? 1 : 0) : 1,
+              x: reduce ? 0 : open ? "0%" : "-108%",
+            }}
             transition={open ? PANEL_TRANSITION : PANEL_CLOSE_TRANSITION}
             onKeyDown={(event) => {
               if (event.key === "Escape") {
@@ -303,7 +340,11 @@ export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => 
                 return;
               }
               if (event.key !== "Tab") return;
-              const focusable = panelRef.current ? Array.from(panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE)) : [];
+              const focusable = panelRef.current
+                ? Array.from(
+                    panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE),
+                  )
+                : [];
               if (focusable.length === 0) {
                 event.preventDefault();
                 panelRef.current?.focus();
@@ -324,7 +365,10 @@ export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => 
               !open && "pointer-events-none",
             )}
           >
-            <AdminSidebarBody onNavigate={() => onClose()} onMobileClose={onClose} />
+            <AdminSidebarBody
+              onNavigate={() => onClose()}
+              onMobileClose={onClose}
+            />
           </motion.div>
         </div>
       )}

@@ -46,7 +46,9 @@ export function DetailDrawer({
         return;
       }
       if (event.key !== "Tab" || !panel) return;
-      const focusable = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+      const focusable = Array.from(
+        panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+      );
       if (focusable.length === 0) {
         event.preventDefault();
         panel.focus();
@@ -97,14 +99,24 @@ export function DetailDrawer({
             tabIndex={-1}
             initial={{ x: reduce ? 0 : "108%", opacity: reduce ? 0 : 1 }}
             animate={{ x: 0, opacity: 1 }}
-            exit={{ x: reduce ? 0 : "108%", opacity: reduce ? 0 : 1, transition: { duration: 0.18 } }}
+            exit={{
+              x: reduce ? 0 : "108%",
+              opacity: reduce ? 0 : 1,
+              transition: { duration: 0.18 },
+            }}
             transition={{ duration: 0.3, ease: EASE_DRAWER }}
             className="admin-scrollbar fixed bottom-0 right-0 top-0 z-[61] flex w-full max-w-[480px] flex-col overflow-y-auto border-l border-[var(--projects-border)] bg-[#141416] shadow-2xl shadow-black/50"
           >
             <header className="sticky top-0 z-10 flex items-start gap-3 border-b border-[var(--projects-divider)] bg-[#141416]/95 px-5 py-4 backdrop-blur">
               <div className="min-w-0 flex-1">
-                <div className="flex min-w-0 items-center gap-2 text-[15px] font-semibold text-[var(--projects-text)]">{title}</div>
-                {subtitle && <p className="m-0 mt-1 text-[12px] leading-4 text-[var(--projects-muted)]">{subtitle}</p>}
+                <div className="flex min-w-0 items-center gap-2 text-[15px] font-semibold text-[var(--projects-text)]">
+                  {title}
+                </div>
+                {subtitle && (
+                  <p className="m-0 mt-1 text-[12px] leading-4 text-[var(--projects-muted)]">
+                    {subtitle}
+                  </p>
+                )}
               </div>
               <button
                 type="button"
@@ -125,15 +137,27 @@ export function DetailDrawer({
 }
 
 /** Label/value row used inside detail drawers. `wide` spans both columns. */
-export function DetailField({ label, wide = false, children }: { label: string; wide?: boolean; children: ReactNode }) {
+export function DetailField({
+  label,
+  wide = false,
+  children,
+}: {
+  label: string;
+  wide?: boolean;
+  children: ReactNode;
+}) {
   return (
     <div
       className={`flex min-w-0 flex-col gap-0.5 border-b border-[var(--projects-divider)] py-2 last:border-b-0 ${
         wide ? "col-span-2" : ""
       }`}
     >
-      <span className="text-[11px] uppercase tracking-[0.06em] text-[var(--projects-muted)]">{label}</span>
-      <span className="min-w-0 break-words text-[12.5px] leading-4 text-[var(--projects-text)]">{children}</span>
+      <span className="text-[11px] uppercase tracking-[0.06em] text-[var(--projects-muted)]">
+        {label}
+      </span>
+      <span className="min-w-0 break-words text-[12.5px] leading-4 text-[var(--projects-text)]">
+        {children}
+      </span>
     </div>
   );
 }

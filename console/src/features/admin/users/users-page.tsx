@@ -28,16 +28,27 @@ export function UsersPage() {
       if (role !== "all" && user.role !== role) return false;
       if (status !== "all" && user.status !== status) return false;
       if (!normalizedQuery) return true;
-      return [user.name, user.email].join(" ").toLowerCase().includes(normalizedQuery);
+      return [user.name, user.email]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedQuery);
     });
   }, [query, role, status]);
 
   return (
     <AdminPageBody>
-      <AdminHeader title="Users" subtitle="People with access to the platform and their activity." />
+      <AdminHeader
+        title="Users"
+        subtitle="People with access to the platform and their activity."
+      />
 
       <div className="flex flex-wrap items-center gap-2.5">
-        <ToolbarSearch value={query} onChange={setQuery} placeholder="Search name or email..." label="Search users" />
+        <ToolbarSearch
+          value={query}
+          onChange={setQuery}
+          placeholder="Search name or email..."
+          label="Search users"
+        />
         <AdminSelect
           label="Filter by role"
           value={role}
@@ -60,7 +71,9 @@ export function UsersPage() {
             { value: "suspended", label: "Suspended" },
           ]}
         />
-        <Mono className="ml-auto text-[11.5px] text-[var(--projects-muted)]">{visible.length} users</Mono>
+        <Mono className="ml-auto text-[11.5px] text-[var(--projects-muted)]">
+          {visible.length} users
+        </Mono>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-[var(--projects-border)] bg-[#141416]">
@@ -76,7 +89,9 @@ export function UsersPage() {
         </div>
         <ul className="m-0 list-none p-0">
           {visible.length === 0 ? (
-            <li className="px-4 py-12 text-center text-[13px] text-[var(--projects-muted)]">No users found.</li>
+            <li className="px-4 py-12 text-center text-[13px] text-[var(--projects-muted)]">
+              No users found.
+            </li>
           ) : (
             visible.map((user) => {
               const statusMeta = STATUS_TONE[user.status];
@@ -87,11 +102,18 @@ export function UsersPage() {
                 >
                   <div className="flex min-w-0 items-center gap-2.5">
                     <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-[var(--projects-border)] bg-[var(--projects-control)] text-[11px] font-semibold text-[var(--projects-muted)]">
-                      {user.name.split(" ").map((part) => part[0]).join("")}
+                      {user.name
+                        .split(" ")
+                        .map((part) => part[0])
+                        .join("")}
                     </span>
                     <div className="min-w-0">
-                      <p className="m-0 truncate text-[13px] font-medium leading-5 text-[var(--projects-text)]">{user.name}</p>
-                      <Mono className="m-0 block truncate text-[11px] leading-4 text-[var(--projects-muted)]">{user.email}</Mono>
+                      <p className="m-0 truncate text-[13px] font-medium leading-5 text-[var(--projects-text)]">
+                        {user.name}
+                      </p>
+                      <Mono className="m-0 block truncate text-[11px] leading-4 text-[var(--projects-muted)]">
+                        {user.email}
+                      </Mono>
                     </div>
                   </div>
                   <span className="mt-2 block text-[12px] text-[var(--projects-muted)] lg:mt-0">
@@ -99,11 +121,16 @@ export function UsersPage() {
                     {user.role}
                   </span>
                   <Mono className="mt-1 block text-[12px] text-[var(--projects-text)] lg:mt-0">
-                    <span className="font-sans text-[11px] text-[var(--projects-muted)] lg:hidden">Runs: </span>
+                    <span className="font-sans text-[11px] text-[var(--projects-muted)] lg:hidden">
+                      Runs:{" "}
+                    </span>
                     {user.runs}
                   </Mono>
                   <span className="mt-1 block lg:mt-0">
-                    <StatusBadge tone={statusMeta.tone} label={statusMeta.label} />
+                    <StatusBadge
+                      tone={statusMeta.tone}
+                      label={statusMeta.label}
+                    />
                   </span>
                   <Mono className="mt-1 block text-[11.5px] text-[var(--projects-muted)] lg:mt-0">
                     {user.lastActive}
@@ -120,6 +147,8 @@ export function UsersPage() {
 
 function ColLabel({ children }: { children: ReactNode }) {
   return (
-    <span className="text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)]">{children}</span>
+    <span className="text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)]">
+      {children}
+    </span>
   );
 }

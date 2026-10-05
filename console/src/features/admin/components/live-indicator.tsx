@@ -20,7 +20,13 @@ export function LiveIndicator({ label = "Live" }: { label?: string }) {
  * "Last updated Xs ago" — owns its 1s ticker internally so the parent page
  * (and its charts) do not re-render every second. Reset alongside refreshes.
  */
-export function UpdatedLabel({ resetKey, className }: { resetKey?: unknown; className?: string }) {
+export function UpdatedLabel({
+  resetKey,
+  className,
+}: {
+  resetKey?: unknown;
+  className?: string;
+}) {
   const { seconds } = useElapsedSeconds(resetKey);
   const label = seconds < 3 ? "just now" : `${seconds}s ago`;
   return (
@@ -31,7 +37,13 @@ export function UpdatedLabel({ resetKey, className }: { resetKey?: unknown; clas
 }
 
 /** Square icon button for manual refresh. */
-export function RefreshButton({ onClick, label = "Refresh data" }: { onClick: () => void; label?: string }) {
+export function RefreshButton({
+  onClick,
+  label = "Refresh data",
+}: {
+  onClick: () => void;
+  label?: string;
+}) {
   return (
     <button
       type="button"

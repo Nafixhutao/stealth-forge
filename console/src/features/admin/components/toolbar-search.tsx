@@ -22,7 +22,12 @@ export function ToolbarSearch({
         className,
       )}
     >
-      <Search size={14} strokeWidth={1.8} className="shrink-0 text-[var(--projects-muted)]" aria-hidden="true" />
+      <Search
+        size={14}
+        strokeWidth={1.8}
+        className="shrink-0 text-[var(--projects-muted)]"
+        aria-hidden="true"
+      />
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -36,7 +41,13 @@ export function ToolbarSearch({
 }
 
 /** Live-tail toggle: pressed state keeps the stream appending entries. */
-export function LiveToggle({ enabled, onChange }: { enabled: boolean; onChange: (enabled: boolean) => void }) {
+export function LiveToggle({
+  enabled,
+  onChange,
+}: {
+  enabled: boolean;
+  onChange: (enabled: boolean) => void;
+}) {
   return (
     <button
       type="button"

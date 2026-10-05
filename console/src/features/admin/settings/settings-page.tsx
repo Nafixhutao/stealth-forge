@@ -8,7 +8,8 @@ import { cn } from "@/lib/utils";
 
 const fieldClass =
   "h-10 w-full rounded-md border border-[var(--projects-border)] bg-[var(--projects-control)] px-3 text-[13px] leading-4 text-[var(--projects-text)] outline-none transition-colors focus:border-[var(--projects-border-hover)]";
-const labelClass = "mb-1.5 block text-[12px] font-medium text-[var(--projects-muted)]";
+const labelClass =
+  "mb-1.5 block text-[12px] font-medium text-[var(--projects-muted)]";
 
 /** Settings — admin configuration form. Local state only; nothing persists. */
 export function SettingsPage() {
@@ -29,7 +30,10 @@ export function SettingsPage() {
 
   return (
     <AdminPageBody>
-      <AdminHeader title="Settings" subtitle="Console preferences and telemetry configuration (mock, local only).">
+      <AdminHeader
+        title="Settings"
+        subtitle="Console preferences and telemetry configuration (mock, local only)."
+      >
         <button
           type="button"
           onClick={handleSave}
@@ -56,7 +60,11 @@ export function SettingsPage() {
           <div className="space-y-3.5">
             <label className="block">
               <span className={labelClass}>Platform name</span>
-              <input value={platformName} onChange={(event) => setPlatformName(event.target.value)} className={fieldClass} />
+              <input
+                value={platformName}
+                onChange={(event) => setPlatformName(event.target.value)}
+                className={fieldClass}
+              />
             </label>
             <label className="block">
               <span className={labelClass}>Support email</span>
@@ -69,7 +77,12 @@ export function SettingsPage() {
             </label>
             <label className="block">
               <span className={labelClass}>Primary region</span>
-              <select value={region} onChange={(event) => setRegion(event.target.value)} aria-label="Primary region" className={cn(fieldClass, "appearance-none")}>
+              <select
+                value={region}
+                onChange={(event) => setRegion(event.target.value)}
+                aria-label="Primary region"
+                className={cn(fieldClass, "appearance-none")}
+              >
                 <option value="sgp-1">sgp-1 (Singapore)</option>
                 <option value="us-east-1">us-east-1 (Virginia)</option>
                 <option value="eu-central-1">eu-central-1 (Frankfurt)</option>
@@ -115,7 +128,10 @@ export function SettingsPage() {
         </AdminPanel>
 
         <AdminPanel className="lg:col-span-2">
-          <AdminPanelHeader title="Alerting" subtitle="Where incidents and degradations notify the on-call." />
+          <AdminPanelHeader
+            title="Alerting"
+            subtitle="Where incidents and degradations notify the on-call."
+          />
           <div className="grid gap-2 sm:grid-cols-3">
             <ToggleRow
               label="Live mock telemetry feed"
@@ -165,19 +181,27 @@ function ToggleRow({
         aria-hidden="true"
         className={cn(
           "mt-0.5 flex h-5 w-9 shrink-0 items-center rounded-full border px-[2px] transition-colors",
-          checked ? "border-[var(--projects-accent)] bg-[var(--projects-accent)]" : "border-[var(--projects-border-hover)] bg-transparent",
+          checked
+            ? "border-[var(--projects-accent)] bg-[var(--projects-accent)]"
+            : "border-[var(--projects-border-hover)] bg-transparent",
         )}
       >
         <span
           className={cn(
             "size-3.5 rounded-full bg-white transition-transform duration-150",
-            checked ? "translate-x-4" : "translate-x-0 bg-[var(--projects-muted)]",
+            checked
+              ? "translate-x-4"
+              : "translate-x-0 bg-[var(--projects-muted)]",
           )}
         />
       </span>
       <span className="min-w-0">
-        <span className="block text-[13px] font-medium leading-5 text-[var(--projects-text)]">{label}</span>
-        <span className="block text-[11.5px] leading-4 text-[var(--projects-muted)]">{description}</span>
+        <span className="block text-[13px] font-medium leading-5 text-[var(--projects-text)]">
+          {label}
+        </span>
+        <span className="block text-[11.5px] leading-4 text-[var(--projects-muted)]">
+          {description}
+        </span>
       </span>
     </label>
   );

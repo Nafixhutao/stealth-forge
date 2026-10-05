@@ -12,7 +12,12 @@ import { AdminSelect } from "../components/admin-select";
 import type { ErrorGroup } from "../types/errors";
 
 const ERROR_STATS = [
-  { id: "unresolved", label: "Unresolved", value: "12", tone: "danger" as const },
+  {
+    id: "unresolved",
+    label: "Unresolved",
+    value: "12",
+    tone: "danger" as const,
+  },
   { id: "new-today", label: "New today", value: "4", tone: "warning" as const },
   { id: "users", label: "Affected users", value: "18" },
   { id: "rate", label: "Error rate", value: "0.42%", tone: "warning" as const },
@@ -46,11 +51,19 @@ export function ErrorsPage() {
 
   return (
     <AdminPageBody>
-      <AdminHeader title="Errors" subtitle="Grouped error signatures across platform services." />
+      <AdminHeader
+        title="Errors"
+        subtitle="Grouped error signatures across platform services."
+      />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {ERROR_STATS.map((stat) => (
-          <StatTile key={stat.id} label={stat.label} value={stat.value} tone={stat.tone} />
+          <StatTile
+            key={stat.id}
+            label={stat.label}
+            value={stat.value}
+            tone={stat.tone}
+          />
         ))}
       </div>
 
@@ -69,7 +82,10 @@ export function ErrorsPage() {
           label="Filter by service"
           value={service}
           onChange={setService}
-          options={services.map((item) => ({ value: item, label: item === "all" ? "All services" : item }))}
+          options={services.map((item) => ({
+            value: item,
+            label: item === "all" ? "All services" : item,
+          }))}
         />
         <Mono className="ml-auto text-[11.5px] text-[var(--projects-muted)]">
           {visible.length} groups
@@ -79,7 +95,10 @@ export function ErrorsPage() {
       <div className="overflow-hidden rounded-lg border border-[var(--projects-border)] bg-[#141416]">
         <ul className="m-0 list-none p-0">
           {visible.map((group) => (
-            <li key={group.id} className="border-b border-[var(--projects-divider)] last:border-b-0">
+            <li
+              key={group.id}
+              className="border-b border-[var(--projects-divider)] last:border-b-0"
+            >
               <button
                 type="button"
                 onClick={() => setSelected(group)}
@@ -87,20 +106,30 @@ export function ErrorsPage() {
                 className="block w-full px-4 py-3 text-left transition-colors hover:bg-white/[0.03]"
               >
                 <div className="flex flex-wrap items-center gap-2.5">
-                  <Mono className="text-[13px] font-medium text-[var(--projects-text)]">{group.name}</Mono>
+                  <Mono className="text-[13px] font-medium text-[var(--projects-text)]">
+                    {group.name}
+                  </Mono>
                   {group.status === "unresolved" ? (
                     <StatusBadge tone="danger" label="Unresolved" pulse />
                   ) : (
                     <StatusBadge tone="success" label="Resolved" />
                   )}
-                  <span className="ml-auto text-[12px] text-[var(--projects-muted)]">{group.service}</span>
+                  <span className="ml-auto text-[12px] text-[var(--projects-muted)]">
+                    {group.service}
+                  </span>
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11.5px] text-[var(--projects-muted)]">
                   <span>
-                    <Mono className="text-[var(--projects-text)]">{group.events}</Mono> events
+                    <Mono className="text-[var(--projects-text)]">
+                      {group.events}
+                    </Mono>{" "}
+                    events
                   </span>
                   <span>
-                    <Mono className="text-[var(--projects-text)]">{group.users}</Mono> users
+                    <Mono className="text-[var(--projects-text)]">
+                      {group.users}
+                    </Mono>{" "}
+                    users
                   </span>
                   <span>last seen {group.lastSeen}</span>
                   <span>first seen {group.firstSeen}</span>
@@ -109,7 +138,11 @@ export function ErrorsPage() {
                   {group.message}
                 </p>
                 <div className="mt-2 max-w-[220px]">
-                  <Sparkline data={group.trend} tone={group.status === "unresolved" ? "danger" : "neutral"} height={22} />
+                  <Sparkline
+                    data={group.trend}
+                    tone={group.status === "unresolved" ? "danger" : "neutral"}
+                    height={22}
+                  />
                   <p className="m-0 mt-0.5 text-[10px] uppercase tracking-[0.06em] text-[var(--projects-muted)]/70">
                     events · last 24 h
                   </p>
@@ -130,13 +163,21 @@ export function ErrorsPage() {
   );
 }
 
-function ErrorDetail({ group, onClose }: { group: ErrorGroup | null; onClose: () => void }) {
+function ErrorDetail({
+  group,
+  onClose,
+}: {
+  group: ErrorGroup | null;
+  onClose: () => void;
+}) {
   return (
     <DetailDrawer
       open={group !== null}
       onClose={onClose}
       title={<Mono className="truncate">{group?.name}</Mono>}
-      subtitle={group ? `${group.service} · first seen ${group.firstSeen}` : undefined}
+      subtitle={
+        group ? `${group.service} · first seen ${group.firstSeen}` : undefined
+      }
     >
       {group && (
         <div className="flex flex-col gap-4">
@@ -178,7 +219,9 @@ function ErrorDetail({ group, onClose }: { group: ErrorGroup | null; onClose: ()
           </div>
 
           <div className="grid grid-cols-2 gap-x-4">
-            <DetailField label="Environment">{group.sample.environment}</DetailField>
+            <DetailField label="Environment">
+              {group.sample.environment}
+            </DetailField>
             <DetailField label="Timestamp">
               <Mono>{group.sample.timestamp}</Mono>
             </DetailField>

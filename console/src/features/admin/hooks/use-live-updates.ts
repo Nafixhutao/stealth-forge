@@ -13,7 +13,10 @@ export function useLiveTick(intervalMs = 4000, enabled = true): number {
 
   useEffect(() => {
     if (!enabled) return;
-    const id = window.setInterval(() => setTick((value) => value + 1), intervalMs);
+    const id = window.setInterval(
+      () => setTick((value) => value + 1),
+      intervalMs,
+    );
     return () => window.clearInterval(id);
   }, [intervalMs, enabled]);
 
@@ -21,7 +24,10 @@ export function useLiveTick(intervalMs = 4000, enabled = true): number {
 }
 
 /** Seconds since mount or the last reset — drives "Last updated Xs ago". */
-export function useElapsedSeconds(resetKey?: unknown): { seconds: number; reset: () => void } {
+export function useElapsedSeconds(resetKey?: unknown): {
+  seconds: number;
+  reset: () => void;
+} {
   const [seconds, setSeconds] = useState(0);
   const startRef = useRef(0);
 
@@ -46,12 +52,21 @@ export function useElapsedSeconds(resetKey?: unknown): { seconds: number; reset:
 }
 
 /** Move a mock value a small random step, clamped to [min, max]. */
-export function nudge(value: number, amplitude: number, min: number, max: number): number {
+export function nudge(
+  value: number,
+  amplitude: number,
+  min: number,
+  max: number,
+): number {
   const next = value + (Math.random() - 0.5) * 2 * amplitude;
   return Math.min(max, Math.max(min, next));
 }
 
 /** Append a point to a sparkline history, keeping it bounded. */
-export function pushHistory(history: number[], value: number, max = 24): number[] {
+export function pushHistory(
+  history: number[],
+  value: number,
+  max = 24,
+): number[] {
   return [...history.slice(-(max - 1)), value];
 }

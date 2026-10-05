@@ -11,7 +11,10 @@ import { ServiceStatusBadge } from "../components/domain-badges";
 export function ServiceHealthTable({ className }: { className?: string }) {
   return (
     <AdminPanel className={className}>
-      <AdminPanelHeader title="Service Health" subtitle="Synthetic checks run every 15 seconds from all regions." />
+      <AdminPanelHeader
+        title="Service Health"
+        subtitle="Synthetic checks run every 15 seconds from all regions."
+      />
       <div
         aria-hidden="true"
         className="hidden grid-cols-[minmax(0,1.6fr)_1fr_0.9fr_1.1fr_0.9fr] gap-3 border-b border-[var(--projects-divider)] px-3 pb-2 lg:grid"
@@ -29,7 +32,9 @@ export function ServiceHealthTable({ className }: { className?: string }) {
             className="border-b border-[var(--projects-divider)] px-3 py-2.5 transition-colors last:border-b-0 hover:bg-white/[0.02] lg:grid lg:grid-cols-[minmax(0,1.6fr)_1fr_0.9fr_1.1fr_0.9fr] lg:items-center lg:gap-3"
           >
             <div className="flex items-center justify-between gap-2 lg:block">
-              <span className="text-[13px] font-medium leading-5 text-[var(--projects-text)]">{service.name}</span>
+              <span className="text-[13px] font-medium leading-5 text-[var(--projects-text)]">
+                {service.name}
+              </span>
               <span className="lg:hidden">
                 <ServiceStatusBadge status={service.status} />
               </span>
@@ -48,7 +53,8 @@ export function ServiceHealthTable({ className }: { className?: string }) {
             </Mono>
             {/* compact metadata row */}
             <Mono className="mt-1.5 text-[11.5px] leading-4 text-[var(--projects-muted)] lg:hidden">
-              {service.latency} · {service.availability} · checked {service.lastCheck}
+              {service.latency} · {service.availability} · checked{" "}
+              {service.lastCheck}
             </Mono>
           </li>
         ))}
@@ -59,6 +65,8 @@ export function ServiceHealthTable({ className }: { className?: string }) {
 
 function ColumnLabel({ children }: { children: ReactNode }) {
   return (
-    <span className="text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)]">{children}</span>
+    <span className="text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)]">
+      {children}
+    </span>
   );
 }

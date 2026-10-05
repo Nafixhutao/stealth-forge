@@ -29,10 +29,16 @@ export function ResourceBar({
   return (
     <div className={cn("flex min-w-0 flex-col gap-1", className)}>
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[10.5px] font-medium uppercase tracking-[0.07em] text-[var(--projects-muted)]">{label}</span>
+        <span className="text-[10.5px] font-medium uppercase tracking-[0.07em] text-[var(--projects-muted)]">
+          {label}
+        </span>
         <span className="admin-mono text-[11.5px] leading-none text-[var(--projects-text)]">
           {Math.round(clamped)}%
-          {detail && <span className="ml-1.5 text-[var(--projects-muted)]">{detail}</span>}
+          {detail && (
+            <span className="ml-1.5 text-[var(--projects-muted)]">
+              {detail}
+            </span>
+          )}
         </span>
       </div>
       <div
@@ -43,7 +49,13 @@ export function ResourceBar({
         aria-label={`${label} usage`}
         className="h-1 w-full overflow-hidden rounded-full bg-[var(--projects-progress-track)]"
       >
-        <div className={cn("h-full rounded-full transition-[width] duration-500", tone)} style={{ width: `${clamped}%` }} />
+        <div
+          className={cn(
+            "h-full rounded-full transition-[width] duration-500",
+            tone,
+          )}
+          style={{ width: `${clamped}%` }}
+        />
       </div>
     </div>
   );

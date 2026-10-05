@@ -65,7 +65,9 @@ export function AdminSelect<T extends string>({
   const current = options.find((option) => option.value === value);
   const normalizedQuery = query.trim().toLowerCase();
   const visible = normalizedQuery
-    ? options.filter((option) => option.label.toLowerCase().includes(normalizedQuery))
+    ? options.filter((option) =>
+        option.label.toLowerCase().includes(normalizedQuery),
+      )
     : options;
 
   return (
@@ -82,12 +84,19 @@ export function AdminSelect<T extends string>({
           open && "border-[var(--projects-border-hover)]",
         )}
       >
-        {icon && <span className="shrink-0 text-[var(--projects-muted)]">{icon}</span>}
-        <span className="max-w-[170px] truncate">{current?.label ?? value}</span>
+        {icon && (
+          <span className="shrink-0 text-[var(--projects-muted)]">{icon}</span>
+        )}
+        <span className="max-w-[170px] truncate">
+          {current?.label ?? value}
+        </span>
         <ChevronDown
           size={13}
           strokeWidth={1.8}
-          className={cn("shrink-0 text-[var(--projects-muted)] transition-transform duration-150", open && "rotate-180")}
+          className={cn(
+            "shrink-0 text-[var(--projects-muted)] transition-transform duration-150",
+            open && "rotate-180",
+          )}
           aria-hidden="true"
         />
       </button>
@@ -99,7 +108,12 @@ export function AdminSelect<T extends string>({
             id={menuId}
             initial={reduce ? false : { opacity: 0, y: -4, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.98, transition: { duration: 0.12 } }}
+            exit={{
+              opacity: 0,
+              y: -4,
+              scale: 0.98,
+              transition: { duration: 0.12 },
+            }}
             transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
             className={cn(
               "absolute top-full z-40 mt-1.5 min-w-[168px] rounded-lg border border-[var(--projects-border)] bg-[#1b1b1e] p-1 shadow-xl shadow-black/40",
@@ -108,7 +122,12 @@ export function AdminSelect<T extends string>({
           >
             {search && (
               <label className="mb-1 flex h-8 items-center gap-2 rounded-md border border-[var(--projects-border)] px-2.5">
-                <Search size={13} strokeWidth={1.8} className="shrink-0 text-[var(--projects-muted)]" aria-hidden="true" />
+                <Search
+                  size={13}
+                  strokeWidth={1.8}
+                  className="shrink-0 text-[var(--projects-muted)]"
+                  aria-hidden="true"
+                />
                 <input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
@@ -120,7 +139,9 @@ export function AdminSelect<T extends string>({
             )}
             <div className="admin-scrollbar max-h-[260px] overflow-y-auto">
               {visible.length === 0 ? (
-                <p className="m-0 px-2.5 py-2 text-[12px] text-[var(--projects-muted)]">No matches.</p>
+                <p className="m-0 px-2.5 py-2 text-[12px] text-[var(--projects-muted)]">
+                  No matches.
+                </p>
               ) : (
                 visible.map((option) => (
                   <motion.button
@@ -138,7 +159,12 @@ export function AdminSelect<T extends string>({
                   >
                     {option.label}
                     {option.value === value && (
-                      <Check size={13} strokeWidth={2} className="shrink-0 text-[var(--projects-accent)]" aria-hidden="true" />
+                      <Check
+                        size={13}
+                        strokeWidth={2}
+                        className="shrink-0 text-[var(--projects-accent)]"
+                        aria-hidden="true"
+                      />
                     )}
                   </motion.button>
                 ))

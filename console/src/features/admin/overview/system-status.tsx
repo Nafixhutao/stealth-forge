@@ -14,7 +14,9 @@ export function SystemStatus({ resetKey }: { resetKey?: unknown }) {
   const degraded = SERVICES.filter((service) => service.status === "degraded");
   const down = SERVICES.filter((service) => service.status === "down");
   const operational = degraded.length === 0 && down.length === 0;
-  const affected = [...down, ...degraded].map((service) => service.name).join(", ");
+  const affected = [...down, ...degraded]
+    .map((service) => service.name)
+    .join(", ");
 
   return (
     <section
@@ -26,16 +28,29 @@ export function SystemStatus({ resetKey }: { resetKey?: unknown }) {
       }
     >
       {operational ? (
-        <StatusBadge tone="success" label="All systems operational" className="text-[13px]" pulse />
+        <StatusBadge
+          tone="success"
+          label="All systems operational"
+          className="text-[13px]"
+          pulse
+        />
       ) : (
-        <StatusBadge tone="warning" label="Degraded performance" className="text-[13px]" pulse />
+        <StatusBadge
+          tone="warning"
+          label="Degraded performance"
+          className="text-[13px]"
+          pulse
+        />
       )}
       <p className="m-0 min-w-0 flex-1 text-[12.5px] leading-5 text-[var(--projects-muted)]">
         {operational
           ? "Every platform service is responding within its latency budget."
           : `${affected} ${degraded.length + down.length === 1 ? "is" : "are"} degraded — the team is investigating.`}
       </p>
-      <UpdatedLabel resetKey={resetKey} className="admin-mono shrink-0 text-[11.5px] text-[var(--projects-muted)]" />
+      <UpdatedLabel
+        resetKey={resetKey}
+        className="admin-mono shrink-0 text-[11.5px] text-[var(--projects-muted)]"
+      />
       <Link
         href="/admin/incidents"
         className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-[var(--projects-border)] px-2.5 py-1.5 text-[12px] font-medium text-[var(--projects-text)] transition-colors hover:border-[var(--projects-border-hover)] hover:bg-white/[0.04]"

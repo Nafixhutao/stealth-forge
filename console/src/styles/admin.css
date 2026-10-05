@@ -10,19 +10,30 @@
    and Source Code Pro for technical metadata. Scope both to the admin area so
    the rest of the Console keeps the Inlark/Inter type. */
 [data-admin] {
-  font-family: "Geist Variable", ui-sans-serif, system-ui, -apple-system,
-    BlinkMacSystemFont, "Segoe UI", sans-serif, "Apple Color Emoji",
-    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  font-family:
+    "Geist Variable",
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif,
+    "Apple Color Emoji",
+    "Segoe UI Emoji",
+    "Segoe UI Symbol",
+    "Noto Color Emoji";
   color: #eeeaf0;
   /* The redesigned admin console was authored against Tailwind's DEFAULT theme
      tokens. The Console's global @theme remaps several of them (spacing scale,
      radii, shadows, font weights, fonts) for the Inlark palette, which would
      change the admin's spacing/sizing. Restore the Tailwind defaults inside the
      admin surface only, so the ported UI renders exactly like its source. */
-  --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system,
+  --font-sans:
+    "Geist Variable", ui-sans-serif, system-ui, -apple-system,
     BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "Source Code Pro Variable", ui-monospace, SFMono-Regular, Menlo,
-    Monaco, Consolas, "Liberation Mono", monospace;
+  --font-mono:
+    "Source Code Pro Variable", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", monospace;
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
@@ -63,15 +74,18 @@
   /* Tailwind default shadows. */
   --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-lg:
+    0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl:
+    0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
   --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
 }
 
 /* The Console's `shadow-xl` inlines the Inlark shadow into `--tw-shadow`, so a
    variable reset is not enough; restore the Tailwind default directly. */
 [data-admin] .shadow-xl {
-  --tw-shadow: 0 20px 25px -5px var(--tw-shadow-color, rgb(0 0 0 / 0.1)),
+  --tw-shadow:
+    0 20px 25px -5px var(--tw-shadow-color, rgb(0 0 0 / 0.1)),
     0 8px 10px -6px var(--tw-shadow-color, rgb(0 0 0 / 0.1));
 }
 
@@ -84,7 +98,9 @@
 
 /* Technical metadata font: timestamps, ids, hostnames, stack traces. */
 .admin-mono {
-  font-family: "Source Code Pro Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-family:
+    "Source Code Pro Variable", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", monospace;
   font-weight: 450;
 }
 

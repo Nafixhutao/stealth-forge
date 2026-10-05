@@ -7,10 +7,20 @@ import type { Incident, IncidentSeverity } from "../types/incidents";
 
 const fieldClass =
   "h-10 w-full rounded-md border border-[var(--projects-border)] bg-[var(--projects-control)] px-3 text-[13px] leading-4 text-[var(--projects-text)] outline-none transition-colors focus:border-[var(--projects-border-hover)]";
-const labelClass = "mb-1.5 block text-[12px] font-medium text-[var(--projects-muted)]";
+const labelClass =
+  "mb-1.5 block text-[12px] font-medium text-[var(--projects-muted)]";
 
 const SEVERITIES: IncidentSeverity[] = ["critical", "warning", "info"];
-const SERVICES = ["API", "Database", "Redis", "Agent Worker", "Sandbox Service", "OpenAI", "Anthropic", "Gateway"];
+const SERVICES = [
+  "API",
+  "Database",
+  "Redis",
+  "Agent Worker",
+  "Sandbox Service",
+  "OpenAI",
+  "Anthropic",
+  "Gateway",
+];
 
 /**
  * Mock "Create incident" dialog — appends a locally-stored investigating
@@ -51,7 +61,9 @@ export function CreateIncidentDialog({
 
   const toggleService = (service: string, checked: boolean) => {
     setServices((prev) =>
-      checked ? [...new Set([...prev, service])] : prev.filter((item) => item !== service),
+      checked
+        ? [...new Set([...prev, service])]
+        : prev.filter((item) => item !== service),
     );
   };
 
@@ -79,7 +91,9 @@ export function CreateIncidentDialog({
         {
           time: "Just now",
           status: "investigating",
-          message: message.trim() || "Incident opened manually from the admin console.",
+          message:
+            message.trim() ||
+            "Incident opened manually from the admin console.",
         },
       ],
     });
@@ -87,7 +101,11 @@ export function CreateIncidentDialog({
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:px-4">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} aria-hidden="true" />
+      <div
+        className="absolute inset-0 bg-black/60"
+        onClick={onClose}
+        aria-hidden="true"
+      />
       <div
         role="dialog"
         aria-modal="true"
@@ -99,16 +117,25 @@ export function CreateIncidentDialog({
             <TriangleAlert size={17} strokeWidth={1.7} aria-hidden="true" />
           </span>
           <div className="min-w-0">
-            <h2 id="create-incident-title" className="m-0 text-[16px] font-semibold leading-5 text-[var(--projects-text)]">
+            <h2
+              id="create-incident-title"
+              className="m-0 text-[16px] font-semibold leading-5 text-[var(--projects-text)]"
+            >
               Create incident
             </h2>
             <p className="m-0 mt-0.5 text-[13px] leading-5 text-[var(--projects-muted)]">
-              Opens a new investigating incident on the board (mock, local only).
+              Opens a new investigating incident on the board (mock, local
+              only).
             </p>
           </div>
         </div>
 
-        <form id="create-incident-form" onSubmit={handleSubmit} className="space-y-4 px-5 py-4" noValidate>
+        <form
+          id="create-incident-form"
+          onSubmit={handleSubmit}
+          className="space-y-4 px-5 py-4"
+          noValidate
+        >
           <label className="block">
             <span className={labelClass}>Title</span>
             <input
@@ -120,16 +147,25 @@ export function CreateIncidentDialog({
               autoFocus
               placeholder="e.g. Elevated sandbox provision failures"
               aria-invalid={!!titleError}
-              className={cn(fieldClass, titleError && "border-[var(--projects-danger)]")}
+              className={cn(
+                fieldClass,
+                titleError && "border-[var(--projects-danger)]",
+              )}
             />
-            {titleError && <span className="mt-1 block text-[12px] text-[var(--projects-danger)]">{titleError}</span>}
+            {titleError && (
+              <span className="mt-1 block text-[12px] text-[var(--projects-danger)]">
+                {titleError}
+              </span>
+            )}
           </label>
 
           <label className="block">
             <span className={labelClass}>Severity</span>
             <select
               value={severity}
-              onChange={(event) => setSeverity(event.target.value as IncidentSeverity)}
+              onChange={(event) =>
+                setSeverity(event.target.value as IncidentSeverity)
+              }
               aria-label="Severity"
               className={cn(fieldClass, "appearance-none")}
             >
@@ -160,7 +196,9 @@ export function CreateIncidentDialog({
                       type="checkbox"
                       className="sr-only"
                       checked={checked}
-                      onChange={(event) => toggleService(service, event.target.checked)}
+                      onChange={(event) =>
+                        toggleService(service, event.target.checked)
+                      }
                     />
                     {checked ? "✓" : "+"} {service}
                   </label>

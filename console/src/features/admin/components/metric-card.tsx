@@ -41,16 +41,30 @@ export function MetricCard({
         <span className="flex size-6 shrink-0 items-center justify-center rounded-md border border-[var(--projects-border)] bg-[var(--projects-control)] text-[var(--projects-muted)]">
           <Icon size={13} strokeWidth={1.8} aria-hidden="true" />
         </span>
-        <h3 className="m-0 truncate text-[11.5px] font-medium leading-4 text-[var(--projects-muted)]">{label}</h3>
-        {hint && <span className="admin-mono ml-auto shrink-0 text-[11px] leading-4 text-[var(--projects-muted)]/80">{hint}</span>}
+        <h3 className="m-0 truncate text-[11.5px] font-medium leading-4 text-[var(--projects-muted)]">
+          {label}
+        </h3>
+        {hint && (
+          <span className="admin-mono ml-auto shrink-0 text-[11px] leading-4 text-[var(--projects-muted)]/80">
+            {hint}
+          </span>
+        )}
       </header>
 
       <div className="flex items-end justify-between gap-2">
-        <p className="m-0 text-[22px] font-semibold leading-6 tracking-[-0.02em] text-[var(--projects-text)]">{value}</p>
+        <p className="m-0 text-[22px] font-semibold leading-6 tracking-[-0.02em] text-[var(--projects-text)]">
+          {value}
+        </p>
         {change && (
-          <p className={cn("m-0 text-right text-[11px] leading-4", changeClass)}>
+          <p
+            className={cn("m-0 text-right text-[11px] leading-4", changeClass)}
+          >
             {change}
-            {changeLabel && <span className="block text-[10.5px] text-[var(--projects-muted)]/70">{changeLabel}</span>}
+            {changeLabel && (
+              <span className="block text-[10.5px] text-[var(--projects-muted)]/70">
+                {changeLabel}
+              </span>
+            )}
           </p>
         )}
       </div>

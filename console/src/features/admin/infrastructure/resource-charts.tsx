@@ -26,9 +26,15 @@ export function ResourceCharts() {
         const min = Math.min(...values);
         const max = Math.max(...values);
         const span = Math.max(4, (max - min) * 0.12);
-        const next = clamp(last.value + (Math.random() - 0.5) * 2 * span, min - span / 2, max + span / 2);
+        const next = clamp(
+          last.value + (Math.random() - 0.5) * 2 * span,
+          min - span / 2,
+          max + span / 2,
+        );
         const data: MetricPoint[] = item.data.map((point, index) =>
-          index === item.data.length - 1 ? { ...point, value: round(next) } : point,
+          index === item.data.length - 1
+            ? { ...point, value: round(next) }
+            : point,
         );
         return { ...item, data, current: formatCurrent(item.id, next) };
       }),
@@ -41,7 +47,9 @@ export function ResourceCharts() {
         <AdminPanel key={item.id}>
           <div className="flex flex-wrap items-start justify-between gap-2 px-1 pb-2 pt-1">
             <div>
-              <h3 className="m-0 text-[13.5px] font-semibold leading-5 text-[var(--projects-text)]">{item.label}</h3>
+              <h3 className="m-0 text-[13.5px] font-semibold leading-5 text-[var(--projects-text)]">
+                {item.label}
+              </h3>
               <Mono className="m-0 mt-0.5 block text-[11px] leading-4 text-[var(--projects-muted)]">
                 peak {item.peak} · avg {item.average}
               </Mono>

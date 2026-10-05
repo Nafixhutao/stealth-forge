@@ -7,10 +7,33 @@ import type { MetricPoint } from "../types/telemetry";
 
 export type OverviewTab = "cpu" | "memory" | "network";
 
-const TAB_META: Record<OverviewTab, { label: string; unit: string; tone: "accent" | "info" | "warning"; hint: string }> = {
-  cpu: { label: "CPU", unit: "%", tone: "accent", hint: "Fleet-wide average across all hosts" },
-  memory: { label: "Memory", unit: " GB", tone: "info", hint: "Resident memory across all hosts" },
-  network: { label: "Network", unit: " MB/s", tone: "warning", hint: "Ingress + egress combined" },
+const TAB_META: Record<
+  OverviewTab,
+  {
+    label: string;
+    unit: string;
+    tone: "accent" | "info" | "warning";
+    hint: string;
+  }
+> = {
+  cpu: {
+    label: "CPU",
+    unit: "%",
+    tone: "accent",
+    hint: "Fleet-wide average across all hosts",
+  },
+  memory: {
+    label: "Memory",
+    unit: " GB",
+    tone: "info",
+    hint: "Resident memory across all hosts",
+  },
+  network: {
+    label: "Network",
+    unit: " MB/s",
+    tone: "warning",
+    hint: "Ingress + egress combined",
+  },
 };
 
 const TAB_OPTIONS = [
@@ -36,16 +59,28 @@ export function ResourceOverview({
   const meta = TAB_META[tab];
   const data = series[tab];
 
-  const subtitle = useMemo(() => `${meta.hint} · ${rangeLabel}`, [meta.hint, rangeLabel]);
+  const subtitle = useMemo(
+    () => `${meta.hint} · ${rangeLabel}`,
+    [meta.hint, rangeLabel],
+  );
 
   return (
     <AdminPanel className={className}>
       <div className="flex flex-wrap items-center justify-between gap-3 px-1 pb-3 pt-1">
         <div>
-          <h2 className="m-0 text-[14px] font-semibold leading-5 text-[var(--projects-text)]">Resource Usage</h2>
-          <p className="m-0 mt-0.5 text-[12px] leading-4 text-[var(--projects-muted)]">{subtitle}</p>
+          <h2 className="m-0 text-[14px] font-semibold leading-5 text-[var(--projects-text)]">
+            Resource Usage
+          </h2>
+          <p className="m-0 mt-0.5 text-[12px] leading-4 text-[var(--projects-muted)]">
+            {subtitle}
+          </p>
         </div>
-        <ChartTabs value={tab} options={TAB_OPTIONS} onChange={onTabChange} ariaLabel="Resource metric" />
+        <ChartTabs
+          value={tab}
+          options={TAB_OPTIONS}
+          onChange={onTabChange}
+          ariaLabel="Resource metric"
+        />
       </div>
       <TelemetryChart
         data={data}

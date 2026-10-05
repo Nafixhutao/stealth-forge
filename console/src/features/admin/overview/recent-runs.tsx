@@ -40,7 +40,9 @@ export function RecentRuns({ className }: { className?: string }) {
             className="border-b border-[var(--projects-divider)] px-3 py-2.5 transition-colors last:border-b-0 hover:bg-white/[0.02] lg:grid lg:grid-cols-[minmax(0,1.1fr)_0.8fr_minmax(0,1.5fr)_1fr_0.8fr_1fr_0.8fr] lg:items-center lg:gap-3"
           >
             <div className="flex items-center justify-between gap-2">
-              <Mono className="truncate text-[12px] font-medium leading-5 text-[var(--projects-text)]">{run.id}</Mono>
+              <Mono className="truncate text-[12px] font-medium leading-5 text-[var(--projects-text)]">
+                {run.id}
+              </Mono>
               <span className="lg:hidden">
                 <RunStatusBadge status={run.status} />
               </span>
@@ -75,6 +77,8 @@ export function RecentRuns({ className }: { className?: string }) {
 
 function ColumnLabel({ children }: { children: ReactNode }) {
   return (
-    <span className="text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)]">{children}</span>
+    <span className="text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)]">
+      {children}
+    </span>
   );
 }

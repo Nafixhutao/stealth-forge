@@ -13,13 +13,26 @@ import { useLiveTick } from "../hooks/use-live-updates";
 import { cn } from "@/lib/utils";
 import type { LogEntry, LogLevel } from "../types/logs";
 
-const SERVICES = ["api", "worker", "sandbox", "database", "scheduler", "gateway"];
+const SERVICES = [
+  "api",
+  "worker",
+  "sandbox",
+  "database",
+  "scheduler",
+  "gateway",
+];
 const LEVELS: LogLevel[] = ["INFO", "WARN", "ERROR", "DEBUG"];
 
 const LEVEL_TONE: Record<LogLevel, { text: string; label: string }> = {
   INFO: { text: "text-[#a1a1aa]", label: "text-[#a1a1aa]" },
-  WARN: { text: "text-[var(--projects-warning)]", label: "text-[var(--projects-warning)]" },
-  ERROR: { text: "text-[var(--projects-danger)]", label: "text-[var(--projects-danger)]" },
+  WARN: {
+    text: "text-[var(--projects-warning)]",
+    label: "text-[var(--projects-warning)]",
+  },
+  ERROR: {
+    text: "text-[var(--projects-danger)]",
+    label: "text-[var(--projects-danger)]",
+  },
   DEBUG: { text: "text-[#62626a]", label: "text-[#62626a]" },
 };
 
@@ -56,9 +69,16 @@ export function LogsPage() {
     return entries.filter((entry) => {
       if (service !== "all" && entry.service !== service) return false;
       if (level !== "all" && entry.level !== level) return false;
-      if (environment !== "all" && entry.environment !== environment) return false;
+      if (environment !== "all" && entry.environment !== environment)
+        return false;
       if (!normalizedQuery) return true;
-      return [entry.message, entry.service, entry.agentRun ?? "", entry.requestId, entry.traceId]
+      return [
+        entry.message,
+        entry.service,
+        entry.agentRun ?? "",
+        entry.requestId,
+        entry.traceId,
+      ]
         .join(" ")
         .toLowerCase()
         .includes(normalizedQuery);
@@ -67,24 +87,38 @@ export function LogsPage() {
 
   return (
     <AdminPageBody>
-      <AdminHeader title="Logs" subtitle="Search, filter, and inspect platform logs across services.">
+      <AdminHeader
+        title="Logs"
+        subtitle="Search, filter, and inspect platform logs across services."
+      >
         <TimeRangeSelect value={range} onChange={setRange} />
       </AdminHeader>
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2.5">
-        <ToolbarSearch value={query} onChange={setQuery} placeholder="Search logs..." label="Search logs" />
+        <ToolbarSearch
+          value={query}
+          onChange={setQuery}
+          placeholder="Search logs..."
+          label="Search logs"
+        />
         <AdminSelect
           label="Filter by service"
           value={service}
           onChange={(value) => setService(value as ServiceFilter)}
-          options={[{ value: "all", label: "All services" }, ...SERVICES.map((item) => ({ value: item, label: item }))]}
+          options={[
+            { value: "all", label: "All services" },
+            ...SERVICES.map((item) => ({ value: item, label: item })),
+          ]}
         />
         <AdminSelect
           label="Filter by level"
           value={level}
           onChange={(value) => setLevel(value as LevelFilter)}
-          options={[{ value: "all", label: "All levels" }, ...LEVELS.map((item) => ({ value: item, label: item }))]}
+          options={[
+            { value: "all", label: "All levels" },
+            ...LEVELS.map((item) => ({ value: item, label: item })),
+          ]}
         />
         <AdminSelect
           label="Filter by environment"
@@ -107,20 +141,37 @@ export function LogsPage() {
           aria-hidden="true"
           className="hidden grid-cols-[92px_58px_84px_minmax(0,1fr)_auto] gap-3 border-b border-[var(--projects-divider)] px-3.5 py-2 md:grid"
         >
-          <span className="text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)]">Time</span>
-          <span className="text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)]">Level</span>
-          <span className="text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)]">Service</span>
-          <span className="text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)]">Message</span>
-          <span className="text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)]">Meta</span>
+          <span className="text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)]">
+            Time
+          </span>
+          <span className="text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)]">
+            Level
+          </span>
+          <span className="text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)]">
+            Service
+          </span>
+          <span className="text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)]">
+            Message
+          </span>
+          <span className="text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)]">
+            Meta
+          </span>
         </div>
-        <div className="admin-scrollbar max-h-[640px] overflow-y-auto" aria-label="Log stream">
+        <div
+          className="admin-scrollbar max-h-[640px] overflow-y-auto"
+          aria-label="Log stream"
+        >
           {visible.length === 0 ? (
             <p className="m-0 px-4 py-12 text-center text-[13px] text-[var(--projects-muted)]">
               No log entries match the current filters.
             </p>
           ) : (
             visible.map((entry) => (
-              <LogRow key={entry.id} entry={entry} onOpen={() => setSelected(entry)} />
+              <LogRow
+                key={entry.id}
+                entry={entry}
+                onOpen={() => setSelected(entry)}
+              />
             ))
           )}
         </div>
@@ -129,7 +180,8 @@ export function LogsPage() {
             {visible.length} of {entries.length} entries
           </Mono>
           <Mono className="text-[11px] text-[var(--projects-muted)]">
-            retention 7d · environment {environment === "all" ? "any" : environment}
+            retention 7d · environment{" "}
+            {environment === "all" ? "any" : environment}
           </Mono>
         </div>
       </div>
@@ -150,31 +202,67 @@ function LogRow({ entry, onOpen }: { entry: LogEntry; onOpen: () => void }) {
     >
       {/* desktop layout */}
       <span className="hidden items-baseline gap-3 md:grid md:grid-cols-[92px_58px_84px_minmax(0,1fr)_auto]">
-        <Mono className="text-[11.5px] leading-5 text-[#8a8791]">{entry.timestamp}</Mono>
-        <span className={cn("text-[11px] font-semibold leading-5 tracking-wide", tone.text)}>{entry.level}</span>
-        <Mono className="truncate text-[11.5px] leading-5 text-[#b3b0ba]">{entry.service}</Mono>
+        <Mono className="text-[11.5px] leading-5 text-[#8a8791]">
+          {entry.timestamp}
+        </Mono>
+        <span
+          className={cn(
+            "text-[11px] font-semibold leading-5 tracking-wide",
+            tone.text,
+          )}
+        >
+          {entry.level}
+        </span>
+        <Mono className="truncate text-[11.5px] leading-5 text-[#b3b0ba]">
+          {entry.service}
+        </Mono>
         <span className="min-w-0">
-          <Mono className="block truncate text-[12px] leading-5 text-[var(--projects-text)]">{entry.message}</Mono>
+          <Mono className="block truncate text-[12px] leading-5 text-[var(--projects-text)]">
+            {entry.message}
+          </Mono>
           {entry.environment === "staging" && (
-            <Mono className="mt-0.5 block text-[10px] leading-3 text-[var(--admin-info)]">staging</Mono>
+            <Mono className="mt-0.5 block text-[10px] leading-3 text-[var(--admin-info)]">
+              staging
+            </Mono>
           )}
         </span>
-        <Mono className="text-[11.5px] leading-5 text-[#8a8791]">{entry.meta}</Mono>
+        <Mono className="text-[11.5px] leading-5 text-[#8a8791]">
+          {entry.meta}
+        </Mono>
       </span>
       {/* compact layout */}
       <span className="block md:hidden">
         <span className="flex items-baseline gap-2">
-          <span className={cn("text-[10.5px] font-semibold tracking-wide", tone.text)}>{entry.level}</span>
-          <Mono className="truncate text-[11.5px] leading-5 text-[#b3b0ba]">{entry.service}</Mono>
-          <Mono className="ml-auto shrink-0 text-[10.5px] leading-5 text-[#8a8791]">{entry.timestamp}</Mono>
+          <span
+            className={cn(
+              "text-[10.5px] font-semibold tracking-wide",
+              tone.text,
+            )}
+          >
+            {entry.level}
+          </span>
+          <Mono className="truncate text-[11.5px] leading-5 text-[#b3b0ba]">
+            {entry.service}
+          </Mono>
+          <Mono className="ml-auto shrink-0 text-[10.5px] leading-5 text-[#8a8791]">
+            {entry.timestamp}
+          </Mono>
         </span>
-        <Mono className="mt-0.5 block break-words text-[12px] leading-4 text-[var(--projects-text)]">{entry.message}</Mono>
+        <Mono className="mt-0.5 block break-words text-[12px] leading-4 text-[var(--projects-text)]">
+          {entry.message}
+        </Mono>
       </span>
     </button>
   );
 }
 
-function LogDetail({ entry, onClose }: { entry: LogEntry | null; onClose: () => void }) {
+function LogDetail({
+  entry,
+  onClose,
+}: {
+  entry: LogEntry | null;
+  onClose: () => void;
+}) {
   return (
     <DetailDrawer
       open={entry !== null}
@@ -182,7 +270,13 @@ function LogDetail({ entry, onClose }: { entry: LogEntry | null; onClose: () => 
       title={
         <>
           <span className="truncate">Log detail</span>
-          {entry && <StatusBadge tone="neutral" label={entry.service} className="ml-2" />}
+          {entry && (
+            <StatusBadge
+              tone="neutral"
+              label={entry.service}
+              className="ml-2"
+            />
+          )}
         </>
       }
       subtitle={entry?.message}
@@ -197,7 +291,14 @@ function LogDetail({ entry, onClose }: { entry: LogEntry | null; onClose: () => 
               </span>
             </DetailField>
             <DetailField label="Level">
-              <span className={cn("text-[12px] font-semibold", LEVEL_TONE[entry.level].label)}>{entry.level}</span>
+              <span
+                className={cn(
+                  "text-[12px] font-semibold",
+                  LEVEL_TONE[entry.level].label,
+                )}
+              >
+                {entry.level}
+              </span>
             </DetailField>
             <DetailField label="Service">{entry.service}</DetailField>
             <DetailField label="Environment">{entry.environment}</DetailField>

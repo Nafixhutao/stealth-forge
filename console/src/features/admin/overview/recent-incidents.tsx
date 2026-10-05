@@ -1,11 +1,20 @@
 import Link from "next/link";
 import { INCIDENTS } from "../data/admin-mock-data";
 import { AdminPanel, AdminPanelHeader } from "../components/admin-panel";
-import { IncidentStatusBadge, SeverityBadge } from "../components/domain-badges";
+import {
+  IncidentStatusBadge,
+  SeverityBadge,
+} from "../components/domain-badges";
 import { Mono } from "../components/admin-panel";
 
 /** Latest incidents, linking into the incidents board. */
-export function RecentIncidents({ limit = 3, className }: { limit?: number; className?: string }) {
+export function RecentIncidents({
+  limit = 3,
+  className,
+}: {
+  limit?: number;
+  className?: string;
+}) {
   const incidents = INCIDENTS.slice(0, limit);
 
   return (
@@ -23,14 +32,19 @@ export function RecentIncidents({ limit = 3, className }: { limit?: number; clas
       />
       <ul className="m-0 list-none p-0">
         {incidents.map((incident) => (
-          <li key={incident.id} className="border-b border-[var(--projects-divider)] last:border-b-0">
+          <li
+            key={incident.id}
+            className="border-b border-[var(--projects-divider)] last:border-b-0"
+          >
             <Link
               href="/admin/incidents"
               className="block px-1 py-3 transition-colors first:pt-1 last:pb-1 hover:bg-white/[0.02]"
             >
               <div className="flex flex-wrap items-center gap-2">
                 <SeverityBadge severity={incident.severity} />
-                <span className="text-[13px] font-medium leading-5 text-[var(--projects-text)]">{incident.title}</span>
+                <span className="text-[13px] font-medium leading-5 text-[var(--projects-text)]">
+                  {incident.title}
+                </span>
                 <span className="ml-auto">
                   <IncidentStatusBadge status={incident.status} />
                 </span>

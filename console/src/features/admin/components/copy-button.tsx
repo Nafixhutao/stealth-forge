@@ -5,13 +5,24 @@ import { Check, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /** Copy-to-clipboard button with a brief "copied" confirmation. */
-export function CopyButton({ text, label = "Copy", className }: { text: string; label?: string; className?: string }) {
+export function CopyButton({
+  text,
+  label = "Copy",
+  className,
+}: {
+  text: string;
+  label?: string;
+  className?: string;
+}) {
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<number | null>(null);
 
-  useEffect(() => () => {
-    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    },
+    [],
+  );
 
   const handleCopy = () => {
     // Mock-data friendly: clipboard may be unavailable; feedback is local state.
@@ -33,7 +44,12 @@ export function CopyButton({ text, label = "Copy", className }: { text: string; 
       )}
     >
       {copied ? (
-        <Check size={12} strokeWidth={2.2} className="text-[var(--projects-accent)]" aria-hidden="true" />
+        <Check
+          size={12}
+          strokeWidth={2.2}
+          className="text-[var(--projects-accent)]"
+          aria-hidden="true"
+        />
       ) : (
         <Copy size={12} strokeWidth={1.8} aria-hidden="true" />
       )}

@@ -38,8 +38,13 @@ export function Sparkline({
   const max = Math.max(...data);
   const span = max - min || 1;
   const step = 100 / (data.length - 1);
-  const points = data.map((value, index) => [index * step, 100 - ((value - min) / span) * 100] as const);
-  const line = points.map(([x, y], index) => `${index === 0 ? "M" : "L"}${round(x)},${round(y)}`).join(" ");
+  const points = data.map(
+    (value, index) =>
+      [index * step, 100 - ((value - min) / span) * 100] as const,
+  );
+  const line = points
+    .map(([x, y], index) => `${index === 0 ? "M" : "L"}${round(x)},${round(y)}`)
+    .join(" ");
   const fill = `${line} L100,100 L0,100 Z`;
   const color = STROKE[tone];
 
