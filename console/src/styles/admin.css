@@ -1,0 +1,130 @@
+/* Admin console feature styles — imported from styles/global.css after the
+   base/theme sheets so admin can layer on top of the shared tokens. */
+
+:root {
+  /* Semantic "info" — the one tone the platform palette does not define. */
+  --admin-info: #6ea8fe;
+}
+
+/* The redesigned admin console was authored with the Geist Variable body font
+   and Source Code Pro for technical metadata. Scope both to the admin area so
+   the rest of the Console keeps the Inlark/Inter type. */
+[data-admin] {
+  font-family: "Geist Variable", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  color: #eeeaf0;
+  /* The redesigned admin console was authored against Tailwind's DEFAULT theme
+     tokens. The Console's global @theme remaps several of them (spacing scale,
+     radii, shadows, font weights, fonts) for the Inlark palette, which would
+     change the admin's spacing/sizing. Restore the Tailwind defaults inside the
+     admin surface only, so the ported UI renders exactly like its source. */
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "Source Code Pro Variable", ui-monospace, SFMono-Regular, Menlo,
+    Monaco, Consolas, "Liberation Mono", monospace;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+  --font-weight-black: 900;
+
+  /* Tailwind default spacing scale (N * 0.25rem). The Console overrides the
+     4px-multiple tokens with literal pixel values. */
+  --spacing-4: calc(var(--spacing) * 4);
+  --spacing-8: calc(var(--spacing) * 8);
+  --spacing-12: calc(var(--spacing) * 12);
+  --spacing-16: calc(var(--spacing) * 16);
+  --spacing-20: calc(var(--spacing) * 20);
+  --spacing-24: calc(var(--spacing) * 24);
+  --spacing-28: calc(var(--spacing) * 28);
+  --spacing-32: calc(var(--spacing) * 32);
+  --spacing-36: calc(var(--spacing) * 36);
+  --spacing-40: calc(var(--spacing) * 40);
+  --spacing-48: calc(var(--spacing) * 48);
+  --spacing-56: calc(var(--spacing) * 56);
+  --spacing-64: calc(var(--spacing) * 64);
+  --spacing-80: calc(var(--spacing) * 80);
+  --spacing-96: calc(var(--spacing) * 96);
+  --spacing-128: calc(var(--spacing) * 128);
+
+  /* Tailwind default radii. */
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+  --radius-4xl: 2rem;
+  --radius-full: 9999px;
+
+  /* Tailwind default shadows. */
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+}
+
+/* The Console's `shadow-xl` inlines the Inlark shadow into `--tw-shadow`, so a
+   variable reset is not enough; restore the Tailwind default directly. */
+[data-admin] .shadow-xl {
+  --tw-shadow: 0 20px 25px -5px var(--tw-shadow-color, rgb(0 0 0 / 0.1)),
+    0 8px 10px -6px var(--tw-shadow-color, rgb(0 0 0 / 0.1));
+}
+
+/* Tailwind v4 preflight dropped `cursor: pointer` on buttons; the redesign
+   restores v3 behavior. Keep it scoped to the admin surface. */
+[data-admin] button,
+[data-admin] [role="button"] {
+  cursor: pointer;
+}
+
+/* Technical metadata font: timestamps, ids, hostnames, stack traces. */
+.admin-mono {
+  font-family: "Source Code Pro Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-weight: 450;
+}
+
+/* Admin navigation panel scrollbar (ported from the redesign's base sheet). */
+.sidebar-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #3a373f transparent;
+}
+.sidebar-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background: #3a373f;
+  border-radius: 99px;
+}
+
+/* Dense data surfaces (log stream, wide tables): slim dark scrollbar with a
+   generous min thumb so it stays grabbable in long streams. */
+.admin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #3a373f transparent;
+}
+
+.admin-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.admin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-scrollbar::-webkit-scrollbar-thumb {
+  min-height: 44px;
+  border: 2px solid transparent;
+  border-radius: 99px;
+  background: #3a373f;
+  background-clip: padding-box;
+}
+
+.admin-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}

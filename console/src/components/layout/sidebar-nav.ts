@@ -56,22 +56,7 @@ function adminSection(): NavSection {
   return {
     label: "Admin",
     items: [
-      { label: "Admin overview", href: "/admin", icon: Gauge, exact: true },
-      { label: "Admin operations", href: "/admin/operations", icon: CloudCog },
-      {
-        label: "Admin metrics",
-        href: "/admin/telemetry/metrics",
-        icon: Activity,
-      },
-      {
-        label: "Admin infrastructure",
-        href: "/admin/infrastructure",
-        icon: Gauge,
-      },
-      { label: "Admin logs", href: "/admin/telemetry/logs", icon: Cable },
-      { label: "Admin monitoring", href: "/admin/monitoring", icon: Activity },
-      { label: "Admin incidents", href: "/admin/incidents", icon: ShieldCheck },
-      { label: "Admin audit", href: "/admin/audit", icon: ShieldCheck },
+      { label: "Admin console", href: "/admin", icon: Gauge, exact: true },
     ],
   };
 }
