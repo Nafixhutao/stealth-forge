@@ -90,6 +90,56 @@ export function AdminOverview() {
     [range],
   );
 
+  // Deltas for the metric-card change indicators, computed from the retained
+  // history so the cards read like the redesign ("+4.2% from previous hour").
+  // The first sample is a cold-start with no baseline (CPU/network read 0), so
+  // rate metrics use the first non-zero sample as their baseline.
+  const hasDelta = history.length >= 2 && Boolean(current);
+  const firstPositive = (
+    pick: (sample: (typeof history)[number]) => number,
+  ): (typeof history)[number] | undefined =>
+    history.find((sample) => pick(sample) > 0) ?? history[0];
+  const signed = (value: number, unit: string) =>
+    `${value >= 0 ? "+" : ""}${Math.round(value * 10) / 10}${unit}`;
+  const percentDelta = (now: number, before: number) =>
+    before !== 0 ? ((now - before) / before) * 100 : 0;
+  const cpuBaseline = firstPositive((sample) => sample.cpu_percent);
+  const netBaseline = firstPositive(
+    (sample) => sample.network_rx_bytes_per_sec,
+  );
+  const memoryBaseline = history[0];
+  const diskBaseline = history[0];
+  const cpuDelta =
+    hasDelta && current && cpuBaseline
+      ? signed(current.cpu_percent - cpuBaseline.cpu_percent, "%")
+      : undefined;
+  const memoryDelta =
+    hasDelta && current && memoryBaseline
+      ? signed(
+          percentDelta(
+            current.memory_used_bytes,
+            memoryBaseline.memory_used_bytes,
+          ),
+          "%",
+        )
+      : undefined;
+  const diskDelta =
+    hasDelta && current && diskBaseline
+      ? signed(
+          percentDelta(current.disk_used_bytes, diskBaseline.disk_used_bytes),
+          "%",
+        )
+      : undefined;
+  const networkDelta =
+    hasDelta && current && netBaseline
+      ? signed(
+          (current.network_rx_bytes_per_sec -
+            netBaseline.network_rx_bytes_per_sec) /
+            MIB,
+          " MB/s",
+        )
+      : undefined;
+
   return (
     <AdminPageBody>
       <AdminHeader
@@ -115,8 +165,9 @@ export function AdminOverview() {
           icon={Cpu}
           label="CPU Usage"
           value={current ? `${Math.round(current.cpu_percent)}%` : "—"}
-          changeLabel="across all cores"
-          changeTone="neutral"
+          change={cpuDelta}
+          changeLabel="from previous hour"
+          changeTone="danger"
           history={cpuHistory}
           sparkTone="accent"
         />
@@ -124,6 +175,7 @@ export function AdminOverview() {
           icon={MemoryStick}
           label="Memory"
           value={current ? formatBytes(current.memory_used_bytes) : "—"}
+          change={memoryDelta}
           changeLabel={
             current
               ? `of ${formatBytes(current.memory_total_bytes)}`
@@ -137,6 +189,7 @@ export function AdminOverview() {
           icon={HardDrive}
           label="Storage"
           value={current ? formatBytes(current.disk_used_bytes) : "—"}
+          change={diskDelta}
           changeLabel={
             current ? `of ${formatBytes(current.disk_total_bytes)}` : undefined
           }
@@ -157,7 +210,8 @@ export function AdminOverview() {
               ? `↑ ${(current.network_tx_bytes_per_sec / MIB).toFixed(1)} MB/s out`
               : undefined
           }
-          changeLabel="ingress"
+          change={networkDelta}
+          changeLabel="ingress, from previous hour"
           changeTone="neutral"
           history={networkHistory}
           sparkTone="warning"
