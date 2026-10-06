@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useState,
-  type CSSProperties,
-  type MouseEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -29,29 +23,22 @@ const REMEMBERED_EMAIL_KEY = "stealth.login.email";
 
 // Shared style tokens for the standalone sign-in screen, ported verbatim from
 // the Stealth marketing console design so the screen stays pixel-identical.
+// The trailing `!` on border/type utilities beats the Console's unlayered
+// global resets (`* { border-color }`, `button { font: inherit }`); the spacing,
+// radii, and font weights are restored by [data-login-standalone] in
+// styles/login-standalone.css.
 const secondaryButton =
-  "flex h-10 items-center justify-center gap-2 rounded-lg border border-[#333338] bg-[#0f0f0f] text-[13.5px] font-medium text-[#f2f2f3] transition-colors hover:border-[#4a4a50] hover:bg-[#1c1c1c] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#186cee]";
+  "flex h-10 items-center justify-center gap-2 rounded-lg border border-[#333338]! bg-[#0f0f0f] text-[13.5px]! font-medium! text-[#f2f2f3] transition-colors hover:border-[#4a4a50]! hover:bg-[#1c1c1c] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#186cee]!";
 const inputClass =
-  "h-10 w-full rounded-lg border bg-[#171717] px-3.5 text-[14px] text-white outline-none transition-colors placeholder:text-[#6b6b72] focus-visible:outline-none";
-const inputBorder = "border-[#2a2e38] focus:border-[#186cee]";
-const inputBorderError = "border-[#e5484d] focus:border-[#e5484d]";
+  "h-10 w-full rounded-lg border bg-[#171717] px-3.5 text-[14px]! text-white outline-none transition-colors placeholder:text-[#6b6b72]! focus-visible:outline-none!";
+const inputBorder = "border-[#2a2e38]! focus:border-[#186cee]!";
+const inputBorderError = "border-[#e5484d]! focus:border-[#e5484d]!";
 const errorText =
   "mt-1.5 flex items-center gap-1.5 text-[12.5px] leading-4 text-[#f87171]";
 const linkClass =
-  "font-medium text-[#4d8dff] underline underline-offset-2 hover:text-[#7fabff]";
+  "font-medium! text-[#4d8dff] underline underline-offset-2 hover:text-[#7fabff]";
 const submitButton =
-  "mt-6 h-10 w-full rounded-lg bg-[linear-gradient(180deg,#2e83f7_0%,#186cee_48%,#0e5cd6_100%)] text-[14px] font-semibold text-white transition-[filter,opacity] hover:brightness-110 disabled:cursor-default disabled:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#186cee]";
-
-// The Console remaps font weights globally (medium 510, semibold/bold 590) for
-// its own type scale. The redesign was authored against stock Tailwind weights,
-// so the sign-in screen pins them back to 500/600/700 to match it exactly.
-const REDESIGN_FONT_WEIGHTS = {
-  "--font-weight-medium": "500",
-  "--font-weight-semibold": "600",
-  "--font-weight-bold": "700",
-  // The Console body also enables Inter feature settings the redesign does not.
-  fontFeatureSettings: "normal",
-} as CSSProperties;
+  "mt-6 h-10 w-full rounded-lg bg-[linear-gradient(180deg,#2e83f7_0%,#186cee_48%,#0e5cd6_100%)] text-[14px]! font-semibold! text-white transition-[filter,opacity] hover:brightness-110 disabled:cursor-default disabled:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#186cee]!";
 
 const preventPlaceholderNav = (event: MouseEvent<HTMLAnchorElement>) =>
   event.preventDefault();
@@ -147,7 +134,7 @@ export function LoginView() {
 
   return (
     <main
-      style={REDESIGN_FONT_WEIGHTS}
+      data-login-standalone
       className="relative flex min-h-dvh flex-col items-center bg-[#0f0f0f] px-4 py-14 font-medium text-white sm:py-10"
     >
       <a
@@ -159,11 +146,13 @@ export function LoginView() {
       <div id="login-main-content" className="my-auto w-full max-w-[364px]">
         <div className="mb-6 flex justify-center">
           <Image
-            alt=""
+            alt="Stealth"
             src="/stealth-mark.png"
             width={56}
             height={56}
             priority
+            unoptimized
+            style={{ color: "inherit" }}
             className="size-14 rounded-[14px] ring-1 ring-white/10"
           />
         </div>
@@ -199,7 +188,7 @@ export function LoginView() {
           aria-live="polite"
           className={
             providerNotice
-              ? "mt-3 flex items-start gap-1.5 rounded-lg border border-[#5c4a1e] bg-[#2a2310] px-3 py-2 text-[12.5px] leading-4 text-[#f3c96b]"
+              ? "mt-3 flex items-start gap-1.5 rounded-lg border border-[#5c4a1e]! bg-[#2a2310] px-3 py-2 text-[12.5px] leading-4 text-[#f3c96b]"
               : "sr-only"
           }
         >
@@ -302,7 +291,7 @@ export function LoginView() {
             />
             <span
               aria-hidden="true"
-              className="flex size-[18px] shrink-0 items-center justify-center rounded-[5px] border-2 border-[#57575f] bg-transparent transition-colors peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#186cee] peer-checked:border-[#186cee] peer-checked:bg-[#186cee]"
+              className="flex size-[18px] shrink-0 items-center justify-center rounded-[5px] border-2 border-[#57575f]! bg-transparent transition-colors peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#186cee] peer-checked:border-[#186cee]! peer-checked:bg-[#186cee]"
             >
               {rememberEmail ? (
                 <Check size={13} strokeWidth={3} className="text-white" />
@@ -322,7 +311,7 @@ export function LoginView() {
         </form>
 
         {searchParams.get("reset") === "success" ? (
-          <p className="mt-4 rounded-lg border border-[#1e4433] bg-[#12241b] px-3 py-2 text-center text-[12.5px] leading-4 text-[#4ade80]">
+          <p className="mt-4 rounded-lg border border-[#1e4433]! bg-[#12241b] px-3 py-2 text-center text-[12.5px] leading-4 text-[#4ade80]">
             Password updated. Sign in with your new password.
           </p>
         ) : null}
