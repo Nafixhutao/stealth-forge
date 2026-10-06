@@ -147,13 +147,13 @@ export function LoginView() {
         <div className="mb-6 flex justify-center">
           <Image
             alt="Stealth"
-            src="/stealth-mark.png"
+            src="/stealth-mark-transparent.png"
             width={56}
             height={56}
             priority
             unoptimized
             style={{ color: "inherit" }}
-            className="size-14 rounded-[14px] ring-1 ring-white/10"
+            className="size-14"
           />
         </div>
         <h1 className="m-0 text-center text-2xl font-bold leading-8 tracking-[-0.01em]">
