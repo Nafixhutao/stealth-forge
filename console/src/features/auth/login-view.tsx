@@ -9,6 +9,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Check, CircleAlert, Eye, EyeOff, Lock } from "lucide-react";
 import { useLogin } from "@/api/mutations";
+import { fetchCurrentAccount } from "@/api/queries/account";
 import { errorMessage } from "@/components/feedback/error-state";
 import { getSafeNextPath } from "@/lib/navigation";
 import {
@@ -73,7 +74,21 @@ export function LoginView() {
     }
     try {
       await mutation.mutateAsync(values);
-      router.replace(destination);
+      // Instance owners and admins operate the platform, so send them to the
+      // Admin Console. An explicit ?next= always wins (invitations, deep links).
+      let target = destination;
+      if (rawNext === null) {
+        try {
+          const account = await fetchCurrentAccount();
+          const role = account?.account.instance_role;
+          if (role === "instance_owner" || role === "instance_admin") {
+            target = "/admin";
+          }
+        } catch {
+          // Fall back to the default destination if the role cannot be read.
+        }
+      }
+      router.replace(target);
     } catch {
       // The mutation error is rendered below; handleSubmit re-throws, so
       // swallowing here avoids an unhandled promise rejection.
