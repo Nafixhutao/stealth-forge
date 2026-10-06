@@ -147,7 +147,7 @@ export function LoginView() {
         <div className="mb-6 flex justify-center">
           <Image
             alt="Stealth"
-            src="/stealth-mark-transparent.png"
+            src="/stealth-cat.png"
             width={56}
             height={56}
             priority
