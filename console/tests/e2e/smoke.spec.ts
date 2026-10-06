@@ -133,7 +133,7 @@ test("preserves an invitation through registration for a new account", async ({
   await expect(page).toHaveURL(/\/login\?next=/);
   expect(new URL(page.url()).searchParams.get("next")).toBe(invitationPath);
 
-  await page.getByRole("link", { name: "Create an account" }).click();
+  await page.getByRole("link", { name: "Sign up" }).click();
   await expect(page).toHaveURL(/\/register\?next=/);
   expect(new URL(page.url()).searchParams.get("next")).toBe(invitationPath);
 

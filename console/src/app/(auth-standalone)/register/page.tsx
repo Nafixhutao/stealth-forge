@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import "@fontsource-variable/inter";
 import { RegisterView } from "@/features/auth/register-view";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { Skeleton } from "@/components/ui/skeleton";
