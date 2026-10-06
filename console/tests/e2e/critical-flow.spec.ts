@@ -502,7 +502,7 @@ test("critical console flow can move from login to a resource and logout", async
   await page.goto("/login");
   await page.getByLabel("Email").fill(account.email);
   await page.getByLabel("Password").fill("correct horse battery staple");
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/organizations$/);
   await expect(
     page.getByRole("heading", { name: "Organizations", exact: true, level: 1 }),

@@ -7,25 +7,29 @@ test("login form is available without an API dependency", async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByLabel("Email")).toBeVisible();
   await expect(page.getByLabel("Password")).toBeVisible();
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByText("Enter a valid email address.")).toBeVisible();
 });
 
 test("authentication links are discoverable", async ({ page }) => {
   await page.goto("/login");
   await expect(
-    page.getByRole("link", { name: "Forgot password?" }),
+    page.getByRole("link", { name: "email", exact: true }),
   ).toHaveAttribute("href", "/recovery");
   await expect(
-    page.getByRole("link", { name: "Create an account" }),
-  ).toHaveAttribute("href", "/register");
+    page.getByRole("link", { name: "password", exact: true }),
+  ).toHaveAttribute("href", "/recovery");
+  await expect(page.getByRole("link", { name: "Sign up" })).toHaveAttribute(
+    "href",
+    "/register",
+  );
 });
 
 test("unsafe auth next paths fall back to organizations", async ({ page }) => {
   for (const unsafeNext of ["//evil.example", "https://evil.example"]) {
     await page.goto("/login?next=" + encodeURIComponent(unsafeNext));
     const registerHref = await page
-      .getByRole("link", { name: "Create an account" })
+      .getByRole("link", { name: "Sign up" })
       .getAttribute("href");
     expect(
       new URL(registerHref ?? "", "http://127.0.0.1").searchParams.get("next"),
