@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { PasswordRecoveryView } from "@/features/auth/auth-flow-views";
+import "@fontsource-variable/inter";
+import { PasswordRecoveryView } from "@/features/auth/password-recovery-views";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const metadata: Metadata = {
-  title: "Recover account",
+  title: "Forgot password",
   description: "Request a Stealth Console password reset.",
 };
 
-export default function RecoveryPage() {
+export default function ForgotPasswordPage() {
   return (
     <Suspense
       fallback={

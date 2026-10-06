@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { PasswordRecoveryView } from "@/features/auth/auth-flow-views";
+import "@fontsource-variable/inter";
+import { PasswordRecoveryView } from "@/features/auth/password-recovery-views";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { Skeleton } from "@/components/ui/skeleton";
 

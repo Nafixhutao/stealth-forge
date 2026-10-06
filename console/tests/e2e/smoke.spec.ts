@@ -15,10 +15,10 @@ test("authentication links are discoverable", async ({ page }) => {
   await page.goto("/login");
   await expect(
     page.getByRole("link", { name: "email", exact: true }),
-  ).toHaveAttribute("href", "/recovery");
+  ).toHaveAttribute("href", "/forgot-password");
   await expect(
     page.getByRole("link", { name: "password", exact: true }),
-  ).toHaveAttribute("href", "/recovery");
+  ).toHaveAttribute("href", "/forgot-password");
   await expect(page.getByRole("link", { name: "Sign up" })).toHaveAttribute(
     "href",
     "/register",

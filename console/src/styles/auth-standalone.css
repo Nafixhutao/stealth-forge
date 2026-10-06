@@ -5,7 +5,7 @@
    defaults and the Inter type inside this surface only, mirroring the
    [data-admin] block in admin.css. The `!` important modifiers on the affected
    utilities in login-view.tsx beat those unlayered globals. */
-[data-login-standalone] {
+[data-auth-standalone] {
   font-family: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
   color: #fff;
   /* The Console body enables Inter feature settings; the source design does not. */
@@ -65,8 +65,8 @@
 
 /* Tailwind v4 preflight dropped `cursor: pointer` on buttons; the source
    design relies on the v3 behavior. */
-[data-login-standalone] button,
-[data-login-standalone] [role="button"] {
+[data-auth-standalone] button,
+[data-auth-standalone] [role="button"] {
   cursor: pointer;
 }
 
@@ -74,9 +74,9 @@
    tint the default border colour of every borderless element. Restore the
    source design's currentColor default; the `!` border utilities in
    login-view.tsx still win with their explicit colours. */
-[data-login-standalone],
-[data-login-standalone] *,
-[data-login-standalone] *::before,
-[data-login-standalone] *::after {
+[data-auth-standalone],
+[data-auth-standalone] *,
+[data-auth-standalone] *::before,
+[data-auth-standalone] *::after {
   border-color: currentColor;
 }

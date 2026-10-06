@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "../styles/admin.css";
-@import "../styles/login-standalone.css";
+@import "../styles/auth-standalone.css";
 
 @theme {
   /* Stealth's visual language: a quiet operations surface with one action accent. */
