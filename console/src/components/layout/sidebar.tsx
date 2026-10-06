@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useConsoleRouteContext } from "@/components/navigation/console-route-context";
 import { useCurrentAccount } from "@/api/queries/account";
@@ -107,9 +108,13 @@ export function Sidebar({
           collapsed && !mobile ? "justify-center" : "px-3",
         )}
       >
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-acid-lime/40 bg-acid-lime text-sm font-semibold text-void">
-          S
-        </span>
+        <Image
+          src="/stealth-mark.png"
+          alt="Stealth"
+          width={32}
+          height={32}
+          className="size-8 shrink-0 rounded-md"
+        />
         {!collapsed || mobile ? (
           <div className="min-w-0">
             <p className="text-sm font-semibold tracking-[-0.012em] text-paper">
