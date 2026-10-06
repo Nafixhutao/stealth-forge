@@ -60,9 +60,13 @@ export function GitHubMark() {
   );
 }
 
-export const AUTH_PROVIDERS: Array<{ name: string; mark: ReactNode }> = [
-  { name: "Google", mark: <GoogleMark /> },
-  { name: "GitHub", mark: <GitHubMark /> },
+export const AUTH_PROVIDERS: Array<{
+  id: "google" | "github";
+  name: string;
+  mark: ReactNode;
+}> = [
+  { id: "google", name: "Google", mark: <GoogleMark /> },
+  { id: "github", name: "GitHub", mark: <GitHubMark /> },
 ];
 
 /** Full-page shell shared by the standalone auth screens. */

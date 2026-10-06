@@ -8,7 +8,11 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Check, CircleAlert, Eye, EyeOff, Lock } from "lucide-react";
-import { useLogin } from "@/api/mutations";
+import {
+  useLogin,
+  useStartOAuthLogin,
+  type OAuthProvider,
+} from "@/api/mutations";
 import { fetchCurrentAccount } from "@/api/queries/account";
 import { errorMessage } from "@/components/feedback/error-state";
 import { getSafeNextPath } from "@/lib/navigation";
@@ -100,6 +104,31 @@ export function LoginView() {
       `Sign-in with ${provider} is not configured on this instance yet. Use your email and password.`,
     );
 
+  // Provider buttons start the real browser flow. An unconfigured provider
+  // answers 503, which we surface as an honest notice instead of a dead end.
+  const startOAuth = useStartOAuthLogin();
+  const handleProvider = (provider: "github" | "google", label: string) => {
+    startOAuth.mutate(provider as OAuthProvider, {
+      onSuccess: (result) => {
+        if (result?.authorization_url) {
+          window.location.assign(result.authorization_url);
+        }
+      },
+      onError: () => showProviderNotice(label),
+    });
+  };
+
+  // Result banner for a provider round trip that came back to the Console.
+  const oauthResult = searchParams.get("oauth");
+  const oauthMessage =
+    oauthResult === "error"
+      ? "That provider sign-in could not be completed. Try again or use your email and password."
+      : oauthResult === "unlinked"
+        ? "That provider account is not linked to a Stealth account yet. Sign in with your email and password, then link it from your account page."
+        : oauthResult === "unavailable"
+          ? "That sign-in provider is not configured on this instance."
+          : null;
+
   return (
     <StandaloneAuthShell>
       <div className="mb-6 flex justify-center">
@@ -121,10 +150,11 @@ export function LoginView() {
       <div className="mt-6 grid grid-cols-2 gap-2.5">
         {AUTH_PROVIDERS.map((provider) => (
           <button
-            key={provider.name}
+            key={provider.id}
             type="button"
             className={secondaryButton}
-            onClick={() => showProviderNotice(provider.name)}
+            disabled={startOAuth.isPending}
+            onClick={() => handleProvider(provider.id, provider.name)}
           >
             {provider.mark}
             {provider.name}
@@ -271,6 +301,18 @@ export function LoginView() {
       {searchParams.get("reset") === "success" ? (
         <p className="mt-4 rounded-lg border border-[#1e4433]! bg-[#12241b] px-3 py-2 text-center text-[12.5px] leading-4 text-[#4ade80]">
           Password updated. Sign in with your new password.
+        </p>
+      ) : null}
+
+      {oauthMessage ? (
+        <p className="mt-4 flex items-start gap-1.5 rounded-lg border border-[#5c4a1e]! bg-[#2a2310] px-3 py-2 text-[12.5px] leading-4 text-[#f3c96b]">
+          <CircleAlert
+            size={13}
+            strokeWidth={2}
+            aria-hidden="true"
+            className="mt-0.5 shrink-0"
+          />
+          {oauthMessage}
         </p>
       ) : null}
 

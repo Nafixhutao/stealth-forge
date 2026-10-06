@@ -1326,6 +1326,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/oauth/{provider}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Begin browser sign-in with an external identity provider. Returns the provider authorization URL to redirect to. Only providers with operator credentials are available. */
+        get: operations["startOAuthLogin"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/oauth/{provider}/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Provider redirect target that completes external sign-in. Resolves an already-linked identity to its account, opens a Console session, and redirects to the Console. Unlinked identities never create accounts. */
+        get: operations["completeOAuthLogin"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/organizations": {
         parameters: {
             query?: never;
@@ -4283,6 +4317,13 @@ export interface components {
             /** Format: email */
             email: string;
             password: string;
+        };
+        OAuthStartResponse: {
+            /**
+             * Format: uri
+             * @description Provider authorization URL the browser should follow.
+             */
+            authorization_url: string;
         };
         /** @description Empty JSON object by default; url is optional and must be the exact configured auth route (relative or on an allowlisted origin) without a query or fragment. The emailed link is rebuilt from trusted server configuration. */
         AuthVerificationRequest: {
@@ -9461,6 +9502,54 @@ export interface operations {
                 content?: never;
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    startOAuthLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: PathsV1OauthProviderStartGetParametersPathProvider;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Provider authorization URL */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthStartResponse"];
+                };
+            };
+            422: components["responses"]["BadRequest"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    completeOAuthLogin: {
+        parameters: {
+            query?: {
+                code?: string;
+                state?: string;
+                error?: string;
+            };
+            header?: never;
+            path: {
+                provider: PathsV1OauthProviderCallbackGetParametersPathProvider;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to the Console sign-in result */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     listOrganizations: {
@@ -15360,6 +15449,14 @@ export enum PathsV1AdminInfrastructureMetricsGetParametersQueryScope {
     postgres = "postgres",
     redis = "redis",
     services = "services"
+}
+export enum PathsV1OauthProviderStartGetParametersPathProvider {
+    github = "github",
+    google = "google"
+}
+export enum PathsV1OauthProviderCallbackGetParametersPathProvider {
+    github = "github",
+    google = "google"
 }
 export enum PathsV1ProjectsProjectIDUsageMeteringGetParametersQueryFormat {
     json = "json",

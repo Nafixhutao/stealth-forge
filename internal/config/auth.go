@@ -31,6 +31,10 @@ type authSettings struct {
 	authRateWindow             time.Duration
 	projectOperationRateLimit  int
 	projectOperationRateWindow time.Duration
+	oauthGitHubClientID        string
+	oauthGitHubClientSecret    string
+	oauthGoogleClientID        string
+	oauthGoogleClientSecret    string
 }
 
 func loadAuthSettings() (authSettings, error) {
@@ -112,6 +116,10 @@ func loadAuthSettings() (authSettings, error) {
 		authRateWindow:             authRateWindow,
 		projectOperationRateLimit:  projectOperationRateLimit,
 		projectOperationRateWindow: projectOperationRateWindow,
+		oauthGitHubClientID:        strings.TrimSpace(os.Getenv("OAUTH_GITHUB_CLIENT_ID")),
+		oauthGitHubClientSecret:    strings.TrimSpace(os.Getenv("OAUTH_GITHUB_CLIENT_SECRET")),
+		oauthGoogleClientID:        strings.TrimSpace(os.Getenv("OAUTH_GOOGLE_CLIENT_ID")),
+		oauthGoogleClientSecret:    strings.TrimSpace(os.Getenv("OAUTH_GOOGLE_CLIENT_SECRET")),
 	}, nil
 }
 
@@ -134,6 +142,10 @@ func (s authSettings) apply(c *Config) {
 	c.AuthRateWindow = s.authRateWindow
 	c.ProjectOperationRateLimit = s.projectOperationRateLimit
 	c.ProjectOperationRateWindow = s.projectOperationRateWindow
+	c.OAuthGitHubClientID = s.oauthGitHubClientID
+	c.OAuthGitHubClientSecret = s.oauthGitHubClientSecret
+	c.OAuthGoogleClientID = s.oauthGoogleClientID
+	c.OAuthGoogleClientSecret = s.oauthGoogleClientSecret
 }
 
 func (c *Config) applyAuthDefaults() {
