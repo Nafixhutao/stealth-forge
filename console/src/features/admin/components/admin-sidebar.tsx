@@ -6,11 +6,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
 import {
   Activity,
-  ArrowLeft,
   Bug,
   ChartNoAxesCombined,
   BrainCircuit,
   Gauge,
+  LogOut,
   Logs,
   RadioTower,
   Server,
@@ -22,6 +22,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
+import { useLogout } from "@/api/mutations/auth";
 import {
   PANEL_CLOSE_TRANSITION,
   PANEL_TRANSITION,
@@ -154,12 +155,19 @@ function AdminSidebarBody({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const logout = useLogout();
   const layoutId = useId();
   const reduce = useReducedMotion() ?? false;
 
   const handleNavigate = (href: string) => {
     router.push(href);
     onNavigate?.(href);
+  };
+
+  const handleSignOut = () => {
+    logout.mutate(undefined, {
+      onSuccess: () => router.replace("/login"),
+    });
   };
 
   return (
@@ -222,13 +230,15 @@ function AdminSidebarBody({
           </span>
           All systems operational
         </Link>
-        <Link
-          href="/"
-          className="mt-2.5 flex items-center gap-2 text-[12px] text-[#AAA6AE] transition-colors hover:text-[#EEEAF0]"
+        <button
+          type="button"
+          onClick={handleSignOut}
+          disabled={logout.isPending}
+          className="mt-2.5 flex w-full items-center gap-2 text-[12px] text-[#AAA6AE] transition-colors hover:text-[#EEEAF0] disabled:opacity-60"
         >
-          <ArrowLeft size={13} strokeWidth={1.8} aria-hidden="true" />
-          Back to app
-        </Link>
+          <LogOut size={13} strokeWidth={1.8} aria-hidden="true" />
+          {logout.isPending ? "Signing out…" : "Sign out"}
+        </button>
       </footer>
     </>
   );

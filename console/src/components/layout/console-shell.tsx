@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCurrentAccount } from "@/api/queries/account";
 import { ApiError } from "@/api/client";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -32,12 +32,21 @@ function ConsoleShellContent({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const pathname = usePathname();
   const unauthorized =
     account.error instanceof ApiError && account.error.status === 401;
+  // Instance owners and admins operate the platform from the Admin Console, so
+  // the customer console (organizations, projects, services) is not their
+  // workspace. /account stays reachable so they can manage their own
+  // credentials and sign out.
+  const role = account.data?.account.instance_role;
+  const instanceAdmin = role === "instance_owner" || role === "instance_admin";
+  const adminOnlyRedirect = instanceAdmin && pathname !== "/account";
 
   useEffect(() => {
     if (unauthorized) router.replace("/login");
-  }, [router, unauthorized]);
+    else if (adminOnlyRedirect) router.replace("/admin");
+  }, [router, unauthorized, adminOnlyRedirect]);
 
   if (account.isPending)
     return (
@@ -59,6 +68,17 @@ function ConsoleShellContent({
           <Skeleton className="mx-auto size-12 rounded-2xl" />
           <p className="text-center text-xs text-slate-500">
             Session expired. Returning to sign in…
+          </p>
+        </LoadingState>
+      </div>
+    );
+  if (adminOnlyRedirect)
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-void">
+        <LoadingState label="Opening the Admin Console…" className="w-72">
+          <Skeleton className="mx-auto size-12 rounded-2xl" />
+          <p className="text-center text-xs text-slate-500">
+            Instance owners and admins work from the Admin Console.
           </p>
         </LoadingState>
       </div>
