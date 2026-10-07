@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import "@fontsource-variable/inter";
+import { StandaloneAuthFallback } from "@/features/auth/auth-standalone";
 import { LoginView } from "@/features/auth/login-view";
-import { LoadingState } from "@/components/feedback/loading-state";
-import { Skeleton } from "@/components/ui/skeleton";
 
 export const metadata: Metadata = {
   title: "Sign in",
@@ -13,14 +12,7 @@ export const metadata: Metadata = {
 export default function LoginPage() {
   return (
     <Suspense
-      fallback={
-        <LoadingState
-          label="Loading sign-in form…"
-          className="h-[28rem] w-full max-w-md"
-        >
-          <Skeleton className="h-full w-full rounded-2xl" />
-        </LoadingState>
-      }
+      fallback={<StandaloneAuthFallback label="Loading sign-in form…" />}
     >
       <LoginView />
     </Suspense>

@@ -1,6 +1,7 @@
 "use client";
 
 import type { MouseEvent, ReactNode } from "react";
+import { PixelSkeleton } from "@/components/ui/pixel-skeleton";
 
 /**
  * Shared tokens and shell for the standalone auth screens (sign-in, forgot
@@ -89,5 +90,39 @@ export function StandaloneAuthShell({ children }: { children: ReactNode }) {
         {children}
       </div>
     </main>
+  );
+}
+
+/**
+ * Suspense fallback for the standalone auth screens. It reuses the real shell
+ * so the first paint already matches the sign-in design instead of flashing a
+ * grey card on a different background.
+ */
+export function StandaloneAuthFallback({ label }: { label: string }) {
+  return (
+    <StandaloneAuthShell>
+      <span className="sr-only" role="status" aria-live="polite">
+        {label}
+      </span>
+      <div className="mb-6 flex justify-center">
+        <PixelSkeleton className="size-14 rounded-[14px]" />
+      </div>
+      <PixelSkeleton className="mx-auto h-8 w-56" />
+      <div className="mt-6 grid grid-cols-2 gap-2.5">
+        <PixelSkeleton className="h-10 rounded-lg" />
+        <PixelSkeleton className="h-10 rounded-lg" />
+      </div>
+      <PixelSkeleton className="mt-2.5 h-10 w-full rounded-lg" />
+      <div className="my-5 flex items-center gap-3">
+        <PixelSkeleton className="h-px flex-1" />
+        <PixelSkeleton className="h-3 w-6" />
+        <PixelSkeleton className="h-px flex-1" />
+      </div>
+      <PixelSkeleton className="mb-1.5 h-4 w-16" />
+      <PixelSkeleton className="h-10 w-full rounded-lg" />
+      <PixelSkeleton className="mb-1.5 mt-4 h-4 w-20" />
+      <PixelSkeleton className="h-10 w-full rounded-lg" />
+      <PixelSkeleton className="mt-6 h-10 w-full rounded-lg" />
+    </StandaloneAuthShell>
   );
 }
