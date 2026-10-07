@@ -11,6 +11,7 @@ import {
   SeverityBadge,
 } from "../components/domain-badges";
 import { StatusBadge } from "../components/status-badge";
+import { IncidentListSkeleton } from "../components/admin-skeletons";
 import { AdminSelect } from "../components/admin-select";
 import { CreateIncidentDialog } from "./create-incident-dialog";
 import { toIncident } from "../data/admin-adapters";
@@ -123,9 +124,7 @@ export function IncidentsPage() {
 
       <div className="overflow-hidden rounded-lg border border-[var(--projects-border)] bg-[#141416]">
         {query.isPending ? (
-          <p className="px-4 py-12 text-center text-[13px] text-[var(--projects-muted)]">
-            Loading incidents…
-          </p>
+          <IncidentListSkeleton />
         ) : query.error ? (
           <p className="px-4 py-12 text-center text-[13px] text-[var(--projects-danger)]">
             Could not load incidents. Retry shortly.

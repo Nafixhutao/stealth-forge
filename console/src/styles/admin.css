@@ -4,6 +4,12 @@
 :root {
   /* Semantic "info" — the one tone the platform palette does not define. */
   --admin-info: #6ea8fe;
+  /* Pixel-sweep skeleton, ported from the redesigned admin console. The
+     component is admin-only by usage, so the tokens stay global and work in
+     the AdminGate shell that renders outside [data-admin]. */
+  --skeleton-background: #29272d;
+  --skeleton-gradient-start: #c77dff;
+  --skeleton-gradient-end: #9b5de5;
 }
 
 /* The redesigned admin console was authored with the Geist Variable body font

@@ -10,6 +10,7 @@ import {
 import { AdminHeader, AdminPageBody } from "../components/admin-panel";
 import { AdminSelect } from "../components/admin-select";
 import { MetricCard } from "../components/metric-card";
+import { MetricCardsSkeleton } from "../components/admin-skeletons";
 import { StatTile } from "../components/stat-tile";
 import {
   LiveIndicator,
@@ -206,60 +207,66 @@ export function AdminOverview() {
       {/* 2×2 on phones so all four host metrics read at a glance; the tall
           single-column stack pushed Platform and the charts far below the
           fold. Desktop stays one row of four. */}
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
-        <MetricCard
-          icon={Cpu}
-          label="CPU Usage"
-          value={current ? `${Math.round(current.cpu_percent)}%` : "—"}
-          change={cpuDelta}
-          changeLabel={`from previous ${rangeMeta?.noun ?? "hour"}`}
-          changeTone="danger"
-          history={cpuHistory}
-          sparkTone="accent"
-        />
-        <MetricCard
-          icon={MemoryStick}
-          label="Memory"
-          value={current ? formatBytes(current.memory_used_bytes) : "—"}
-          change={memoryDelta}
-          changeLabel={
-            current
-              ? `of ${formatBytes(current.memory_total_bytes)}`
-              : undefined
-          }
-          changeTone="success"
-          history={memoryHistory}
-          sparkTone="info"
-        />
-        <MetricCard
-          icon={HardDrive}
-          label="Storage"
-          value={current ? formatBytes(current.disk_used_bytes) : "—"}
-          change={diskDelta}
-          changeLabel={
-            current ? `of ${formatBytes(current.disk_total_bytes)}` : undefined
-          }
-          changeTone="neutral"
-          history={diskHistory}
-          sparkTone="neutral"
-        />
-        <MetricCard
-          icon={Network}
-          label="Network"
-          value={network?.value ?? "—"}
-          unit={network?.unit}
-          hint={
-            current
-              ? `↑ ${(current.network_tx_bytes_per_sec / KIB).toFixed(1)} KB/s out`
-              : undefined
-          }
-          change={networkDelta}
-          changeLabel={`ingress, from previous ${rangeMeta?.noun ?? "hour"}`}
-          changeTone="neutral"
-          history={networkHistory}
-          sparkTone="warning"
-        />
-      </div>
+      {host.isPending ? (
+        <MetricCardsSkeleton />
+      ) : (
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
+          <MetricCard
+            icon={Cpu}
+            label="CPU Usage"
+            value={current ? `${Math.round(current.cpu_percent)}%` : "—"}
+            change={cpuDelta}
+            changeLabel={`from previous ${rangeMeta?.noun ?? "hour"}`}
+            changeTone="danger"
+            history={cpuHistory}
+            sparkTone="accent"
+          />
+          <MetricCard
+            icon={MemoryStick}
+            label="Memory"
+            value={current ? formatBytes(current.memory_used_bytes) : "—"}
+            change={memoryDelta}
+            changeLabel={
+              current
+                ? `of ${formatBytes(current.memory_total_bytes)}`
+                : undefined
+            }
+            changeTone="success"
+            history={memoryHistory}
+            sparkTone="info"
+          />
+          <MetricCard
+            icon={HardDrive}
+            label="Storage"
+            value={current ? formatBytes(current.disk_used_bytes) : "—"}
+            change={diskDelta}
+            changeLabel={
+              current
+                ? `of ${formatBytes(current.disk_total_bytes)}`
+                : undefined
+            }
+            changeTone="neutral"
+            history={diskHistory}
+            sparkTone="neutral"
+          />
+          <MetricCard
+            icon={Network}
+            label="Network"
+            value={network?.value ?? "—"}
+            unit={network?.unit}
+            hint={
+              current
+                ? `↑ ${(current.network_tx_bytes_per_sec / KIB).toFixed(1)} KB/s out`
+                : undefined
+            }
+            change={networkDelta}
+            changeLabel={`ingress, from previous ${rangeMeta?.noun ?? "hour"}`}
+            changeTone="neutral"
+            history={networkHistory}
+            sparkTone="warning"
+          />
+        </div>
+      )}
 
       {/* Platform metrics */}
       <div>

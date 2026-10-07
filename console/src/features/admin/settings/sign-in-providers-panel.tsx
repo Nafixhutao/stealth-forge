@@ -10,6 +10,7 @@ import {
 } from "@/api/mutations";
 import { errorMessage } from "@/components/feedback/error-state";
 import { AdminPanel, AdminPanelHeader } from "../components/admin-panel";
+import { ProviderCardsSkeleton } from "../components/admin-skeletons";
 import { CopyButton } from "../components/copy-button";
 import { StatusBadge } from "../components/status-badge";
 
@@ -42,10 +43,7 @@ export function SignInProvidersPanel() {
         subtitle="Let people sign in with an external account. Secrets are encrypted at rest and never shown again."
       />
       {query.isPending ? (
-        <p className="flex items-center gap-2 text-[13px] text-[var(--projects-muted)]">
-          <Loader2 size={14} className="animate-spin" aria-hidden="true" />
-          Loading providers…
-        </p>
+        <ProviderCardsSkeleton />
       ) : query.error ? (
         <p
           role="alert"
