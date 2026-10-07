@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Check } from "lucide-react";
 import { AdminHeader, AdminPageBody } from "../components/admin-panel";
 import { AdminPanel, AdminPanelHeader } from "../components/admin-panel";
+import { SignInProvidersPanel } from "./sign-in-providers-panel";
 import { cn } from "@/lib/utils";
 
 const fieldClass =
@@ -32,7 +33,7 @@ export function SettingsPage() {
     <AdminPageBody>
       <AdminHeader
         title="Settings"
-        subtitle="Console preferences and telemetry configuration (mock, local only)."
+        subtitle="Console preferences and telemetry configuration. Sign-in providers apply immediately."
       >
         <button
           type="button"
@@ -153,6 +154,8 @@ export function SettingsPage() {
             />
           </div>
         </AdminPanel>
+
+        <SignInProvidersPanel />
       </div>
     </AdminPageBody>
   );

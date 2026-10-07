@@ -128,6 +128,7 @@ export const queryKeys = {
   serviceLayout: (projectId: string) => ["service-layout", projectId] as const,
   adminOverview: ["admin", "overview"] as const,
   adminOperations: ["admin", "operations"] as const,
+  adminOAuthProviders: ["admin", "oauth-providers"] as const,
   adminAuditEvents: (query: unknown) =>
     ["admin", "audit-events", query] as const,
   adminMonitors: ["admin", "monitors"] as const,

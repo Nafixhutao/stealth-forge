@@ -521,6 +521,28 @@ paths:
       security: [{ sessionCookie: [] }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateAdminCloudflareConnectionRequest' } } } }
       responses: { '200': { description: Connection saved and routing queued for asynchronous reconciliation, content: { application/json: { schema: { $ref: '#/components/schemas/AdminCloudflareRoutingStatus' } } } }, '400': { $ref: '#/components/responses/BadRequest' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '409': { $ref: '#/components/responses/Conflict' }, '415': { $ref: '#/components/responses/UnsupportedMediaType' }, '422': { $ref: '#/components/responses/ValidationError' }, '502': { $ref: '#/components/responses/BadGateway' }, '503': { $ref: '#/components/responses/ServiceUnavailable' }, '500': { $ref: '#/components/responses/InternalError' } }
+  /v1/admin/oauth-providers:
+    get:
+      operationId: listAdminOAuthProviders
+      description: List the instance external sign-in providers with their Console callback URL. Requires Instance Owner or Instance Admin. Client secrets are never returned.
+      security: [{ sessionCookie: [] }]
+      responses: { '200': { description: Sign-in provider status, content: { application/json: { schema: { $ref: '#/components/schemas/AdminOAuthProvidersResponse' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '500': { $ref: '#/components/responses/InternalError' } }
+  /v1/admin/oauth-providers/{provider}:
+    put:
+      operationId: updateAdminOAuthProvider
+      description: Encrypt and store one external sign-in provider's client credentials. Only the Instance Owner may change them. The client secret is write-only and is never returned.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: provider, in: path, required: true, schema: { type: string, enum: [github, google] } }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateAdminOAuthProviderRequest' } } } }
+      responses: { '200': { description: Provider saved, content: { application/json: { schema: { $ref: '#/components/schemas/AdminOAuthProvider' } } } }, '400': { $ref: '#/components/responses/BadRequest' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' }, '415': { $ref: '#/components/responses/UnsupportedMediaType' }, '422': { $ref: '#/components/responses/ValidationError' }, '503': { $ref: '#/components/responses/ServiceUnavailable' }, '500': { $ref: '#/components/responses/InternalError' } }
+    delete:
+      operationId: deleteAdminOAuthProvider
+      description: Remove one external sign-in provider's stored credentials. Only the Instance Owner may change them. The Console then falls back to the deployment environment, if configured.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: provider, in: path, required: true, schema: { type: string, enum: [github, google] } }
+      responses: { '204': { description: Provider credentials removed }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' }, '500': { $ref: '#/components/responses/InternalError' } }
   /v1/bootstrap/status:
     get:
       operationId: getBootstrapStatus
@@ -3205,6 +3227,9 @@ components:
     RegisterRequest: { type: object, additionalProperties: false, required: [email, password], properties: { email: { type: string, format: email }, password: { type: string, minLength: 12, maxLength: 256, writeOnly: true }, organization_name: { type: string, minLength: 2, maxLength: 120 } } }
     LoginRequest: { type: object, additionalProperties: false, required: [email, password], properties: { email: { type: string, format: email }, password: { type: string, writeOnly: true } } }
     OAuthStartResponse: { type: object, additionalProperties: false, required: [authorization_url], properties: { authorization_url: { type: string, format: uri, description: Provider authorization URL the browser should follow. } } }
+    AdminOAuthProvider: { type: object, additionalProperties: false, required: [provider, configured, callback_url, source], properties: { provider: { type: string, enum: [github, google] }, configured: { type: boolean }, client_id: { type: string }, callback_url: { type: string, description: Register this exact URL with the provider. }, source: { type: string, enum: [database, environment, none], description: Where the active credentials come from. }, updated_at: { type: string, format: date-time } } }
+    AdminOAuthProvidersResponse: { type: object, additionalProperties: false, required: [providers], properties: { providers: { type: array, items: { $ref: '#/components/schemas/AdminOAuthProvider' } } } }
+    UpdateAdminOAuthProviderRequest: { type: object, additionalProperties: false, required: [client_id, client_secret], properties: { client_id: { type: string, minLength: 1, maxLength: 256 }, client_secret: { type: string, minLength: 1, maxLength: 512, writeOnly: true } } }
     AuthVerificationRequest: { type: object, additionalProperties: false, description: Empty JSON object by default; url is optional and must be the exact configured auth route (relative or on an allowlisted origin) without a query or fragment. The emailed link is rebuilt from trusted server configuration., properties: { url: { type: string, format: uri, maxLength: 2048 } } }
     AuthTokenRequest: { type: object, additionalProperties: false, anyOf: [{ required: [token] }, { required: [secret] }], properties: { token: { type: string, minLength: 43, maxLength: 43, pattern: '^[A-Za-z0-9_-]{43}$', writeOnly: true }, secret: { type: string, minLength: 43, maxLength: 43, pattern: '^[A-Za-z0-9_-]{43}$', writeOnly: true }, user_id: { type: string, format: uuid, description: Compatibility field; the opaque token is authoritative. } } }
     PasswordRecoveryRequest: { type: object, additionalProperties: false, required: [email], description: The optional url must be the exact configured auth route (relative or on an allowlisted origin) without a query or fragment. The emailed link is rebuilt from trusted server configuration., properties: { email: { type: string, format: email, maxLength: 320 }, url: { type: string, format: uri, maxLength: 2048 } } }

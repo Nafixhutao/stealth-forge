@@ -118,6 +118,7 @@ func main() {
 			WebhookCipher:    webhookCipher,
 			AdminCipher:      webhookCipher,
 			CloudflareCipher: webhookCipher,
+			OAuthCipher:      webhookCipher,
 		},
 	)
 	telemetryStore, telemetryErr := telemetry.New(telemetry.Config{

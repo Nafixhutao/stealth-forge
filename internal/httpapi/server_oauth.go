@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -23,10 +24,9 @@ const oauthStateCookieName = "stealth_oauth_state"
 // oauthStateTTL bounds how long a started login may sit at the provider.
 const oauthStateTTL = 10 * time.Minute
 
-// oauthProvider resolves a provider name to its configured definition. A
-// provider without operator credentials is reported as not configured so the
-// Console can hide or explain the button instead of failing mid-redirect.
-func (s *Server) oauthProvider(name string) (oauthlogin.Provider, bool) {
+// oauthProviderFromEnvironment builds a provider from the deployment
+// environment. It is the fallback when the Console has no stored credentials.
+func (s *Server) oauthProviderFromEnvironment(name string) (oauthlogin.Provider, bool) {
 	switch strings.ToLower(strings.TrimSpace(name)) {
 	case "github":
 		p := oauthlogin.GitHub(s.config.OAuthGitHubClientID, s.config.OAuthGitHubClientSecret)
@@ -37,6 +37,27 @@ func (s *Server) oauthProvider(name string) (oauthlogin.Provider, bool) {
 	default:
 		return oauthlogin.Provider{}, false
 	}
+}
+
+// oauthProvider resolves a provider name to its configured definition.
+// Credentials saved in the Console take precedence over the deployment
+// environment so an operator can change sign-in without editing files or
+// restarting the API.
+func (s *Server) oauthProvider(ctx context.Context, name string) (oauthlogin.Provider, bool) {
+	name = strings.ToLower(strings.TrimSpace(name))
+	if s.repo != nil {
+		if creds, err := s.repo.OAuthProviderCredentials(ctx, name); err == nil {
+			switch name {
+			case "github":
+				p := oauthlogin.GitHub(creds.ClientID, creds.ClientSecret)
+				return p, p.Configured()
+			case "google":
+				p := oauthlogin.Google(creds.ClientID, creds.ClientSecret)
+				return p, p.Configured()
+			}
+		}
+	}
+	return s.oauthProviderFromEnvironment(name)
 }
 
 // oauthCallbackURL is the provider-facing redirect target. It must be
@@ -64,7 +85,7 @@ type oauthStartResponse struct {
 // startOAuthLogin begins the browser flow and returns the provider URL. The
 // caller redirects the browser to it; no secret is exposed to the page.
 func (s *Server) startOAuthLogin(w http.ResponseWriter, r *http.Request) {
-	provider, configured := s.oauthProvider(chiURLParam(r, "provider"))
+	provider, configured := s.oauthProvider(r.Context(), chiURLParam(r, "provider"))
 	if !configured {
 		writeError(w, http.StatusServiceUnavailable, "oauth_not_configured", "this sign-in provider is not configured on this instance")
 		return
@@ -98,7 +119,7 @@ func (s *Server) startOAuthLogin(w http.ResponseWriter, r *http.Request) {
 // an account is rejected; external login never creates accounts.
 func (s *Server) oauthCallback(w http.ResponseWriter, r *http.Request) {
 	providerName := strings.ToLower(strings.TrimSpace(chiURLParam(r, "provider")))
-	provider, configured := s.oauthProvider(providerName)
+	provider, configured := s.oauthProvider(r.Context(), providerName)
 	if !configured {
 		http.Redirect(w, r, s.consoleURL("/login?oauth=unavailable"), http.StatusFound)
 		return
