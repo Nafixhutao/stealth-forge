@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { PixelSkeleton } from "@/components/ui/pixel-skeleton";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +27,7 @@ export function LoadingState({
       <span className="sr-only">{label}</span>
       {children ??
         Array.from({ length: rows }, (_, index) => (
-          <Skeleton key={index} className="h-14 w-full" />
+          <PixelSkeleton key={index} className="h-14 w-full" />
         ))}
     </div>
   );

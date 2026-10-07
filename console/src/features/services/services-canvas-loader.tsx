@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { LoadingState } from "@/components/feedback/loading-state";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PixelSkeleton } from "@/components/ui/pixel-skeleton";
 
 const ServicesCanvasView = dynamic(
   () =>
@@ -16,7 +16,7 @@ const ServicesCanvasView = dynamic(
         label="Loading services canvas…"
         className="h-[calc(100vh-15rem)] min-h-[520px] w-full"
       >
-        <Skeleton className="h-full w-full rounded-2xl" />
+        <PixelSkeleton className="h-full w-full rounded-2xl" />
       </LoadingState>
     ),
   },

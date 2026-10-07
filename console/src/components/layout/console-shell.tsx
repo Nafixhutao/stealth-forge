@@ -6,7 +6,7 @@ import { useCurrentAccount } from "@/api/queries/account";
 import { ApiError } from "@/api/client";
 import { ErrorState } from "@/components/feedback/error-state";
 import { LoadingState } from "@/components/feedback/loading-state";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PixelSkeleton } from "@/components/ui/pixel-skeleton";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import {
@@ -52,9 +52,9 @@ function ConsoleShellContent({
     return (
       <div className="flex min-h-dvh items-center justify-center bg-void">
         <LoadingState label="Loading account…" className="w-72">
-          <Skeleton className="mx-auto size-12 rounded-2xl" />
-          <Skeleton className="mx-auto h-4 w-40" />
-          <Skeleton className="mx-auto h-3 w-56" />
+          <PixelSkeleton className="mx-auto size-12 rounded-2xl" />
+          <PixelSkeleton className="mx-auto h-4 w-40" />
+          <PixelSkeleton className="mx-auto h-3 w-56" />
         </LoadingState>
       </div>
     );
@@ -65,7 +65,7 @@ function ConsoleShellContent({
           label="Session expired. Returning to sign in…"
           className="w-72"
         >
-          <Skeleton className="mx-auto size-12 rounded-2xl" />
+          <PixelSkeleton className="mx-auto size-12 rounded-2xl" />
           <p className="text-center text-xs text-slate-500">
             Session expired. Returning to sign in…
           </p>
@@ -76,7 +76,7 @@ function ConsoleShellContent({
     return (
       <div className="flex min-h-dvh items-center justify-center bg-void">
         <LoadingState label="Opening the Admin Console…" className="w-72">
-          <Skeleton className="mx-auto size-12 rounded-2xl" />
+          <PixelSkeleton className="mx-auto size-12 rounded-2xl" />
           <p className="text-center text-xs text-slate-500">
             Instance owners and admins work from the Admin Console.
           </p>

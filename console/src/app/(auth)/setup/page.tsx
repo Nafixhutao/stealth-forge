@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { BrowserSetupView } from "@/features/auth/browser-setup-view";
 import { LoadingState } from "@/components/feedback/loading-state";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PixelSkeleton } from "@/components/ui/pixel-skeleton";
 
 export const metadata: Metadata = {
   title: "Browser setup",
@@ -17,7 +17,7 @@ export default function SetupPage() {
           label="Loading browser setup…"
           className="h-[36rem] w-full max-w-5xl"
         >
-          <Skeleton className="h-full w-full rounded-2xl" />
+          <PixelSkeleton className="h-full w-full rounded-2xl" />
         </LoadingState>
       }
     >
