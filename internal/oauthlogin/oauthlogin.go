@@ -1,7 +1,9 @@
 // Package oauthlogin implements the browser OAuth login flow for external
-// identity providers (GitHub, Google). It is deliberately separate from the
-// first-owner bootstrap flow in internal/githubauth: login only resolves an
-// already-linked account_identities row and never creates an account.
+// identity providers (GitHub, Google) on top of golang.org/x/oauth2.
+//
+// It is deliberately separate from the first-owner bootstrap flow in
+// internal/githubauth: login only resolves an already-linked
+// account_identities row and never creates an account.
 package oauthlogin
 
 import (
@@ -14,22 +16,23 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/oauth2"
 )
 
 const (
 	// requestTimeout bounds a single provider round trip.
 	requestTimeout = 15 * time.Second
-	// maxBodyBytes bounds provider responses so a hostile endpoint cannot
-	// stream unbounded data into memory.
+	// maxBodyBytes bounds provider user-info responses so a hostile endpoint
+	// cannot stream unbounded data into memory.
 	maxBodyBytes = 1 << 20
 )
 
-// Provider kinds select the user-info parsing shape. The authorize/token
-// endpoints are configured per provider so both flows share one code path.
+// kind selects the user-info parsing shape. The authorization and token
+// endpoints come from the oauth2.Config, so both providers share one flow.
 type kind int
 
 const (
@@ -37,27 +40,29 @@ const (
 	kindGoogle
 )
 
-// Provider is one configured identity provider.
+// Provider is one configured identity provider. Endpoint values match the
+// documented providers; they are inlined rather than imported from
+// oauth2/google so the API does not take the compute-metadata dependency.
 type Provider struct {
 	Name         string
-	AuthorizeURL string
-	TokenURL     string
+	Endpoint     oauth2.Endpoint
 	UserInfoURL  string
 	Scopes       []string
 	ClientID     string
 	ClientSecret string
-	// grantType is sent on the token exchange. Google requires it; GitHub
-	// rejects unknown values on some endpoints, so it stays empty there.
-	grantType string
-	kind      kind
+	kind         kind
 }
 
-// GitHub returns the GitHub provider definition.
+// GitHub returns the GitHub provider definition. AuthStyleInParams matches the
+// documented body-parameter exchange, avoiding the library's header-first probe.
 func GitHub(clientID, clientSecret string) Provider {
 	return Provider{
-		Name:         "github",
-		AuthorizeURL: "https://github.com/login/oauth/authorize",
-		TokenURL:     "https://github.com/login/oauth/access_token",
+		Name: "github",
+		Endpoint: oauth2.Endpoint{
+			AuthURL:   "https://github.com/login/oauth/authorize",
+			TokenURL:  "https://github.com/login/oauth/access_token",
+			AuthStyle: oauth2.AuthStyleInParams,
+		},
 		UserInfoURL:  "https://api.github.com/user",
 		Scopes:       []string{"read:user", "user:email"},
 		ClientID:     strings.TrimSpace(clientID),
@@ -69,14 +74,16 @@ func GitHub(clientID, clientSecret string) Provider {
 // Google returns the Google provider definition.
 func Google(clientID, clientSecret string) Provider {
 	return Provider{
-		Name:         "google",
-		AuthorizeURL: "https://accounts.google.com/o/oauth2/v2/auth",
-		TokenURL:     "https://oauth2.googleapis.com/token",
+		Name: "google",
+		Endpoint: oauth2.Endpoint{
+			AuthURL:   "https://accounts.google.com/o/oauth2/v2/auth",
+			TokenURL:  "https://oauth2.googleapis.com/token",
+			AuthStyle: oauth2.AuthStyleInParams,
+		},
 		UserInfoURL:  "https://openidconnect.googleapis.com/v1/userinfo",
 		Scopes:       []string{"openid", "email", "profile"},
 		ClientID:     strings.TrimSpace(clientID),
 		ClientSecret: strings.TrimSpace(clientSecret),
-		grantType:    "authorization_code",
 		kind:         kindGoogle,
 	}
 }
@@ -85,6 +92,23 @@ func Google(clientID, clientSecret string) Provider {
 // unconfigured provider is hidden from the login surface.
 func (p Provider) Configured() bool {
 	return p.ClientID != "" && p.ClientSecret != ""
+}
+
+// oauthConfig builds the library config for one request. The redirect URL is
+// request-scoped because the Console host is resolved per request.
+func (p Provider) oauthConfig(redirectURI string) *oauth2.Config {
+	return &oauth2.Config{
+		ClientID:     p.ClientID,
+		ClientSecret: p.ClientSecret,
+		RedirectURL:  redirectURI,
+		Scopes:       p.Scopes,
+		Endpoint:     p.Endpoint,
+	}
+}
+
+// AuthorizationURL builds the provider consent URL with a PKCE S256 challenge.
+func (p Provider) AuthorizationURL(redirectURI, state, codeVerifier string) string {
+	return p.oauthConfig(redirectURI).AuthCodeURL(state, oauth2.S256ChallengeOption(codeVerifier))
 }
 
 // Identity is the provider account resolved from an access token. It is
@@ -100,8 +124,8 @@ type Identity struct {
 // Client performs the provider round trips. It is an interface so handlers can
 // be tested against a fake without network access.
 type Client interface {
-	Exchange(ctx context.Context, p Provider, code, redirectURI, codeVerifier string) (string, error)
-	UserInfo(ctx context.Context, p Provider, accessToken string) (Identity, error)
+	Exchange(ctx context.Context, p Provider, code, redirectURI, codeVerifier string) (*oauth2.Token, error)
+	UserInfo(ctx context.Context, p Provider, token *oauth2.Token) (Identity, error)
 }
 
 // HTTPClient is the production Client.
@@ -126,7 +150,9 @@ func NewState() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(raw), nil
 }
 
-// NewPKCE returns an RFC 7636 S256 verifier/challenge pair.
+// NewPKCE returns an RFC 7636 S256 verifier/challenge pair. The verifier is
+// generated here rather than with oauth2.GenerateVerifier so a random-source
+// failure surfaces as an error instead of panicking inside a request handler.
 func NewPKCE() (verifier, challenge string, err error) {
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
@@ -137,70 +163,34 @@ func NewPKCE() (verifier, challenge string, err error) {
 	return verifier, base64.RawURLEncoding.EncodeToString(sum[:]), nil
 }
 
-// AuthorizationURL builds the provider authorization redirect.
-func (p Provider) AuthorizationURL(redirectURI, state, codeChallenge string) string {
-	query := url.Values{}
-	query.Set("client_id", p.ClientID)
-	query.Set("redirect_uri", redirectURI)
-	query.Set("response_type", "code")
-	query.Set("scope", strings.Join(p.Scopes, " "))
-	query.Set("state", state)
-	query.Set("code_challenge", codeChallenge)
-	query.Set("code_challenge_method", "S256")
-	return p.AuthorizeURL + "?" + query.Encode()
+// Exchange swaps an authorization code for a token using the library flow.
+func (c *HTTPClient) Exchange(ctx context.Context, p Provider, code, redirectURI, codeVerifier string) (*oauth2.Token, error) {
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, c.http)
+	return p.oauthConfig(redirectURI).Exchange(ctx, code, oauth2.VerifierOption(codeVerifier))
 }
 
-// Exchange swaps an authorization code for an access token.
-func (c *HTTPClient) Exchange(ctx context.Context, p Provider, code, redirectURI, codeVerifier string) (string, error) {
-	form := url.Values{}
-	form.Set("client_id", p.ClientID)
-	form.Set("client_secret", p.ClientSecret)
-	form.Set("code", code)
-	form.Set("redirect_uri", redirectURI)
-	if codeVerifier != "" {
-		form.Set("code_verifier", codeVerifier)
-	}
-	if p.grantType != "" {
-		form.Set("grant_type", p.grantType)
-	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, p.TokenURL, strings.NewReader(form.Encode()))
-	if err != nil {
-		return "", err
-	}
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	request.Header.Set("Accept", "application/json")
-	body, err := c.do(request)
-	if err != nil {
-		return "", err
-	}
-	var payload struct {
-		AccessToken      string `json:"access_token"`
-		Error            string `json:"error"`
-		ErrorDescription string `json:"error_description"`
-	}
-	if err := json.Unmarshal(body, &payload); err != nil {
-		return "", fmt.Errorf("decode token response: %w", err)
-	}
-	if payload.Error != "" {
-		return "", fmt.Errorf("provider rejected the token exchange: %s", payload.Error)
-	}
-	if strings.TrimSpace(payload.AccessToken) == "" {
-		return "", errors.New("provider returned an empty access token")
-	}
-	return payload.AccessToken, nil
-}
-
-// UserInfo reads the provider identity for an access token.
-func (c *HTTPClient) UserInfo(ctx context.Context, p Provider, accessToken string) (Identity, error) {
+// UserInfo reads the provider identity using the token. The request goes
+// through oauth2.NewClient so the bearer token and the injected HTTP client
+// both apply.
+func (c *HTTPClient) UserInfo(ctx context.Context, p Provider, token *oauth2.Token) (Identity, error) {
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, c.http)
+	client := oauth2.NewClient(ctx, oauth2.StaticTokenSource(token))
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, p.UserInfoURL, nil)
 	if err != nil {
 		return Identity{}, err
 	}
-	request.Header.Set("Authorization", "Bearer "+accessToken)
 	request.Header.Set("Accept", "application/json")
-	body, err := c.do(request)
+	response, err := client.Do(request)
 	if err != nil {
 		return Identity{}, err
+	}
+	defer response.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(response.Body, maxBodyBytes))
+	if err != nil {
+		return Identity{}, err
+	}
+	if response.StatusCode < 200 || response.StatusCode > 299 {
+		return Identity{}, fmt.Errorf("provider user-info returned HTTP %d", response.StatusCode)
 	}
 	switch p.kind {
 	case kindGoogle:
@@ -253,20 +243,4 @@ func parseGoogleUser(body []byte) (Identity, error) {
 		DisplayName:    payload.Name,
 		AvatarURL:      payload.Picture,
 	}, nil
-}
-
-func (c *HTTPClient) do(request *http.Request) ([]byte, error) {
-	response, err := c.http.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	defer response.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(response.Body, maxBodyBytes))
-	if err != nil {
-		return nil, err
-	}
-	if response.StatusCode < 200 || response.StatusCode > 299 {
-		return nil, fmt.Errorf("provider returned HTTP %d", response.StatusCode)
-	}
-	return body, nil
 }

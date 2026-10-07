@@ -124,13 +124,13 @@ func (s *Server) oauthCallback(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, s.consoleURL("/login?oauth=error"), http.StatusFound)
 		return
 	}
-	accessToken, err := s.oauthLogin.Exchange(r.Context(), provider, code, callbackURL, payload.Verifier)
+	oauthToken, err := s.oauthLogin.Exchange(r.Context(), provider, code, callbackURL, payload.Verifier)
 	if err != nil {
 		s.logger.Warn("oauth token exchange failed", "provider", provider.Name, "error", err)
 		http.Redirect(w, r, s.consoleURL("/login?oauth=error"), http.StatusFound)
 		return
 	}
-	identity, err := s.oauthLogin.UserInfo(r.Context(), provider, accessToken)
+	identity, err := s.oauthLogin.UserInfo(r.Context(), provider, oauthToken)
 	if err != nil {
 		s.logger.Warn("oauth identity lookup failed", "provider", provider.Name, "error", err)
 		http.Redirect(w, r, s.consoleURL("/login?oauth=error"), http.StatusFound)

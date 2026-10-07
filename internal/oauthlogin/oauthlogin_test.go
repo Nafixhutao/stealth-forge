@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"golang.org/x/oauth2"
 )
 
 func TestNewPKCEProducesS256Pair(t *testing.T) {
@@ -68,11 +70,15 @@ func TestProviderConfiguredRequiresBothCredentials(t *testing.T) {
 
 func TestAuthorizationURLIncludesPKCEAndScopes(t *testing.T) {
 	p := GitHub("client-id", "secret")
-	raw := p.AuthorizationURL("https://console.example.test/v1/oauth/github/callback", "state-value", "challenge-value")
+	verifier, challenge, err := NewPKCE()
+	if err != nil {
+		t.Fatalf("NewPKCE: %v", err)
+	}
+	raw := p.AuthorizationURL("https://console.example.test/v1/oauth/github/callback", "state-value", verifier)
 	for _, want := range []string{
 		"https://github.com/login/oauth/authorize?",
 		"client_id=client-id",
-		"code_challenge=challenge-value",
+		"code_challenge=" + challenge,
 		"code_challenge_method=S256",
 		"response_type=code",
 		"state=state-value",
@@ -83,6 +89,9 @@ func TestAuthorizationURLIncludesPKCEAndScopes(t *testing.T) {
 	}
 	if strings.Contains(raw, "secret") {
 		t.Fatal("authorization URL must never contain the client secret")
+	}
+	if strings.Contains(raw, verifier) {
+		t.Fatal("authorization URL must carry the challenge, never the verifier")
 	}
 }
 
@@ -104,24 +113,24 @@ func TestExchangeParsesAccessToken(t *testing.T) {
 			t.Errorf("ParseForm: %v", err)
 		}
 		gotForm = r.PostForm
+		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "token-123"})
 	}))
 	defer server.Close()
 
 	p := Provider{
 		Name:         "test",
-		TokenURL:     server.URL,
+		Endpoint:     oauth2.Endpoint{AuthURL: server.URL + "/auth", TokenURL: server.URL, AuthStyle: oauth2.AuthStyleInParams},
 		ClientID:     "cid",
 		ClientSecret: "csecret",
-		grantType:    "authorization_code",
 		kind:         kindGoogle,
 	}
 	token, err := NewClient(server.Client()).Exchange(context.Background(), p, "code-1", "https://cb.example.test", "verifier-1")
 	if err != nil {
 		t.Fatalf("Exchange: %v", err)
 	}
-	if token != "token-123" {
-		t.Fatalf("token = %q, want token-123", token)
+	if token.AccessToken != "token-123" {
+		t.Fatalf("access token = %q, want token-123", token.AccessToken)
 	}
 	for key, want := range map[string]string{
 		"client_id":     "cid",
@@ -140,11 +149,17 @@ func TestExchangeParsesAccessToken(t *testing.T) {
 
 func TestExchangeSurfacesProviderError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"error": "bad_verification_code"})
 	}))
 	defer server.Close()
 
-	p := Provider{Name: "test", TokenURL: server.URL, ClientID: "cid", ClientSecret: "s"}
+	p := Provider{
+		Name:         "test",
+		Endpoint:     oauth2.Endpoint{AuthURL: server.URL + "/auth", TokenURL: server.URL, AuthStyle: oauth2.AuthStyleInParams},
+		ClientID:     "cid",
+		ClientSecret: "s",
+	}
 	if _, err := NewClient(server.Client()).Exchange(context.Background(), p, "code", "https://cb", ""); err == nil {
 		t.Fatal("expected an error for a provider error payload")
 	}
@@ -162,7 +177,7 @@ func TestUserInfoParsesGitHubIdentity(t *testing.T) {
 	defer server.Close()
 
 	p := Provider{Name: "github", UserInfoURL: server.URL, kind: kindGitHub}
-	identity, err := NewClient(server.Client()).UserInfo(context.Background(), p, "token-abc")
+	identity, err := NewClient(server.Client()).UserInfo(context.Background(), p, &oauth2.Token{AccessToken: "token-abc"})
 	if err != nil {
 		t.Fatalf("UserInfo: %v", err)
 	}
@@ -180,7 +195,7 @@ func TestUserInfoParsesGoogleIdentity(t *testing.T) {
 	defer server.Close()
 
 	p := Provider{Name: "google", UserInfoURL: server.URL, kind: kindGoogle}
-	identity, err := NewClient(server.Client()).UserInfo(context.Background(), p, "token")
+	identity, err := NewClient(server.Client()).UserInfo(context.Background(), p, &oauth2.Token{AccessToken: "token"})
 	if err != nil {
 		t.Fatalf("UserInfo: %v", err)
 	}
@@ -196,7 +211,7 @@ func TestUserInfoRejectsMissingIdentity(t *testing.T) {
 	defer server.Close()
 
 	p := Provider{Name: "github", UserInfoURL: server.URL, kind: kindGitHub}
-	if _, err := NewClient(server.Client()).UserInfo(context.Background(), p, "token"); err == nil {
+	if _, err := NewClient(server.Client()).UserInfo(context.Background(), p, &oauth2.Token{AccessToken: "token"}); err == nil {
 		t.Fatal("expected an error when the provider omits the numeric id")
 	}
 }
@@ -208,7 +223,7 @@ func TestUserInfoRejectsNonSuccessStatus(t *testing.T) {
 	defer server.Close()
 
 	p := Provider{Name: "github", UserInfoURL: server.URL, kind: kindGitHub}
-	if _, err := NewClient(server.Client()).UserInfo(context.Background(), p, "token"); err == nil {
+	if _, err := NewClient(server.Client()).UserInfo(context.Background(), p, &oauth2.Token{AccessToken: "token"}); err == nil {
 		t.Fatal("expected an error for a 401 response")
 	}
 }
