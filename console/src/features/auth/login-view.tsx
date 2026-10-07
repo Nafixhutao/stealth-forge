@@ -35,8 +35,32 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
-/** Remembered email is a device-local convenience, not an auth feature. */
-const REMEMBERED_EMAIL_KEY = "stealth.login.email";
+/** Remembered email is a device-local convenience, not an auth feature. The
+    version suffix lets the key evolve without colliding with older values. */
+const REMEMBERED_EMAIL_KEY = "stealth.login.email:v1";
+
+/** Storage can throw (private mode, quota, disabled). Remembering the email is
+    a convenience, so every read and write fails closed instead of breaking the
+    sign-in flow. */
+function readRememberedEmail(): string {
+  try {
+    return window.localStorage.getItem(REMEMBERED_EMAIL_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function writeRememberedEmail(email: string | null) {
+  try {
+    if (email === null) {
+      window.localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+    } else {
+      window.localStorage.setItem(REMEMBERED_EMAIL_KEY, email);
+    }
+  } catch {
+    // Ignored: a storage failure must never block sign-in.
+  }
+}
 
 /**
  * Standalone sign-in screen, ported from the Stealth marketing console design.
@@ -66,16 +90,12 @@ export function LoginView() {
   // Prefill the remembered email once per mount. The password never leaves
   // the browser session.
   useEffect(() => {
-    const saved = window.localStorage.getItem(REMEMBERED_EMAIL_KEY);
+    const saved = readRememberedEmail();
     if (saved) form.setValue("email", saved);
   }, [form]);
 
   const submit = form.handleSubmit(async (values) => {
-    if (rememberEmail) {
-      window.localStorage.setItem(REMEMBERED_EMAIL_KEY, values.email.trim());
-    } else {
-      window.localStorage.removeItem(REMEMBERED_EMAIL_KEY);
-    }
+    writeRememberedEmail(rememberEmail ? values.email.trim() : null);
     try {
       await mutation.mutateAsync(values);
       // Instance owners and admins operate the platform, so send them to the

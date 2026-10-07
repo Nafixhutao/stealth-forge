@@ -94,11 +94,14 @@ function ProviderCard({
 }) {
   const update = useUpdateAdminOAuthProvider();
   const remove = useDeleteAdminOAuthProvider();
-  const [draftClientId, setDraftClientId] = useState(clientId);
+  // `draft` is null until the operator edits the field, so the input follows
+  // the server value after a refetch instead of freezing the first render.
+  const [draftClientId, setDraftClientId] = useState<string | null>(null);
   const [secret, setSecret] = useState("");
+  const clientIdValue = draftClientId ?? clientId;
 
   const pending = update.isPending || remove.isPending;
-  const canSave = draftClientId.trim().length > 0 && secret.trim().length > 0;
+  const canSave = clientIdValue.trim().length > 0 && secret.trim().length > 0;
   const fromEnvironment = source === "environment";
 
   const save = () => {
@@ -107,16 +110,27 @@ function ProviderCard({
       {
         provider,
         body: {
-          client_id: draftClientId.trim(),
+          client_id: clientIdValue.trim(),
           client_secret: secret.trim(),
         },
       },
-      { onSuccess: () => setSecret("") },
+      {
+        onSuccess: () => {
+          // Drop the draft so the field reflects the saved server value.
+          setDraftClientId(null);
+          setSecret("");
+        },
+      },
     );
   };
 
   const clear = () => {
-    remove.mutate(provider, { onSuccess: () => setSecret("") });
+    remove.mutate(provider, {
+      onSuccess: () => {
+        setDraftClientId(null);
+        setSecret("");
+      },
+    });
   };
 
   return (
@@ -141,7 +155,7 @@ function ProviderCard({
       <label className="mb-3 block">
         <span className={labelClass}>Client ID</span>
         <input
-          value={draftClientId}
+          value={clientIdValue}
           onChange={(event) => setDraftClientId(event.target.value)}
           autoComplete="off"
           spellCheck={false}
