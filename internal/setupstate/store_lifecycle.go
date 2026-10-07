@@ -29,6 +29,7 @@ func (s State) Public() PublicState {
 			StorageS3Endpoint: s.Draft.StorageS3Endpoint, StorageS3Region: s.Draft.StorageS3Region,
 			StorageS3Bucket: s.Draft.StorageS3Bucket, StorageS3UseSSL: s.Draft.StorageS3UseSSL,
 			StorageS3PathStyle: s.Draft.StorageS3PathStyle, StorageS3Prefix: s.Draft.StorageS3Prefix,
+			OAuthGitHubClientID: s.Draft.OAuthGitHubClientID, OAuthGoogleClientID: s.Draft.OAuthGoogleClientID,
 		},
 		GitHub:      PublicGitHub{Mode: s.GitHub.Mode, ClientID: s.GitHub.ClientID, Connected: s.GitHub.Connected, AuthorizationSession: s.GitHub.AuthorizationSession, ManifestExpiresAt: s.GitHub.ManifestExpiresAt},
 		Cloudflare:  PublicCloudflare{Mode: s.Cloudflare.Mode, Connected: s.Cloudflare.Connected, ExpiresAt: s.Cloudflare.ExpiresAt, TokenValid: s.Cloudflare.TokenValid},

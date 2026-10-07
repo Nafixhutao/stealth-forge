@@ -66,6 +66,16 @@ func BuildPlan(state setupstate.State, installRoot string) (installengine.Plan, 
 		updates["STORAGE_S3_PATH_STYLE"] = strconv.FormatBool(state.Draft.StorageS3PathStyle)
 		updates["STORAGE_S3_PREFIX"] = state.Draft.StorageS3Prefix
 	}
+	// External sign-in providers are written only when the operator configured
+	// them in the wizard; an empty pair leaves the provider disabled.
+	if clientID := strings.TrimSpace(state.Draft.OAuthGitHubClientID); clientID != "" {
+		updates["OAUTH_GITHUB_CLIENT_ID"] = clientID
+		updates["OAUTH_GITHUB_CLIENT_SECRET"] = credentials.OAuthGitHubClientSecret
+	}
+	if clientID := strings.TrimSpace(state.Draft.OAuthGoogleClientID); clientID != "" {
+		updates["OAUTH_GOOGLE_CLIENT_ID"] = clientID
+		updates["OAUTH_GOOGLE_CLIENT_SECRET"] = credentials.OAuthGoogleClientSecret
+	}
 	cloudflareEnabled := state.Draft.NetworkMode == "cloudflare_tunnel"
 	if cloudflareEnabled {
 		// The cloudflared image runs as an unprivileged uid, so the token file

@@ -4178,6 +4178,8 @@ export interface components {
             storage_s3_use_ssl?: boolean;
             storage_s3_path_style?: boolean;
             storage_s3_prefix?: string;
+            oauth_github_client_id?: string;
+            oauth_google_client_id?: string;
         };
         /** @description The connected App identifier and setup authorization session are public projections; client secrets, OAuth state, and PKCE verifiers remain encrypted server-side. */
         SetupGitHubState: {
@@ -4225,6 +4227,10 @@ export interface components {
             storage_s3_use_ssl?: boolean;
             storage_s3_path_style?: boolean;
             storage_s3_prefix?: string;
+            oauth_github_client_id?: string;
+            oauth_github_client_secret?: string;
+            oauth_google_client_id?: string;
+            oauth_google_client_secret?: string;
         };
         SetupGitHubManifestResponse: {
             /**

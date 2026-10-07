@@ -31,6 +31,11 @@ type Request struct {
 	StorageS3UseSSL    *bool  `json:"storage_s3_use_ssl"`
 	StorageS3PathStyle *bool  `json:"storage_s3_path_style"`
 	StorageS3Prefix    string `json:"storage_s3_prefix"`
+	// External sign-in providers. An empty pair leaves the provider disabled.
+	OAuthGitHubClientID     string `json:"oauth_github_client_id"`
+	OAuthGitHubClientSecret string `json:"oauth_github_client_secret"`
+	OAuthGoogleClientID     string `json:"oauth_google_client_id"`
+	OAuthGoogleClientSecret string `json:"oauth_google_client_secret"`
 }
 
 // Apply validates and applies one configuration request to state. The caller
@@ -162,6 +167,29 @@ func Apply(state *setupstate.State, request Request) error {
 		return err
 	}
 
+	oauthGitHubClientID := strings.TrimSpace(request.OAuthGitHubClientID)
+	if oauthGitHubClientID == "" {
+		oauthGitHubClientID = state.Draft.OAuthGitHubClientID
+	}
+	oauthGitHubSecret := request.OAuthGitHubClientSecret
+	if oauthGitHubSecret == "" {
+		oauthGitHubSecret = credentials.OAuthGitHubClientSecret
+	}
+	if err := validateOAuthProvider(oauthGitHubClientID, oauthGitHubSecret); err != nil {
+		return err
+	}
+	oauthGoogleClientID := strings.TrimSpace(request.OAuthGoogleClientID)
+	if oauthGoogleClientID == "" {
+		oauthGoogleClientID = state.Draft.OAuthGoogleClientID
+	}
+	oauthGoogleSecret := request.OAuthGoogleClientSecret
+	if oauthGoogleSecret == "" {
+		oauthGoogleSecret = credentials.OAuthGoogleClientSecret
+	}
+	if err := validateOAuthProvider(oauthGoogleClientID, oauthGoogleSecret); err != nil {
+		return err
+	}
+
 	databaseChanged := state.Draft.DatabaseMode != databaseMode || credentials.DatabaseURL != databaseURL
 	redisChanged := state.Draft.RedisMode != redisMode || credentials.RedisURL != redisURL
 	storagePrefix := strings.Trim(strings.TrimSpace(request.StorageS3Prefix), "/")
@@ -188,6 +216,8 @@ func Apply(state *setupstate.State, request Request) error {
 	state.Draft.StorageS3UseSSL = storageUseSSL
 	state.Draft.StorageS3PathStyle = storagePathStyle
 	state.Draft.StorageS3Prefix = storagePrefix
+	state.Draft.OAuthGitHubClientID = oauthGitHubClientID
+	state.Draft.OAuthGoogleClientID = oauthGoogleClientID
 	if databaseChanged {
 		state.Draft.DatabaseTested = false
 	}
@@ -198,13 +228,31 @@ func Apply(state *setupstate.State, request Request) error {
 		state.Draft.StorageTested = false
 	}
 	state.SetSetupCredentials(setupstate.SetupCredentials{
-		DatabaseURL:        databaseURL,
-		RedisURL:           redisURL,
-		StorageS3AccessKey: storageAccessKey,
-		StorageS3SecretKey: storageSecretKey,
+		DatabaseURL:             databaseURL,
+		RedisURL:                redisURL,
+		StorageS3AccessKey:      storageAccessKey,
+		StorageS3SecretKey:      storageSecretKey,
+		OAuthGitHubClientSecret: oauthGitHubSecret,
+		OAuthGoogleClientSecret: oauthGoogleSecret,
 	})
 	state.ErrorCode = ""
 	state.ErrorMessage = ""
+	return nil
+}
+
+// validateOAuthProvider accepts a disabled provider (both values empty) or a
+// complete pair inside the documented credential bounds.
+func validateOAuthProvider(clientID, clientSecret string) error {
+	if clientID == "" && clientSecret == "" {
+		return nil
+	}
+	if clientID == "" || clientSecret == "" {
+		return errors.New("a sign-in provider needs both a client ID and a client secret")
+	}
+	if len(clientID) > 256 || len(clientSecret) > 512 ||
+		strings.ContainsAny(clientID+clientSecret, "\x00\r\n") {
+		return errors.New("sign-in provider credentials are invalid")
+	}
 	return nil
 }
 

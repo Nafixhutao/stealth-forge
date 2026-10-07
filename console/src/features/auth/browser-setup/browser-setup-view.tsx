@@ -21,6 +21,7 @@ import { InstallStage } from "./stages/install-stage";
 import { InstanceStage } from "./stages/instance-stage";
 import { NetworkingStage } from "./stages/networking-stage";
 import { ReviewStage } from "./stages/review-stage";
+import { SignInStage } from "./stages/signin-stage";
 import { StorageStage } from "./stages/storage-stage";
 import { WelcomeStage } from "./stages/welcome-stage";
 
@@ -181,6 +182,8 @@ export function BrowserSetupView() {
           {activeStep === "data" ? <DataStage flow={flow} /> : null}
 
           {activeStep === "storage" ? <StorageStage flow={flow} /> : null}
+
+          {activeStep === "signin" ? <SignInStage flow={flow} /> : null}
 
           {activeStep === "review" ? <ReviewStage flow={flow} /> : null}
 
