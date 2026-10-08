@@ -315,6 +315,7 @@ func NewWithDependenciesAndPlatformSiteHandler(
 		authEmailSender:                  authEmailSender,
 		githubClient:                     deps.GitHubClient,
 		githubOAuth:                      githubOAuth,
+		oauthLogin:                       oauthLogin,
 		setupState:                       setupStateStore,
 		setupHandoff:                     setupHandoffStore,
 		githubManifest:                   githubManifest,
