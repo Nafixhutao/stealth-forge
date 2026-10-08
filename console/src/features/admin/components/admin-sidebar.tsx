@@ -5,25 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import {
-  Activity,
-  Bug,
-  ChartNoAxesCombined,
-  BrainCircuit,
-  Gauge,
-  LogOut,
-  Logs,
-  PanelLeftClose,
-  PanelLeftOpen,
-  RadioTower,
-  Server,
-  Settings,
-  TriangleAlert,
-  Users,
-  Waypoints,
-  X,
-  type LucideIcon,
-} from "lucide-react";
+import { LogOut, X } from "lucide-react";
 import { useLogout } from "@/api/mutations/auth";
 import {
   LABEL_ENTER_TRANSITION,
@@ -36,87 +18,12 @@ import {
   SPRING_PRESS,
 } from "@/lib/ease";
 import { cn } from "@/lib/utils";
+import { ADMIN_NAV, isAdminNavActive, type AdminNavItem } from "./admin-nav";
 
 /** Rail geometry. Collapsed matches the reference rail; expanded matches the
     previous fixed admin panel width. */
-const COLLAPSED_WIDTH = 72;
-const EXPANDED_WIDTH = 228;
-
-/** The rail choice is a device preference, so it survives reloads. */
-const COLLAPSE_STORAGE_KEY = "stealth.admin.sidebar.collapsed:v1";
-
-function readCollapsedPreference(): boolean {
-  try {
-    return window.localStorage.getItem(COLLAPSE_STORAGE_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function writeCollapsedPreference(collapsed: boolean) {
-  try {
-    window.localStorage.setItem(COLLAPSE_STORAGE_KEY, collapsed ? "1" : "0");
-  } catch {
-    // Ignored: the rail still works, it just forgets the preference.
-  }
-}
-
-interface AdminNavItem {
-  label: string;
-  href: string;
-  icon: LucideIcon;
-  /** Exact match instead of prefix (Overview must not swallow /admin/*). */
-  exact?: boolean;
-}
-
-interface AdminNavGroup {
-  label: string;
-  items: AdminNavItem[];
-}
-
-/** Admin navigation — kept conceptually separate from the customer rail. */
-const ADMIN_NAV: AdminNavGroup[] = [
-  {
-    label: "Admin",
-    items: [{ label: "Overview", href: "/admin", icon: Gauge, exact: true }],
-  },
-  {
-    label: "Observability",
-    items: [
-      { label: "Infrastructure", href: "/admin/infrastructure", icon: Server },
-      { label: "Logs", href: "/admin/logs", icon: Logs },
-      { label: "Traces", href: "/admin/traces", icon: Waypoints },
-      { label: "Errors", href: "/admin/errors", icon: Bug },
-    ],
-  },
-  {
-    label: "Operations",
-    items: [
-      { label: "Agent Runs", href: "/admin/runs", icon: Activity },
-      { label: "Workers", href: "/admin/workers", icon: BrainCircuit },
-      { label: "Incidents", href: "/admin/incidents", icon: TriangleAlert },
-    ],
-  },
-  {
-    label: "Platform",
-    items: [
-      { label: "Users", href: "/admin/users", icon: Users },
-      { label: "Models & Providers", href: "/admin/providers", icon: Server },
-      { label: "Usage", href: "/admin/usage", icon: ChartNoAxesCombined },
-    ],
-  },
-  {
-    label: "Configuration",
-    items: [
-      { label: "Status Page", href: "/admin/status", icon: RadioTower },
-      { label: "Settings", href: "/admin/settings", icon: Settings },
-    ],
-  },
-];
-
-function isActive(pathname: string, item: AdminNavItem) {
-  return item.exact ? pathname === item.href : pathname.startsWith(item.href);
-}
+export const ADMIN_RAIL_COLLAPSED_WIDTH = 72;
+export const ADMIN_RAIL_EXPANDED_WIDTH = 228;
 
 /** The project mark, shown in a bordered tile like the reference rail. When
     the rail is collapsed the mark is the only brand cue, so it carries the
@@ -213,43 +120,12 @@ function AdminNavRow({
   );
 }
 
-/** Collapse/expand control. Mirrors the customer rail's affordance. */
-function RailToggle({
-  collapsed,
-  onToggle,
-  className,
-}: {
-  collapsed: boolean;
-  onToggle: () => void;
-  className?: string;
-}) {
-  const Icon = collapsed ? PanelLeftOpen : PanelLeftClose;
-  const label = collapsed ? "Expand sidebar" : "Collapse sidebar";
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-label={label}
-      title={label}
-      aria-expanded={!collapsed}
-      className={cn(
-        "inline-flex size-7 shrink-0 items-center justify-center rounded-md text-[#AAA6AE] transition-colors hover:bg-white/[0.05] hover:text-[#EEEAF0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--projects-accent)]",
-        className,
-      )}
-    >
-      <Icon size={15} strokeWidth={1.8} aria-hidden="true" />
-    </button>
-  );
-}
-
 function AdminSidebarBody({
   collapsed = false,
-  onToggle,
   onNavigate,
   onMobileClose,
 }: {
   collapsed?: boolean;
-  onToggle?: () => void;
   /** Fires after a navigation link is chosen (mobile closes the sheet). */
   onNavigate?: (href: string) => void;
   onMobileClose?: () => void;
@@ -298,9 +174,6 @@ function AdminSidebarBody({
             </motion.div>
           )}
         </AnimatePresence>
-        {!collapsed && onToggle ? (
-          <RailToggle collapsed={false} onToggle={onToggle} />
-        ) : null}
         <button
           type="button"
           onClick={onMobileClose}
@@ -310,14 +183,6 @@ function AdminSidebarBody({
           <X size={14} strokeWidth={1.8} />
         </button>
       </header>
-
-      {/* Collapsed rail keeps the toggle on its own row so the 72px column
-          never has to fit the logo and the control side by side. */}
-      {collapsed && onToggle ? (
-        <div className="flex shrink-0 justify-center pb-2">
-          <RailToggle collapsed onToggle={onToggle} />
-        </div>
-      ) : null}
 
       <nav
         aria-label="Admin navigation"
@@ -346,7 +211,7 @@ function AdminSidebarBody({
               <AdminNavRow
                 key={item.href}
                 item={item}
-                active={isActive(pathname, item)}
+                active={isAdminNavActive(pathname, item)}
                 collapsed={collapsed}
                 layoutId={layoutId}
                 reduce={reduce}
@@ -403,31 +268,22 @@ function AdminSidebarBody({
 }
 
 /** Desktop rail (fixed panel) + mobile slide-in sheet, mirroring the
- * customer sidebar's behavior but with admin-only navigation. */
+ * customer sidebar's behavior but with admin-only navigation. The collapse
+ * state and its toggle live in AdminShell so the top bar can own the control. */
 export function AdminSidebar({
   open,
   onClose,
+  collapsed,
 }: {
   open: boolean;
   onClose: () => void;
+  collapsed: boolean;
 }) {
   const [mounted, setMounted] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const reduce = useReducedMotion() ?? false;
 
-  useEffect(() => {
-    setMounted(true);
-    setCollapsed(readCollapsedPreference());
-  }, []);
-
-  const toggleCollapsed = () => {
-    setCollapsed((value) => {
-      const next = !value;
-      writeCollapsedPreference(next);
-      return next;
-    });
-  };
+  useEffect(() => setMounted(true), []);
 
   // Mobile sheet effect: scroll lock, focus handoff, Escape, focus trap.
   useEffect(() => {
@@ -479,13 +335,17 @@ export function AdminSidebar({
       <motion.aside
         aria-label="Admin navigation"
         initial={false}
-        animate={{ width: collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH }}
+        animate={{
+          width: collapsed
+            ? ADMIN_RAIL_COLLAPSED_WIDTH
+            : ADMIN_RAIL_EXPANDED_WIDTH,
+        }}
         transition={
           collapsed ? SIDEBAR_COLLAPSE_TRANSITION : SIDEBAR_EXPAND_TRANSITION
         }
         className="sticky top-0 hidden h-dvh shrink-0 flex-col overflow-hidden border-r border-[#322F37] bg-[#121014] lg:flex"
       >
-        <AdminSidebarBody collapsed={collapsed} onToggle={toggleCollapsed} />
+        <AdminSidebarBody collapsed={collapsed} />
       </motion.aside>
 
       {mounted && (

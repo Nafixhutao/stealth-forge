@@ -1,34 +1,68 @@
 "use client";
 
-import { useCallback, useState, type ReactNode } from "react";
-import { PanelToggleIcon } from "@/features/navigation/sidebar-shared";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { AdminSidebar } from "./admin-sidebar";
+import { AdminTopBar } from "./admin-topbar";
+
+/** The rail choice is a device preference, so it survives reloads. */
+const COLLAPSE_STORAGE_KEY = "stealth.admin.sidebar.collapsed:v1";
+
+function readCollapsedPreference(): boolean {
+  try {
+    return window.localStorage.getItem(COLLAPSE_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeCollapsedPreference(collapsed: boolean) {
+  try {
+    window.localStorage.setItem(COLLAPSE_STORAGE_KEY, collapsed ? "1" : "0");
+  } catch {
+    // Ignored: the rail still works, it just forgets the preference.
+  }
+}
 
 /**
- * Shared chrome for every /admin route: the admin navigation panel plus the
- * content area. Deliberately separate from ApplicationShell so customer
- * pages keep the customer sidebar and admin pages never mount it.
+ * Shared chrome for every /admin route: the admin navigation rail, the top bar
+ * (rail toggle, page title, account menu), and the content area. Deliberately
+ * separate from ApplicationShell so customer pages keep the customer sidebar
+ * and admin pages never mount it.
  */
 export function AdminShell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const openSidebar = useCallback(() => setSidebarOpen(true), []);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
+  // Read the stored preference after mount so the server and the first client
+  // render agree on the expanded width.
+  useEffect(() => setCollapsed(readCollapsedPreference()), []);
+
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((value) => {
+      const next = !value;
+      writeCollapsedPreference(next);
+      return next;
+    });
+  }, []);
+
   return (
     <div data-admin className="min-h-dvh bg-[var(--projects-bg)]">
-      {/* Mobile-only opener, same pinned position as the customer shell. */}
-      <button
-        type="button"
-        onClick={openSidebar}
-        aria-label="Open admin sidebar"
-        aria-haspopup="dialog"
-        className="fixed left-4 top-3 z-[65] inline-flex size-9 items-center justify-center rounded-lg border border-[var(--projects-border)] bg-[#141416] text-[var(--projects-text)] shadow-[0_1px_3px_rgba(0,0,0,0.35)] transition-colors hover:border-[var(--projects-border-hover)] lg:hidden"
-      >
-        <PanelToggleIcon className="size-[18px]" />
-      </button>
       <div className="lg:flex">
-        <AdminSidebar open={sidebarOpen} onClose={closeSidebar} />
-        <main className="relative min-h-dvh min-w-0 flex-1">{children}</main>
+        <AdminSidebar
+          open={sidebarOpen}
+          onClose={closeSidebar}
+          collapsed={collapsed}
+        />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <AdminTopBar
+            collapsed={collapsed}
+            onToggleCollapsed={toggleCollapsed}
+            onOpenMobile={openSidebar}
+          />
+          <main className="relative min-h-dvh min-w-0 flex-1">{children}</main>
+        </div>
       </div>
     </div>
   );
