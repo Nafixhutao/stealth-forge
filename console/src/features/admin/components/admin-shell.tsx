@@ -25,7 +25,7 @@ function writeCollapsedPreference(collapsed: boolean) {
 
 /**
  * Shared chrome for every /admin route: the admin navigation rail, the top bar
- * (rail toggle, page title, account menu), and the content area. Deliberately
+ * (rail toggle and page title), and the content area. Deliberately
  * separate from ApplicationShell so customer pages keep the customer sidebar
  * and admin pages never mount it.
  */
