@@ -44,7 +44,7 @@ func validateConfigValues(values map[string]string) error {
 			return fmt.Errorf("generated configuration value for %s must be an absolute clean non-root path", key)
 		}
 	}
-	for _, key := range []string{"STEALTH_API_IMAGE", "STEALTH_SETUP_IMAGE", "STEALTH_WORKER_IMAGE", "STEALTH_INGRESS_CONTROL_IMAGE", "STEALTH_MIGRATE_IMAGE", "STEALTH_CONSOLE_IMAGE", "STEALTH_TELEMETRY_DOCKER_PROXY_IMAGE", "OTEL_COLLECTOR_IMAGE", "OTEL_HOST_COLLECTOR_IMAGE", "OTEL_DOCKER_COLLECTOR_IMAGE", "OTEL_DOCKER_LOGS_COLLECTOR_IMAGE", "TRAEFIK_IMAGE"} {
+	for _, key := range []string{"STEALTH_API_IMAGE", "STEALTH_SETUP_IMAGE", "STEALTH_WORKER_IMAGE", "STEALTH_INGRESS_CONTROL_IMAGE", "STEALTH_MIGRATE_IMAGE", "STEALTH_CONSOLE_IMAGE", "TRAEFIK_IMAGE"} {
 		if !validImageReference(values[key]) {
 			return fmt.Errorf("generated image reference for %s is invalid", key)
 		}

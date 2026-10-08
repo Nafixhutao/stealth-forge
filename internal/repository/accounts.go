@@ -107,6 +107,61 @@ func (r *Repository) AccountPassword(ctx context.Context, email string) (uuid.UU
 	return id, hash.String, nil
 }
 
+// accountSelectColumns is the shared projection for account reads. Keeping the
+// column list and its scan together stops the call sites from drifting.
+const accountSelectColumns = `a.id,a.email,a.email_verified,ir.role,
+	ai.provider,ai.provider_user_id,ai.provider_login,ai.display_name,ai.avatar_url,
+	a.created_at`
+
+func scanAccount(row pgx.Row) (domain.Account, error) {
+	var account domain.Account
+	var email, instanceRole, provider, providerUserID, providerLogin, displayName, avatarURL sql.NullString
+	if err := row.Scan(&account.ID, &email, &account.EmailVerified, &instanceRole,
+		&provider, &providerUserID, &providerLogin, &displayName, &avatarURL,
+		&account.CreatedAt); err != nil {
+		return domain.Account{}, err
+	}
+	if email.Valid {
+		account.Email = email.String
+	}
+	if instanceRole.Valid {
+		account.InstanceRole = instanceRole.String
+	}
+	populateGitHubIdentity(&account, provider, providerUserID, providerLogin, displayName, avatarURL)
+	return account, nil
+}
+
+// AccountByProviderIdentity resolves an external login identity to its account.
+// An unlinked identity is ErrNotFound: external login only signs in accounts
+// that already exist and were linked deliberately.
+func (r *Repository) AccountByProviderIdentity(ctx context.Context, provider, providerUserID string) (domain.Account, error) {
+	account, err := scanAccount(r.pool.QueryRow(ctx, `
+		SELECT `+accountSelectColumns+`
+		FROM accounts a
+		JOIN account_identities ai ON ai.account_id=a.id AND ai.provider=$1 AND ai.provider_user_id=$2
+		LEFT JOIN instance_roles ir ON ir.account_id=a.id`, provider, providerUserID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Account{}, ErrNotFound
+	}
+	return account, err
+}
+
+// AccountByID reads one account. External login uses it after linking a new
+// provider identity so the Console session reflects the same shape as the
+// password flow.
+func (r *Repository) AccountByID(ctx context.Context, accountID uuid.UUID) (domain.Account, error) {
+	account, err := scanAccount(r.pool.QueryRow(ctx, `
+		SELECT `+accountSelectColumns+`
+		FROM accounts a
+		LEFT JOIN instance_roles ir ON ir.account_id=a.id
+		LEFT JOIN account_identities ai ON ai.account_id=a.id AND ai.provider='github'
+		WHERE a.id=$1`, accountID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Account{}, ErrNotFound
+	}
+	return account, err
+}
+
 func populateGitHubIdentity(
 	account *domain.Account,
 	provider, providerUserID, providerLogin, displayName, avatarURL sql.NullString,

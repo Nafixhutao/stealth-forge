@@ -14,6 +14,8 @@ func (s *Server) registerAccountRoutes(r chi.Router) {
 	r.Post("/account/recovery", s.createAccountRecovery)
 	r.Put("/account/recovery", s.confirmAccountRecovery)
 	r.Post("/sessions/email-password", s.login)
+	r.Get("/oauth/{provider}/start", s.startOAuthLogin)
+	r.Get("/oauth/{provider}/callback", s.oauthCallback)
 	r.With(s.requireSession).Delete("/session", s.logout)
 	r.Post("/projects/{projectID}/account/registrations", s.registerProjectUser)
 	r.Post("/projects/{projectID}/sessions/email-password", s.loginProjectUser)

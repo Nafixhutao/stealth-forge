@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { cloneElement, isValidElement, type ReactNode } from "react";
 import {
   ArrowLeft,
@@ -31,9 +32,13 @@ function fieldError(id: string, message: string | undefined) {
 export function BrandMark() {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="flex size-9 items-center justify-center rounded-md border border-acid-lime/40 bg-acid-lime text-sm font-semibold text-void">
-        S
-      </span>
+      <Image
+        src="/stealth-mark.png"
+        alt="Stealth"
+        width={36}
+        height={36}
+        className="size-9 rounded-md"
+      />
       <span className="text-sm font-semibold tracking-[-0.012em] text-paper">
         Stealth
       </span>

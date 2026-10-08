@@ -93,16 +93,6 @@ func writeEngineFixture(t *testing.T, setup bool) Layout {
 	if err := WriteAtomic(layout.ProxyFile, []byte("server {\n}"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	for name, contents := range map[string]string{
-		"otel-collector.yaml": "receivers:\n",
-		"host-metrics.yaml":   "hostmetrics:\n",
-		"docker-logs.yaml":    "file_log/docker:\n",
-		"docker-stats.yaml":   "docker_stats:\n",
-	} {
-		if err := WriteAtomic(filepath.Join(layout.TelemetryDir, name), []byte(contents), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
 	for path, contents := range map[string]string{
 		filepath.Join(layout.Root, "buildkit", "buildkitd.toml"):                     testBuildKitConfigAsset(),
 		filepath.Join(layout.Root, "buildkit", "stealth-buildkit-rootless.apparmor"): testBuildKitAppArmorProfileAsset(),
@@ -219,20 +209,7 @@ func testProductionComposeAsset() string {
     volumes:
       - cloudflare_setup_state_input:/input:ro
       - "${STEALTH_INSTALL_ROOT:-.}/state/.cloudflare-import:/output:rw"
-  otel-collector:
-  telemetry-host:
-    volumes:
-      - /:/hostfs:ro
-      - type: tmpfs
-        target: /hostfs/${STEALTH_INSTALL_ROOT:?set STEALTH_INSTALL_ROOT}/private
-        read_only: true
-        tmpfs:
-          size: 1048576
-  telemetry-docker-logs:
-  telemetry-docker:
-  telemetry-docker-proxy:
 networks:
-  telemetry_ingest:
   app_build:
 volumes:
   buildkit_worker_credentials:
@@ -256,10 +233,6 @@ func expectedAppArmorParserCommand(args ...string) (string, []string) {
 		return "sudo", append([]string{"apparmor_parser"}, args...)
 	}
 	return "apparmor_parser", args
-}
-
-func testMainCollectorAsset() string {
-	return "receivers:\n  otlp:\nexporters:\n  clickhouse:\n"
 }
 
 func testTraefikStaticAsset() string {
@@ -300,10 +273,6 @@ func engineTestAssetContents() map[string]string {
 		"buildkit/buildkitd.toml":                     testBuildKitConfigAsset(),
 		"buildkit/stealth-buildkit-rootless.apparmor": testBuildKitAppArmorProfileAsset(),
 		"compose.setup.yaml":                          "services:\n  setup:\n",
-		"telemetry/otel-collector.yaml":               testMainCollectorAsset(),
-		"telemetry/host-metrics.yaml":                 "receivers:\n  hostmetrics:\n",
-		"telemetry/docker-logs.yaml":                  "receivers:\n  file_log/docker:\n",
-		"telemetry/docker-stats.yaml":                 "receivers:\n  docker_stats:\n",
 		"console/deploy/nginx.conf":                   "server {\n}",
 		"traefik/traefik.yaml":                        testTraefikStaticAsset(),
 		"traefik/dynamic/core.yaml":                   testTraefikCoreAsset(),
@@ -413,18 +382,8 @@ func TestGenerateConfigAcceptsReleaseCandidateVersion(t *testing.T) {
 	if !strings.Contains(config, "STEALTH_API_IMAGE=ghcr.io/nafixhutao/stealth-api:v0.3.0-rc.1") {
 		t.Fatal("generated config did not retain the RC version in image tags")
 	}
-	if !strings.Contains(config, "STEALTH_TELEMETRY_DOCKER_PROXY_IMAGE=ghcr.io/nafixhutao/stealth-telemetry-docker-proxy:v0.3.0-rc.1") {
-		t.Fatal("generated config did not include the versioned telemetry Docker proxy image")
-	}
-	for _, expected := range []string{
-		"OTEL_COLLECTOR_IMAGE=ghcr.io/nafixhutao/stealth-otel-collector:v0.3.0-rc.1",
-		"OTEL_HOST_COLLECTOR_IMAGE=ghcr.io/nafixhutao/stealth-otel-collector:v0.3.0-rc.1",
-		"OTEL_DOCKER_COLLECTOR_IMAGE=ghcr.io/nafixhutao/stealth-otel-collector:v0.3.0-rc.1",
-		"OTEL_DOCKER_LOGS_COLLECTOR_IMAGE=ghcr.io/nafixhutao/stealth-otel-docker-logs:v0.3.0-rc.1",
-	} {
-		if !strings.Contains(config, expected) {
-			t.Fatalf("generated config did not include %q", expected)
-		}
+	if !strings.Contains(config, "STEALTH_CONSOLE_IMAGE=ghcr.io/nafixhutao/stealth-console:v0.3.0-rc.1") {
+		t.Fatal("generated config did not include the versioned Console image")
 	}
 }
 
@@ -478,7 +437,7 @@ func TestRunStepCloudflareStartsNamedTunnelProfile(t *testing.T) {
 	if !containsPair(calls[0].args, "--profile", "cloudflare") {
 		t.Fatalf("Cloudflare profile was not enabled: %#v", calls[0])
 	}
-	if got := calls[0].args[len(calls[0].args)-12:]; !equalArgs(got, []string{"api", "worker", "console", "proxy", "traefik", "buildkit", "otel-collector", "telemetry-host", "telemetry-docker-logs", "telemetry-docker-proxy", "telemetry-docker", "cloudflared"}) {
+	if got := calls[0].args[len(calls[0].args)-7:]; !equalArgs(got, []string{"api", "worker", "console", "proxy", "traefik", "buildkit", "cloudflared"}) {
 		t.Fatalf("Cloudflare service command = %#v", calls[0])
 	}
 }
@@ -689,41 +648,32 @@ func TestExternalDependenciesNeverStartBundledServices(t *testing.T) {
 		t.Fatal(err)
 	}
 	calls := runner.snapshot()
-	if len(calls) != 11 {
-		t.Fatalf("recorded calls = %#v, want seven state inits, telemetry dependency, migration, and services", calls)
+	if len(calls) != 8 {
+		t.Fatalf("recorded calls = %#v, want five state inits, migration, and services", calls)
 	}
-	if !equalArgs(calls[0].args[len(calls[0].args)-4:], []string{"run", "--rm", "--no-deps", "otelcol-state-init"}) {
-		t.Fatalf("Collector state init command = %#v", calls[0])
+	if len(calls[0].args) < 2 || !strings.HasPrefix(calls[0].args[len(calls[0].args)-2], "STEALTH_TRAEFIK_HOST_UID=") || calls[0].args[len(calls[0].args)-1] != "traefik-state-init" {
+		t.Fatalf("Traefik state init command = %#v", calls[0])
 	}
-	if !equalArgs(calls[1].args[len(calls[1].args)-4:], []string{"run", "--rm", "--no-deps", "telemetry-docker-logs-state-init"}) {
-		t.Fatalf("Docker log Collector state init command = %#v", calls[1])
+	if !equalArgs(calls[1].args[len(calls[1].args)-4:], []string{"run", "--rm", "--no-deps", "cloudflare-setup-state-init"}) {
+		t.Fatalf("Cloudflare source state init command = %#v", calls[1])
 	}
-	if len(calls[2].args) < 2 || !strings.HasPrefix(calls[2].args[len(calls[2].args)-2], "STEALTH_TRAEFIK_HOST_UID=") || calls[2].args[len(calls[2].args)-1] != "traefik-state-init" {
-		t.Fatalf("Traefik state init command = %#v", calls[2])
+	if !equalArgs(calls[2].args[len(calls[2].args)-4:], []string{"run", "--rm", "--no-deps", "cloudflare-state-init"}) {
+		t.Fatalf("Cloudflare state init command = %#v", calls[2])
 	}
-	if !equalArgs(calls[3].args[len(calls[3].args)-4:], []string{"run", "--rm", "--no-deps", "cloudflare-setup-state-init"}) {
-		t.Fatalf("Cloudflare source state init command = %#v", calls[3])
+	if !equalArgs(calls[3].args[len(calls[3].args)-4:], []string{"run", "--rm", "--no-deps", "buildkit-worker-credentials-init"}) {
+		t.Fatalf("worker BuildKit credentials init command = %#v", calls[3])
 	}
-	if !equalArgs(calls[4].args[len(calls[4].args)-4:], []string{"run", "--rm", "--no-deps", "cloudflare-state-init"}) {
-		t.Fatalf("Cloudflare state init command = %#v", calls[4])
+	if !equalArgs(calls[4].args[len(calls[4].args)-4:], []string{"run", "--rm", "--no-deps", "buildkit-server-credentials-init"}) {
+		t.Fatalf("BuildKit credentials init command = %#v", calls[4])
 	}
-	if !equalArgs(calls[5].args[len(calls[5].args)-4:], []string{"run", "--rm", "--no-deps", "buildkit-worker-credentials-init"}) {
-		t.Fatalf("worker BuildKit credentials init command = %#v", calls[5])
+	if !equalArgs(calls[5].args[len(calls[5].args)-4:], []string{"run", "--rm", "--no-deps", "migrate"}) {
+		t.Fatalf("external migration command = %#v", calls[5])
 	}
-	if !equalArgs(calls[6].args[len(calls[6].args)-4:], []string{"run", "--rm", "--no-deps", "buildkit-server-credentials-init"}) {
-		t.Fatalf("BuildKit credentials init command = %#v", calls[6])
+	if !equalArgs(calls[6].args[len(calls[6].args)-6:], []string{"up", "-d", "--no-deps", "--force-recreate", "buildkit", "worker"}) {
+		t.Fatalf("credential-refresh restart command = %#v", calls[6])
 	}
-	if !equalArgs(calls[7].args[len(calls[7].args)-3:], []string{"up", "-d", "clickhouse"}) {
-		t.Fatalf("telemetry dependency command = %#v", calls[7])
-	}
-	if !equalArgs(calls[8].args[len(calls[8].args)-4:], []string{"run", "--rm", "--no-deps", "migrate"}) {
-		t.Fatalf("external migration command = %#v", calls[8])
-	}
-	if !equalArgs(calls[9].args[len(calls[9].args)-6:], []string{"up", "-d", "--no-deps", "--force-recreate", "buildkit", "worker"}) {
-		t.Fatalf("credential-refresh restart command = %#v", calls[9])
-	}
-	if !contains(calls[10].args, "--no-deps") || contains(calls[10].args, "postgres") || contains(calls[10].args, "redis") {
-		t.Fatalf("external service command = %#v", calls[10])
+	if !contains(calls[7].args, "--no-deps") || contains(calls[7].args, "postgres") || contains(calls[7].args, "redis") {
+		t.Fatalf("external service command = %#v", calls[7])
 	}
 }
 
@@ -754,10 +704,10 @@ func TestProductionLifecyclesPrepareCloudflareImportBeforeWorkers(t *testing.T) 
 				t.Fatal(err)
 			}
 			calls := runner.snapshot()
-			if len(calls) < 7 {
+			if len(calls) < 6 {
 				t.Fatalf("recorded calls = %#v, want state preparation and production services", calls)
 			}
-			cloudflareInit := calls[4].args
+			cloudflareInit := calls[2].args
 			if !equalArgs(cloudflareInit[len(cloudflareInit)-4:], []string{"run", "--rm", "--no-deps", "cloudflare-state-init"}) {
 				t.Fatalf("Cloudflare state initializer did not run before services: %#v", cloudflareInit)
 			}
@@ -812,10 +762,6 @@ func TestPrepareDownloadsVersionedSetupAssetsAtomically(t *testing.T) {
 		"buildkit/buildkitd.toml":                     testBuildKitConfigAsset(),
 		"buildkit/stealth-buildkit-rootless.apparmor": testBuildKitAppArmorProfileAsset(),
 		"compose.setup.yaml":                          "services:\n  setup:\n    image: example\n",
-		"telemetry/otel-collector.yaml":               testMainCollectorAsset(),
-		"telemetry/host-metrics.yaml":                 "hostmetrics:\n",
-		"telemetry/docker-logs.yaml":                  "file_log/docker:\n",
-		"telemetry/docker-stats.yaml":                 "docker_stats:\n",
 		"console/deploy/nginx.conf":                   "server {\n}",
 		"traefik/traefik.yaml":                        testTraefikStaticAsset(),
 		"traefik/dynamic/core.yaml":                   testTraefikCoreAsset(),
@@ -848,7 +794,7 @@ func TestPrepareDownloadsVersionedSetupAssetsAtomically(t *testing.T) {
 	if err := engine.Prepare(context.Background(), Plan{Layout: layout, Version: "v1.2.3", Setup: true, ConfigContents: config}); err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{layout.EnvFile, layout.ComposeFile, layout.SetupComposeFile, layout.TelemetryDir + "/otel-collector.yaml", layout.TelemetryDir + "/host-metrics.yaml", layout.TelemetryDir + "/docker-logs.yaml", layout.TelemetryDir + "/docker-stats.yaml", layout.ProxyFile, layout.VersionFile} {
+	for _, path := range []string{layout.EnvFile, layout.ComposeFile, layout.SetupComposeFile, layout.ProxyFile, layout.VersionFile} {
 		if !FileExists(path) {
 			t.Fatalf("prepared asset %s is missing", path)
 		}
@@ -869,7 +815,7 @@ func TestPrepareDownloadsVersionedSetupAssetsAtomically(t *testing.T) {
 	}
 }
 
-func TestPrepareMigratesExistingConfigWithTelemetryImages(t *testing.T) {
+func TestPrepareMigratesExistingConfigImages(t *testing.T) {
 	layout := writeEngineFixture(t, false)
 	assetServer := newEngineAssetServer(t, "v1.2.3")
 	defer assetServer.Close()
@@ -882,18 +828,11 @@ func TestPrepareMigratesExistingConfigWithTelemetryImages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := values["STEALTH_TELEMETRY_DOCKER_PROXY_IMAGE"]; got != ImageName("stealth-telemetry-docker-proxy", "v1.2.3") {
-		t.Fatalf("migrated proxy image = %q", got)
+	if got := values["STEALTH_CONSOLE_IMAGE"]; got != ImageName("stealth-console", "v1.2.3") {
+		t.Fatalf("migrated console image = %q", got)
 	}
-	for key, want := range map[string]string{
-		"OTEL_COLLECTOR_IMAGE":             ImageName("stealth-otel-collector", "v1.2.3"),
-		"OTEL_HOST_COLLECTOR_IMAGE":        ImageName("stealth-otel-collector", "v1.2.3"),
-		"OTEL_DOCKER_COLLECTOR_IMAGE":      ImageName("stealth-otel-collector", "v1.2.3"),
-		"OTEL_DOCKER_LOGS_COLLECTOR_IMAGE": ImageName("stealth-otel-docker-logs", "v1.2.3"),
-	} {
-		if got := values[key]; got != want {
-			t.Fatalf("migrated %s = %q, want %q", key, got, want)
-		}
+	if _, present := values["STEALTH_TELEMETRY_DOCKER_PROXY_IMAGE"]; present {
+		t.Fatalf("migration reintroduced the removed telemetry proxy image: %#v", values)
 	}
 }
 
@@ -904,10 +843,6 @@ func TestPrepareMigratesPrePR83ManagedAssets(t *testing.T) {
 		"buildkit/buildkitd.toml":                     testBuildKitConfigAsset(),
 		"buildkit/stealth-buildkit-rootless.apparmor": testBuildKitAppArmorProfileAsset(),
 		"compose.setup.yaml":                          "services:\n  setup:\n",
-		"telemetry/otel-collector.yaml":               "receivers:\n  otlp:\nexporters:\n  clickhouse:\n",
-		"telemetry/host-metrics.yaml":                 "receivers:\n  hostmetrics:\n",
-		"telemetry/docker-logs.yaml":                  "receivers:\n  file_log/docker:\n",
-		"telemetry/docker-stats.yaml":                 "receivers:\n  docker_stats:\n",
 		"console/deploy/nginx.conf":                   "server {\n  location / { proxy_pass http://console:3000; }\n}\n",
 		"traefik/traefik.yaml":                        testTraefikStaticAsset(),
 		"traefik/dynamic/core.yaml":                   testTraefikCoreAsset(),
@@ -936,21 +871,14 @@ func TestPrepareMigratesPrePR83ManagedAssets(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(layout.ProxyFile), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := WritePrivateFile(layout.EnvFile, "STEALTH_API_IMAGE=ghcr.io/nafixhutao/stealth-api:v0.2.2\nPOSTGRES_PASSWORD=old-postgres-secret\nCLICKHOUSE_PASSWORD=old-clickhouse-secret\nPUBLIC_APP_URL=http://127.0.0.1:8080\nDOCKER_GID=999\n"); err != nil {
+	if err := WritePrivateFile(layout.EnvFile, "STEALTH_API_IMAGE=ghcr.io/nafixhutao/stealth-api:v0.2.2\nPOSTGRES_PASSWORD=old-postgres-secret\nPUBLIC_APP_URL=http://127.0.0.1:8080\nDOCKER_GID=999\n"); err != nil {
 		t.Fatal(err)
 	}
-	oldCompose := "services:\n  otel-collector:\n    volumes:\n      - /:/hostfs:ro\n    cap_add:\n      - DAC_READ_SEARCH\nnetworks:\n  stealth:\n"
-	oldCollector := "receivers:\n  filelog/docker:\n    include:\n      - /hostfs/var/lib/docker/containers/*/*-json.log\n"
+	oldCompose := "services:\n  api:\n    image: old\nnetworks:\n  stealth:\n"
 	if err := WriteAtomic(layout.ComposeFile, []byte(oldCompose), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := WriteAtomic(layout.SetupComposeFile, []byte("services:\n  old-setup:\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := WriteAtomic(filepath.Join(layout.TelemetryDir, "otel-collector.yaml"), []byte(oldCollector), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := WriteAtomic(filepath.Join(layout.TelemetryDir, "docker-stats.yaml"), []byte("receivers:\n  docker_stats:\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := WriteAtomic(layout.ProxyFile, []byte("server {\n  # pre-PR-83\n}\n"), 0o644); err != nil {
@@ -991,14 +919,14 @@ func TestPrepareMigratesPrePR83ManagedAssets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if values["POSTGRES_PASSWORD"] != "old-postgres-secret" || values["CLICKHOUSE_PASSWORD"] != "old-clickhouse-secret" {
+	if values["POSTGRES_PASSWORD"] != "old-postgres-secret" {
 		t.Fatalf("migration replaced operator secrets: %#v", values)
 	}
 	if values["STEALTH_API_IMAGE"] != ImageName("stealth-api", targetVersion) {
 		t.Fatalf("migration did not advance canonical API image: %q", values["STEALTH_API_IMAGE"])
 	}
-	if values["OTEL_DOCKER_LOGS_COLLECTOR_IMAGE"] != ImageName("stealth-otel-docker-logs", targetVersion) {
-		t.Fatalf("migration did not add target Docker-log image: %#v", values)
+	if values["STEALTH_CONSOLE_IMAGE"] != ImageName("stealth-console", targetVersion) {
+		t.Fatalf("migration did not add target Console image: %#v", values)
 	}
 	for key, want := range map[string]string{
 		"STEALTH_INGRESS_NETWORK_SUBNET": "172.31.0.0/24",
@@ -1149,11 +1077,7 @@ func TestPrepareSameVersionRepairRestoresMissingAndCorruptAssets(t *testing.T) {
 	if err := WriteAtomic(layout.ComposeFile, []byte("services:\n  old-topology:\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Remove(filepath.Join(layout.TelemetryDir, "host-metrics.yaml")); err != nil {
-		t.Fatal(err)
-	}
-	unknown := filepath.Join(layout.TelemetryDir, "operator-extra.yaml")
-	if err := WriteAtomic(unknown, []byte("operator-owned\n"), 0o600); err != nil {
+	if err := os.Remove(layout.ProxyFile); err != nil {
 		t.Fatal(err)
 	}
 	unknownRoot := filepath.Join(layout.Root, "operator-local.conf")
@@ -1170,11 +1094,8 @@ func TestPrepareSameVersionRepairRestoresMissingAndCorruptAssets(t *testing.T) {
 	if got, err := os.ReadFile(layout.ComposeFile); err != nil || string(got) != testProductionComposeAsset() {
 		t.Fatalf("same-version repair Compose = %q, %v", got, err)
 	}
-	if got, err := os.ReadFile(filepath.Join(layout.TelemetryDir, "host-metrics.yaml")); err != nil || !bytes.Contains(got, []byte("hostmetrics:")) {
-		t.Fatalf("same-version repair host metrics = %q, %v", got, err)
-	}
-	if got, err := os.ReadFile(unknown); err != nil || string(got) != "operator-owned\n" {
-		t.Fatalf("unknown operator asset changed: %q, %v", got, err)
+	if got, err := os.ReadFile(layout.ProxyFile); err != nil || string(got) != "server {\n}" {
+		t.Fatalf("same-version repair proxy = %q, %v", got, err)
 	}
 	if got, err := os.ReadFile(unknownRoot); err != nil || string(got) != "operator-owned-root\n" {
 		t.Fatalf("unknown root asset changed: %q, %v", got, err)
@@ -1534,15 +1455,11 @@ func TestTargetReleaseManifestCanAddFutureManagedAsset(t *testing.T) {
 		"compose.production.yaml":                     testProductionComposeAsset(),
 		"buildkit/buildkitd.toml":                     testBuildKitConfigAsset(),
 		"buildkit/stealth-buildkit-rootless.apparmor": testBuildKitAppArmorProfileAsset(),
-		"telemetry/otel-collector.yaml":               testMainCollectorAsset(),
-		"telemetry/host-metrics.yaml":                 "receivers:\n  hostmetrics:\n",
-		"telemetry/docker-logs.yaml":                  "receivers:\n  file_log/docker:\n",
-		"telemetry/docker-stats.yaml":                 "receivers:\n  docker_stats:\n",
 		"console/deploy/nginx.conf":                   "server {\n}",
 		"traefik/traefik.yaml":                        testTraefikStaticAsset(),
 		"traefik/dynamic/core.yaml":                   testTraefikCoreAsset(),
 		"traefik/dynamic/generated/.gitkeep":          "# Stealth route reconciler\n",
-		"telemetry/future.yaml":                       "future_receiver:\n",
+		"buildkit/future.yaml":                        "future_receiver:\n",
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		name := strings.TrimPrefix(r.URL.Path, "/"+version+"/")
@@ -1560,9 +1477,9 @@ func TestTargetReleaseManifestCanAddFutureManagedAsset(t *testing.T) {
 	defer server.Close()
 
 	oldManifest := DefaultManagedAssets()
-	targetManifest := append(DefaultManagedAssets(), ManagedAsset{Path: "telemetry/future.yaml", RemotePath: "telemetry/future.yaml", Marker: "future_receiver:"})
+	targetManifest := append(DefaultManagedAssets(), ManagedAsset{Path: "buildkit/future.yaml", RemotePath: "buildkit/future.yaml", Marker: "future_receiver:"})
 	for _, asset := range oldManifest {
-		if asset.Path == "telemetry/future.yaml" {
+		if asset.Path == "buildkit/future.yaml" {
 			t.Fatal("old release unexpectedly knows future asset")
 		}
 	}
@@ -1570,7 +1487,7 @@ func TestTargetReleaseManifestCanAddFutureManagedAsset(t *testing.T) {
 	if err := engine.Prepare(context.Background(), Plan{Layout: layout, Version: version, InstalledVersion: "v1.2.2", DockerGID: uint32(os.Getgid()), Existing: true}); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := os.ReadFile(filepath.Join(layout.TelemetryDir, "future.yaml")); err != nil || string(got) != "future_receiver:\n" {
+	if got, err := os.ReadFile(filepath.Join(layout.Root, "buildkit", "future.yaml")); err != nil || string(got) != "future_receiver:\n" {
 		t.Fatalf("target-owned future asset = %q, %v", got, err)
 	}
 }

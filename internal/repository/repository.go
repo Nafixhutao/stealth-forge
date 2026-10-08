@@ -14,6 +14,10 @@ type Repository struct {
 	webhookCipher    *functionsecret.Cipher
 	adminCipher      *functionsecret.Cipher
 	cloudflareCipher *functionsecret.Cipher
+	// oauthCipher protects external sign-in client secrets. They are
+	// instance-level settings an operator can change from the Console, so they
+	// are stored encrypted rather than only in the deployment environment.
+	oauthCipher *functionsecret.Cipher
 	// Messaging provider credentials and subscriber addresses use the same
 	// process-held AES-GCM key as webhook secrets. Keeping the cipher on the
 	// repository ensures reads can expose only safe metadata while trusted
@@ -32,6 +36,8 @@ type Dependencies struct {
 	AdminCipher *functionsecret.Cipher
 	// CloudflareCipher protects the instance-scoped Cloudflare API token.
 	CloudflareCipher *functionsecret.Cipher
+	// OAuthCipher protects external sign-in provider client secrets.
+	OAuthCipher *functionsecret.Cipher
 }
 
 func New(pool *pgxpool.Pool) *Repository {
@@ -50,6 +56,7 @@ func NewWithDependencies(pool *pgxpool.Pool, deps Dependencies) *Repository {
 		messagingCipher:     deps.WebhookCipher,
 		adminCipher:         firstCipher(deps.AdminCipher, deps.WebhookCipher),
 		cloudflareCipher:    deps.CloudflareCipher,
+		oauthCipher:         deps.OAuthCipher,
 	}
 }
 

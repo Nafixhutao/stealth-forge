@@ -198,6 +198,28 @@ export function useAdminOperations(
   });
 }
 
+// Host resource metrics are sampled in-process by the API (no telemetry
+// backend). Poll a little faster than the heavier admin queries so the Overview
+// resource cards and chart stay close to live. `windowMinutes` narrows the
+// history; the server computes the cutoff, so render stays pure.
+export function useAdminHostMetrics(
+  windowMinutes?: number,
+  options?: { refetchInterval?: number | false },
+) {
+  return useQuery({
+    queryKey: [...queryKeys.adminHostMetrics, windowMinutes ?? "all"],
+    queryFn: cancellableQuery((signal) =>
+      api.GET("/v1/admin/host-metrics", {
+        params: {
+          query: windowMinutes ? { window_minutes: windowMinutes } : {},
+        },
+        signal,
+      }),
+    ),
+    refetchInterval: options?.refetchInterval ?? 5_000,
+  });
+}
+
 export function useAdminAuditEvents(
   query: { before?: string; limit?: number } = {},
   options?: { refetchInterval?: number | false },

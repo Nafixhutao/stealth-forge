@@ -31,6 +31,10 @@ export const configSchema = z.object({
   storage_s3_use_ssl: z.boolean(),
   storage_s3_path_style: z.boolean(),
   storage_s3_prefix: z.string().trim(),
+  oauth_github_client_id: z.string().trim(),
+  oauth_github_client_secret: z.string(),
+  oauth_google_client_id: z.string().trim(),
+  oauth_google_client_secret: z.string(),
 });
 
 export const manualGitHubSchema = z.object({
@@ -59,6 +63,7 @@ export type SetupStep =
   | "networking"
   | "data"
   | "storage"
+  | "signin"
   | "review"
   | "install";
 
@@ -73,8 +78,9 @@ export const setupSteps: Array<{
   { id: "networking", label: "Networking", short: "03" },
   { id: "data", label: "Database & Redis", short: "04" },
   { id: "storage", label: "Storage", short: "05" },
-  { id: "review", label: "Review", short: "06" },
-  { id: "install", label: "Install", short: "07" },
+  { id: "signin", label: "Sign-in", short: "06" },
+  { id: "review", label: "Review", short: "07" },
+  { id: "install", label: "Install", short: "08" },
 ];
 
 export const installationSteps = [
@@ -135,6 +141,10 @@ export const defaultConfig: ConfigValues = {
   storage_s3_use_ssl: true,
   storage_s3_path_style: true,
   storage_s3_prefix: "",
+  oauth_github_client_id: "",
+  oauth_github_client_secret: "",
+  oauth_google_client_id: "",
+  oauth_google_client_secret: "",
 };
 
 export function configFromState(state: SetupState | undefined): ConfigValues {
@@ -157,6 +167,12 @@ export function configFromState(state: SetupState | undefined): ConfigValues {
     storage_s3_path_style:
       draft?.storage_s3_path_style ?? defaultConfig.storage_s3_path_style,
     storage_s3_prefix: draft?.storage_s3_prefix ?? "",
+    oauth_github_client_id: draft?.oauth_github_client_id ?? "",
+    // Secrets are write-only; the API never returns them, so they start empty
+    // and are only sent when the operator types a value.
+    oauth_github_client_secret: "",
+    oauth_google_client_id: draft?.oauth_google_client_id ?? "",
+    oauth_google_client_secret: "",
   } as ConfigValues;
 }
 
@@ -185,5 +201,9 @@ export function toSetupRequest(
     storage_s3_use_ssl: values.storage_s3_use_ssl,
     storage_s3_path_style: values.storage_s3_path_style,
     storage_s3_prefix: values.storage_s3_prefix || undefined,
+    oauth_github_client_id: values.oauth_github_client_id || undefined,
+    oauth_github_client_secret: values.oauth_github_client_secret || undefined,
+    oauth_google_client_id: values.oauth_google_client_id || undefined,
+    oauth_google_client_secret: values.oauth_google_client_secret || undefined,
   };
 }

@@ -18,7 +18,9 @@ import (
 	"github.com/Stealth-deplover/stealth/internal/functionstore"
 	"github.com/Stealth-deplover/stealth/internal/gitarchive"
 	"github.com/Stealth-deplover/stealth/internal/githubauth"
+	"github.com/Stealth-deplover/stealth/internal/hostmetrics"
 	"github.com/Stealth-deplover/stealth/internal/mailer"
+	"github.com/Stealth-deplover/stealth/internal/oauthlogin"
 	"github.com/Stealth-deplover/stealth/internal/observability"
 	"github.com/Stealth-deplover/stealth/internal/ratelimit"
 	"github.com/Stealth-deplover/stealth/internal/realtime"
@@ -60,6 +62,7 @@ type Server struct {
 	authEmailSender   mailer.AuthSender
 	githubClient      githubauth.Client
 	githubOAuth       githubauth.OAuthClient
+	oauthLogin        oauthlogin.Client
 	githubFlowMu      sync.Mutex
 	setupState        setupstate.Store
 	setupHandoff      setuphandoff.Store
@@ -67,6 +70,7 @@ type Server struct {
 	cloudflareOAuth   CloudflareOAuthClient
 	cloudflareFactory CloudflareClientFactory
 	telemetry         telemetry.Store
+	hostMetrics       *hostmetrics.Collector
 	redis             *redis.Client
 
 	adminRealtimeAuthRecheckInterval time.Duration
@@ -91,6 +95,7 @@ type Dependencies struct {
 	RealtimeBroker    *realtime.Broker
 	GitHubClient      githubauth.Client
 	GitHubOAuth       githubauth.OAuthClient
+	OAuthLogin        oauthlogin.Client
 	BootstrapStore    repository.BootstrapStore
 	SetupState        setupstate.Store
 	SetupHandoff      setuphandoff.Store
@@ -98,6 +103,7 @@ type Dependencies struct {
 	CloudflareOAuth   CloudflareOAuthClient
 	CloudflareFactory CloudflareClientFactory
 	TelemetryStore    telemetry.Store
+	HostMetrics       *hostmetrics.Collector
 	Redis             *redis.Client
 
 	// AdminRealtimeAuthRecheckInterval is primarily useful for deterministic
@@ -157,6 +163,10 @@ func NewWithDependenciesAndPlatformSiteHandler(
 		if oauthClient, ok := deps.GitHubClient.(githubauth.OAuthClient); ok {
 			githubOAuth = oauthClient
 		}
+	}
+	oauthLogin := deps.OAuthLogin
+	if oauthLogin == nil {
+		oauthLogin = oauthlogin.NewClient(nil)
 	}
 	bootstrapStore := deps.BootstrapStore
 	if bootstrapStore == nil && repo != nil {
@@ -305,12 +315,14 @@ func NewWithDependenciesAndPlatformSiteHandler(
 		authEmailSender:                  authEmailSender,
 		githubClient:                     deps.GitHubClient,
 		githubOAuth:                      githubOAuth,
+		oauthLogin:                       oauthLogin,
 		setupState:                       setupStateStore,
 		setupHandoff:                     setupHandoffStore,
 		githubManifest:                   githubManifest,
 		cloudflareOAuth:                  cloudflareOAuth,
 		cloudflareFactory:                cloudflareFactory,
 		telemetry:                        deps.TelemetryStore,
+		hostMetrics:                      deps.HostMetrics,
 		redis:                            deps.Redis,
 	}
 	// Export database-pool saturation on the API metrics registry so pool

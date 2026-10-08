@@ -3,7 +3,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "@/api/client";
 import { queryKeys } from "@/api/query-keys";
 import { applyCacheChanges } from "@/api/cache-coherence";
-import type { components } from "@/api/generated/schema";
+import {
+  PathsV1OauthProviderStartGetParametersPathProvider,
+  type components,
+} from "@/api/generated/schema";
 
 export function useLogin() {
   const queryClient = useQueryClient();
@@ -14,6 +17,24 @@ export function useLogin() {
       applyCacheChanges(queryClient, [
         { kind: "account", includeOrganizations: true },
       ]),
+  });
+}
+
+export type OAuthProvider = PathsV1OauthProviderStartGetParametersPathProvider;
+
+/**
+ * Requests the provider authorization URL for browser sign-in. The caller
+ * redirects the browser to `authorization_url`; the API owns the state cookie
+ * and the callback that opens the session.
+ */
+export function useStartOAuthLogin() {
+  return useMutation({
+    mutationFn: async (provider: OAuthProvider) =>
+      unwrap(
+        await api.GET("/v1/oauth/{provider}/start", {
+          params: { path: { provider } },
+        }),
+      ),
   });
 }
 

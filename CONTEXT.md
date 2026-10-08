@@ -194,8 +194,8 @@ container address. Traefik listens on 8080 and health ping on 8081 on that
 bridge. The worker listener on 9091 exposes liveness and version endpoints;
 `/metrics` requires `METRICS_TOKEN` and otherwise returns not found. Through
 Traefik's 8080 entrypoint an App can reach the public Host-routed API and
-Console. API and Console containers, PostgreSQL, Redis, ClickHouse, BuildKit,
-and telemetry services are not attached to the App bridge and are not directly
+Console. API and Console containers, PostgreSQL, Redis, and BuildKit
+are not attached to the App bridge and are not directly
 available there through their Compose DNS names. The bridge is not Docker's
 `internal` network: outbound traffic follows Docker bridge NAT and host
 firewall policy. This shared east-west and egress boundary is a known
@@ -255,13 +255,10 @@ has a ready selected deployment, has matching desired and observed generations,
 and has current runtime identity with healthy probes. PostgreSQL remains
 authoritative and the worker publishes eligible Apps through a separate
 App-only Traefik snapshot. Runtime stdout/stderr follows Docker's existing
-json-file logging into the isolated file-log Collector, then through the main
-Collector's redaction/event-ID pipeline to ClickHouse. PostgreSQL stores only
-the worker-verified App-to-container source mapping. A project-scoped API
-resolves those trusted sources before querying bounded ClickHouse history;
-the Console uses its shared log viewer. Logs remain subject to Docker local
-rotation and ClickHouse telemetry retention, which are separate limits.
-Telemetry outages affect log retrieval, not App reconciliation or routing.
+json-file logging, read through a bounded project-scoped API. PostgreSQL stores
+the worker-verified App-to-container source mapping. The Console uses its
+shared log viewer. Logs remain subject to Docker local
+rotation. Log read failures affect log retrieval, not App reconciliation or routing.
 App environment variables and secrets are write-only through the API and
 Console; configured values are encrypted in PostgreSQL with a dedicated
 operator key. The trusted worker decrypts values only for container creation,

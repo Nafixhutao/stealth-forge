@@ -152,9 +152,8 @@ func newRollbackTestFixture(t *testing.T, currentFingerprint string) rollbackTes
 	plan.InternalConsoleURL = server.URL
 	plan.InternalProxyURL = server.URL
 	services := []string{
-		"api", "worker", "buildkit", "console", "proxy", "traefik", "clickhouse", "postgres", "redis",
-		"otel-collector", "telemetry-host", "telemetry-docker-logs", "telemetry-docker-proxy", "telemetry-docker",
-		"traefik-state-init", "otelcol-state-init", "telemetry-docker-logs-state-init",
+		"api", "worker", "buildkit", "console", "proxy", "traefik", "postgres", "redis",
+		"traefik-state-init",
 		"cloudflare-setup-state-init", "cloudflare-state-init", "buildkit-worker-credentials-init", "buildkit-server-credentials-init",
 	}
 	runner := &rollbackTestRunner{fingerprint: currentFingerprint, services: services}

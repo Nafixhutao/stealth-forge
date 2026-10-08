@@ -223,7 +223,6 @@ jobs:
           build_time="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           postgres_password="$(openssl rand -hex 24)"
           redis_password="$(openssl rand -hex 24)"
-          clickhouse_password="$(openssl rand -hex 24)"
           functions_secret_key="$(openssl rand -base64 32 | tr -d '\n')"
           apps_secret_key="$(openssl rand -base64 32 | tr -d '\n')"
           bootstrap_cli_key="$(openssl rand -base64 32 | tr -d '\n')"
@@ -236,19 +235,11 @@ jobs:
           STEALTH_INGRESS_CONTROL_IMAGE=stealth-ingress-control:${tag}
           STEALTH_MIGRATE_IMAGE=stealth-migrate:${tag}
           STEALTH_CONSOLE_IMAGE=stealth-console:${tag}
-          OTEL_COLLECTOR_IMAGE=stealth-otel-collector:${tag}
-          OTEL_HOST_COLLECTOR_IMAGE=stealth-otel-collector:${tag}
-          OTEL_DOCKER_COLLECTOR_IMAGE=stealth-otel-collector:${tag}
-          OTEL_DOCKER_LOGS_COLLECTOR_IMAGE=stealth-otel-docker-logs:${tag}
-          STEALTH_TELEMETRY_DOCKER_PROXY_IMAGE=stealth-telemetry-docker-proxy:${tag}
           TRAEFIK_IMAGE=traefik:v3.7.13@sha256:1c32e7c368204fd72812152ebdd2ac0425993df6fd982317deb02e48f2d5423c
           POSTGRES_DB=stealth
           POSTGRES_USER=stealth
           POSTGRES_PASSWORD=${postgres_password}
           REDIS_PASSWORD=${redis_password}
-          CLICKHOUSE_DATABASE=stealth_telemetry
-          CLICKHOUSE_USER=stealth
-          CLICKHOUSE_PASSWORD=${clickhouse_password}
           FUNCTIONS_SECRET_KEY=${functions_secret_key}
           APPS_SECRET_KEY=${apps_secret_key}
           BOOTSTRAP_CLI_KEY=${bootstrap_cli_key}
@@ -263,9 +254,6 @@ jobs:
           STEALTH_INGRESS_IP_RANGE=172.31.0.64/26
           STEALTH_TRAEFIK_INGRESS_IP=172.31.0.254
           STEALTH_CLOUDFLARED_INGRESS_IP=172.31.0.10
-          STEALTH_TELEMETRY_STORE_NETWORK_NAME=stealth_host_reboot_store_${RUN_SUFFIX}
-          STEALTH_TELEMETRY_INGEST_NETWORK_NAME=stealth_host_reboot_ingest_${RUN_SUFFIX}
-          STEALTH_TELEMETRY_DOCKER_NETWORK_NAME=stealth_host_reboot_docker_${RUN_SUFFIX}
           APPS_RUNTIME_NETWORK_NAME=stealth_host_reboot_runtime_${RUN_SUFFIX}
           APPS_BUILDKIT_APPARMOR_PROFILE=stealth-buildkit-rootless
           DOCKER_GID=${docker_gid}
@@ -275,9 +263,6 @@ jobs:
           FUNCTIONS_RUNNER_STAGING_VOLUME=stealth_host_reboot_staging_${RUN_SUFFIX}
           POSTGRES_VOLUME_NAME=stealth_host_reboot_postgres_${RUN_SUFFIX}
           STORAGE_VOLUME_NAME=stealth_host_reboot_storage_${RUN_SUFFIX}
-          CLICKHOUSE_VOLUME_NAME=stealth_host_reboot_clickhouse_${RUN_SUFFIX}
-          OTELCOL_VOLUME_NAME=stealth_host_reboot_otelcol_${RUN_SUFFIX}
-          OTEL_DOCKER_LOGS_VOLUME_NAME=stealth_host_reboot_docker_logs_${RUN_SUFFIX}
           PROXY_HTTP_BIND=127.0.0.1
           PROXY_HTTP_PORT=8080
           API_HOST_PORT=18080
@@ -298,9 +283,8 @@ jobs:
           set -euo pipefail
           repo="$1"; run_id="$2"; sha="$3"; build_time="$4"; profile_marker="$5"; tag="smoke-$run_id"
           cd "$repo"
-          for target in api setup worker ingress-control migrate telemetry-collector telemetry-docker-logs telemetry-docker-proxy; do
+          for target in api setup worker ingress-control migrate; do
             image="stealth-$target"
-            case "$target" in telemetry-collector) image=stealth-otel-collector ;; telemetry-docker-logs) image=stealth-otel-docker-logs ;; telemetry-docker-proxy) image=stealth-telemetry-docker-proxy ;; esac
             docker build --target "$target" --build-arg VERSION=ci --build-arg COMMIT_SHA="$sha" --build-arg BUILD_TIME="$build_time" -t "$image:$tag" .
           done
           docker build -f console/Dockerfile --build-arg NEXT_PUBLIC_API_BASE_URL= --build-arg VERSION=ci --build-arg COMMIT_SHA="$sha" --build-arg BUILD_TIME="$build_time" -t "stealth-console:$tag" .

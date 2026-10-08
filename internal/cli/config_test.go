@@ -89,20 +89,7 @@ func testProductionComposeAsset() string {
     volumes:
       - cloudflare_setup_state_input:/input:ro
       - "${STEALTH_INSTALL_ROOT:-.}/state/.cloudflare-import:/output:rw"
-  otel-collector:
-  telemetry-host:
-    volumes:
-      - /:/hostfs:ro
-      - type: tmpfs
-        target: /hostfs/${STEALTH_INSTALL_ROOT:?set STEALTH_INSTALL_ROOT}/private
-        read_only: true
-        tmpfs:
-          size: 1048576
-  telemetry-docker-logs:
-  telemetry-docker:
-  telemetry-docker-proxy:
 networks:
-  telemetry_ingest:
   app_build:
 volumes:
   buildkit_worker_credentials:
@@ -273,8 +260,8 @@ func TestGenerateConfigGeneratesUsedStrongSecrets(t *testing.T) {
 	if values["GITHUB_APP_CLIENT_ID"] != testGitHubAppClientID {
 		t.Fatalf("GITHUB_APP_CLIENT_ID = %q, want installer value", values["GITHUB_APP_CLIENT_ID"])
 	}
-	if values["STEALTH_TELEMETRY_INGEST_NETWORK_NAME"] != "stealth_telemetry_ingest" {
-		t.Fatalf("STEALTH_TELEMETRY_INGEST_NETWORK_NAME = %q, want private ingest network", values["STEALTH_TELEMETRY_INGEST_NETWORK_NAME"])
+	if values["STEALTH_INGRESS_NETWORK_NAME"] == "" {
+		t.Fatalf("STEALTH_INGRESS_NETWORK_NAME = %q, want ingress network", values["STEALTH_INGRESS_NETWORK_NAME"])
 	}
 	key, err := base64.StdEncoding.DecodeString(values["FUNCTIONS_SECRET_KEY"])
 	if err != nil || len(key) != 32 {

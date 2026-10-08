@@ -38,15 +38,21 @@ type Draft struct {
 	StorageS3UseSSL    bool   `json:"storage_s3_use_ssl"`
 	StorageS3PathStyle bool   `json:"storage_s3_path_style"`
 	StorageS3Prefix    string `json:"storage_s3_prefix,omitempty"`
+	// External sign-in client IDs are public identifiers, so they live in the
+	// draft; their secrets belong in SetupCredentials.
+	OAuthGitHubClientID string `json:"oauth_github_client_id,omitempty"`
+	OAuthGoogleClientID string `json:"oauth_google_client_id,omitempty"`
 }
 
 // SetupCredentials is the single in-memory view of setup credentials. The
 // FileStore persists these values only through State.Secrets.
 type SetupCredentials struct {
-	DatabaseURL        string
-	RedisURL           string
-	StorageS3AccessKey string
-	StorageS3SecretKey string
+	DatabaseURL             string
+	RedisURL                string
+	StorageS3AccessKey      string
+	StorageS3SecretKey      string
+	OAuthGitHubClientSecret string
+	OAuthGoogleClientSecret string
 }
 
 type GitHubState struct {
@@ -108,14 +114,18 @@ const (
 	setupRedisURLSecret           = "redis_url"
 	setupStorageS3AccessKeySecret = "storage_s3_access_key"
 	setupStorageS3SecretKeySecret = "storage_s3_secret_key"
+	setupOAuthGitHubSecret        = "oauth_github_client_secret"
+	setupOAuthGoogleSecret        = "oauth_google_client_secret"
 )
 
 func (s State) SetupCredentials() SetupCredentials {
 	return SetupCredentials{
-		DatabaseURL:        s.Secret(setupDatabaseURLSecret),
-		RedisURL:           s.Secret(setupRedisURLSecret),
-		StorageS3AccessKey: s.Secret(setupStorageS3AccessKeySecret),
-		StorageS3SecretKey: s.Secret(setupStorageS3SecretKeySecret),
+		DatabaseURL:             s.Secret(setupDatabaseURLSecret),
+		RedisURL:                s.Secret(setupRedisURLSecret),
+		StorageS3AccessKey:      s.Secret(setupStorageS3AccessKeySecret),
+		StorageS3SecretKey:      s.Secret(setupStorageS3SecretKeySecret),
+		OAuthGitHubClientSecret: s.Secret(setupOAuthGitHubSecret),
+		OAuthGoogleClientSecret: s.Secret(setupOAuthGoogleSecret),
 	}
 }
 
@@ -124,6 +134,8 @@ func (s *State) SetSetupCredentials(credentials SetupCredentials) {
 	s.SetSecret(setupRedisURLSecret, credentials.RedisURL)
 	s.SetSecret(setupStorageS3AccessKeySecret, credentials.StorageS3AccessKey)
 	s.SetSecret(setupStorageS3SecretKeySecret, credentials.StorageS3SecretKey)
+	s.SetSecret(setupOAuthGitHubSecret, credentials.OAuthGitHubClientSecret)
+	s.SetSecret(setupOAuthGoogleSecret, credentials.OAuthGoogleClientSecret)
 }
 
 type PublicState struct {
@@ -161,6 +173,8 @@ type PublicDraft struct {
 	StorageS3UseSSL      bool   `json:"storage_s3_use_ssl"`
 	StorageS3PathStyle   bool   `json:"storage_s3_path_style"`
 	StorageS3Prefix      string `json:"storage_s3_prefix,omitempty"`
+	OAuthGitHubClientID  string `json:"oauth_github_client_id,omitempty"`
+	OAuthGoogleClientID  string `json:"oauth_google_client_id,omitempty"`
 }
 
 type PublicGitHub struct {

@@ -1,0 +1,82 @@
+/* Standalone sign-in screen — a verbatim port of the Stealth marketing console
+   design. The Console's global @theme remaps the spacing scale, radii, and font
+   weights, and its unlayered globals reset control borders and typography
+   (`* { border-color }`, `button { font: inherit }`). Restore the Tailwind
+   defaults and the Inter type inside this surface only, mirroring the
+   [data-admin] block in admin.css. The `!` important modifiers on the affected
+   utilities in login-view.tsx beat those unlayered globals. */
+[data-auth-standalone] {
+  font-family: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  color: #fff;
+  /* The Console body enables Inter feature settings; the source design does not. */
+  font-feature-settings: normal;
+  /* The Console body forces antialiased smoothing; the source design does not. */
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
+
+  --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+  --font-weight-black: 900;
+
+  /* Tailwind default spacing scale (N * 0.25rem). The Console overrides the
+     4px-multiple tokens with literal pixel values. */
+  --spacing-4: calc(var(--spacing) * 4);
+  --spacing-8: calc(var(--spacing) * 8);
+  --spacing-12: calc(var(--spacing) * 12);
+  --spacing-16: calc(var(--spacing) * 16);
+  --spacing-20: calc(var(--spacing) * 20);
+  --spacing-24: calc(var(--spacing) * 24);
+  --spacing-28: calc(var(--spacing) * 28);
+  --spacing-32: calc(var(--spacing) * 32);
+  --spacing-36: calc(var(--spacing) * 36);
+  --spacing-40: calc(var(--spacing) * 40);
+  --spacing-48: calc(var(--spacing) * 48);
+  --spacing-56: calc(var(--spacing) * 56);
+  --spacing-64: calc(var(--spacing) * 64);
+  --spacing-80: calc(var(--spacing) * 80);
+  --spacing-96: calc(var(--spacing) * 96);
+  --spacing-128: calc(var(--spacing) * 128);
+
+  /* Tailwind default radii. */
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+  --radius-4xl: 2rem;
+  --radius-full: 9999px;
+
+  /* Tailwind default shadows. */
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg:
+    0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl:
+    0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+}
+
+/* Tailwind v4 preflight dropped `cursor: pointer` on buttons; the source
+   design relies on the v3 behavior. */
+[data-auth-standalone] button,
+[data-auth-standalone] [role="button"] {
+  cursor: pointer;
+}
+
+/* The Console's unlayered `* { border-color: var(--border) }` would otherwise
+   tint the default border colour of every borderless element. Restore the
+   source design's currentColor default; the `!` border utilities in
+   login-view.tsx still win with their explicit colours. */
+[data-auth-standalone],
+[data-auth-standalone] *,
+[data-auth-standalone] *::before,
+[data-auth-standalone] *::after {
+  border-color: currentColor;
+}

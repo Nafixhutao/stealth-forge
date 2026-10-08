@@ -23,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PixelSkeleton } from "@/components/ui/pixel-skeleton";
 import {
   CursorPaginationControls,
   type CursorPaginationControlsProps,
@@ -147,7 +147,7 @@ export function DataTable<T extends RowData>({
               <TableRow key={index}>
                 {columns.map((_, cell) => (
                   <TableCell key={cell}>
-                    <Skeleton className="h-4 w-3/4" />
+                    <PixelSkeleton className="h-4 w-3/4" />
                   </TableCell>
                 ))}
               </TableRow>

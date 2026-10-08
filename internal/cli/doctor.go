@@ -20,8 +20,7 @@ type statusServiceTarget struct {
 }
 
 var productionServices = []string{
-	"postgres", "redis", "clickhouse", "migrate", "otel-collector", "telemetry-host",
-	"telemetry-docker-logs", "telemetry-docker-proxy", "telemetry-docker", "api", "worker",
+	"postgres", "redis", "migrate", "api", "worker",
 	"buildkit", "console", "proxy", "traefik",
 }
 

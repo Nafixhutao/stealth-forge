@@ -61,19 +61,25 @@ type Config struct {
 	AuthRateWindow             time.Duration
 	ProjectOperationRateLimit  int
 	ProjectOperationRateWindow time.Duration
-	StorageRoot                string
-	StorageMaxFileSize         int64
-	StorageDefaultQuotaBytes   int64
-	StorageDriver              string
-	StorageS3Endpoint          string
-	StorageS3Region            string
-	StorageS3Bucket            string
-	StorageS3AccessKey         string
-	StorageS3SecretKey         string
-	StorageS3UseSSL            bool
-	StorageS3PathStyle         bool
-	StorageS3Prefix            string
-	StorageS3StagingRoot       string
+	// OAuth login credentials for external identity providers. Empty values
+	// disable the matching provider button on the Console sign-in surface.
+	OAuthGitHubClientID      string
+	OAuthGitHubClientSecret  string
+	OAuthGoogleClientID      string
+	OAuthGoogleClientSecret  string
+	StorageRoot              string
+	StorageMaxFileSize       int64
+	StorageDefaultQuotaBytes int64
+	StorageDriver            string
+	StorageS3Endpoint        string
+	StorageS3Region          string
+	StorageS3Bucket          string
+	StorageS3AccessKey       string
+	StorageS3SecretKey       string
+	StorageS3UseSSL          bool
+	StorageS3PathStyle       bool
+	StorageS3Prefix          string
+	StorageS3StagingRoot     string
 	// Functions source archives use a separate child store under StorageRoot.
 	// The global storage values are used as fallbacks for older deployments.
 	FunctionsMaxArtifactSize   int64

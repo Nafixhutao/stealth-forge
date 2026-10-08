@@ -16,6 +16,7 @@ import (
 	"github.com/Stealth-deplover/stealth/internal/buildinfo"
 	"github.com/Stealth-deplover/stealth/internal/config"
 	"github.com/Stealth-deplover/stealth/internal/functionsecret"
+	"github.com/Stealth-deplover/stealth/internal/hostmetrics"
 	"github.com/Stealth-deplover/stealth/internal/httpapi"
 	"github.com/Stealth-deplover/stealth/internal/observability"
 	"github.com/Stealth-deplover/stealth/internal/ratelimit"
@@ -117,6 +118,7 @@ func main() {
 			WebhookCipher:    webhookCipher,
 			AdminCipher:      webhookCipher,
 			CloudflareCipher: webhookCipher,
+			OAuthCipher:      webhookCipher,
 		},
 	)
 	telemetryStore, telemetryErr := telemetry.New(telemetry.Config{
@@ -141,6 +143,11 @@ func main() {
 			logger.Warn("telemetry schema registry unavailable", "error", err)
 		}
 	}
+	// Host resource metrics are sampled in-process (no ClickHouse) so the admin
+	// Overview keeps its CPU/memory/disk/network cards without the telemetry
+	// stack. A 1-hour ring at 5s backs the Overview time-range selector.
+	hostMetrics := hostmetrics.New(5*time.Second, 720, "/")
+
 	handler, platformSiteHandler := httpapi.NewWithDependenciesAndPlatformSiteHandler(
 		cfg,
 		repo,
@@ -149,6 +156,7 @@ func main() {
 			AuthLimiter:    ratelimit.NewRedisLimiter(redisClient),
 			RealtimeBroker: realtime.NewBroker(redisClient),
 			TelemetryStore: telemetryStore,
+			HostMetrics:    hostMetrics,
 			Redis:          redisClient,
 		},
 	)
@@ -157,6 +165,10 @@ func main() {
 	// r.Context().Done() instead of blocking Shutdown until its deadline.
 	signalContext, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	// The host metrics collector must outlive startup: it samples for the whole
+	// process lifetime, so it uses the signal context (canceled only on
+	// shutdown), never the bounded startup context.
+	go hostMetrics.Start(signalContext)
 	baseContext, cancelBaseContext := context.WithCancel(signalContext)
 	defer cancelBaseContext()
 	// The control-plane servers intentionally omit WriteTimeout: the realtime,

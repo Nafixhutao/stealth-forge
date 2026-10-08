@@ -45,17 +45,13 @@ trap cleanup EXIT
 
 cp -a "$fixture_root"/. "$smoke_root"/
 for asset_version in "$bridge_version" "$target_version"; do
-	mkdir -p "$asset_root/$asset_version/telemetry" "$asset_root/$asset_version/console/deploy"
+	mkdir -p "$asset_root/$asset_version/console/deploy"
 	mkdir -p "$asset_root/$asset_version/buildkit"
 	mkdir -p "$asset_root/$asset_version/traefik/dynamic/generated"
 	cp "$repo_root/compose.production.yaml" "$asset_root/$asset_version/compose.production.yaml"
 	cp "$repo_root/compose.setup.yaml" "$asset_root/$asset_version/compose.setup.yaml"
 	cp "$repo_root/buildkit/buildkitd.toml" "$asset_root/$asset_version/buildkit/buildkitd.toml"
 	cp "$repo_root/buildkit/stealth-buildkit-rootless.apparmor" "$asset_root/$asset_version/buildkit/stealth-buildkit-rootless.apparmor"
-	cp "$repo_root/telemetry/otel-collector.yaml" "$asset_root/$asset_version/telemetry/otel-collector.yaml"
-	cp "$repo_root/telemetry/host-metrics.yaml" "$asset_root/$asset_version/telemetry/host-metrics.yaml"
-	cp "$repo_root/telemetry/docker-logs.yaml" "$asset_root/$asset_version/telemetry/docker-logs.yaml"
-	cp "$repo_root/telemetry/docker-stats.yaml" "$asset_root/$asset_version/telemetry/docker-stats.yaml"
 	cp "$repo_root/console/deploy/nginx.conf" "$asset_root/$asset_version/console/deploy/nginx.conf"
 	cp "$repo_root/traefik/traefik.yaml" "$asset_root/$asset_version/traefik/traefik.yaml"
 	cp "$repo_root/traefik/dynamic/core.yaml" "$asset_root/$asset_version/traefik/dynamic/core.yaml"
@@ -70,10 +66,6 @@ for asset_version in "$bridge_version" "$target_version"; do
 			traefik/traefik.yaml \
 			traefik/dynamic/core.yaml \
 			traefik/dynamic/generated/.gitkeep \
-			telemetry/otel-collector.yaml \
-			telemetry/host-metrics.yaml \
-			telemetry/docker-logs.yaml \
-			telemetry/docker-stats.yaml \
 			compose.setup.yaml > checksums.txt
 	)
 done
@@ -107,10 +99,7 @@ worker_image="$(config_value STEALTH_WORKER_IMAGE)"
 ingress_control_image="$(config_value STEALTH_INGRESS_CONTROL_IMAGE)"
 migrate_image="$(config_value STEALTH_MIGRATE_IMAGE)"
 console_image="$(config_value STEALTH_CONSOLE_IMAGE)"
-collector_image="$(config_value OTEL_COLLECTOR_IMAGE)"
-logs_image="$(config_value OTEL_DOCKER_LOGS_COLLECTOR_IMAGE)"
-proxy_image="$(config_value STEALTH_TELEMETRY_DOCKER_PROXY_IMAGE)"
-for required_image in "$api_image" "$worker_image" "$ingress_control_image" "$migrate_image" "$console_image" "$collector_image" "$logs_image" "$proxy_image"; do
+for required_image in "$api_image" "$worker_image" "$ingress_control_image" "$migrate_image" "$console_image"; do
 	if [ -z "$required_image" ] || ! docker image inspect "$required_image" >/dev/null 2>&1; then
 		printf 'required locally-built smoke image is unavailable: %s\n' "$required_image" >&2
 		exit 1
@@ -128,9 +117,6 @@ docker tag "$worker_image" "ghcr.io/nafixhutao/stealth-worker:${target_version}"
 docker tag "$ingress_control_image" "ghcr.io/nafixhutao/stealth-ingress-control:${target_version}"
 docker tag "$migrate_image" "ghcr.io/nafixhutao/stealth-migrate:${target_version}"
 docker tag "$console_image" "ghcr.io/nafixhutao/stealth-console:${target_version}"
-docker tag "$collector_image" "ghcr.io/nafixhutao/stealth-otel-collector:${target_version}"
-docker tag "$logs_image" "ghcr.io/nafixhutao/stealth-otel-docker-logs:${target_version}"
-docker tag "$proxy_image" "ghcr.io/nafixhutao/stealth-telemetry-docker-proxy:${target_version}"
 
 python3 -c '
 import functools

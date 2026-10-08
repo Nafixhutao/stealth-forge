@@ -35,10 +35,6 @@ func DefaultManagedAssets() []ManagedAsset {
 		{Path: "traefik/traefik.yaml", RemotePath: "traefik/traefik.yaml", Marker: "entryPoints:", productionOnly: true, render: renderTraefikStaticAsset, validate: validateTraefikStaticAsset},
 		{Path: "traefik/dynamic/core.yaml", RemotePath: "traefik/dynamic/core.yaml", Marker: "__STEALTH_PUBLIC_HOST__", productionOnly: true, render: renderTraefikCoreAsset, validate: validateTraefikCoreAsset},
 		{Path: "traefik/dynamic/generated/.gitkeep", RemotePath: "traefik/dynamic/generated/.gitkeep", Marker: "Stealth route reconciler", productionOnly: true},
-		{Path: "telemetry/otel-collector.yaml", RemotePath: "telemetry/otel-collector.yaml", Marker: "receivers:", validate: validateMainCollectorAsset},
-		{Path: "telemetry/host-metrics.yaml", RemotePath: "telemetry/host-metrics.yaml", Marker: "hostmetrics:"},
-		{Path: "telemetry/docker-logs.yaml", RemotePath: "telemetry/docker-logs.yaml", Marker: "file_log/docker:"},
-		{Path: "telemetry/docker-stats.yaml", RemotePath: "telemetry/docker-stats.yaml", Marker: "docker_stats:"},
 		{Path: "compose.setup.yaml", RemotePath: "compose.setup.yaml", Marker: "services:", setupOnly: true},
 	}
 }

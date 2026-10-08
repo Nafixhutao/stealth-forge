@@ -42,12 +42,6 @@ func BuildPlan(state setupstate.State, installRoot string) (installengine.Plan, 
 		"REDIS_URL":            redisURL,
 		"COOKIE_SECURE":        strconv.FormatBool(strings.HasPrefix(state.Draft.PublicURL, "https://")),
 	}
-	if strings.TrimSpace(base["STEALTH_TELEMETRY_DOCKER_PROXY_IMAGE"]) == "" {
-		updates["STEALTH_TELEMETRY_DOCKER_PROXY_IMAGE"] = installengine.ImageName(
-			"stealth-telemetry-docker-proxy",
-			BaseVersion(base),
-		)
-	}
 	if state.Draft.NetworkMode == "public_ip" {
 		updates["PROXY_HTTP_BIND"] = "0.0.0.0"
 	} else {
@@ -65,6 +59,16 @@ func BuildPlan(state setupstate.State, installRoot string) (installengine.Plan, 
 		updates["STORAGE_S3_USE_SSL"] = strconv.FormatBool(state.Draft.StorageS3UseSSL)
 		updates["STORAGE_S3_PATH_STYLE"] = strconv.FormatBool(state.Draft.StorageS3PathStyle)
 		updates["STORAGE_S3_PREFIX"] = state.Draft.StorageS3Prefix
+	}
+	// External sign-in providers are written only when the operator configured
+	// them in the wizard; an empty pair leaves the provider disabled.
+	if clientID := strings.TrimSpace(state.Draft.OAuthGitHubClientID); clientID != "" {
+		updates["OAUTH_GITHUB_CLIENT_ID"] = clientID
+		updates["OAUTH_GITHUB_CLIENT_SECRET"] = credentials.OAuthGitHubClientSecret
+	}
+	if clientID := strings.TrimSpace(state.Draft.OAuthGoogleClientID); clientID != "" {
+		updates["OAUTH_GOOGLE_CLIENT_ID"] = clientID
+		updates["OAUTH_GOOGLE_CLIENT_SECRET"] = credentials.OAuthGoogleClientSecret
 	}
 	cloudflareEnabled := state.Draft.NetworkMode == "cloudflare_tunnel"
 	if cloudflareEnabled {

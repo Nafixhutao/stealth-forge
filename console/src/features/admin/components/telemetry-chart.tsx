@@ -90,6 +90,20 @@ function formatValue(value: number): string {
     : String(Math.round(value * 10) / 10);
 }
 
+// X-axis labels are ISO timestamps from the API. Render them as a compact
+// wall-clock time; non-date labels (e.g. mock short strings) pass through.
+function formatAxisTime(value: unknown): string {
+  if (typeof value !== "string") return String(value ?? "");
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
 /**
  * The shared telemetry chart: a restrained recharts area/bar with subtle
  * grid, dark tooltip, and per-series gradient fill. All colors resolve to
@@ -136,6 +150,7 @@ export function TelemetryChart({
             axisLine={false}
             minTickGap={32}
             tickMargin={6}
+            tickFormatter={formatAxisTime}
           />
           <YAxis
             tick={{ fill: "#8a8791", fontSize: 10.5 }}
@@ -207,6 +222,7 @@ export function TelemetryChart({
           axisLine={false}
           minTickGap={32}
           tickMargin={6}
+          tickFormatter={formatAxisTime}
         />
         <YAxis
           tick={{ fill: "#8a8791", fontSize: 10.5 }}

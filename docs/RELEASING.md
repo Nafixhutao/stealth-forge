@@ -37,7 +37,7 @@ Automatic bootstrap resolution and `stealth update` remain stable-only.
       step). It must start from the tag-derived v0.2.5 fixture, verify the
       CLI-only bridge phase, run the bridge `stealth update`, invoke the
       checksum- and version-verified target binary's internal migration, and
-      finish with the full production telemetry/HTTP smoke.
+      finish with the full production HTTP smoke.
 
 ## Tag and release artifacts
 
@@ -58,11 +58,8 @@ Automatic bootstrap resolution and `stealth update` remain stable-only.
   `stealth_Linux_arm64.tar.gz`, and `checksums.txt`.
 - [ ] Verify `checksums.txt` contains a valid SHA-256 entry for both CLI
   archives and that the archive contents contain an executable `stealth` file.
-- [ ] Verify GHCR contains versioned API, worker, ingress-control, migration, Console,
-      `stealth-otel-collector`, `stealth-otel-docker-logs`, and
-      `stealth-telemetry-docker-proxy` images for the release. The host,
-      Docker-log, and Docker-metrics services use the two Collector images
-      according to their documented privilege boundaries.
+- [ ] Verify GHCR contains versioned API, worker, ingress-control, migration, and Console
+      images for the release.
 
 ## Clean-host validation
 

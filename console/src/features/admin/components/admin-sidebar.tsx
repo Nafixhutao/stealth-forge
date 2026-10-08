@@ -2,100 +2,68 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { LogOut, X } from "lucide-react";
+import { useLogout } from "@/api/mutations/auth";
 import {
-  Activity,
-  ArrowLeft,
-  Bug,
-  ChartNoAxesCombined,
-  BrainCircuit,
-  Gauge,
-  Logs,
-  RadioTower,
-  Server,
-  Settings,
-  ShieldCheck,
-  TriangleAlert,
-  Users,
-  Waypoints,
-  X,
-  type LucideIcon,
-} from "lucide-react";
-import {
+  LABEL_ENTER_TRANSITION,
+  LABEL_EXIT_TRANSITION,
   PANEL_CLOSE_TRANSITION,
   PANEL_TRANSITION,
+  SIDEBAR_COLLAPSE_TRANSITION,
+  SIDEBAR_EXPAND_TRANSITION,
   SPRING_LAYOUT,
   SPRING_PRESS,
 } from "@/lib/ease";
 import { cn } from "@/lib/utils";
+import { ADMIN_NAV, isAdminNavActive, type AdminNavItem } from "./admin-nav";
 
-interface AdminNavItem {
-  label: string;
-  href: string;
-  icon: LucideIcon;
-  /** Exact match instead of prefix (Overview must not swallow /admin/*). */
-  exact?: boolean;
-}
+/** Rail geometry. Collapsed matches the reference rail; expanded matches the
+    previous fixed admin panel width. */
+export const ADMIN_RAIL_COLLAPSED_WIDTH = 72;
+export const ADMIN_RAIL_EXPANDED_WIDTH = 228;
 
-interface AdminNavGroup {
-  label: string;
-  items: AdminNavItem[];
-}
-
-/** Admin navigation — kept conceptually separate from the customer rail. */
-const ADMIN_NAV: AdminNavGroup[] = [
-  {
-    label: "Admin",
-    items: [{ label: "Overview", href: "/admin", icon: Gauge, exact: true }],
-  },
-  {
-    label: "Observability",
-    items: [
-      { label: "Infrastructure", href: "/admin/infrastructure", icon: Server },
-      { label: "Logs", href: "/admin/logs", icon: Logs },
-      { label: "Traces", href: "/admin/traces", icon: Waypoints },
-      { label: "Errors", href: "/admin/errors", icon: Bug },
-    ],
-  },
-  {
-    label: "Operations",
-    items: [
-      { label: "Agent Runs", href: "/admin/runs", icon: Activity },
-      { label: "Workers", href: "/admin/workers", icon: BrainCircuit },
-      { label: "Incidents", href: "/admin/incidents", icon: TriangleAlert },
-    ],
-  },
-  {
-    label: "Platform",
-    items: [
-      { label: "Users", href: "/admin/users", icon: Users },
-      { label: "Models & Providers", href: "/admin/providers", icon: Server },
-      { label: "Usage", href: "/admin/usage", icon: ChartNoAxesCombined },
-    ],
-  },
-  {
-    label: "Configuration",
-    items: [
-      { label: "Status Page", href: "/admin/status", icon: RadioTower },
-      { label: "Settings", href: "/admin/settings", icon: Settings },
-    ],
-  },
-];
-
-function isActive(pathname: string, item: AdminNavItem) {
-  return item.exact ? pathname === item.href : pathname.startsWith(item.href);
+/** The project mark, shown in a bordered tile like the reference rail. When
+    the rail is collapsed the mark is the only brand cue, so it carries the
+    accessible name; expanded, the adjacent title does. */
+function AdminBrandMark({
+  collapsed,
+  className,
+}: {
+  collapsed: boolean;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-lg border border-[#322F37] bg-[#1B191D]",
+        className,
+      )}
+    >
+      <Image
+        src="/stealth-cat.png"
+        alt={collapsed ? "Stealth Admin" : ""}
+        width={20}
+        height={20}
+        className="size-5"
+      />
+    </span>
+  );
 }
 
 function AdminNavRow({
   item,
   active,
+  collapsed,
   layoutId,
   reduce,
   onNavigate,
 }: {
   item: AdminNavItem;
   active: boolean;
+  collapsed: boolean;
   layoutId: string;
   reduce: boolean;
   onNavigate?: () => void;
@@ -109,8 +77,10 @@ function AdminNavRow({
         whileTap={reduce ? undefined : { scale: 0.98 }}
         transition={SPRING_PRESS}
         aria-current={active ? "page" : undefined}
+        title={collapsed ? item.label : undefined}
         className={cn(
-          "relative isolate flex h-[32px] w-full items-center gap-2.5 px-4 text-left text-[13px] transition-colors",
+          "relative isolate flex h-9 w-full items-center rounded-md text-left text-[13px] transition-colors",
+          collapsed ? "justify-center px-0" : "gap-2.5 px-2.5",
           active
             ? "text-[oklch(0.83_0.11_162)]"
             : "text-[#C5C1C9] hover:bg-white/[0.035] hover:text-[#EEEAF0]",
@@ -121,39 +91,48 @@ function AdminNavRow({
             aria-hidden="true"
             layoutId={layoutId}
             transition={reduce ? { duration: 0 } : SPRING_LAYOUT}
-            className="absolute inset-0 -z-10 bg-[color-mix(in_srgb,var(--projects-accent)_10%,transparent)]"
-          />
-        )}
-        {active && (
-          <span
-            aria-hidden="true"
-            className="absolute inset-y-[7px] left-0 w-[2px] rounded-full bg-[var(--projects-accent)]"
+            className="absolute inset-0 -z-10 rounded-md bg-[color-mix(in_srgb,var(--projects-accent)_10%,transparent)]"
           />
         )}
         <Icon
-          size={15}
+          size={16}
           strokeWidth={1.8}
           className={cn(
             "shrink-0",
             active ? "text-[var(--projects-accent)]" : "text-[#AAA6AE]",
           )}
         />
-        <span className="truncate">{item.label}</span>
+        <AnimatePresence initial={false}>
+          {!collapsed && (
+            <motion.span
+              key="label"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1, transition: LABEL_ENTER_TRANSITION }}
+              exit={{ opacity: 0, transition: LABEL_EXIT_TRANSITION }}
+              className="truncate"
+            >
+              {item.label}
+            </motion.span>
+          )}
+        </AnimatePresence>
       </motion.button>
     </motion.div>
   );
 }
 
 function AdminSidebarBody({
+  collapsed = false,
   onNavigate,
   onMobileClose,
 }: {
+  collapsed?: boolean;
   /** Fires after a navigation link is chosen (mobile closes the sheet). */
   onNavigate?: (href: string) => void;
   onMobileClose?: () => void;
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const logout = useLogout();
   const layoutId = useId();
   const reduce = useReducedMotion() ?? false;
 
@@ -162,18 +141,39 @@ function AdminSidebarBody({
     onNavigate?.(href);
   };
 
+  const handleSignOut = () => {
+    logout.mutate(undefined, {
+      onSuccess: () => router.replace("/login"),
+    });
+  };
+
   return (
     <>
-      <header className="flex h-[48px] shrink-0 items-center gap-2.5 px-4">
-        <span className="flex size-6 shrink-0 items-center justify-center rounded-md border border-[color-mix(in_srgb,var(--projects-accent)_35%,var(--projects-border))] bg-[color-mix(in_srgb,var(--projects-accent)_10%,transparent)] text-[var(--projects-accent)]">
-          <ShieldCheck size={13} strokeWidth={2} aria-hidden="true" />
-        </span>
-        <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold tracking-[-0.01em] text-[#EEEAF0]">
-          Admin Console
-        </span>
-        <span className="admin-mono shrink-0 rounded-[5px] border border-[#322F37] px-[5px] py-[2px] text-[9.5px] font-medium leading-none text-[#AAA6AE]">
-          PROD
-        </span>
+      <header
+        className={cn(
+          "flex h-[56px] shrink-0 items-center",
+          collapsed ? "justify-center" : "gap-2.5 px-4",
+        )}
+      >
+        <AdminBrandMark collapsed={collapsed} className="size-8" />
+        <AnimatePresence initial={false}>
+          {!collapsed && (
+            <motion.div
+              key="brand"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1, transition: LABEL_ENTER_TRANSITION }}
+              exit={{ opacity: 0, transition: LABEL_EXIT_TRANSITION }}
+              className="flex min-w-0 flex-1 items-center gap-2"
+            >
+              <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold tracking-[-0.01em] text-[#EEEAF0]">
+                Admin Console
+              </span>
+              <span className="admin-mono shrink-0 rounded-[5px] border border-[#322F37] px-[5px] py-[2px] text-[9.5px] font-medium leading-none text-[#AAA6AE]">
+                PROD
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
         <button
           type="button"
           onClick={onMobileClose}
@@ -186,21 +186,33 @@ function AdminSidebarBody({
 
       <nav
         aria-label="Admin navigation"
-        className="sidebar-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-2"
+        className={cn(
+          "sidebar-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-2",
+          collapsed ? "px-2" : "px-3",
+        )}
       >
         {ADMIN_NAV.map((group, groupIndex) => (
           <div key={group.label}>
             {groupIndex > 0 && (
-              <div aria-hidden="true" className="mx-4 my-2 h-px bg-[#26242b]" />
+              <div
+                aria-hidden="true"
+                className={cn(
+                  "my-2 h-px bg-[#26242b]",
+                  collapsed ? "mx-2" : "mx-1",
+                )}
+              />
             )}
-            <p className="m-0 px-4 pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6d6a74]">
-              {group.label}
-            </p>
+            {!collapsed && (
+              <p className="m-0 px-2.5 pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6d6a74]">
+                {group.label}
+              </p>
+            )}
             {group.items.map((item) => (
               <AdminNavRow
                 key={item.href}
                 item={item}
-                active={isActive(pathname, item)}
+                active={isAdminNavActive(pathname, item)}
+                collapsed={collapsed}
                 layoutId={layoutId}
                 reduce={reduce}
                 onNavigate={() => handleNavigate(item.href)}
@@ -210,38 +222,62 @@ function AdminSidebarBody({
         ))}
       </nav>
 
-      <footer className="shrink-0 border-t border-[#26242b] px-4 py-3">
+      <footer
+        className={cn(
+          "shrink-0 border-t border-[#26242b] py-3",
+          collapsed ? "px-2" : "px-4",
+        )}
+      >
         <Link
           href="/admin/status"
           onClick={() => onNavigate?.("/admin/status")}
-          className="flex items-center gap-2 text-[12px] text-[#AAA6AE] transition-colors hover:text-[#EEEAF0]"
+          title={collapsed ? "All systems operational" : undefined}
+          className={cn(
+            "flex items-center text-[12px] text-[#AAA6AE] transition-colors hover:text-[#EEEAF0]",
+            collapsed ? "justify-center" : "gap-2",
+          )}
         >
-          <span className="relative flex size-2">
+          <span className="relative flex size-2 shrink-0">
             <span className="absolute inline-flex size-full animate-ping rounded-full bg-[var(--projects-accent)] opacity-50" />
             <span className="relative inline-flex size-2 rounded-full bg-[var(--projects-accent)]" />
           </span>
-          All systems operational
+          {!collapsed && (
+            <span className="truncate">All systems operational</span>
+          )}
         </Link>
-        <Link
-          href="/"
-          className="mt-2.5 flex items-center gap-2 text-[12px] text-[#AAA6AE] transition-colors hover:text-[#EEEAF0]"
+        <button
+          type="button"
+          onClick={handleSignOut}
+          disabled={logout.isPending}
+          title={collapsed ? "Sign out" : undefined}
+          className={cn(
+            "mt-2.5 flex w-full items-center text-[12px] text-[#AAA6AE] transition-colors hover:text-[#EEEAF0] disabled:opacity-60",
+            collapsed ? "justify-center" : "gap-2",
+          )}
         >
-          <ArrowLeft size={13} strokeWidth={1.8} aria-hidden="true" />
-          Back to app
-        </Link>
+          <LogOut size={13} strokeWidth={1.8} aria-hidden="true" />
+          {!collapsed && (
+            <span className="truncate">
+              {logout.isPending ? "Signing out…" : "Sign out"}
+            </span>
+          )}
+        </button>
       </footer>
     </>
   );
 }
 
 /** Desktop rail (fixed panel) + mobile slide-in sheet, mirroring the
- * customer sidebar's behavior but with admin-only navigation. */
+ * customer sidebar's behavior but with admin-only navigation. The collapse
+ * state and its toggle live in AdminShell so the top bar can own the control. */
 export function AdminSidebar({
   open,
   onClose,
+  collapsed,
 }: {
   open: boolean;
   onClose: () => void;
+  collapsed: boolean;
 }) {
   const [mounted, setMounted] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -293,14 +329,24 @@ export function AdminSidebar({
 
   return (
     <>
-      {/* Desktop panel — admin area owns its own chrome, the customer rail
-          never mounts on /admin routes. */}
-      <aside
+      {/* Desktop rail — admin area owns its own chrome, the customer rail
+          never mounts on /admin routes. Width is animated so the content
+          column reflows with the rail instead of snapping. */}
+      <motion.aside
         aria-label="Admin navigation"
-        className="sticky top-0 hidden h-dvh w-[228px] shrink-0 flex-col overflow-hidden border-r border-[#322F37] bg-[#121014] lg:flex"
+        initial={false}
+        animate={{
+          width: collapsed
+            ? ADMIN_RAIL_COLLAPSED_WIDTH
+            : ADMIN_RAIL_EXPANDED_WIDTH,
+        }}
+        transition={
+          collapsed ? SIDEBAR_COLLAPSE_TRANSITION : SIDEBAR_EXPAND_TRANSITION
+        }
+        className="sticky top-0 hidden h-dvh shrink-0 flex-col overflow-hidden border-r border-[#322F37] bg-[#121014] lg:flex"
       >
-        <AdminSidebarBody />
-      </aside>
+        <AdminSidebarBody collapsed={collapsed} />
+      </motion.aside>
 
       {mounted && (
         <div

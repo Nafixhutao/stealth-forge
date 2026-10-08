@@ -5,27 +5,31 @@ test("login form is available without an API dependency", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Sign in to Stealth" }),
   ).toBeVisible();
-  await expect(page.getByLabel("Email")).toBeVisible();
-  await expect(page.getByLabel("Password")).toBeVisible();
-  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByLabel("Email", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByText("Enter a valid email address.")).toBeVisible();
 });
 
 test("authentication links are discoverable", async ({ page }) => {
   await page.goto("/login");
   await expect(
-    page.getByRole("link", { name: "Forgot password?" }),
-  ).toHaveAttribute("href", "/recovery");
+    page.getByRole("link", { name: "email", exact: true }),
+  ).toHaveAttribute("href", "/forgot-password");
   await expect(
-    page.getByRole("link", { name: "Create an account" }),
-  ).toHaveAttribute("href", "/register");
+    page.getByRole("link", { name: "password", exact: true }),
+  ).toHaveAttribute("href", "/forgot-password");
+  await expect(page.getByRole("link", { name: "Sign up" })).toHaveAttribute(
+    "href",
+    "/register",
+  );
 });
 
 test("unsafe auth next paths fall back to organizations", async ({ page }) => {
   for (const unsafeNext of ["//evil.example", "https://evil.example"]) {
     await page.goto("/login?next=" + encodeURIComponent(unsafeNext));
     const registerHref = await page
-      .getByRole("link", { name: "Create an account" })
+      .getByRole("link", { name: "Sign up" })
       .getAttribute("href");
     expect(
       new URL(registerHref ?? "", "http://127.0.0.1").searchParams.get("next"),
@@ -129,12 +133,12 @@ test("preserves an invitation through registration for a new account", async ({
   await expect(page).toHaveURL(/\/login\?next=/);
   expect(new URL(page.url()).searchParams.get("next")).toBe(invitationPath);
 
-  await page.getByRole("link", { name: "Create an account" }).click();
+  await page.getByRole("link", { name: "Sign up" }).click();
   await expect(page).toHaveURL(/\/register\?next=/);
   expect(new URL(page.url()).searchParams.get("next")).toBe(invitationPath);
 
-  await page.getByLabel("Email").fill(account.email);
-  await page.getByLabel("Password").fill("a-secure-password");
+  await page.getByLabel("Email", { exact: true }).fill(account.email);
+  await page.getByLabel("Password", { exact: true }).fill("a-secure-password");
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page).toHaveURL(/\/accept-invitation\?token=/);
   expect(new URL(page.url()).searchParams.get("token")).toBe(token);

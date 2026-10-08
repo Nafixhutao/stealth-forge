@@ -168,7 +168,7 @@ PY
 		boot_after="$(cat /proc/sys/kernel/random/boot_id)"
 		if [ "$boot_after" = "$boot_before" ]; then printf '%s\n' 'kernel boot ID is unchanged; real reboot was not observed' >&2; exit 1; fi
 		printf '%s\n' 'Kernel boot ID changed; checking production service recovery.'
-		for service in postgres redis clickhouse otel-collector telemetry-host telemetry-docker-logs telemetry-docker-proxy telemetry-docker api worker buildkit console proxy traefik; do
+		for service in postgres redis api worker buildkit console proxy traefik; do
 			printf 'Waiting for service recovery: %s\n' "$service"
 			container="$("${compose[@]}" ps -q "$service" 2>/dev/null || true)"; healthy=false
 			for attempt in $(seq 1 120); do

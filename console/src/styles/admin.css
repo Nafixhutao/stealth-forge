@@ -4,6 +4,12 @@
 :root {
   /* Semantic "info" — the one tone the platform palette does not define. */
   --admin-info: #6ea8fe;
+  /* Pixel-sweep skeleton, ported from the redesigned admin console. The
+     component is admin-only by usage, so the tokens stay global and work in
+     the AdminGate shell that renders outside [data-admin]. */
+  --skeleton-background: #29272d;
+  --skeleton-gradient-start: #c77dff;
+  --skeleton-gradient-end: #9b5de5;
 }
 
 /* The redesigned admin console was authored with the Geist Variable body font
@@ -102,6 +108,52 @@
     "Source Code Pro Variable", ui-monospace, SFMono-Regular, Menlo, Monaco,
     Consolas, "Liberation Mono", monospace;
   font-weight: 450;
+}
+
+/* Host metric card values: uniform digit widths, always a single line. The
+   number clamps down on narrow screens so a long rate such as "999.9 KB/s"
+   shrinks instead of wrapping its unit onto a second line; the unit is a
+   separate baseline-aligned span beside the number. */
+.admin-tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-value-num {
+  font-size: clamp(14px, 4.5vw, 18px);
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+/* Unit beside the number ("KB/s") and the right-side delta: the value's fixed
+   line rhythm keeps every card the same height, so on narrow phones these step
+   down instead of letting an extreme rate ("999.9 KB/s") clip or wrap. */
+.metric-value-unit {
+  font-size: 11px;
+}
+
+.metric-change {
+  font-size: 11px;
+}
+
+@media (min-width: 640px) {
+  .metric-value-num {
+    font-size: 22px;
+    line-height: 24px;
+  }
+
+  .metric-value-unit {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 374.98px) {
+  .metric-value-unit {
+    font-size: 9px;
+  }
+
+  .metric-change {
+    font-size: 10px;
+  }
 }
 
 /* Admin navigation panel scrollbar (ported from the redesign's base sheet). */

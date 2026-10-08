@@ -2,11 +2,7 @@
 
 Stealth releases are coordinated application releases. Use the same version
 for `stealth-api`, `stealth-worker`, `stealth-ingress-control`,
-`stealth-migrate`, `stealth-console`,
-`stealth-otel-collector`, `stealth-otel-docker-logs`, and
-`stealth-telemetry-docker-proxy`. The host-metrics and Docker-metrics
-collectors use the capability-free `stealth-otel-collector` image; the
-Docker-log collector uses the dedicated `stealth-otel-docker-logs` image.
+`stealth-migrate`, and `stealth-console`.
 The `stealth-setup` image is only needed for a fresh browser installation or
 setup repair.
 The current deployment does not promise rolling upgrades between incompatible
@@ -35,7 +31,7 @@ migration mode. The target binary owns the target release's managed-asset
 manifest, acquires `install.lock`, validates the staged Compose file against
 the staged `config.env`, then activates the coordinated platform files. It
 revalidates the active Compose configuration before pulling target images,
-runs the existing database/telemetry state initialization and migrations,
+runs the existing database state initialization and migrations,
 recreates production services in a deterministic order, and performs the
 normal health checks. Only after that succeeds does the original CLI atomically
 replace its own executable. On a host without an installation it remains a
@@ -91,21 +87,19 @@ The host CLI treats these repository-controlled files as release-managed:
 - `compose.production.yaml` and `compose.setup.yaml` when setup assets are present;
 - `buildkit/buildkitd.toml` and the managed BuildKit AppArmor profile;
 - `traefik/traefik.yaml`, `traefik/dynamic/core.yaml`, and the managed route placeholder;
-- `telemetry/otel-collector.yaml`, `telemetry/host-metrics.yaml`,
-  `telemetry/docker-logs.yaml`, and `telemetry/docker-stats.yaml`;
 - `console/deploy/nginx.conf`.
 
 The complete target set is downloaded and validated before activation. Existing
 managed files are replaced atomically, with one bounded previous-release set
 under `state/managed-assets.previous` for recovery/debugging. Unknown files in
-the installation root and telemetry directory are preserved. Direct edits to
+the installation root are preserved. Direct edits to
 release-managed files are not an override mechanism and may be replaced by a
 supported update or repair.
 
 `config.env` is operator state. Its existing values, including generated
 secrets and custom image references, are preserved; only missing release keys
 are added, and canonical Stealth image references advance with the installed
-release. Persistent database, object-storage, and Collector state volumes are
+release. Persistent database and object-storage volumes are
 not deleted or recreated by this migration. External PostgreSQL/Redis settings
 remain external and are not replaced with bundled services.
 
@@ -174,19 +168,18 @@ command so managed assets and the runtime are migrated as one lifecycle.
 4. Pull the images and validate the rendered Compose file.
 5. Stop or coordinate workers if the release notes require a quiet queue.
 6. Start PostgreSQL/Redis if needed, then run the one-shot migration command.
-7. Recreate API, worker, Console, proxy, Traefik, BuildKit, the main Collector,
-   host-metrics Collector, Docker-log Collector, Docker-metrics Collector, and
-   proxy from the same release configuration.
+7. Recreate API, worker, Console, proxy, Traefik, and BuildKit
+   from the same release configuration.
 8. Verify `/healthz`, `/readyz`, `/version`, worker health, and the HTTP smoke
    script. Check logs for migration and worker claim errors.
 
 ```bash
 docker compose --env-file .env.production -f compose.production.yaml pull
-docker compose --env-file .env.production -f compose.production.yaml up -d postgres redis clickhouse
+docker compose --env-file .env.production -f compose.production.yaml up -d postgres redis
 docker compose --env-file .env.production -f compose.production.yaml up migrate
 docker compose --env-file .env.production -f compose.production.yaml run --rm --no-deps cloudflare-setup-state-init
 docker compose --env-file .env.production -f compose.production.yaml run --rm --no-deps cloudflare-state-init
-docker compose --env-file .env.production -f compose.production.yaml up -d --force-recreate api worker console proxy traefik buildkit otel-collector telemetry-host telemetry-docker-logs telemetry-docker-proxy telemetry-docker
+docker compose --env-file .env.production -f compose.production.yaml up -d --force-recreate api worker console proxy traefik buildkit
 ./scripts/production-smoke.sh
 ```
 
@@ -239,7 +232,7 @@ The command checks the previous-release metadata and compares the live
 It proceeds only when the ledger is identical. It then restores the previous
 managed files and `VERSION`, retargets canonical image references, preserves
 the active operator configuration and rotated secrets, recreates API, Worker,
-BuildKit, Console, ingress, and telemetry services, and checks readiness. The
+BuildKit, Console, and ingress services, and checks readiness. The
 operator UID and outcome are written to the private
 `state/platform-rollback.jsonl` audit log. Run `stealth rollback` again after
 an interrupted operation; its journal either restores the current release or

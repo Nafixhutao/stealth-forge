@@ -74,34 +74,33 @@ func doctorFixture(t *testing.T, setupMode bool, extra map[string]string) (Insta
 		t.Fatal(err)
 	}
 	values := map[string]string{
-		"VERSION":                              "v1.2.3",
-		"SETUP_MODE":                           fmt.Sprint(setupMode),
-		"STEALTH_API_IMAGE":                    "stealth-api:v1.2.3",
-		"STEALTH_WORKER_IMAGE":                 "stealth-worker:v1.2.3",
-		"STEALTH_INGRESS_CONTROL_IMAGE":        "stealth-ingress-control:v1.2.3",
-		"STEALTH_MIGRATE_IMAGE":                "stealth-migrate:v1.2.3",
-		"STEALTH_CONSOLE_IMAGE":                "stealth-console:v1.2.3",
-		"STEALTH_TELEMETRY_DOCKER_PROXY_IMAGE": "stealth-telemetry-docker-proxy:v1.2.3",
-		"POSTGRES_DB":                          "stealth",
-		"POSTGRES_USER":                        "stealth",
-		"POSTGRES_PASSWORD":                    "db-private-sentinel",
-		"REDIS_PASSWORD":                       "redis-private-sentinel",
-		"FUNCTIONS_SECRET_KEY":                 "functions-private-sentinel",
-		"BOOTSTRAP_CLI_KEY":                    "bootstrap-private-sentinel",
-		"PUBLIC_APP_URL":                       "http://127.0.0.1:8080",
-		"GITHUB_APP_CLIENT_ID":                 "smoke-client",
-		"DOCKER_GID":                           "999",
-		"DATABASE_URL":                         "postgres://user:password@postgres:5432/stealth",
-		"REDIS_URL":                            "redis://:password@redis:6379/0",
-		"STORAGE_DRIVER":                       "local",
-		"STORAGE_VOLUME_NAME":                  "stealth_storage",
-		"APPS_RUNTIME_NETWORK_NAME":            "stealth_app_runtime",
-		"API_HOST_PORT":                        "18080",
-		"CONSOLE_HOST_PORT":                    "13000",
-		"PROXY_HTTP_PORT":                      "8080",
-		"SETUP_API_HOST_PORT":                  "18081",
-		"SETUP_CONSOLE_HOST_PORT":              "13001",
-		"SETUP_PROXY_HTTP_PORT":                "8081",
+		"VERSION":                       "v1.2.3",
+		"SETUP_MODE":                    fmt.Sprint(setupMode),
+		"STEALTH_API_IMAGE":             "stealth-api:v1.2.3",
+		"STEALTH_WORKER_IMAGE":          "stealth-worker:v1.2.3",
+		"STEALTH_INGRESS_CONTROL_IMAGE": "stealth-ingress-control:v1.2.3",
+		"STEALTH_MIGRATE_IMAGE":         "stealth-migrate:v1.2.3",
+		"STEALTH_CONSOLE_IMAGE":         "stealth-console:v1.2.3",
+		"POSTGRES_DB":                   "stealth",
+		"POSTGRES_USER":                 "stealth",
+		"POSTGRES_PASSWORD":             "db-private-sentinel",
+		"REDIS_PASSWORD":                "redis-private-sentinel",
+		"FUNCTIONS_SECRET_KEY":          "functions-private-sentinel",
+		"BOOTSTRAP_CLI_KEY":             "bootstrap-private-sentinel",
+		"PUBLIC_APP_URL":                "http://127.0.0.1:8080",
+		"GITHUB_APP_CLIENT_ID":          "smoke-client",
+		"DOCKER_GID":                    "999",
+		"DATABASE_URL":                  "postgres://user:password@postgres:5432/stealth",
+		"REDIS_URL":                     "redis://:password@redis:6379/0",
+		"STORAGE_DRIVER":                "local",
+		"STORAGE_VOLUME_NAME":           "stealth_storage",
+		"APPS_RUNTIME_NETWORK_NAME":     "stealth_app_runtime",
+		"API_HOST_PORT":                 "18080",
+		"CONSOLE_HOST_PORT":             "13000",
+		"PROXY_HTTP_PORT":               "8080",
+		"SETUP_API_HOST_PORT":           "18081",
+		"SETUP_CONSOLE_HOST_PORT":       "13001",
+		"SETUP_PROXY_HTTP_PORT":         "8081",
 	}
 	if setupMode {
 		values["STEALTH_SETUP_IMAGE"] = "stealth-setup:v1.2.3"
@@ -231,7 +230,7 @@ func doctorAppForTest(t *testing.T, layout InstallLayout, runner *doctorCommandR
 	return app, server, output
 }
 
-func TestRunStatusIncludesControlPlaneBuildKitIngressAndTelemetry(t *testing.T) {
+func TestRunStatusIncludesControlPlaneBuildKitAndIngress(t *testing.T) {
 	layout, config := doctorFixture(t, false, nil)
 	statuses := healthyDoctorStatuses(t, config, false)
 	var entries []composeStatusJSON
@@ -239,7 +238,7 @@ func TestRunStatusIncludesControlPlaneBuildKitIngressAndTelemetry(t *testing.T) 
 		t.Fatal(err)
 	}
 	for index := range entries {
-		if entries[index].Service == "telemetry-docker-proxy" {
+		if entries[index].Service == "console" {
 			entries[index].Health = "unhealthy"
 		}
 	}
@@ -253,7 +252,7 @@ func TestRunStatusIncludesControlPlaneBuildKitIngressAndTelemetry(t *testing.T) 
 	if code := app.runStatusCommand(nil); code != 1 {
 		t.Fatalf("runStatusCommand() = %d, want 1", code)
 	}
-	for _, want := range []string{"App BuildKit", "ClickHouse", "Host Metrics", "Docker Logs", "Traefik", "Docker Metrics Proxy"} {
+	for _, want := range []string{"App BuildKit", "Console", "Traefik"} {
 		if !strings.Contains(strings.ToLower(output.String()), strings.ToLower(want)) {
 			t.Errorf("status output %q misses %q", output.String(), want)
 		}
@@ -281,7 +280,7 @@ func TestRunDoctorChecksStorageBuildKitAndKeepsSecretsPrivate(t *testing.T) {
 	if code := app.runDoctorCommand(nil); code != 0 {
 		t.Fatalf("runDoctorCommand() = %d; output=%s", code, output.String())
 	}
-	for _, want := range []string{"Compose validation", "BuildKit mTLS", "App BuildKit", "Storage config", "Storage volume", "App runtime", "API readiness", "Docker Metrics Proxy"} {
+	for _, want := range []string{"Compose validation", "BuildKit mTLS", "App BuildKit", "Storage config", "Storage volume", "App runtime", "API readiness"} {
 		if !strings.Contains(output.String(), want) {
 			t.Errorf("doctor output %q misses %q", output.String(), want)
 		}

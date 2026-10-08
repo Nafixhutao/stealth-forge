@@ -446,6 +446,8 @@ func assertMigratedV025State(t *testing.T, layout installengine.Layout, targetVe
 	if want := installengine.ImageName("stealth-ingress-control", targetVersion); values["STEALTH_INGRESS_CONTROL_IMAGE"] != want {
 		t.Fatalf("migration did not set ingress control image to target release: got %q want %q", values["STEALTH_INGRESS_CONTROL_IMAGE"], want)
 	}
+	// Telemetry is no longer part of the platform, so the migration must not
+	// reintroduce its configuration on an upgraded install.
 	for _, key := range []string{
 		"OTEL_COLLECTOR_IMAGE",
 		"OTEL_HOST_COLLECTOR_IMAGE",
@@ -463,8 +465,8 @@ func assertMigratedV025State(t *testing.T, layout installengine.Layout, targetVe
 		"STEALTH_TELEMETRY_INGEST_NETWORK_NAME",
 		"STEALTH_TELEMETRY_DOCKER_NETWORK_NAME",
 	} {
-		if strings.TrimSpace(values[key]) == "" {
-			t.Fatalf("migration did not populate %s", key)
+		if strings.TrimSpace(values[key]) != "" {
+			t.Fatalf("migration reintroduced removed telemetry key %s=%q", key, values[key])
 		}
 	}
 	if !installengine.FileIsPrivate(layout.EnvFile) {
@@ -480,41 +482,20 @@ func assertMigratedV025State(t *testing.T, layout installengine.Layout, targetVe
 		t.Fatal(err)
 	}
 	compose := string(composeBytes)
-	for _, marker := range []string{"  buildkit:", "  traefik:", "  traefik-state-init:", "  cloudflare-setup-state-init:", "  cloudflare-state-init:", "  telemetry-host:", "  telemetry-docker-logs:", "  telemetry-docker:", "  telemetry-docker-proxy:", "  telemetry_ingest:", "  app_build:"} {
+	for _, marker := range []string{"  buildkit:", "  traefik:", "  traefik-state-init:", "  cloudflare-setup-state-init:", "  cloudflare-state-init:", "  app_build:"} {
 		if !strings.Contains(compose, marker) {
 			t.Fatalf("target Compose is missing %q", marker)
 		}
 	}
-	main := composeServiceSection(compose, "otel-collector", "telemetry-host")
-	for _, forbidden := range []string{"/:/hostfs", "/var/lib/docker/containers", "/var/run/docker.sock", "DAC_READ_SEARCH"} {
-		if strings.Contains(main, forbidden) {
-			t.Fatalf("main Collector retained %q", forbidden)
+	for _, removed := range []string{"  clickhouse:", "  otel-collector:", "  telemetry-host:", "  telemetry-docker-logs:", "  telemetry-docker:", "  telemetry-docker-proxy:", "  telemetry_ingest:"} {
+		if strings.Contains(compose, removed) {
+			t.Fatalf("target Compose still contains the removed telemetry service %q", removed)
 		}
-	}
-	host := composeServiceSection(compose, "telemetry-host", "telemetry-docker-logs")
-	if !strings.Contains(host, "/:/hostfs:ro") || strings.Contains(host, "DAC_READ_SEARCH") || strings.Contains(host, "/var/run/docker.sock") {
-		t.Fatalf("host Collector boundary is incorrect: %s", host)
-	}
-	logs := composeServiceSection(compose, "telemetry-docker-logs", "telemetry-docker")
-	if !strings.Contains(logs, "/var/lib/docker/containers:/hostfs/var/lib/docker/containers:ro") || strings.Contains(logs, "/:/hostfs") || strings.Contains(logs, "/var/run/docker.sock") || !strings.Contains(logs, "DAC_READ_SEARCH") {
-		t.Fatalf("Docker log Collector boundary is incorrect: %s", logs)
-	}
-	dockerMetrics := composeServiceSection(compose, "telemetry-docker", "telemetry-docker-proxy")
-	if strings.Contains(dockerMetrics, "/var/run/docker.sock") {
-		t.Fatalf("Docker metrics Collector retained the Docker socket: %s", dockerMetrics)
-	}
-	proxy := composeServiceSection(compose, "telemetry-docker-proxy", "clickhouse")
-	if !strings.Contains(proxy, "/var/run/docker.sock") {
-		t.Fatalf("Docker proxy lost its Docker socket: %s", proxy)
 	}
 	for _, file := range []struct {
 		path   string
 		marker string
 	}{
-		{layout.TelemetryDir + "/otel-collector.yaml", "receivers:"},
-		{layout.TelemetryDir + "/host-metrics.yaml", "hostmetrics:"},
-		{layout.TelemetryDir + "/docker-logs.yaml", "file_log/docker:"},
-		{layout.TelemetryDir + "/docker-stats.yaml", "docker_stats:"},
 		{layout.ProxyFile, "server {"},
 		{layout.TraefikStatic, "entryPoints:"},
 		{layout.TraefikCore, "stealth-api:"},
@@ -525,34 +506,6 @@ func assertMigratedV025State(t *testing.T, layout installengine.Layout, targetVe
 			t.Fatalf("target managed asset %s is invalid: %v", file.path, readErr)
 		}
 	}
-}
-
-func composeServiceSection(compose, service, _ string) string {
-	start := strings.Index(compose, "\n  "+service+":")
-	if start < 0 {
-		return ""
-	}
-	start++
-	end := len(compose)
-	searchAt := start + len(service) + 3
-	for searchAt < len(compose) {
-		next := strings.Index(compose[searchAt:], "\n  ")
-		if next < 0 {
-			break
-		}
-		lineStart := searchAt + next + 1
-		lineEnd := strings.IndexByte(compose[lineStart:], '\n')
-		if lineEnd < 0 {
-			lineEnd = len(compose) - lineStart
-		}
-		line := compose[lineStart : lineStart+lineEnd]
-		if strings.HasPrefix(line, "  ") && !strings.HasPrefix(line, "    ") && strings.HasSuffix(strings.TrimSpace(line), ":") {
-			end = lineStart
-			break
-		}
-		searchAt = lineStart + lineEnd
-	}
-	return compose[start:end]
 }
 
 func splitHostPort(address string) (string, string, error) {

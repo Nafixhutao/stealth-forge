@@ -274,6 +274,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/host-metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Return the in-process host resource snapshot (CPU, memory, disk, network) and its short in-memory history for the admin Overview. Requires Instance Owner or Instance Admin and does not depend on the telemetry backend. */
+        get: operations["getAdminHostMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/telemetry/sources": {
         parameters: {
             query?: never;
@@ -606,6 +623,41 @@ export interface paths {
         put: operations["updateAdminCloudflareConnection"];
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/oauth-providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description List the instance external sign-in providers with their Console callback URL. Requires Instance Owner or Instance Admin. Client secrets are never returned. */
+        get: operations["listAdminOAuthProviders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/oauth-providers/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Encrypt and store one external sign-in provider's client credentials. Only the Instance Owner may change them. The client secret is write-only and is never returned. */
+        put: operations["updateAdminOAuthProvider"];
+        post?: never;
+        /** @description Remove one external sign-in provider's stored credentials. Only the Instance Owner may change them. The Console then falls back to the deployment environment, if configured. */
+        delete: operations["deleteAdminOAuthProvider"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1304,6 +1356,40 @@ export interface paths {
         put?: never;
         post?: never;
         delete: operations["deleteCurrentSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/oauth/{provider}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Begin browser sign-in with an external identity provider. Returns the provider authorization URL to redirect to. Only providers with operator credentials are available. */
+        get: operations["startOAuthLogin"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/oauth/{provider}/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Provider redirect target that completes external sign-in. Resolves an already-linked identity to its account, opens a Console session, and redirects to the Console. Unlinked identities never create accounts. */
+        get: operations["completeOAuthLogin"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3523,6 +3609,25 @@ export interface components {
         AdminInfrastructureMetricsResponse: {
             items: components["schemas"]["AdminInfrastructureMetric"][];
         };
+        AdminHostMetricsSample: {
+            /** Format: date-time */
+            timestamp: string;
+            cpu_percent: number;
+            /** Format: int64 */
+            memory_used_bytes: number;
+            /** Format: int64 */
+            memory_total_bytes: number;
+            /** Format: int64 */
+            disk_used_bytes: number;
+            /** Format: int64 */
+            disk_total_bytes: number;
+            network_rx_bytes_per_sec: number;
+            network_tx_bytes_per_sec: number;
+        };
+        AdminHostMetricsSnapshot: {
+            current: components["schemas"]["AdminHostMetricsSample"];
+            history: components["schemas"]["AdminHostMetricsSample"][];
+        };
         AdminTelemetrySource: {
             service: string;
             /** @enum {string} */
@@ -4073,6 +4178,8 @@ export interface components {
             storage_s3_use_ssl?: boolean;
             storage_s3_path_style?: boolean;
             storage_s3_prefix?: string;
+            oauth_github_client_id?: string;
+            oauth_google_client_id?: string;
         };
         /** @description The connected App identifier and setup authorization session are public projections; client secrets, OAuth state, and PKCE verifiers remain encrypted server-side. */
         SetupGitHubState: {
@@ -4120,6 +4227,10 @@ export interface components {
             storage_s3_use_ssl?: boolean;
             storage_s3_path_style?: boolean;
             storage_s3_prefix?: string;
+            oauth_github_client_id?: string;
+            oauth_github_client_secret?: string;
+            oauth_google_client_id?: string;
+            oauth_google_client_secret?: string;
         };
         SetupGitHubManifestResponse: {
             /**
@@ -4247,6 +4358,35 @@ export interface components {
             /** Format: email */
             email: string;
             password: string;
+        };
+        OAuthStartResponse: {
+            /**
+             * Format: uri
+             * @description Provider authorization URL the browser should follow.
+             */
+            authorization_url: string;
+        };
+        AdminOAuthProvider: {
+            /** @enum {string} */
+            provider: AdminOAuthProviderProvider;
+            configured: boolean;
+            client_id?: string;
+            /** @description Register this exact URL with the provider. */
+            callback_url: string;
+            /**
+             * @description Where the active credentials come from.
+             * @enum {string}
+             */
+            source: AdminOAuthProviderSource;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        AdminOAuthProvidersResponse: {
+            providers: components["schemas"]["AdminOAuthProvider"][];
+        };
+        UpdateAdminOAuthProviderRequest: {
+            client_id: string;
+            client_secret: string;
         };
         /** @description Empty JSON object by default; url is optional and must be the exact configured auth route (relative or on an allowlisted origin) without a query or fragment. The emailed link is rebuilt from trusted server configuration. */
         AuthVerificationRequest: {
@@ -7236,6 +7376,32 @@ export interface operations {
             503: components["responses"]["ServiceUnavailable"];
         };
     };
+    getAdminHostMetrics: {
+        parameters: {
+            query?: {
+                /** @description Return history from the last N minutes; omit for the full retained window. */
+                window_minutes?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Host resource snapshot and history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminHostMetricsSnapshot"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
     listAdminTelemetrySources: {
         parameters: {
             query?: {
@@ -8233,6 +8399,87 @@ export interface operations {
             500: components["responses"]["InternalError"];
             502: components["responses"]["BadGateway"];
             503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    listAdminOAuthProviders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sign-in provider status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOAuthProvidersResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updateAdminOAuthProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: PathsV1AdminOauthProvidersProviderPutParametersPathProvider;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAdminOAuthProviderRequest"];
+            };
+        };
+        responses: {
+            /** @description Provider saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOAuthProvider"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["ValidationError"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    deleteAdminOAuthProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: PathsV1AdminOauthProvidersProviderDeleteParametersPathProvider;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Provider credentials removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
         };
     };
     getBootstrapStatus: {
@@ -9399,6 +9646,54 @@ export interface operations {
                 content?: never;
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    startOAuthLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: PathsV1OauthProviderStartGetParametersPathProvider;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Provider authorization URL */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthStartResponse"];
+                };
+            };
+            422: components["responses"]["BadRequest"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    completeOAuthLogin: {
+        parameters: {
+            query?: {
+                code?: string;
+                state?: string;
+                error?: string;
+            };
+            header?: never;
+            path: {
+                provider: PathsV1OauthProviderCallbackGetParametersPathProvider;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to the Console sign-in result */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     listOrganizations: {
@@ -15299,6 +15594,22 @@ export enum PathsV1AdminInfrastructureMetricsGetParametersQueryScope {
     redis = "redis",
     services = "services"
 }
+export enum PathsV1AdminOauthProvidersProviderPutParametersPathProvider {
+    github = "github",
+    google = "google"
+}
+export enum PathsV1AdminOauthProvidersProviderDeleteParametersPathProvider {
+    github = "github",
+    google = "google"
+}
+export enum PathsV1OauthProviderStartGetParametersPathProvider {
+    github = "github",
+    google = "google"
+}
+export enum PathsV1OauthProviderCallbackGetParametersPathProvider {
+    github = "github",
+    google = "google"
+}
 export enum PathsV1ProjectsProjectIDUsageMeteringGetParametersQueryFormat {
     json = "json",
     csv = "csv"
@@ -15638,6 +15949,15 @@ export enum SetupCheckStatus {
 export enum SetupInstallResponseStatus {
     accepted = "accepted",
     installing = "installing"
+}
+export enum AdminOAuthProviderProvider {
+    github = "github",
+    google = "google"
+}
+export enum AdminOAuthProviderSource {
+    database = "database",
+    environment = "environment",
+    none = "none"
 }
 export enum CreateOrganizationMembershipRequestRole {
     admin = "admin",

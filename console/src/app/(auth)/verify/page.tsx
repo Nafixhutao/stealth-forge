@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AccountVerificationView } from "@/features/auth/auth-flow-views";
 import { LoadingState } from "@/components/feedback/loading-state";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PixelSkeleton } from "@/components/ui/pixel-skeleton";
 
 export const metadata: Metadata = {
   title: "Verify account",
@@ -17,7 +17,7 @@ export default function VerifyPage() {
           label="Loading verification…"
           className="h-[20rem] w-full max-w-md"
         >
-          <Skeleton className="h-full w-full rounded-2xl" />
+          <PixelSkeleton className="h-full w-full rounded-2xl" />
         </LoadingState>
       }
     >

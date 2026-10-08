@@ -352,9 +352,8 @@ no Docker socket, privileged mode, host network, broad host mount, or public
 host port. It attaches only to the internal `stealth_ingress` network.
 
 Only Traefik, API, Console, and the optional Cloudflared profile attach to the
-ingress network. PostgreSQL, Redis, ClickHouse, telemetry networks, Nginx,
-worker, and the Docker API proxy remain off it. Traefik does not depend on
-ClickHouse or telemetry availability for request routing.
+ingress network. PostgreSQL, Redis, Nginx,
+worker, and the Docker API proxy remain off it.
 
 The dashboard and insecure API are disabled. Structured application and access
 logs are enabled; `Authorization`, `Cookie`, `Set-Cookie`, and

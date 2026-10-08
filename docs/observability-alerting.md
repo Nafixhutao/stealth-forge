@@ -12,9 +12,9 @@ guidance for an operator's own monitoring stack, not a bundled alerting service.
 | API | `http://api:8080/metrics` on the private network | `X-Metrics-Token: $METRICS_TOKEN` |
 | Worker | `http://worker:9091/metrics` on the private network | `X-Metrics-Token: $METRICS_TOKEN` |
 
-`/metrics` returns `404` unless `METRICS_TOKEN` is set. The bundled
-`otel-collector` scrapes both with the token. Do not publish either listener to
-the host.
+`/metrics` returns `404` unless `METRICS_TOKEN` is set. Scrape both with the
+token from your own monitoring stack. Do not publish either listener to the
+host.
 
 ## Minimal alert set
 
@@ -33,7 +33,6 @@ Thresholds are starting points; tune them to the installation.
 | Messaging failures | `rate(stealth_messaging_worker_jobs_completed_total{result="failed"}[15m])` | sustained > 0 | Provider problem |
 | App builds | `rate(stealth_apps_worker_builds_completed_total{result="failed"}[30m])` | sustained > 0 | Build plane problem |
 | Runtime image cache | `stealth_apps_worker_runtime_image_cache_pressure` | == 1 for 30m | Cache cannot converge |
-| Telemetry store | ClickHouse `/ping` or `otelcol_exporter_*` | unavailable for 10m | Logs/traces unavailable (Apps unaffected) |
 
 ## Suggested dashboard panels
 
@@ -43,7 +42,6 @@ Thresholds are starting points; tune them to the installation.
 4. Per-queue polls and completed `{result}` for function, App build, App
    runtime, webhook, messaging, monitor, notification, and artifact cleanup.
 5. Realtime: active SSE connections and slow disconnects.
-6. Telemetry: collector queue size and export failures.
 
 ## Failure runbook
 
@@ -66,9 +64,10 @@ backoff and become terminal after their attempt cap. A sustained failure rate
 usually means the provider endpoint is rejecting requests; check the delivery
 `last_error` through the Console.
 
-**Telemetry unavailable.** ClickHouse or the Collector being down degrades log
-and trace reads only. Apps keep running. The Collector has a persistent queue
-and resumes export when ClickHouse recovers.
+**Telemetry unavailable.** This release keeps no telemetry store. Host resource
+metrics are sampled in-process by the API, and App logs are read from Docker
+json-file logs through the bounded project-scoped API. There is no separate
+collector to restart.
 
 **Migration failure on upgrade.** The migration runner is advisory-locked and
 fails loudly. See [Upgrade and rollback](upgrade.md); roll back the application
