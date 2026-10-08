@@ -109,11 +109,11 @@ func TestInstallerCleanHostAndRepairAcceptance(t *testing.T) {
 		t.Fatal(err)
 	}
 	for key, image := range map[string]string{
-		"STEALTH_API_IMAGE":                    "stealth-api",
-		"STEALTH_SETUP_IMAGE":                  "stealth-setup",
-		"STEALTH_WORKER_IMAGE":                 "stealth-worker",
-		"STEALTH_INGRESS_CONTROL_IMAGE":        "stealth-ingress-control",
-		"STEALTH_MIGRATE_IMAGE":                "stealth-migrate",
+		"STEALTH_API_IMAGE":             "stealth-api",
+		"STEALTH_SETUP_IMAGE":           "stealth-setup",
+		"STEALTH_WORKER_IMAGE":          "stealth-worker",
+		"STEALTH_INGRESS_CONTROL_IMAGE": "stealth-ingress-control",
+		"STEALTH_MIGRATE_IMAGE":         "stealth-migrate",
 		"STEALTH_CONSOLE_IMAGE":         "stealth-console",
 	} {
 		config[key] = image + ":" + tag

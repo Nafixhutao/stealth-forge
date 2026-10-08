@@ -34,22 +34,22 @@ func migrateReleaseConfig(values map[string]string, targetVersion, installedVers
 		}
 	}
 	for key, value := range map[string]string{
-		"TRAEFIK_IMAGE":                 defaultTraefikImage,
-		"STEALTH_INGRESS_NETWORK_NAME":          "stealth_ingress",
-		"APPS_MAX_SOURCE_ARCHIVE_BYTES":         "128MiB",
-		"APPS_MAX_EXPANDED_SOURCE_BYTES":        "1GiB",
-		"APPS_MAX_SOURCE_FILES":                 "8192",
-		"APPS_MAX_IMAGE_ARCHIVE_BYTES":          "2GiB",
-		"APPS_DEFAULT_ARTIFACT_QUOTA_BYTES":     "5GiB",
-		"APPS_BUILDKIT_ADDRESS":                 "tcp://buildkit:1234",
-		"APPS_BUILDKIT_CA_CERT":                 "/run/secrets/stealth-buildkit/ca.pem",
-		"APPS_BUILDKIT_CLIENT_CERT":             "/run/secrets/stealth-buildkit/client-cert.pem",
-		"APPS_BUILDKIT_CLIENT_KEY":              "/run/secrets/stealth-buildkit/client-key.pem",
-		"APPS_BUILD_TIMEOUT":                    "20m",
-		"APPS_BUILD_LEASE_AGE":                  "25m",
-		"APPS_BUILD_POLL_INTERVAL":              "500ms",
-		"APPS_BUILD_STAGING_VOLUME":             "stealth_app_build_staging",
-		"APPS_BUILDKIT_STATE_VOLUME":            "stealth_app_buildkit_state",
+		"TRAEFIK_IMAGE":                     defaultTraefikImage,
+		"STEALTH_INGRESS_NETWORK_NAME":      "stealth_ingress",
+		"APPS_MAX_SOURCE_ARCHIVE_BYTES":     "128MiB",
+		"APPS_MAX_EXPANDED_SOURCE_BYTES":    "1GiB",
+		"APPS_MAX_SOURCE_FILES":             "8192",
+		"APPS_MAX_IMAGE_ARCHIVE_BYTES":      "2GiB",
+		"APPS_DEFAULT_ARTIFACT_QUOTA_BYTES": "5GiB",
+		"APPS_BUILDKIT_ADDRESS":             "tcp://buildkit:1234",
+		"APPS_BUILDKIT_CA_CERT":             "/run/secrets/stealth-buildkit/ca.pem",
+		"APPS_BUILDKIT_CLIENT_CERT":         "/run/secrets/stealth-buildkit/client-cert.pem",
+		"APPS_BUILDKIT_CLIENT_KEY":          "/run/secrets/stealth-buildkit/client-key.pem",
+		"APPS_BUILD_TIMEOUT":                "20m",
+		"APPS_BUILD_LEASE_AGE":              "25m",
+		"APPS_BUILD_POLL_INTERVAL":          "500ms",
+		"APPS_BUILD_STAGING_VOLUME":         "stealth_app_build_staging",
+		"APPS_BUILDKIT_STATE_VOLUME":        "stealth_app_buildkit_state",
 	} {
 		if strings.TrimSpace(result[key]) == "" {
 			updates[key] = value
