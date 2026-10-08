@@ -2933,8 +2933,8 @@ wait_for_app_deployment_ready() {
 verify_app_runtime_lifecycle() {
 	local status old_container old_image_id new_container new_image_id generation observed selected spec_sha peer_container
 	local disabled_generation foreign_managed_label runtime_name new_runtime_name foreign_container_name network_name worker worker_image upload_status runtime_tag old_tag buildkit_container replacement_image_id new_engine_image_id
-	local old_route_target new_route_target body old_v2_stdout_id old_v2_stderr_id old_restart_stdout_id old_restart_stderr_id
-	local old_restart_cursor resume_stdout_count resume_stderr_count
+	local old_route_target new_route_target body old_v2_stdout_id="" old_v2_stderr_id="" old_restart_stdout_id="" old_restart_stderr_id=""
+	local old_restart_cursor="" resume_stdout_count="" resume_stderr_count=""
 	local orphan_app orphan_project orphan_name
 
 	fetch_app_runtime
