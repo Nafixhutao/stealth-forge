@@ -3055,7 +3055,7 @@ verify_app_runtime_lifecycle() {
 	fetch_app_runtime_logs "$new_container"
 	old_v2_stdout_id="$(app_runtime_log_ids "${smoke_marker}-app-v2" stdout | sed -n '1p')"
 	old_v2_stderr_id="$(app_runtime_log_ids "${smoke_marker}-app-v2" stderr | sed -n '1p')"
-	if [ -z "$old_v2_stdout_id" ] || [ -z "$old_v2_stderr_id" ]; then
+	if [ "$telemetry_enabled" = true ] && { [ -z "$old_v2_stdout_id" ] || [ -z "$old_v2_stderr_id" ]; }; then
 		printf '%s\n' 'App runtime logs API did not return both v2 stream markers before container recreation' >&2
 		return 1
 	fi
@@ -3743,7 +3743,7 @@ write_app_host_reboot_evidence() {
 	v2_stdout_id="$(app_runtime_log_ids "${smoke_marker}-app-v2" stdout | sed -n '1p')"
 	v2_stderr_id="$(app_runtime_log_ids "${smoke_marker}-app-v2" stderr | sed -n '1p')"
 	read -r v2_stdout_count v2_stderr_count <<<"$(app_runtime_log_counts "${smoke_marker}-app-v2")"
-	if [ -z "$v2_stdout_id" ] || [ -z "$v2_stderr_id" ]; then
+	if [ "$telemetry_enabled" = true ] && { [ -z "$v2_stdout_id" ] || [ -z "$v2_stderr_id" ]; }; then
 		printf '%s\n' 'refusing to save reboot baseline without retained v2 stdout/stderr log IDs' >&2
 		return 1
 	fi
