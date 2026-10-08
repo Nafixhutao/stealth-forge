@@ -508,34 +508,6 @@ func assertMigratedV025State(t *testing.T, layout installengine.Layout, targetVe
 	}
 }
 
-func composeServiceSection(compose, service, _ string) string {
-	start := strings.Index(compose, "\n  "+service+":")
-	if start < 0 {
-		return ""
-	}
-	start++
-	end := len(compose)
-	searchAt := start + len(service) + 3
-	for searchAt < len(compose) {
-		next := strings.Index(compose[searchAt:], "\n  ")
-		if next < 0 {
-			break
-		}
-		lineStart := searchAt + next + 1
-		lineEnd := strings.IndexByte(compose[lineStart:], '\n')
-		if lineEnd < 0 {
-			lineEnd = len(compose) - lineStart
-		}
-		line := compose[lineStart : lineStart+lineEnd]
-		if strings.HasPrefix(line, "  ") && !strings.HasPrefix(line, "    ") && strings.HasSuffix(strings.TrimSpace(line), ":") {
-			end = lineStart
-			break
-		}
-		searchAt = lineStart + lineEnd
-	}
-	return compose[start:end]
-}
-
 func splitHostPort(address string) (string, string, error) {
 	lastColon := strings.LastIndexByte(address, ':')
 	if lastColon <= 0 || lastColon == len(address)-1 {
