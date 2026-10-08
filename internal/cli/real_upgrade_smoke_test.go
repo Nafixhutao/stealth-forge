@@ -446,6 +446,8 @@ func assertMigratedV025State(t *testing.T, layout installengine.Layout, targetVe
 	if want := installengine.ImageName("stealth-ingress-control", targetVersion); values["STEALTH_INGRESS_CONTROL_IMAGE"] != want {
 		t.Fatalf("migration did not set ingress control image to target release: got %q want %q", values["STEALTH_INGRESS_CONTROL_IMAGE"], want)
 	}
+	// Telemetry is no longer part of the platform, so the migration must not
+	// reintroduce its configuration on an upgraded install.
 	for _, key := range []string{
 		"OTEL_COLLECTOR_IMAGE",
 		"OTEL_HOST_COLLECTOR_IMAGE",
@@ -463,8 +465,8 @@ func assertMigratedV025State(t *testing.T, layout installengine.Layout, targetVe
 		"STEALTH_TELEMETRY_INGEST_NETWORK_NAME",
 		"STEALTH_TELEMETRY_DOCKER_NETWORK_NAME",
 	} {
-		if strings.TrimSpace(values[key]) == "" {
-			t.Fatalf("migration did not populate %s", key)
+		if strings.TrimSpace(values[key]) != "" {
+			t.Fatalf("migration reintroduced removed telemetry key %s=%q", key, values[key])
 		}
 	}
 	if !installengine.FileIsPrivate(layout.EnvFile) {
