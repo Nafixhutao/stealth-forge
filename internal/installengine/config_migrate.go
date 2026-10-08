@@ -34,17 +34,7 @@ func migrateReleaseConfig(values map[string]string, targetVersion, installedVers
 		}
 	}
 	for key, value := range map[string]string{
-		"CLICKHOUSE_IMAGE":                      "clickhouse/clickhouse-server:26.8.6.5",
-		"CLICKHOUSE_DATABASE":                   "stealth_telemetry",
-		"CLICKHOUSE_USER":                       "stealth",
-		"CLICKHOUSE_VOLUME_NAME":                "stealth_clickhouse_data",
-		"OTEL_COLLECTOR_HEALTH_URL":             "http://otel-collector:13133",
-		"OTELCOL_VOLUME_NAME":                   "stealth_otelcol_state",
-		"OTEL_DOCKER_LOGS_VOLUME_NAME":          "stealth_otel_docker_logs_state",
-		"STEALTH_TELEMETRY_STORE_NETWORK_NAME":  "stealth_telemetry_store",
-		"STEALTH_TELEMETRY_INGEST_NETWORK_NAME": "stealth_telemetry_ingest",
-		"STEALTH_TELEMETRY_DOCKER_NETWORK_NAME": "stealth_telemetry_docker",
-		"TRAEFIK_IMAGE":                         defaultTraefikImage,
+		"TRAEFIK_IMAGE":                 defaultTraefikImage,
 		"STEALTH_INGRESS_NETWORK_NAME":          "stealth_ingress",
 		"APPS_MAX_SOURCE_ARCHIVE_BYTES":         "128MiB",
 		"APPS_MAX_EXPANDED_SOURCE_BYTES":        "1GiB",
@@ -106,13 +96,6 @@ func migrateReleaseConfig(values map[string]string, targetVersion, installedVers
 	trustedProxy := ensureTraefikTrustedProxyCIDR(result["TRUSTED_PROXY_CIDRS"], result["STEALTH_NETWORK_SUBNET"], ingress.trustedProxyCIDR())
 	if trustedProxy != strings.TrimSpace(result["TRUSTED_PROXY_CIDRS"]) {
 		updates["TRUSTED_PROXY_CIDRS"] = trustedProxy
-	}
-	if strings.TrimSpace(result["CLICKHOUSE_PASSWORD"]) == "" {
-		password, err := randomHex(32)
-		if err != nil {
-			return "", fmt.Errorf("generate ClickHouse password: %w", err)
-		}
-		updates["CLICKHOUSE_PASSWORD"] = password
 	}
 	if strings.TrimSpace(result["APPS_SECRET_KEY"]) == "" {
 		key, err := randomBase64(32)

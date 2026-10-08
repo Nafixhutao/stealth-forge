@@ -124,7 +124,6 @@ location is required. The CLI writes:
 ├── config.env                 # generated secrets, mode 0600
 ├── compose.production.yaml
 ├── compose.setup.yaml
-├── telemetry/             # versioned Collector configurations
 ├── console/deploy/nginx.conf
 ├── VERSION
 └── state/
@@ -141,18 +140,17 @@ Keep both values with the rest of `config.env`. The bootstrap key is never
 printed or sent in the setup URL. `FUNCTIONS_SECRET_KEY` is a separate security
 domain and is never used as a bootstrap-key fallback.
 
-The Compose, Collector, and proxy files are downloaded from the same versioned
-Git tag as the CLI. The config pins API, setup, worker, ingress-control, migration, Console,
-the capability-free Collector image, the dedicated Docker-log Collector image,
-and the restricted telemetry Docker proxy image to the same GHCR release tag.
+The Compose and proxy files are downloaded from the same versioned
+Git tag as the CLI. The config pins API, setup, worker, ingress-control,
+migration, and Console images to the same GHCR release tag.
 
 An existing `config.env` is operator state: supported update and repair paths
 preserve its secrets and custom values while adding missing release keys. The
-Compose, Collector, proxy, and telemetry files are release-managed artifacts;
+Compose and proxy files are release-managed artifacts;
 supported update and repair replace them atomically with the target release
 after validation. Direct edits to those managed files may therefore be
 replaced. A bounded previous managed-asset set is kept under `state/` for
-recovery/debugging, while persistent database, storage, and Collector state
+recovery/debugging, while persistent database and storage state
 volumes are preserved. Unknown local files are not recursively removed.
 
 An ordinary fresh install still refuses to overwrite an existing installation.
@@ -223,8 +221,8 @@ amd64/arm64 CLI archive for the running platform, verifies its entry in
 `checksums.txt`, validates the extracted binary, and replaces the installed
 CLI with an atomic file swap. For an existing installation, the verified target
 CLI runs the coordinated release migration described in
-[`upgrade.md`](upgrade.md): release-managed Compose, Collector, proxy, and
-telemetry assets are validated and updated, while `config.env`, secrets,
+[`upgrade.md`](upgrade.md): release-managed Compose and proxy
+assets are validated and updated, while `config.env`, secrets,
 unknown files, and persistent state are preserved. A failed download,
 checksum, asset preparation, Compose validation, or replacement leaves the
 installation recoverable. If the platform migration succeeds but executable
@@ -254,7 +252,7 @@ password.
 
 For an existing installation, `stealth update` also pulls/recreates the
 versioned production stack, runs the normal migrations and health checks, and
-updates the telemetry topology. It is the supported coordinated platform
+updates the managed topology. It is the supported coordinated platform
 upgrade path; it does not promise zero-downtime upgrades or automatic database
 rollback. Traefik runtime-state ownership is prepared by the narrow,
 one-shot `traefik-state-init` Compose service running inside Docker; a normal

@@ -3,7 +3,6 @@ package httpapi
 import (
 	"context"
 	"errors"
-	"io"
 	"net/http"
 	"time"
 
@@ -129,25 +128,10 @@ func (s *Server) adminOverview(w http.ResponseWriter, r *http.Request) {
 	}
 	components = append(components, adminComponentStatus{Name: "redis", Status: redisStatus})
 
-	clickhouseStatus := "unavailable"
-	if s.telemetry != nil {
-		if err := s.telemetry.Ping(healthContext); err == nil {
-			clickhouseStatus = "healthy"
-		}
-	}
-	components = append(components, adminComponentStatus{Name: "clickhouse", Status: clickhouseStatus})
-	collectorStatus := "unknown"
-	if s.config.TelemetryCollectorHealthURL != "" {
-		collectorStatus = "unavailable"
-		if s.collectorHealthy(r.WithContext(healthContext)) {
-			collectorStatus = "healthy"
-		}
-	}
-	components = append(components, adminComponentStatus{Name: "otel-collector", Status: collectorStatus})
+	// The ClickHouse-backed telemetry pipeline is no longer part of the
+	// platform, so the overview reports telemetry as unavailable rather than
+	// surfacing phantom clickhouse/otel-collector components.
 	telemetryStatus := "unavailable"
-	if clickhouseStatus == "healthy" && (collectorStatus == "healthy" || collectorStatus == "unknown") {
-		telemetryStatus = "healthy"
-	}
 
 	instanceStatus := "degraded"
 	if coreHealthy {
@@ -175,19 +159,4 @@ func (s *Server) adminOverview(w http.ResponseWriter, r *http.Request) {
 		HTTP:           httpOverview,
 		Operations:     operations,
 	})
-}
-
-func (s *Server) collectorHealthy(r *http.Request) bool {
-	request, err := http.NewRequestWithContext(r.Context(), http.MethodGet, s.config.TelemetryCollectorHealthURL, nil)
-	if err != nil {
-		return false
-	}
-	client := &http.Client{Timeout: 2 * time.Second}
-	response, err := client.Do(request)
-	if err != nil {
-		return false
-	}
-	defer response.Body.Close()
-	_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 4096))
-	return response.StatusCode >= http.StatusOK && response.StatusCode < http.StatusMultipleChoices
 }

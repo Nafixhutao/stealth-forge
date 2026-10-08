@@ -81,7 +81,6 @@ func doctorFixture(t *testing.T, setupMode bool, extra map[string]string) (Insta
 		"STEALTH_INGRESS_CONTROL_IMAGE":        "stealth-ingress-control:v1.2.3",
 		"STEALTH_MIGRATE_IMAGE":                "stealth-migrate:v1.2.3",
 		"STEALTH_CONSOLE_IMAGE":                "stealth-console:v1.2.3",
-		"STEALTH_TELEMETRY_DOCKER_PROXY_IMAGE": "stealth-telemetry-docker-proxy:v1.2.3",
 		"POSTGRES_DB":                          "stealth",
 		"POSTGRES_USER":                        "stealth",
 		"POSTGRES_PASSWORD":                    "db-private-sentinel",
@@ -231,7 +230,7 @@ func doctorAppForTest(t *testing.T, layout InstallLayout, runner *doctorCommandR
 	return app, server, output
 }
 
-func TestRunStatusIncludesControlPlaneBuildKitIngressAndTelemetry(t *testing.T) {
+func TestRunStatusIncludesControlPlaneBuildKitAndIngress(t *testing.T) {
 	layout, config := doctorFixture(t, false, nil)
 	statuses := healthyDoctorStatuses(t, config, false)
 	var entries []composeStatusJSON
@@ -239,7 +238,7 @@ func TestRunStatusIncludesControlPlaneBuildKitIngressAndTelemetry(t *testing.T) 
 		t.Fatal(err)
 	}
 	for index := range entries {
-		if entries[index].Service == "telemetry-docker-proxy" {
+		if entries[index].Service == "console" {
 			entries[index].Health = "unhealthy"
 		}
 	}
@@ -253,7 +252,7 @@ func TestRunStatusIncludesControlPlaneBuildKitIngressAndTelemetry(t *testing.T) 
 	if code := app.runStatusCommand(nil); code != 1 {
 		t.Fatalf("runStatusCommand() = %d, want 1", code)
 	}
-	for _, want := range []string{"App BuildKit", "ClickHouse", "Host Metrics", "Docker Logs", "Traefik", "Docker Metrics Proxy"} {
+	for _, want := range []string{"App BuildKit", "Console", "Traefik"} {
 		if !strings.Contains(strings.ToLower(output.String()), strings.ToLower(want)) {
 			t.Errorf("status output %q misses %q", output.String(), want)
 		}
@@ -281,7 +280,7 @@ func TestRunDoctorChecksStorageBuildKitAndKeepsSecretsPrivate(t *testing.T) {
 	if code := app.runDoctorCommand(nil); code != 0 {
 		t.Fatalf("runDoctorCommand() = %d; output=%s", code, output.String())
 	}
-	for _, want := range []string{"Compose validation", "BuildKit mTLS", "App BuildKit", "Storage config", "Storage volume", "App runtime", "API readiness", "Docker Metrics Proxy"} {
+	for _, want := range []string{"Compose validation", "BuildKit mTLS", "App BuildKit", "Storage config", "Storage volume", "App runtime", "API readiness"} {
 		if !strings.Contains(output.String(), want) {
 			t.Errorf("doctor output %q misses %q", output.String(), want)
 		}

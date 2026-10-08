@@ -19,17 +19,10 @@ TLS terminator / Nginx
   └── /v1/* → stealth-api:8080
                          ├── PostgreSQL
                          ├── Redis
-                         ├── ClickHouse (private telemetry store)
                          └── worker → Docker runner + persistent storage
-                                      ├── telemetry-docker-proxy (read-only Docker API)
-                                      │   └── telemetry-docker → otel-collector
-                                      ├── telemetry-host → otel-collector
-                                      └── telemetry-docker-logs → otel-collector
 worker → app_build network → dedicated rootless BuildKit → OCI archive in Stealth storage
 worker → Docker socket → Moby → stealth_app_runtime bridge → App containers
-App stdout/stderr → Docker json-file → telemetry-docker-logs → redaction → ClickHouse
-OTLP / Prometheus ────────────────────────────────────────────┘
-ClickHouse → project-scoped App runtime-log API → Console
+App stdout/stderr → Docker json-file → project-scoped App runtime-log API → Console
 ```
 
 The Docker socket is mounted only into the trusted worker for Docker-backed
@@ -68,12 +61,6 @@ into the worker's private volume. Runtime volumes are mounted read-only and
 private keys are owned by their single service user at mode `0400`. The API
 receives no BuildKit key. Tenant build contexts and `RUN` steps receive none
 of these control credentials.
-
-The host-metrics Collector retains its read-only host filesystem view, but a
-read-only tmpfs masks `<install-root>/private` inside that view. The masking
-target is derived from the generated `STEALTH_INSTALL_ROOT`, so the Collector
-cannot read BuildKit CA, server, worker, or health-client private keys even
-though it can inspect other host filesystem paths.
 
 The CA key remains in the installation state so the installer can renew the
 CA and issue a new leaf set before the CA's final year. Leaf identities renew
@@ -149,14 +136,14 @@ stat -c '%g' /var/run/docker.sock
 docker login ghcr.io
 docker compose --env-file .env.production -f compose.production.yaml config
 docker compose --env-file .env.production -f compose.production.yaml pull
-docker compose --env-file .env.production -f compose.production.yaml up -d postgres redis clickhouse
+docker compose --env-file .env.production -f compose.production.yaml up -d postgres redis
 docker compose --env-file .env.production -f compose.production.yaml up migrate
 docker compose --env-file .env.production -f compose.production.yaml run --rm --no-deps -e STEALTH_TRAEFIK_HOST_UID="$(id -u)" traefik-state-init
 docker compose --env-file .env.production -f compose.production.yaml run --rm --no-deps cloudflare-setup-state-init
 docker compose --env-file .env.production -f compose.production.yaml run --rm --no-deps cloudflare-state-init
 docker compose --env-file .env.production -f compose.production.yaml run --rm --no-deps buildkit-worker-credentials-init
 docker compose --env-file .env.production -f compose.production.yaml run --rm --no-deps buildkit-server-credentials-init
-docker compose --env-file .env.production -f compose.production.yaml up -d api worker buildkit console proxy traefik otel-collector telemetry-host telemetry-docker-logs telemetry-docker-proxy telemetry-docker
+docker compose --env-file .env.production -f compose.production.yaml up -d api worker buildkit console proxy traefik
 ./scripts/production-smoke.sh
 ```
 
@@ -276,7 +263,7 @@ The API and Console are therefore reachable indirectly through this public
 router; their normal authentication and route behavior still applies. The
 worker's bridge listener on port 9091 serves `/healthz` and `/version`;
 `/metrics` requires `METRICS_TOKEN` and otherwise returns not found. The API,
-PostgreSQL, Redis, ClickHouse, BuildKit, and telemetry containers are not
+PostgreSQL, Redis, and BuildKit containers are not
 attached to the App bridge and their Compose DNS names are not available there
 as direct peers. No per-App network boundary filters east-west connections.
 
@@ -373,13 +360,10 @@ ready, desired and observed generations match, runtime identity is current,
 and health is healthy.
 The worker writes eligible Apps to `platform-apps.yaml`; Site routes remain in
 `platform-sites.yaml`. This is asynchronous convergence, not a zero-downtime or
-HA guarantee. App stdout/stderr is collected through Docker's existing
-json-file logs and the isolated file-log Collector, redacted by the main
-Collector, stored in ClickHouse, and read through a bounded project-scoped API.
-PostgreSQL stores verified App-to-container mapping metadata only. Docker local
-rotation and ClickHouse retention are independent; historical logs are
-available only while ClickHouse retains them. A telemetry outage degrades log
-reads but does not stop Apps. Configured App variables and secrets are
+HA guarantee. App stdout/stderr is read through Docker's existing json-file
+logs and a bounded project-scoped API. PostgreSQL stores verified
+App-to-container mapping metadata only. Docker local log rotation bounds
+historical log availability. Configured App variables and secrets are
 encrypted with `APPS_SECRET_KEY`; database restore requires the matching key.
 
 ### Deployment history, rollback, and diagnostics
@@ -426,14 +410,8 @@ manual and is not part of CI; it does not claim HA or exactly-once execution.
 Required production values:
 
 - `STEALTH_API_IMAGE`, `STEALTH_WORKER_IMAGE`, `STEALTH_INGRESS_CONTROL_IMAGE`,
-  `STEALTH_MIGRATE_IMAGE`,
-  `STEALTH_CONSOLE_IMAGE`, `OTEL_COLLECTOR_IMAGE`,
-  `OTEL_HOST_COLLECTOR_IMAGE`, `OTEL_DOCKER_COLLECTOR_IMAGE`,
-  `OTEL_DOCKER_LOGS_COLLECTOR_IMAGE`, and
-  `STEALTH_TELEMETRY_DOCKER_PROXY_IMAGE`, all on the same immutable release
-  tag. The four Collector images are built from the pinned
-  `otel/opentelemetry-collector-contrib:0.161.0` base; the Docker-log image is
-  the only one with the narrow file capability.
+  `STEALTH_MIGRATE_IMAGE`, and
+  `STEALTH_CONSOLE_IMAGE`, all on the same immutable release tag.
 - `TRAEFIK_IMAGE`, pinned to the exact v3.7.13 version and manifest digest
   shown in [`.env.production.example`](../.env.production.example).
 - `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `REDIS_PASSWORD`.
@@ -454,9 +432,7 @@ Required production values:
   server-side; it does not ask the operator to enable Device Flow.
 - `PUBLIC_APP_URL`, normally `https://console.example.com`.
 - `DOCKER_GID`, from `stat -c '%g' /var/run/docker.sock`, while the
-  Docker-backed function runner or persistent App runtime is enabled. The same
-  numeric group is used by the internal telemetry proxy, but the proxy is not
-  published to the host.
+  Docker-backed function runner or persistent App runtime is enabled.
 
 Strongly recommended values:
 
@@ -464,8 +440,6 @@ Strongly recommended values:
   private network and protect the endpoint.
 - `TRUSTED_PROXY_CIDRS`, limited to the network(s) of trusted forwarding
   peers.
-- `CLICKHOUSE_PASSWORD`, `CLICKHOUSE_MEMORY_LIMIT`, and a reviewed
-  `TELEMETRY_RETENTION` value for the private telemetry services.
 - `STORAGE_DRIVER=s3` with provider-specific `STORAGE_S3_*` credentials for a
   production object-store service. The bundled local mode is a persistent
   single-host volume, not highly available object storage.
@@ -582,53 +556,14 @@ The production Compose baseline keeps these named volumes:
   when `STORAGE_DRIVER=local`.
 - `stealth_function_runner_staging`: the shared staging volume referenced by
   Docker-launched build/execution containers.
-- `stealth_clickhouse_data`: ClickHouse logs, metrics, and traces. It is not a
-  PostgreSQL volume and should be backed up with a telemetry-specific policy.
-- `stealth_otelcol_state`: the Collector's crash-safe sending queue and file-log
-  offsets for the main Collector.
-- `stealth_otel_docker_logs_state`: Docker file-log offsets for the isolated
-  Docker-log Collector.
 
-The `telemetry-docker-proxy` service is the only telemetry service with a
-Docker socket mount. It is attached only to the internal telemetry network,
-has no host `ports` mapping, drops capabilities, and permits only read-only
-Docker API requests needed by `docker_stats`: `/_ping`, `/version`,
-`/events`, `/containers/json`, `/containers/{id}/json`, and
-`/containers/{id}/stats` (including their API-version prefixes). The `/events`
-filter is restricted to the
-container lifecycle actions used by the receiver: `destroy`, `die`, `pause`,
-`rename`, `stop`, `start`, `unpause`, and `update`. Mutation endpoints such as
-create, start, exec, stop, remove, and image operations are rejected. The only
-accepted query parameters are `since`, `until`, and the restricted `filters`
-for events; `all`, `limit`, `size`, and `filters` for listing; `size` for
-inspect; and `stream` or `one-shot` for stats. Inspect responses also remove
-environment, command, mounts, and non-Compose labels before they reach the
-collector. The worker's Docker socket remains a separate, existing trust
-boundary for function execution.
+The worker's Docker socket is a dedicated trust
+boundary for function execution. It has no host `ports` mapping, drops
+capabilities, and the worker is the only service that mounts it.
 
-The official OpenTelemetry Collector Contrib image is scratch-based and runs
-as UID 10001. The main Collector, host-metrics Collector, and Docker-metrics
-Collector use a capability-free Stealth wrapper with a static Go probe for the
-live `health_check` endpoint and retain `no-new-privileges:true`.
-
-`telemetry-host` mounts the host filesystem read-only at `/hostfs` to collect
-host metrics. Only `<install-root>/private` is masked with a read-only tmpfs,
-so the Collector can read every other world-readable host path (for example
-`/etc`, other users' home directories, and service configuration outside the
-masked tree). This is a deliberate host-metrics trade-off on a single-host
-baseline: treat the host filesystem as readable by the telemetry boundary, keep
-installation secrets inside the masked `private/` tree, and set
-`STEALTH_INSTALL_ROOT` to the exact installation root so the mask covers the
-BuildKit CA and leaf keys. A hardened deployment that cannot accept this
-exposure should disable the host-metrics Collector or replace it with a
-narrower allowlisted mount set.
-
-Docker file logs use a dedicated scratch wrapper with the pinned binary's
-narrow `DAC_READ_SEARCH` file capability. Only `telemetry-docker-logs` uses
-that image; it mounts only `/var/lib/docker/containers:ro`, so the capability
-cannot be combined with a broad host-root mount. That service intentionally
-omits `no-new-privileges` so the file capability can become effective for UID
-10001. Host metrics use a separate `/:/hostfs:ro` mount without the capability.
+The platform keeps no separate telemetry storage service. Host resource
+metrics are sampled in-process by the API and served to instance owners and
+admins through authenticated admin routes.
 
 Redis is authenticated but intentionally has no volume in this baseline. It
 stores distributed rate-limit windows, not the durable job state. Losing Redis
@@ -640,22 +575,6 @@ availability.
 For serious production installations, managed PostgreSQL and an
 S3-compatible object store are recommended. Stealth does not claim HA for the
 bundled single PostgreSQL, Redis, or local storage services.
-
-### Telemetry operations
-
-ClickHouse and the Collector are internal-only services. The standard Compose
-file does not publish ports `9000`, `4317`, `4318`, or `13133` to the host.
-`telemetry-host` and `telemetry-docker-logs` are intentionally separate from
-the main Collector: the former owns only the read-only host-root mount, while
-the latter owns only the Docker JSON-log mount and its narrow file capability.
-`telemetry-docker` remains separate because the adjacent
-`telemetry-docker-proxy` is the only telemetry process that reads
-`/var/run/docker.sock`. All three isolated collectors forward to the main
-Collector over a dedicated internal telemetry-ingest network and expose no
-host port. The host and Docker-log collectors join only that network; the
-Docker-metrics collector also joins its separate Docker-proxy network. See the
-[telemetry architecture guide](telemetry-architecture.md) for the schema pin,
-query boundary, retention, and security separation.
 
 ## First-run onboarding
 

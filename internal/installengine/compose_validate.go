@@ -16,12 +16,6 @@ func validateProductionComposeAsset(contents []byte) error {
 		"  traefik-state-init:",
 		"  cloudflare-setup-state-init:",
 		"  cloudflare-state-init:",
-		"  otel-collector:",
-		"  telemetry-host:",
-		"  telemetry-docker-logs:",
-		"  telemetry-docker:",
-		"  telemetry-docker-proxy:",
-		"  telemetry_ingest:",
 		"  app_build:",
 		"  buildkit_worker_credentials:",
 		"  buildkit_server_credentials:",
@@ -159,27 +153,6 @@ func validateProductionComposeAsset(contents []byte) error {
 			return fmt.Errorf("production Compose contains a broad or legacy private-state bind %q", forbidden)
 		}
 	}
-	telemetryHost := productionServiceBlock(text, "telemetry-host")
-	if !strings.Contains(telemetryHost, "- /:/hostfs:ro") {
-		return errors.New("telemetry-host is missing its read-only host filesystem view")
-	}
-	maskStart := strings.Index(telemetryHost, "      - type: tmpfs\n")
-	if maskStart < 0 {
-		return errors.New("telemetry-host must mask the installation private directory with a tmpfs")
-	}
-	maskEnd := len(telemetryHost)
-	if next := strings.Index(telemetryHost[maskStart+1:], "\n      - "); next >= 0 {
-		maskEnd = maskStart + 1 + next
-	}
-	privateMask := telemetryHost[maskStart:maskEnd]
-	for _, required := range []string{
-		"type: tmpfs", "target: /hostfs/${STEALTH_INSTALL_ROOT:?set STEALTH_INSTALL_ROOT}/private",
-		"read_only: true", "size: 1048576",
-	} {
-		if !strings.Contains(privateMask, required) {
-			return fmt.Errorf("telemetry-host private-directory tmpfs is missing %q", required)
-		}
-	}
 	for _, name := range productionServiceNames(text) {
 		block := productionServiceBlock(text, name)
 		if name != "buildkit-worker-credentials-init" && name != "buildkit-server-credentials-init" &&
@@ -249,15 +222,4 @@ func productionServiceBlock(contents, wanted string) string {
 		return strings.Join(block, "\n")
 	}
 	return ""
-}
-func validateMainCollectorAsset(contents []byte) error {
-	for _, marker := range [][]byte{[]byte("exporters:"), []byte("clickhouse:")} {
-		if !bytes.Contains(contents, marker) {
-			return fmt.Errorf("missing main Collector marker %q", marker)
-		}
-	}
-	if bytes.Contains(contents, []byte("file_log/docker:")) {
-		return errors.New("main Collector still contains the Docker file-log receiver")
-	}
-	return nil
 }

@@ -114,19 +114,11 @@ func TestInstallerCleanHostAndRepairAcceptance(t *testing.T) {
 		"STEALTH_WORKER_IMAGE":                 "stealth-worker",
 		"STEALTH_INGRESS_CONTROL_IMAGE":        "stealth-ingress-control",
 		"STEALTH_MIGRATE_IMAGE":                "stealth-migrate",
-		"STEALTH_CONSOLE_IMAGE":                "stealth-console",
-		"STEALTH_TELEMETRY_DOCKER_PROXY_IMAGE": "stealth-telemetry-docker-proxy",
-		"OTEL_COLLECTOR_IMAGE":                 "stealth-otel-collector",
-		"OTEL_HOST_COLLECTOR_IMAGE":            "stealth-otel-collector",
-		"OTEL_DOCKER_COLLECTOR_IMAGE":          "stealth-otel-collector",
-		"OTEL_DOCKER_LOGS_COLLECTOR_IMAGE":     "stealth-otel-docker-logs",
+		"STEALTH_CONSOLE_IMAGE":         "stealth-console",
 	} {
 		config[key] = image + ":" + tag
 	}
 	config["STEALTH_NETWORK_NAME"] = project + "-network"
-	config["STEALTH_TELEMETRY_STORE_NETWORK_NAME"] = project + "-store"
-	config["STEALTH_TELEMETRY_INGEST_NETWORK_NAME"] = project + "-ingest"
-	config["STEALTH_TELEMETRY_DOCKER_NETWORK_NAME"] = project + "-docker"
 	config["STEALTH_INGRESS_NETWORK_NAME"] = project + "-ingress"
 	config["APPS_RUNTIME_NETWORK_NAME"] = project + "-runtime"
 	config["FUNCTIONS_RUNNER_STAGING_VOLUME"] = project + "-runner-staging"
@@ -134,9 +126,6 @@ func TestInstallerCleanHostAndRepairAcceptance(t *testing.T) {
 	config["APPS_BUILDKIT_STATE_VOLUME"] = project + "-buildkit-state"
 	config["STORAGE_VOLUME_NAME"] = project + "-storage"
 	config["POSTGRES_VOLUME_NAME"] = project + "-postgres"
-	config["CLICKHOUSE_VOLUME_NAME"] = project + "-clickhouse"
-	config["OTELCOL_VOLUME_NAME"] = project + "-otelcol"
-	config["OTEL_DOCKER_LOGS_VOLUME_NAME"] = project + "-docker-logs"
 	config["API_HOST_PORT"] = ports["API_HOST_PORT"]
 	config["CONSOLE_HOST_PORT"] = ports["CONSOLE_HOST_PORT"]
 	config["PROXY_HTTP_PORT"] = ports["PROXY_HTTP_PORT"]
@@ -225,7 +214,7 @@ func TestInstallerCleanHostAndRepairAcceptance(t *testing.T) {
 		evidence := installerAcceptanceEvidence{
 			Version: installerAcceptanceVersion, HostKind: hostKind,
 			CleanInstallPassed: true, RepairPassed: true, StatusPassed: true, DoctorPassed: true,
-			ServiceChecks: []string{"postgres", "redis", "clickhouse", "api", "worker", "buildkit", "console", "proxy", "traefik", "telemetry"},
+			ServiceChecks: []string{"postgres", "redis", "api", "worker", "buildkit", "console", "proxy", "traefik"},
 			ConfigMode:    "0600", BuildKitKeyMode: "0600",
 		}
 		contents, err := json.MarshalIndent(evidence, "", "  ")

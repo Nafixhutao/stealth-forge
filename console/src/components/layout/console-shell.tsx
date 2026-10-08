@@ -51,11 +51,9 @@ function ConsoleShellContent({
   if (account.isPending)
     return (
       <div className="flex min-h-dvh items-center justify-center bg-void">
-        <LoadingState label="Loading account…" className="w-72">
-          <PixelSkeleton className="mx-auto size-12 rounded-2xl" />
-          <PixelSkeleton className="mx-auto h-4 w-40" />
-          <PixelSkeleton className="mx-auto h-3 w-56" />
-        </LoadingState>
+        <span role="status" aria-live="polite" className="sr-only">
+          Loading account…
+        </span>
       </div>
     );
   if (unauthorized)

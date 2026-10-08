@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import { ApiError } from "@/api/client";
 import { useCurrentAccount } from "@/api/queries/account";
 import { ErrorState } from "@/components/feedback/error-state";
-import { LoadingState } from "@/components/feedback/loading-state";
-import { PixelSkeleton } from "@/components/ui/pixel-skeleton";
 
 /**
  * AdminGate guards the standalone /admin area. The redesigned admin chrome was
@@ -30,14 +28,14 @@ export function AdminGate({ children }: { children: React.ReactNode }) {
     else if (notAdmin) router.replace("/organizations");
   }, [unauthorized, notAdmin, router]);
 
+  // The access check is a short, silent wait: rendering a placeholder here
+  // only flashes grey boxes before the admin chrome paints.
   if (account.isPending || unauthorized || notAdmin) {
     return (
       <div className="flex min-h-dvh items-center justify-center">
-        <LoadingState label="Checking admin access…" className="w-72">
-          <PixelSkeleton className="mx-auto size-12 rounded-2xl" />
-          <PixelSkeleton className="mx-auto h-4 w-40" />
-          <PixelSkeleton className="mx-auto h-3 w-56" />
-        </LoadingState>
+        <span role="status" aria-live="polite" className="sr-only">
+          Checking admin access…
+        </span>
       </div>
     );
   }

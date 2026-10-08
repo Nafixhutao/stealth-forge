@@ -159,7 +159,7 @@ func TestTraefikReleaseConfigKeepsProviderAndNetworkBoundaries(t *testing.T) {
 	if cloudflareInitStart < 0 {
 		t.Fatal("Cloudflare state initializer is missing")
 	}
-	cloudflareInitEnd := strings.Index(composeText[cloudflareInitStart+1:], "\n  telemetry-docker-logs-state-init:")
+	cloudflareInitEnd := nextTopLevelBoundary(composeText, cloudflareInitStart+1)
 	if cloudflareInitEnd < 0 {
 		t.Fatal("could not delimit Cloudflare state initializer")
 	}
@@ -208,6 +208,28 @@ func TestTraefikReleaseConfigKeepsProviderAndNetworkBoundaries(t *testing.T) {
 			t.Fatalf("Traefik service contains forbidden marker %q", forbidden)
 		}
 	}
+}
+
+// nextTopLevelBoundary returns the offset (relative to from) of the newline
+// preceding the next Compose service header or top-level section, so a service
+// block can be delimited without depending on which service follows it.
+func nextTopLevelBoundary(text string, from int) int {
+	sub := text[from:]
+	nl := strings.IndexByte(sub, '\n')
+	if nl < 0 {
+		return -1
+	}
+	offset := nl + 1
+	for _, line := range strings.Split(sub[nl+1:], "\n") {
+		if line == "networks:" || line == "volumes:" || line == "services:" {
+			return offset - 1
+		}
+		if strings.HasPrefix(line, "  ") && !strings.HasPrefix(line, "   ") && strings.HasSuffix(line, ":") {
+			return offset - 1
+		}
+		offset += len(line) + 1
+	}
+	return -1
 }
 
 func TestGenerateConfigUsesDedicatedAppSecretKey(t *testing.T) {

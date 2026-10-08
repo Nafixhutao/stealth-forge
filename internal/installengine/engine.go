@@ -299,12 +299,6 @@ func (e *Engine) RunStep(ctx context.Context, plan Plan, step Step) error {
 			// StepServices may use --no-deps for external PostgreSQL/Redis.
 			// Run all narrow ownership init services explicitly so that path
 			// never bypasses persistent state preparation.
-			if err := e.runCompose(ctx, plan, "run", "--rm", "--no-deps", "otelcol-state-init"); err != nil {
-				return err
-			}
-			if err := e.runCompose(ctx, plan, "run", "--rm", "--no-deps", "telemetry-docker-logs-state-init"); err != nil {
-				return err
-			}
 			if err := e.runTraefikStateInit(ctx, plan, plan.Layout.ComposeFile, ""); err != nil {
 				return err
 			}
@@ -321,15 +315,12 @@ func (e *Engine) RunStep(ctx context.Context, plan Plan, step Step) error {
 				return fmt.Errorf("prepare BuildKit server credentials: %w", err)
 			}
 		}
-		services := make([]string, 0, 3)
+		services := make([]string, 0, 2)
 		if !plan.ExternalDatabase {
 			services = append(services, "postgres")
 		}
 		if !plan.ExternalRedis {
 			services = append(services, "redis")
-		}
-		if !plan.Setup {
-			services = append(services, "clickhouse")
 		}
 		if len(services) == 0 {
 			return nil
@@ -366,7 +357,6 @@ func (e *Engine) RunStep(ctx context.Context, plan Plan, step Step) error {
 				}
 			}
 			services = append(services, "buildkit")
-			services = append(services, "otel-collector", "telemetry-host", "telemetry-docker-logs", "telemetry-docker-proxy", "telemetry-docker")
 		}
 		if plan.Cloudflare {
 			services = append(services, "cloudflared")

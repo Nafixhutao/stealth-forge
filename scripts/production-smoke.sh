@@ -8,7 +8,7 @@ attempts="${SMOKE_ATTEMPTS:-60}"
 interval="${SMOKE_INTERVAL_SECONDS:-2}"
 compose_file="${COMPOSE_FILE:-}"
 env_file="${ENV_FILE:-.env.production}"
-compose_services="${SMOKE_COMPOSE_SERVICES:-worker buildkit traefik clickhouse}"
+compose_services="${SMOKE_COMPOSE_SERVICES:-worker buildkit traefik}"
 
 if ! [[ "$attempts" =~ ^[1-9][0-9]*$ && "$interval" =~ ^[1-9][0-9]*$ ]]; then
 	printf 'SMOKE_ATTEMPTS and SMOKE_INTERVAL_SECONDS must be positive integers\n' >&2
@@ -57,8 +57,8 @@ if [ -n "$proxy_url" ]; then
 	expect_status "Reverse proxy API route" "${proxy_url%/}/v1/account" "401"
 fi
 
-# A passing HTTP check does not prove the worker, BuildKit, Traefik, or
-# ClickHouse are healthy. Assert the Compose health status for those services
+# A passing HTTP check does not prove the worker, BuildKit, or Traefik are
+# healthy. Assert the Compose health status for those services
 # when a Compose file is supplied, so a stalled queue or build plane fails the
 # documented post-upgrade smoke instead of reporting a false success.
 if [ -n "$compose_file" ] && [ -f "$compose_file" ] && command -v docker >/dev/null 2>&1; then

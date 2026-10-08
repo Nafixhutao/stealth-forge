@@ -241,10 +241,8 @@ func TestMigrateInstalledReleaseMigratesExistingTopology(t *testing.T) {
 		t.Fatal(err)
 	}
 	for path, contents := range map[string]string{
-		layout.ComposeFile: "services:\n  otel-collector:\n    volumes:\n      - /:/hostfs:ro\n",
-		filepath.Join(layout.TelemetryDir, "otel-collector.yaml"): "receivers:\n  file_log/docker:\n",
-		filepath.Join(layout.TelemetryDir, "docker-stats.yaml"):   "receivers:\n  docker_stats:\n",
-		layout.ProxyFile: "server {\n  # old release\n}\n",
+		layout.ComposeFile: "services:\n  api:\n    image: old\n",
+		layout.ProxyFile:   "server {\n  # old release\n}\n",
 	} {
 		if err := writeAtomic(path, []byte(contents), 0o644); err != nil {
 			t.Fatal(err)
@@ -268,9 +266,9 @@ func TestMigrateInstalledReleaseMigratesExistingTopology(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(compose), "telemetry-docker-logs:") ||
-		!strings.Contains(string(compose), "/:/hostfs:ro") ||
-		!strings.Contains(string(compose), "target: /hostfs/${STEALTH_INSTALL_ROOT:?set STEALTH_INSTALL_ROOT}/private") {
+	if !strings.Contains(string(compose), "traefik:") ||
+		!strings.Contains(string(compose), "app_build:") ||
+		strings.Contains(string(compose), "telemetry-docker-logs:") {
 		t.Fatalf("migrated Compose topology = %q", compose)
 	}
 	version, err := os.ReadFile(layout.VersionFile)
@@ -320,14 +318,8 @@ func TestV025BridgeTransitionLeavesStackUntilBridgeReconciliation(t *testing.T) 
 	if err := writeAtomic(layout.VersionFile, []byte("v1.2.2\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	oldCompose := "services:\n  otel-collector:\n    volumes:\n      - /:/hostfs:ro\n"
+	oldCompose := "services:\n  api:\n    image: old\n"
 	if err := writeAtomic(layout.ComposeFile, []byte(oldCompose), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := writeAtomic(filepath.Join(layout.TelemetryDir, "otel-collector.yaml"), []byte("receivers:\n  file_log/docker:\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := writeAtomic(filepath.Join(layout.TelemetryDir, "docker-stats.yaml"), []byte("receivers:\n  docker_stats:\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := writeAtomic(layout.ProxyFile, []byte("server {\n  # old topology\n}\n"), 0o644); err != nil {
@@ -378,9 +370,9 @@ func TestV025BridgeTransitionLeavesStackUntilBridgeReconciliation(t *testing.T) 
 	if code := bridge.run([]string{"update"}); code != 0 {
 		t.Fatalf("explicit bridge reconciliation exit code = %d, stderr=%s", code, bridgeErrors.String())
 	}
-	if got, err := os.ReadFile(layout.ComposeFile); err != nil || !strings.Contains(string(got), "telemetry-docker-logs:") ||
-		!strings.Contains(string(got), "/:/hostfs:ro") ||
-		!strings.Contains(string(got), "target: /hostfs/${STEALTH_INSTALL_ROOT:?set STEALTH_INSTALL_ROOT}/private") {
+	if got, err := os.ReadFile(layout.ComposeFile); err != nil || !strings.Contains(string(got), "traefik:") ||
+		!strings.Contains(string(got), "app_build:") ||
+		strings.Contains(string(got), "telemetry-docker-logs:") {
 		t.Fatalf("bridge reconciliation Compose = %q, %v", got, err)
 	}
 	if got, err := os.ReadFile(layout.EnvFile); err != nil || !bytes.Contains(got, []byte("POSTGRES_PASSWORD=bridge-preserved-secret")) {

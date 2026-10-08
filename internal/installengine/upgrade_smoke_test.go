@@ -44,14 +44,8 @@ func TestManagedAssetUpgradeSmoke(t *testing.T) {
 		t.Fatal("upgrade migration changed the operator secret marker")
 	}
 	for _, key := range []string{
-		"OTEL_COLLECTOR_IMAGE",
-		"OTEL_HOST_COLLECTOR_IMAGE",
-		"OTEL_DOCKER_COLLECTOR_IMAGE",
-		"OTEL_DOCKER_LOGS_COLLECTOR_IMAGE",
-		"STEALTH_TELEMETRY_DOCKER_PROXY_IMAGE",
-		"STEALTH_TELEMETRY_INGEST_NETWORK_NAME",
+		"STEALTH_CONSOLE_IMAGE",
 		"TRUSTED_PROXY_CIDRS",
-		"OTEL_DOCKER_LOGS_VOLUME_NAME",
 		"STEALTH_INGRESS_NETWORK_NAME",
 		"STEALTH_INGRESS_NETWORK_SUBNET",
 		"STEALTH_INGRESS_IP_RANGE",
@@ -81,52 +75,18 @@ func assertUpgradeSmokeTopology(t *testing.T, layout Layout) {
 		t.Fatal(err)
 	}
 	text := string(compose)
-	for _, marker := range []string{"  traefik:", "  traefik-state-init:", "  cloudflare-setup-state-init:", "  cloudflare-state-init:", "  telemetry-host:", "  telemetry-docker-logs:", "  telemetry-docker:", "  telemetry-docker-proxy:", "  telemetry_ingest:"} {
+	for _, marker := range []string{"  traefik:", "  traefik-state-init:", "  cloudflare-setup-state-init:", "  cloudflare-state-init:", "  app_build:"} {
 		if !strings.Contains(text, marker) {
 			t.Fatalf("migrated Compose misses %q", marker)
-		}
-	}
-	mainStart := strings.Index(text, "  otel-collector:")
-	if mainStart < 0 {
-		t.Fatal("migrated Compose misses main Collector")
-	}
-	mainEnd := len(text)
-	if next := strings.Index(text[mainStart+1:], "\n  telemetry-host:"); next >= 0 {
-		mainEnd = mainStart + 1 + next
-	}
-	main := text[mainStart:mainEnd]
-	for _, forbidden := range []string{"/:/hostfs", "/var/lib/docker/containers", "/var/run/docker.sock", "DAC_READ_SEARCH"} {
-		if strings.Contains(main, forbidden) {
-			t.Fatalf("migrated main Collector retained %q", forbidden)
-		}
-	}
-	hostMetricsStart := strings.Index(text, "  telemetry-host:")
-	if hostMetricsStart < 0 {
-		t.Fatal("migrated Compose misses telemetry host metrics Collector")
-	}
-	hostMetricsEnd := len(text)
-	if next := strings.Index(text[hostMetricsStart+1:], "\n  telemetry-docker-logs:"); next >= 0 {
-		hostMetricsEnd = hostMetricsStart + 1 + next
-	}
-	hostMetrics := text[hostMetricsStart:hostMetricsEnd]
-	for _, required := range []string{
-		"- /:/hostfs:ro", "type: tmpfs", "target: /hostfs/${STEALTH_INSTALL_ROOT:?set STEALTH_INSTALL_ROOT}/private",
-		"read_only: true", "size: 1048576",
-	} {
-		if !strings.Contains(hostMetrics, required) {
-			t.Fatalf("migrated telemetry host Collector misses private-tree mask %q", required)
 		}
 	}
 	for _, path := range []string{
 		layout.TraefikStatic,
 		layout.TraefikCore,
 		layout.TraefikGenerated + "/.gitkeep",
-		layout.TelemetryDir + "/host-metrics.yaml",
-		layout.TelemetryDir + "/docker-logs.yaml",
-		layout.TelemetryDir + "/docker-stats.yaml",
 	} {
 		if !FileExists(path) {
-			t.Fatalf("migrated telemetry asset is missing: %s", path)
+			t.Fatalf("migrated asset is missing: %s", path)
 		}
 	}
 	values, err := ReadEnvFile(layout.EnvFile)

@@ -109,10 +109,6 @@ func GenerateConfig(options ConfigOptions) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	clickhousePassword, err := randomHex(32)
-	if err != nil {
-		return "", err
-	}
 	apiImage := options.APIImage
 	if apiImage == "" {
 		apiImage = ImageName("stealth-api", options.Version)
@@ -121,7 +117,6 @@ func GenerateConfig(options ConfigOptions) (string, error) {
 	if setupImage == "" {
 		setupImage = ImageName("stealth-setup", options.Version)
 	}
-	collectorImage := ImageName("stealth-otel-collector", options.Version)
 	databaseURL := options.DatabaseURL
 	if databaseURL == "" {
 		databaseURL = "postgres://stealth:" + postgresPassword + "@postgres:5432/stealth?sslmode=disable"
@@ -142,12 +137,7 @@ func GenerateConfig(options ConfigOptions) (string, error) {
 		"STEALTH_INGRESS_CONTROL_IMAGE":         ImageName("stealth-ingress-control", options.Version),
 		"STEALTH_MIGRATE_IMAGE":                 ImageName("stealth-migrate", options.Version),
 		"STEALTH_CONSOLE_IMAGE":                 ImageName("stealth-console", options.Version),
-		"STEALTH_TELEMETRY_DOCKER_PROXY_IMAGE":  ImageName("stealth-telemetry-docker-proxy", options.Version),
 		"TRAEFIK_IMAGE":                         defaultTraefikImage,
-		"OTEL_COLLECTOR_IMAGE":                  collectorImage,
-		"OTEL_HOST_COLLECTOR_IMAGE":             collectorImage,
-		"OTEL_DOCKER_COLLECTOR_IMAGE":           collectorImage,
-		"OTEL_DOCKER_LOGS_COLLECTOR_IMAGE":      ImageName("stealth-otel-docker-logs", options.Version),
 		"POSTGRES_DB":                           "stealth",
 		"POSTGRES_USER":                         "stealth",
 		"POSTGRES_PASSWORD":                     postgresPassword,
@@ -169,16 +159,6 @@ func GenerateConfig(options ConfigOptions) (string, error) {
 		"STEALTH_CLOUDFLARED_INGRESS_IP":        ingress.CloudflaredIP,
 		"DOCKER_GID":                            strconv.FormatUint(uint64(options.DockerGID), 10),
 		"METRICS_TOKEN":                         metricsToken,
-		"CLICKHOUSE_IMAGE":                      "clickhouse/clickhouse-server:26.8.6.5",
-		"CLICKHOUSE_DATABASE":                   "stealth_telemetry",
-		"CLICKHOUSE_USER":                       "stealth",
-		"CLICKHOUSE_PASSWORD":                   clickhousePassword,
-		"CLICKHOUSE_VOLUME_NAME":                "stealth_clickhouse_data",
-		"OTEL_COLLECTOR_HEALTH_URL":             "http://otel-collector:13133",
-		"OTELCOL_VOLUME_NAME":                   "stealth_otelcol_state",
-		"OTEL_DOCKER_LOGS_VOLUME_NAME":          "stealth_otel_docker_logs_state",
-		"STEALTH_TELEMETRY_STORE_NETWORK_NAME":  "stealth_telemetry_store",
-		"STEALTH_TELEMETRY_DOCKER_NETWORK_NAME": "stealth_telemetry_docker",
 		"STEALTH_INGRESS_NETWORK_NAME":          ingress.Name,
 		"FUNCTIONS_RUNNER_ENABLED":              "true",
 		"FUNCTIONS_WORKER_ID":                   "stealth-worker",
@@ -214,7 +194,6 @@ func GenerateConfig(options ConfigOptions) (string, error) {
 		"SETUP_PROXY_HTTP_PORT":                 "8081",
 		"SETUP_MODE":                            strconv.FormatBool(options.Setup),
 	}
-	values["STEALTH_TELEMETRY_INGEST_NETWORK_NAME"] = "stealth_telemetry_ingest"
 	if strings.TrimSpace(options.InstallRoot) != "" {
 		values["STEALTH_INSTALL_ROOT"] = options.InstallRoot
 	}
@@ -256,10 +235,5 @@ var releaseManagedImageNames = map[string]string{
 	"STEALTH_WORKER_IMAGE":                 "stealth-worker",
 	"STEALTH_INGRESS_CONTROL_IMAGE":        "stealth-ingress-control",
 	"STEALTH_MIGRATE_IMAGE":                "stealth-migrate",
-	"STEALTH_CONSOLE_IMAGE":                "stealth-console",
-	"STEALTH_TELEMETRY_DOCKER_PROXY_IMAGE": "stealth-telemetry-docker-proxy",
-	"OTEL_COLLECTOR_IMAGE":                 "stealth-otel-collector",
-	"OTEL_HOST_COLLECTOR_IMAGE":            "stealth-otel-collector",
-	"OTEL_DOCKER_COLLECTOR_IMAGE":          "stealth-otel-collector",
-	"OTEL_DOCKER_LOGS_COLLECTOR_IMAGE":     "stealth-otel-docker-logs",
+	"STEALTH_CONSOLE_IMAGE":         "stealth-console",
 }

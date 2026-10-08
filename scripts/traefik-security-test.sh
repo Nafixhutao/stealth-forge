@@ -211,31 +211,7 @@ if [ -n "$wide_mount_services" ]; then
 	printf 'production services bind the installation root or private parent: %s\n' "$(printf '%s\n' "$wide_mount_services" | paste -sd, -)" >&2
 	exit 1
 fi
-telemetry_host_block="$(service_block telemetry-host)"
-telemetry_private_target="$(printf '%s\n' "$telemetry_host_block" | awk '
-/^[[:space:]]*-[[:space:]]+type: tmpfs[[:space:]]*$/ { in_tmpfs=1; target=""; read_only=0; next }
-in_tmpfs && /^[[:space:]]*-[[:space:]]+type:/ {
-  if (target != "" && read_only) print target
-  in_tmpfs=($0 ~ /type: tmpfs[[:space:]]*$/)
-  target=""; read_only=0
-  next
-}
-in_tmpfs && /^[[:space:]]*target:/ { sub(/^[[:space:]]*target:[[:space:]]*/, ""); target=$0 }
-in_tmpfs && /^[[:space:]]*read_only:[[:space:]]*true[[:space:]]*$/ { read_only=1 }
-END { if (in_tmpfs && target != "" && read_only) print target }
-')"
-expected_telemetry_private_target="$(realpath -m "/hostfs$compose_root/private")"
-if [ -n "$telemetry_private_target" ]; then
-	telemetry_private_target="$(realpath -m "$telemetry_private_target")"
-fi
-telemetry_private_mask=no
-if [ "$telemetry_private_target" = "$expected_telemetry_private_target" ]; then
-	telemetry_private_mask=yes
-else
-	printf 'telemetry-host must mask %s with a read-only tmpfs; rendered target was %s\n' "$expected_telemetry_private_target" "${telemetry_private_target:-missing}" >&2
-	exit 1
-fi
-pki_mount_exposures="$(awk -v root="$compose_root" -v telemetry_mask="$telemetry_private_mask" '
+pki_mount_exposures="$(awk -v root="$compose_root" '
 function trim(value) {
   sub(/^[[:space:]]+/, "", value)
   sub(/[[:space:]]+$/, "", value)
@@ -262,8 +238,7 @@ function allowed_identity_file(path, private_root) {
   return 0
 }
 function check_mount() {
-  if (mount_type == "bind" && exposes_private(source) && !allowed_identity_file(source) &&
-      !(service == "telemetry-host" && source == "/" && target == "/hostfs" && telemetry_mask == "yes")) {
+  if (mount_type == "bind" && exposes_private(source) && !allowed_identity_file(source)) {
     print service "=" source
   }
 }
@@ -597,7 +572,7 @@ if ! printf '%s\n' "$buildkit_block" | grep -Fq '/run/secrets/stealth-buildkit/h
 	printf '%s\n' 'BuildKit healthcheck does not authenticate with the health-only identity' >&2
 	exit 1
 fi
-for forbidden in '/var/run/docker.sock' 'privileged:' 'network_mode: host' 'pid: host' 'ipc: host' 'ports:' 'stealth:' 'telemetry_store:' 'ingress_control_db:' 'stealth_storage:' 'app_build_staging:' 'DATABASE_URL' 'REDIS_URL' 'FUNCTIONS_SECRET_KEY' 'APPS_SECRET_KEY' 'CLOUDFLARE'; do
+for forbidden in '/var/run/docker.sock' 'privileged:' 'network_mode: host' 'pid: host' 'ipc: host' 'ports:' 'stealth:' 'ingress_control_db:' 'stealth_storage:' 'app_build_staging:' 'DATABASE_URL' 'REDIS_URL' 'FUNCTIONS_SECRET_KEY' 'APPS_SECRET_KEY' 'CLOUDFLARE'; do
 	if printf '%s\n' "$buildkit_block" | grep -Fqi -- "$forbidden"; then
 		printf 'App BuildKit service contains forbidden setting: %s\n' "$forbidden" >&2
 		exit 1
@@ -783,7 +758,7 @@ if printf '%s\n' "$worker_block" | grep -Eq 'source: .*/traefik/traefik\.yaml|ta
 	exit 1
 fi
 
-if printf '%s\n' "$traefik_block" | grep -Eq '^      (stealth|telemetry_store|telemetry_ingest|telemetry_docker):'; then
+if printf '%s\n' "$traefik_block" | grep -Eq '^      stealth:'; then
 	printf '%s\n' 'Traefik is attached to a prohibited private network' >&2
 	exit 1
 fi

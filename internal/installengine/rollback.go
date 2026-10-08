@@ -434,19 +434,18 @@ func (e *Engine) runRollbackServices(ctx context.Context, plan Plan) error {
 	if err := checkRequiredRollbackServices(services, plan); err != nil {
 		return err
 	}
-	dependencies := make([]string, 0, 3)
+	dependencies := make([]string, 0, 2)
 	if !plan.ExternalDatabase {
 		dependencies = append(dependencies, "postgres")
 	}
 	if !plan.ExternalRedis {
 		dependencies = append(dependencies, "redis")
 	}
-	dependencies = append(dependencies, "clickhouse")
 	if err := e.runCompose(ctx, plan, append([]string{"up", "-d"}, dependencies...)...); err != nil {
 		return fmt.Errorf("start rollback dependencies: %w", err)
 	}
 	for _, initializer := range []string{
-		"otelcol-state-init", "telemetry-docker-logs-state-init", "cloudflare-setup-state-init",
+		"cloudflare-setup-state-init",
 		"cloudflare-state-init", "buildkit-worker-credentials-init", "buildkit-server-credentials-init",
 	} {
 		if services[initializer] {
@@ -461,8 +460,7 @@ func (e *Engine) runRollbackServices(ctx context.Context, plan Plan) error {
 		}
 	}
 	longRunning := []string{
-		"api", "worker", "buildkit", "console", "proxy", "traefik", "otel-collector",
-		"telemetry-host", "telemetry-docker-logs", "telemetry-docker-proxy", "telemetry-docker",
+		"api", "worker", "buildkit", "console", "proxy", "traefik",
 	}
 	if plan.Cloudflare {
 		longRunning = append(longRunning, "cloudflared")
@@ -506,12 +504,6 @@ func (e *Engine) verifyRollbackServices(ctx context.Context, plan Plan) error {
 		"console",
 		"proxy",
 		"traefik",
-		"clickhouse",
-		"otel-collector",
-		"telemetry-host",
-		"telemetry-docker-logs",
-		"telemetry-docker-proxy",
-		"telemetry-docker",
 	}
 	if !plan.ExternalDatabase {
 		required = append(required, "postgres")
@@ -590,12 +582,6 @@ func checkRequiredRollbackServices(services map[string]bool, plan Plan) error {
 		"console",
 		"proxy",
 		"traefik",
-		"clickhouse",
-		"otel-collector",
-		"telemetry-host",
-		"telemetry-docker-logs",
-		"telemetry-docker-proxy",
-		"telemetry-docker",
 	}
 	if !plan.ExternalDatabase {
 		required = append(required, "postgres")

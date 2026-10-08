@@ -5,8 +5,4 @@ console/deploy/nginx.conf
 traefik/traefik.yaml
 traefik/dynamic/core.yaml
 traefik/dynamic/generated/.gitkeep
-telemetry/otel-collector.yaml
-telemetry/host-metrics.yaml
-telemetry/docker-logs.yaml
-telemetry/docker-stats.yaml
 compose.setup.yaml

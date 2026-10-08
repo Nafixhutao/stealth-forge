@@ -60,7 +60,6 @@ func (c Config) ValidateProductionSecrets() error {
 	}{
 		{"POSTGRES_PASSWORD", urlPassword(c.DatabaseURL)},
 		{"REDIS_PASSWORD", urlPassword(c.RedisURL)},
-		{"CLICKHOUSE_PASSWORD", c.TelemetryClickHousePassword},
 		{"METRICS_TOKEN", c.MetricsToken},
 		{"GITHUB_APP_CLIENT_ID", c.GitHubAppClientID},
 		{"PUBLIC_APP_URL", c.PublicAppURL},

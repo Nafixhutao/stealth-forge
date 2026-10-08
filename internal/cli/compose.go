@@ -148,8 +148,7 @@ func anyServiceUnhealthy(statuses map[string]ServiceStatus) bool {
 
 func anyRequiredServiceUnhealthy(statuses map[string]ServiceStatus, setup bool) bool {
 	services := []string{
-		"postgres", "redis", "clickhouse", "migrate", "otel-collector", "telemetry-host",
-		"telemetry-docker-logs", "telemetry-docker-proxy", "telemetry-docker", "api", "worker",
+		"postgres", "redis", "migrate", "api", "worker",
 		"buildkit", "console", "proxy", "traefik",
 	}
 	if setup {
@@ -177,18 +176,6 @@ func displayServiceName(service string) string {
 		return "PostgreSQL"
 	case "redis":
 		return "Redis"
-	case "clickhouse":
-		return "ClickHouse"
-	case "otel-collector":
-		return "OTel Collector"
-	case "telemetry-host":
-		return "Host Metrics"
-	case "telemetry-docker-logs":
-		return "Docker Logs"
-	case "telemetry-docker-proxy":
-		return "Docker Metrics Proxy"
-	case "telemetry-docker":
-		return "Docker Metrics"
 	case "proxy":
 		return "Proxy"
 	case "traefik":
