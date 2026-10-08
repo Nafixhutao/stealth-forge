@@ -3143,17 +3143,19 @@ verify_app_runtime_lifecycle() {
 	old_container="$new_container"
 	old_route_target="$(app_route_snapshot_target)"
 	wait_for_app_runtime_log_markers "${smoke_marker}-app-v2" 2 "$old_container"
-	fetch_app_runtime_logs "$old_container"
-	old_restart_cursor="$(app_runtime_log_next_cursor)"
-	if [ -z "$old_restart_cursor" ]; then
-		printf '%s\n' 'App runtime logs API did not return a cursor before process restart' >&2
-		return 1
-	fi
-	old_restart_stdout_id="$(app_runtime_log_ids "${smoke_marker}-app-v2" stdout | tail -n 1)"
-	old_restart_stderr_id="$(app_runtime_log_ids "${smoke_marker}-app-v2" stderr | tail -n 1)"
-	if [ -z "$old_restart_stdout_id" ] || [ -z "$old_restart_stderr_id" ]; then
-		printf '%s\n' 'App runtime logs API did not return pre-restart stdout and stderr markers' >&2
-		return 1
+	if [ "$telemetry_enabled" = true ]; then
+		fetch_app_runtime_logs "$old_container"
+		old_restart_cursor="$(app_runtime_log_next_cursor)"
+		if [ -z "$old_restart_cursor" ]; then
+			printf '%s\n' 'App runtime logs API did not return a cursor before process restart' >&2
+			return 1
+		fi
+		old_restart_stdout_id="$(app_runtime_log_ids "${smoke_marker}-app-v2" stdout | tail -n 1)"
+		old_restart_stderr_id="$(app_runtime_log_ids "${smoke_marker}-app-v2" stderr | tail -n 1)"
+		if [ -z "$old_restart_stdout_id" ] || [ -z "$old_restart_stderr_id" ]; then
+			printf '%s\n' 'App runtime logs API did not return pre-restart stdout and stderr markers' >&2
+			return 1
+		fi
 	fi
 	if [ "$old_route_target" != "$(app_runtime_name)" ]; then
 		printf 'active App snapshot target %s does not match its current runtime target %s\n' "$old_route_target" "$(app_runtime_name)" >&2
@@ -3173,12 +3175,14 @@ verify_app_runtime_lifecycle() {
 	wait_for_app_runtime_log_markers "${smoke_marker}-app-v2" 3 "$new_container"
 	wait_for_app_health_state pending waiting_for_health "$platform_app_id" true
 	wait_for_app_runtime_log_markers "${smoke_marker}-app-v2" 1 "$new_container" "$old_restart_cursor"
-	read -r resume_stdout_count resume_stderr_count <<<"$(app_runtime_log_counts "${smoke_marker}-app-v2")"
-	if [ "$resume_stdout_count" -lt 1 ] || [ "$resume_stderr_count" -lt 1 ]; then
-		printf 'App runtime cursor continuation missed post-restart output: stdout=%s stderr=%s\n' "$resume_stdout_count" "$resume_stderr_count" >&2
-		return 1
+	if [ "$telemetry_enabled" = true ]; then
+		read -r resume_stdout_count resume_stderr_count <<<"$(app_runtime_log_counts "${smoke_marker}-app-v2")"
+		if [ "$resume_stdout_count" -lt 1 ] || [ "$resume_stderr_count" -lt 1 ]; then
+			printf 'App runtime cursor continuation missed post-restart output: stdout=%s stderr=%s\n' "$resume_stdout_count" "$resume_stderr_count" >&2
+			return 1
+		fi
+		printf 'App runtime cursor returned post-restart output after the captured position (stdout/stderr=%s/%s)\n' "$resume_stdout_count" "$resume_stderr_count"
 	fi
-	printf 'App runtime cursor returned post-restart output after the captured position (stdout/stderr=%s/%s)\n' "$resume_stdout_count" "$resume_stderr_count"
 	fetch_app_runtime_logs "$new_container"
 	assert_app_runtime_log_ids_retained "${smoke_marker}-app-v2" "$old_restart_stdout_id" "$old_restart_stderr_id"
 	new_route_target="$(app_runtime_name)"
@@ -3364,10 +3368,12 @@ verify_app_control_plane_restarts() {
 		return 1
 	fi
 	assert_app_runtime_configuration 'app-config-v2'
-	fetch_app_runtime_logs "$before_container"
-	if grep -Fq -- 'fake-smoke-secret-not-real-v2' "$platform_response"; then
-		printf '%s\n' 'App runtime logs exposed the current secret after API restart' >&2
-		return 1
+	if [ "$telemetry_enabled" = true ]; then
+		fetch_app_runtime_logs "$before_container"
+		if grep -Fq -- 'fake-smoke-secret-not-real-v2' "$platform_response"; then
+			printf '%s\n' 'App runtime logs exposed the current secret after API restart' >&2
+			return 1
+		fi
 	fi
 
 	"${compose[@]}" restart console >/dev/null
@@ -3392,10 +3398,12 @@ verify_app_control_plane_restarts() {
 	assert_app_diagnostics converged "$selected" "$version" "$selected" "$version"
 	wait_for_app_public_route 'app-runtime-smoke-ok'
 	assert_app_runtime_configuration 'app-config-v2'
-	fetch_app_runtime_logs "$before_container"
-	if grep -Fq -- 'fake-smoke-secret-not-real-v2' "$platform_response"; then
-		printf '%s\n' 'App runtime logs exposed the current secret after Console restart' >&2
-		return 1
+	if [ "$telemetry_enabled" = true ]; then
+		fetch_app_runtime_logs "$before_container"
+		if grep -Fq -- 'fake-smoke-secret-not-real-v2' "$platform_response"; then
+			printf '%s\n' 'App runtime logs exposed the current secret after Console restart' >&2
+			return 1
+		fi
 	fi
 
 	"${compose[@]}" restart proxy >/dev/null
@@ -3424,10 +3432,12 @@ verify_app_control_plane_restarts() {
 	fi
 	assert_app_diagnostics converged "$selected" "$version" "$selected" "$version"
 	assert_app_runtime_configuration 'app-config-v2'
-	fetch_app_runtime_logs "$before_container"
-	if grep -Fq -- 'fake-smoke-secret-not-real-v2' "$platform_response"; then
-		printf '%s\n' 'App runtime logs exposed the current secret after ingress restart' >&2
-		return 1
+	if [ "$telemetry_enabled" = true ]; then
+		fetch_app_runtime_logs "$before_container"
+		if grep -Fq -- 'fake-smoke-secret-not-real-v2' "$platform_response"; then
+			printf '%s\n' 'App runtime logs exposed the current secret after ingress restart' >&2
+			return 1
+		fi
 	fi
 	printf 'API, Console, Nginx, and Traefik restarts preserved App generation %s and runtime state; health, route, secret configuration, diagnostics, and logs converged\n' "$generation"
 }
@@ -3530,12 +3540,13 @@ verify_app_runtime_soak() {
 		assert_app_runtime_configuration 'app-config-v2'
 		assert_app_diagnostics converged "$deployment" "$version" "$deployment" "$version"
 		wait_for_app_runtime_log_markers "$response_marker" 1 "$new_container"
-		fetch_app_runtime_logs "$new_container"
-		if grep -Fq -- 'fake-smoke-secret-not-real-v1' "$platform_response" || grep -Fq -- 'fake-smoke-secret-not-real-v2' "$platform_response"; then
-			printf '%s\n' 'App runtime soak logs exposed an environment secret' >&2
-			return 1
-		fi
-		python3 - "$platform_response" <<'PY'
+		if [ "$telemetry_enabled" = true ]; then
+			fetch_app_runtime_logs "$new_container"
+			if grep -Fq -- 'fake-smoke-secret-not-real-v1' "$platform_response" || grep -Fq -- 'fake-smoke-secret-not-real-v2' "$platform_response"; then
+				printf '%s\n' 'App runtime soak logs exposed an environment secret' >&2
+				return 1
+			fi
+			python3 - "$platform_response" <<'PY'
 import json
 import sys
 
@@ -3544,6 +3555,7 @@ with open(sys.argv[1], encoding="utf-8") as source:
 if len(logs) > 250:
     raise SystemExit(f"App runtime log query exceeded its 250-row bound: {len(logs)}")
 PY
+		fi
 		prior_tag="stealth-app/${old_deployment}:runtime"
 		if docker image inspect "$prior_tag" >/dev/null 2>&1; then
 			local gc_deadline=$((SECONDS + 60))
@@ -3664,23 +3676,26 @@ PY
 		return 1
 	fi
 	assert_app_runtime_configuration 'app-config-v2'
-	fetch_app_runtime_logs
-	read -r v1_stdout v1_stderr <<<"$(app_runtime_log_counts "$smoke_marker")"
-	read -r v2_stdout v2_stderr <<<"$(app_runtime_log_counts "${smoke_marker}-app-v2")"
-	max_markers=$((steps + 8))
-	if [ "$v1_stdout" -gt "$max_markers" ] || [ "$v1_stderr" -gt "$max_markers" ] ||
-		[ "$v2_stdout" -gt "$max_markers" ] || [ "$v2_stderr" -gt "$max_markers" ]; then
-		printf 'App runtime log growth exceeded soak bound: v1=%s/%s v2=%s/%s samples=%s\n' "$v1_stdout" "$v1_stderr" "$v2_stdout" "$v2_stderr" "$steps" >&2
-		return 1
-	fi
-	total_log_rows="$(python3 - "$platform_response" <<'PY'
+	total_log_rows=0
+	if [ "$telemetry_enabled" = true ]; then
+		fetch_app_runtime_logs
+		read -r v1_stdout v1_stderr <<<"$(app_runtime_log_counts "$smoke_marker")"
+		read -r v2_stdout v2_stderr <<<"$(app_runtime_log_counts "${smoke_marker}-app-v2")"
+		max_markers=$((steps + 8))
+		if [ "$v1_stdout" -gt "$max_markers" ] || [ "$v1_stderr" -gt "$max_markers" ] ||
+			[ "$v2_stdout" -gt "$max_markers" ] || [ "$v2_stderr" -gt "$max_markers" ]; then
+			printf 'App runtime log growth exceeded soak bound: v1=%s/%s v2=%s/%s samples=%s\n' "$v1_stdout" "$v1_stderr" "$v2_stdout" "$v2_stderr" "$steps" >&2
+			return 1
+		fi
+		total_log_rows="$(python3 - "$platform_response" <<'PY'
 import json
 import sys
 
 with open(sys.argv[1], encoding="utf-8") as source:
     print(len(json.load(source).get("logs", [])))
 PY
-	)"
+		)"
+	fi
 	worker_log_lines="$(docker logs --since "$started_at" "$worker_container" 2>&1 | wc -l | tr -d '[:space:]')"
 	if ! [[ "$worker_log_lines" =~ ^[0-9]+$ ]] || [ "$worker_log_lines" -gt 5000 ]; then
 		printf 'App soak worker logs exceeded the 5000-line retry/hot-loop bound: %s\n' "$worker_log_lines" >&2
