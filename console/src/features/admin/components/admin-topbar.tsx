@@ -135,7 +135,9 @@ export function AdminTopBar({
           />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-56">
-          <DropdownMenuLabel>
+          {/* The shared label style is an uppercase section heading; this one
+              carries a name and address, so it opts out. */}
+          <DropdownMenuLabel className="normal-case tracking-normal">
             <span className="block truncate text-[13px] font-medium text-[var(--projects-text)]">
               {displayName || current?.provider_login || "Signed in"}
             </span>
