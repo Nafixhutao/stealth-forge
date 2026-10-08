@@ -500,8 +500,10 @@ test("critical console flow can move from login to a resource and logout", async
   await installApiFixtures(page);
 
   await page.goto("/login");
-  await page.getByLabel("Email").fill(account.email);
-  await page.getByLabel("Password").fill("correct horse battery staple");
+  await page.getByLabel("Email", { exact: true }).fill(account.email);
+  await page
+    .getByLabel("Password", { exact: true })
+    .fill("correct horse battery staple");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/organizations$/);
   await expect(

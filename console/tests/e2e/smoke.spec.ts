@@ -5,8 +5,8 @@ test("login form is available without an API dependency", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Sign in to Stealth" }),
   ).toBeVisible();
-  await expect(page.getByLabel("Email")).toBeVisible();
-  await expect(page.getByLabel("Password")).toBeVisible();
+  await expect(page.getByLabel("Email", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByText("Enter a valid email address.")).toBeVisible();
 });
@@ -137,8 +137,8 @@ test("preserves an invitation through registration for a new account", async ({
   await expect(page).toHaveURL(/\/register\?next=/);
   expect(new URL(page.url()).searchParams.get("next")).toBe(invitationPath);
 
-  await page.getByLabel("Email").fill(account.email);
-  await page.getByLabel("Password").fill("a-secure-password");
+  await page.getByLabel("Email", { exact: true }).fill(account.email);
+  await page.getByLabel("Password", { exact: true }).fill("a-secure-password");
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page).toHaveURL(/\/accept-invitation\?token=/);
   expect(new URL(page.url()).searchParams.get("token")).toBe(token);
