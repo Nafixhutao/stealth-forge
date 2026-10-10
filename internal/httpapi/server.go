@@ -14,6 +14,7 @@ import (
 	"github.com/Stealth-deplover/stealth/internal/appstore"
 	"github.com/Stealth-deplover/stealth/internal/cloudflare"
 	"github.com/Stealth-deplover/stealth/internal/config"
+	"github.com/Stealth-deplover/stealth/internal/dbmetrics"
 	"github.com/Stealth-deplover/stealth/internal/functionsecret"
 	"github.com/Stealth-deplover/stealth/internal/functionstore"
 	"github.com/Stealth-deplover/stealth/internal/gitarchive"
@@ -24,6 +25,7 @@ import (
 	"github.com/Stealth-deplover/stealth/internal/observability"
 	"github.com/Stealth-deplover/stealth/internal/ratelimit"
 	"github.com/Stealth-deplover/stealth/internal/realtime"
+	"github.com/Stealth-deplover/stealth/internal/redismetrics"
 	"github.com/Stealth-deplover/stealth/internal/repository"
 	"github.com/Stealth-deplover/stealth/internal/setuphandoff"
 	"github.com/Stealth-deplover/stealth/internal/setupstate"
@@ -71,7 +73,10 @@ type Server struct {
 	cloudflareFactory CloudflareClientFactory
 	telemetry         telemetry.Store
 	hostMetrics       *hostmetrics.Collector
+	dbMetrics         *dbmetrics.Collector
+	redisMetrics      *redismetrics.Collector
 	redis             *redis.Client
+	startedAt         time.Time
 
 	adminRealtimeAuthRecheckInterval time.Duration
 	// setupMu serializes setup transitions that can have external provider side
@@ -104,6 +109,8 @@ type Dependencies struct {
 	CloudflareFactory CloudflareClientFactory
 	TelemetryStore    telemetry.Store
 	HostMetrics       *hostmetrics.Collector
+	DBMetrics         *dbmetrics.Collector
+	RedisMetrics      *redismetrics.Collector
 	Redis             *redis.Client
 
 	// AdminRealtimeAuthRecheckInterval is primarily useful for deterministic
@@ -323,7 +330,10 @@ func NewWithDependenciesAndPlatformSiteHandler(
 		cloudflareFactory:                cloudflareFactory,
 		telemetry:                        deps.TelemetryStore,
 		hostMetrics:                      deps.HostMetrics,
+		dbMetrics:                        deps.DBMetrics,
+		redisMetrics:                     deps.RedisMetrics,
 		redis:                            deps.Redis,
+		startedAt:                        time.Now(),
 	}
 	// Export database-pool saturation on the API metrics registry so pool
 	// exhaustion is visible and alertable.

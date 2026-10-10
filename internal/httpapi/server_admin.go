@@ -30,12 +30,13 @@ type adminHTTPOverview struct {
 }
 
 type adminOverviewResponse struct {
-	InstanceStatus string                        `json:"instance_status"`
-	CheckedAt      time.Time                     `json:"checked_at"`
-	Components     []adminComponentStatus        `json:"components"`
-	Telemetry      adminTelemetryStatus          `json:"telemetry"`
-	HTTP           *adminHTTPOverview            `json:"http,omitempty"`
-	Operations     *domain.AdminOperationSummary `json:"operations,omitempty"`
+	InstanceStatus    string                         `json:"instance_status"`
+	CheckedAt         time.Time                      `json:"checked_at"`
+	Components        []adminComponentStatus         `json:"components"`
+	Telemetry         adminTelemetryStatus           `json:"telemetry"`
+	HTTP              *adminHTTPOverview             `json:"http,omitempty"`
+	Operations        *domain.AdminOperationSummary  `json:"operations,omitempty"`
+	RecentDeployments []domain.AdminRecentDeployment `json:"recent_deployments,omitempty"`
 }
 
 type adminOperationsResponse struct {
@@ -138,9 +139,15 @@ func (s *Server) adminOverview(w http.ResponseWriter, r *http.Request) {
 		instanceStatus = "healthy"
 	}
 	var operations *domain.AdminOperationSummary
+	var recentDeployments []domain.AdminRecentDeployment
 	if s.repo != nil {
 		if summary, err := s.repo.AdminOperationSummary(healthContext); err == nil {
 			operations = &summary
+		}
+		// Recent activity is decorative but honest; a slow or failing query
+		// must not block the rest of the overview, so it degrades to omitted.
+		if deployments, err := s.repo.ListRecentAppDeployments(r.Context(), 5); err == nil {
+			recentDeployments = deployments
 		}
 	}
 	var httpOverview *adminHTTPOverview
@@ -152,11 +159,12 @@ func (s *Server) adminOverview(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, adminOverviewResponse{
-		InstanceStatus: instanceStatus,
-		CheckedAt:      checkedAt,
-		Components:     components,
-		Telemetry:      adminTelemetryStatus{Status: telemetryStatus},
-		HTTP:           httpOverview,
-		Operations:     operations,
+		InstanceStatus:    instanceStatus,
+		CheckedAt:         checkedAt,
+		Components:        components,
+		Telemetry:         adminTelemetryStatus{Status: telemetryStatus},
+		HTTP:              httpOverview,
+		Operations:        operations,
+		RecentDeployments: recentDeployments,
 	})
 }

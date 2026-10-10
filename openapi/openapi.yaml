@@ -245,6 +245,49 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /v1/admin/db-metrics:
+    get:
+      operationId: getAdminDBMetrics
+      description: Return the in-process PostgreSQL snapshot (connections, active queries, cache hit ratio, transaction rate, replication, size, uptime) and its short in-memory history for the admin Overview. Requires Instance Owner or Instance Admin and does not depend on the telemetry backend.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: window_minutes, in: query, schema: { type: integer, minimum: 1, maximum: 1440 }, description: Return history from the last N minutes; omit for the full retained window. }
+      responses:
+        '200': { description: Database metrics snapshot and history, content: { application/json: { schema: { $ref: '#/components/schemas/AdminDBMetricsSnapshot' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /v1/admin/redis-metrics:
+    get:
+      operationId: getAdminRedisMetrics
+      description: Return the in-process Redis snapshot (clients, ops/sec, hit rate, memory, keys, uptime) and its short in-memory history for the admin Overview. Requires Instance Owner or Instance Admin and does not depend on the telemetry backend.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: window_minutes, in: query, schema: { type: integer, minimum: 1, maximum: 1440 }, description: Return history from the last N minutes; omit for the full retained window. }
+      responses:
+        '200': { description: Redis metrics snapshot and history, content: { application/json: { schema: { $ref: '#/components/schemas/AdminRedisMetricsSnapshot' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /v1/admin/api-metrics:
+    get:
+      operationId: getAdminAPIMetrics
+      description: Return the API process's own runtime vitals (goroutines, heap, GC pause, uptime) read directly from the Go runtime at request time. Requires Instance Owner or Instance Admin.
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { description: API process vitals, content: { application/json: { schema: { $ref: '#/components/schemas/AdminAPIMetrics' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /v1/admin/accounts:
+    get:
+      operationId: listAdminAccounts
+      description: List every Console account for the Admin Console directory with its identity flags, instance role, linked sign-in providers, and most recent session. Passwords and provider secrets are never returned.
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { description: Console accounts, content: { application/json: { schema: { $ref: '#/components/schemas/AdminAccountsResponse' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
   /v1/admin/telemetry/sources:
     get:
       operationId: listAdminTelemetrySources
@@ -990,6 +1033,26 @@ paths:
       security: [{ sessionCookie: [] }]
       parameters: [{ $ref: '#/components/parameters/SessionID' }]
       responses: { '204': { description: Session revoked }, '401': { $ref: '#/components/responses/Unauthorized' }, '404': { $ref: '#/components/responses/NotFound' }, '500': { $ref: '#/components/responses/InternalError' } }
+  /v1/account/identities:
+    get:
+      operationId: listAccountIdentities
+      description: List the external sign-in identities linked to the authenticated account, plus the providers this instance can complete a round trip with. Provider secrets and provider user ids are never returned.
+      security: [{ sessionCookie: [] }]
+      responses: { '200': { description: Linked identities and available providers, content: { application/json: { schema: { $ref: '#/components/schemas/AccountIdentitiesResponse' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '500': { $ref: '#/components/responses/InternalError' } }
+  /v1/account/identities/{provider}/link:
+    get:
+      operationId: startAccountIdentityLink
+      description: Start linking an external sign-in provider to the authenticated account. Returns the provider authorization URL; the browser follows it and the provider callback attaches the identity to the signed-in account.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ name: provider, in: path, required: true, schema: { type: string, enum: [github, google] } }]
+      responses: { '200': { description: Provider authorization URL, content: { application/json: { schema: { $ref: '#/components/schemas/OAuthStartResponse' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '422': { $ref: '#/components/responses/ValidationError' }, '503': { $ref: '#/components/responses/ServiceUnavailable' } }
+  /v1/account/identities/{provider}:
+    delete:
+      operationId: unlinkAccountIdentity
+      description: Unlink one external sign-in provider from the authenticated account. The last remaining identity cannot be unlinked.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ name: provider, in: path, required: true, schema: { type: string, enum: [github, google] } }]
+      responses: { '204': { description: Identity unlinked }, '401': { $ref: '#/components/responses/Unauthorized' }, '409': { $ref: '#/components/responses/Conflict' }, '422': { $ref: '#/components/responses/ValidationError' }, '500': { $ref: '#/components/responses/InternalError' } }
   /v1/account/password:
     patch:
       operationId: updateAccountPassword
@@ -3115,7 +3178,8 @@ components:
     Status: { type: object, required: [status], properties: { status: { type: string, enum: [ok, ready] } } }
     AdminComponentStatus: { type: object, additionalProperties: false, required: [name, status], properties: { name: { type: string, minLength: 1, maxLength: 64 }, status: { type: string, enum: [healthy, unavailable, unknown] } } }
     AdminTelemetryStatus: { type: object, additionalProperties: false, required: [status], properties: { status: { type: string, enum: [healthy, unavailable] } } }
-    AdminOverviewResponse: { type: object, additionalProperties: false, required: [instance_status, checked_at, components, telemetry], properties: { instance_status: { type: string, enum: [healthy, degraded] }, checked_at: { type: string, format: date-time }, components: { type: array, items: { $ref: '#/components/schemas/AdminComponentStatus' } }, telemetry: { $ref: '#/components/schemas/AdminTelemetryStatus' }, http: { $ref: '#/components/schemas/AdminHTTPOverview' }, operations: { $ref: '#/components/schemas/AdminOperationSummary' } } }
+    AdminOverviewResponse: { type: object, additionalProperties: false, required: [instance_status, checked_at, components, telemetry], properties: { instance_status: { type: string, enum: [healthy, degraded] }, checked_at: { type: string, format: date-time }, components: { type: array, items: { $ref: '#/components/schemas/AdminComponentStatus' } }, telemetry: { $ref: '#/components/schemas/AdminTelemetryStatus' }, http: { $ref: '#/components/schemas/AdminHTTPOverview' }, operations: { $ref: '#/components/schemas/AdminOperationSummary' }, recent_deployments: { type: array, items: { $ref: '#/components/schemas/AdminRecentDeployment' } } } }
+    AdminRecentDeployment: { type: object, additionalProperties: false, required: [id, app_name, version, status, build_status, created_at], properties: { id: { type: string, format: uuid }, app_name: { type: string }, version: { type: integer, minimum: 0 }, status: { type: string }, build_status: { type: string }, created_at: { type: string, format: date-time } } }
     AdminHTTPOverview: { type: object, additionalProperties: false, required: [request_rate, error_rate, p50_latency_ms, p95_latency_ms, p99_latency_ms, sample_count], properties: { request_rate: { type: number, minimum: 0 }, error_rate: { type: number, minimum: 0, maximum: 1 }, p50_latency_ms: { type: number, minimum: 0 }, p95_latency_ms: { type: number, minimum: 0 }, p99_latency_ms: { type: number, minimum: 0 }, sample_count: { type: integer, format: int64, minimum: 0 } } }
     AdminOperationSummary: { type: object, additionalProperties: false, required: [active_deployments, queued_jobs, running_jobs, failed_jobs], properties: { active_deployments: { type: integer, format: int64, minimum: 0 }, queued_jobs: { type: integer, format: int64, minimum: 0 }, running_jobs: { type: integer, format: int64, minimum: 0 }, failed_jobs: { type: integer, format: int64, minimum: 0 } } }
     AdminOperation: { type: object, additionalProperties: false, required: [id, kind, name, status, duration_ms, created_at], properties: { id: { type: string, format: uuid }, kind: { type: string, enum: [function_deployment, site_deployment, function_execution, agent_run, artifact_cleanup, database_backup] }, name: { type: string }, project_id: { type: [string, 'null'], format: uuid }, project_name: { type: [string, 'null'] }, status: { type: string }, started_at: { type: [string, 'null'], format: date-time }, finished_at: { type: [string, 'null'], format: date-time }, duration_ms: { type: integer, format: int64, minimum: 0 }, error: { type: [string, 'null'] }, created_at: { type: string, format: date-time } } }
@@ -3144,6 +3208,13 @@ components:
     AdminInfrastructureMetricsResponse: { type: object, additionalProperties: false, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/AdminInfrastructureMetric' } } } }
     AdminHostMetricsSample: { type: object, additionalProperties: false, required: [timestamp, cpu_percent, memory_used_bytes, memory_total_bytes, disk_used_bytes, disk_total_bytes, network_rx_bytes_per_sec, network_tx_bytes_per_sec], properties: { timestamp: { type: string, format: date-time }, cpu_percent: { type: number }, memory_used_bytes: { type: integer, format: int64 }, memory_total_bytes: { type: integer, format: int64 }, disk_used_bytes: { type: integer, format: int64 }, disk_total_bytes: { type: integer, format: int64 }, network_rx_bytes_per_sec: { type: number }, network_tx_bytes_per_sec: { type: number } } }
     AdminHostMetricsSnapshot: { type: object, additionalProperties: false, required: [current, history], properties: { current: { $ref: '#/components/schemas/AdminHostMetricsSample' }, history: { type: array, items: { $ref: '#/components/schemas/AdminHostMetricsSample' } } } }
+    AdminDBMetricsSample: { type: object, additionalProperties: false, required: [timestamp, connections, max_connections, active_queries, cache_hit_ratio_known, cache_hit_ratio_percent, transactions_per_sec, query_latency_ms, replication_standbys, database_size_bytes, uptime_seconds], properties: { timestamp: { type: string, format: date-time }, connections: { type: integer, minimum: 0 }, max_connections: { type: integer, minimum: 0 }, active_queries: { type: integer, minimum: 0 }, cache_hit_ratio_known: { type: boolean }, cache_hit_ratio_percent: { type: number }, transactions_per_sec: { type: number }, query_latency_ms: { type: number, minimum: 0 }, replication_standbys: { type: integer, minimum: 0 }, database_size_bytes: { type: integer, format: int64, minimum: 0 }, uptime_seconds: { type: number, minimum: 0 } } }
+    AdminDBMetricsSnapshot: { type: object, additionalProperties: false, required: [current, history, server_version, reachable], properties: { current: { $ref: '#/components/schemas/AdminDBMetricsSample' }, history: { type: array, items: { $ref: '#/components/schemas/AdminDBMetricsSample' } }, server_version: { type: string }, reachable: { type: boolean } } }
+    AdminRedisMetricsSample: { type: object, additionalProperties: false, required: [timestamp, connections, max_clients, ops_per_sec, hit_rate_known, hit_rate_percent, memory_used_bytes, memory_max_bytes, keys, uptime_seconds], properties: { timestamp: { type: string, format: date-time }, connections: { type: integer, minimum: 0 }, max_clients: { type: integer, minimum: 0 }, ops_per_sec: { type: number }, hit_rate_known: { type: boolean }, hit_rate_percent: { type: number }, memory_used_bytes: { type: integer, format: int64, minimum: 0 }, memory_max_bytes: { type: integer, format: int64, minimum: 0 }, keys: { type: integer, minimum: 0 }, uptime_seconds: { type: number, minimum: 0 } } }
+    AdminRedisMetricsSnapshot: { type: object, additionalProperties: false, required: [current, history, server_version, reachable], properties: { current: { $ref: '#/components/schemas/AdminRedisMetricsSample' }, history: { type: array, items: { $ref: '#/components/schemas/AdminRedisMetricsSample' } }, server_version: { type: string }, reachable: { type: boolean } } }
+    AdminAPIMetrics: { type: object, additionalProperties: false, required: [goroutines, heap_alloc_bytes, heap_objects, stack_bytes, sys_bytes, gc_runs, last_gc_pause_ms, go_version, process_uptime_seconds], properties: { goroutines: { type: integer, minimum: 0 }, heap_alloc_bytes: { type: integer, format: int64, minimum: 0 }, heap_objects: { type: integer, format: int64, minimum: 0 }, stack_bytes: { type: integer, format: int64, minimum: 0 }, sys_bytes: { type: integer, format: int64, minimum: 0 }, gc_runs: { type: integer, minimum: 0 }, last_gc_pause_ms: { type: number, minimum: 0 }, go_version: { type: string }, process_uptime_seconds: { type: number, minimum: 0 } } }
+    AdminAccount: { type: object, additionalProperties: false, required: [id, email, email_verified, created_at, providers], properties: { id: { type: string, format: uuid }, email: { type: string, format: email }, email_verified: { type: boolean }, instance_role: { type: string }, created_at: { type: string, format: date-time }, providers: { type: array, items: { type: string, enum: [github, google] } }, avatar_url: { type: string }, display_name: { type: string }, last_sign_in_at: { type: string, format: date-time }, last_sign_in_method: { type: string, enum: [password, github, google] } } }
+    AdminAccountsResponse: { type: object, additionalProperties: false, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/AdminAccount' } } } }
     AdminTelemetrySource: { type: object, additionalProperties: false, required: [service, signal, last_received, volume], properties: { service: { type: string }, signal: { type: string, enum: [logs, traces, metrics] }, last_received: { type: string, format: date-time }, volume: { type: integer, format: int64, minimum: 0 } } }
     AdminSourcesResponse: { type: object, additionalProperties: false, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/AdminTelemetrySource' } } } }
     AdminMonitor: { type: object, additionalProperties: false, required: [id, name, kind, target, interval_seconds, timeout_ms, enabled, config, status, next_check_at, secret_configured, created_at, updated_at], properties: { id: { type: string, format: uuid }, name: { type: string }, kind: { type: string, enum: [http, tcp, dns, tls, heartbeat] }, target: { type: string }, interval_seconds: { type: integer, minimum: 5, maximum: 86400 }, timeout_ms: { type: integer, minimum: 100, maximum: 120000 }, enabled: { type: boolean }, config: { type: object, additionalProperties: true }, status: { type: string, enum: [unknown, healthy, degraded, failing, paused] }, last_checked_at: { type: [string, 'null'], format: date-time }, last_success_at: { type: [string, 'null'], format: date-time }, last_failure_at: { type: [string, 'null'], format: date-time }, last_latency_ms: { type: [integer, 'null'], minimum: 0 }, last_status_code: { type: [integer, 'null'], minimum: 100, maximum: 599 }, last_error: { type: [string, 'null'], maxLength: 1000 }, last_heartbeat_at: { type: [string, 'null'], format: date-time }, next_check_at: { type: string, format: date-time }, secret_configured: { type: boolean }, created_by_account_id: { type: [string, 'null'], format: uuid }, created_at: { type: string, format: date-time }, updated_at: { type: string, format: date-time } } }
@@ -3227,6 +3298,8 @@ components:
     RegisterRequest: { type: object, additionalProperties: false, required: [email, password], properties: { email: { type: string, format: email }, password: { type: string, minLength: 12, maxLength: 256, writeOnly: true }, organization_name: { type: string, minLength: 2, maxLength: 120 } } }
     LoginRequest: { type: object, additionalProperties: false, required: [email, password], properties: { email: { type: string, format: email }, password: { type: string, writeOnly: true } } }
     OAuthStartResponse: { type: object, additionalProperties: false, required: [authorization_url], properties: { authorization_url: { type: string, format: uri, description: Provider authorization URL the browser should follow. } } }
+    AccountIdentity: { type: object, additionalProperties: false, required: [provider, created_at], properties: { provider: { type: string, enum: [github, google] }, provider_login: { type: string }, display_name: { type: string }, avatar_url: { type: string }, created_at: { type: string, format: date-time } } }
+    AccountIdentitiesResponse: { type: object, additionalProperties: false, required: [items, providers], properties: { items: { type: array, items: { $ref: '#/components/schemas/AccountIdentity' } }, providers: { type: array, items: { type: string, enum: [github, google] }, description: Sign-in providers configured on this instance. } } }
     AdminOAuthProvider: { type: object, additionalProperties: false, required: [provider, configured, callback_url, source], properties: { provider: { type: string, enum: [github, google] }, configured: { type: boolean }, client_id: { type: string }, callback_url: { type: string, description: Register this exact URL with the provider. }, source: { type: string, enum: [database, environment, none], description: Where the active credentials come from. }, updated_at: { type: string, format: date-time } } }
     AdminOAuthProvidersResponse: { type: object, additionalProperties: false, required: [providers], properties: { providers: { type: array, items: { $ref: '#/components/schemas/AdminOAuthProvider' } } } }
     UpdateAdminOAuthProviderRequest: { type: object, additionalProperties: false, required: [client_id, client_secret], properties: { client_id: { type: string, minLength: 1, maxLength: 256 }, client_secret: { type: string, minLength: 1, maxLength: 512, writeOnly: true } } }

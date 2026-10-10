@@ -21,6 +21,10 @@ import { formatBytes } from "@/lib/format";
 import { toIncident } from "../data/admin-adapters";
 import { SystemStatus } from "./system-status";
 import { ResourceOverview, type OverviewTab } from "./resource-overview";
+import { DatabaseOverview } from "./database-overview";
+import { RedisOverview } from "./redis-overview";
+import { APIHealthOverview } from "./api-health-overview";
+import { RecentDeployments } from "./recent-deployments";
 import { ServiceHealthTable } from "./service-health-table";
 import { RecentIncidents } from "./recent-incidents";
 import type { MetricPoint } from "../types/telemetry";
@@ -77,6 +81,7 @@ export function AdminOverview() {
 
   const components = overview.data?.components ?? [];
   const operations = overview.data?.operations;
+  const recentDeployments = overview.data?.recent_deployments;
   const current = host.data?.current;
   const history = useMemo(() => host.data?.history ?? [], [host.data]);
   const network = current
@@ -203,70 +208,86 @@ export function AdminOverview() {
 
       <SystemStatus components={components} />
 
-      {/* Primary host resource metrics */}
-      {/* 2×2 on phones so all four host metrics read at a glance; the tall
-          single-column stack pushed Platform and the charts far below the
-          fold. Desktop stays one row of four. */}
-      {host.isPending ? (
-        <MetricCardsSkeleton />
-      ) : (
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
-          <MetricCard
-            icon={Cpu}
-            label="CPU Usage"
-            value={current ? `${Math.round(current.cpu_percent)}%` : "—"}
-            change={cpuDelta}
-            changeLabel={`from previous ${rangeMeta?.noun ?? "hour"}`}
-            changeTone="danger"
-            history={cpuHistory}
-            sparkTone="accent"
-          />
-          <MetricCard
-            icon={MemoryStick}
-            label="Memory"
-            value={current ? formatBytes(current.memory_used_bytes) : "—"}
-            change={memoryDelta}
-            changeLabel={
-              current
-                ? `of ${formatBytes(current.memory_total_bytes)}`
-                : undefined
-            }
-            changeTone="success"
-            history={memoryHistory}
-            sparkTone="info"
-          />
-          <MetricCard
-            icon={HardDrive}
-            label="Storage"
-            value={current ? formatBytes(current.disk_used_bytes) : "—"}
-            change={diskDelta}
-            changeLabel={
-              current
-                ? `of ${formatBytes(current.disk_total_bytes)}`
-                : undefined
-            }
-            changeTone="neutral"
-            history={diskHistory}
-            sparkTone="neutral"
-          />
-          <MetricCard
-            icon={Network}
-            label="Network"
-            value={network?.value ?? "—"}
-            unit={network?.unit}
-            hint={
-              current
-                ? `↑ ${(current.network_tx_bytes_per_sec / KIB).toFixed(1)} KB/s out`
-                : undefined
-            }
-            change={networkDelta}
-            changeLabel={`ingress, from previous ${rangeMeta?.noun ?? "hour"}`}
-            changeTone="neutral"
-            history={networkHistory}
-            sparkTone="warning"
-          />
+      {/* Infrastructure section: host resources, the database, the cache, and
+          the API process itself. The section label matches "Platform" below. */}
+      <div>
+        <div className="mb-2 flex items-center justify-between px-1">
+          <h2 className="m-0 text-[12px] font-semibold uppercase tracking-[0.08em] text-[var(--projects-muted)]">
+            Infrastructure
+          </h2>
         </div>
-      )}
+
+        {/* Primary host resource metrics: 2 columns on phones; from lg up all
+            four cards read as one row flowing 1-2-3-4 left to right. */}
+        {host.isPending ? (
+          <MetricCardsSkeleton />
+        ) : (
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+            <MetricCard
+              icon={Cpu}
+              label="CPU Usage"
+              value={current ? `${Math.round(current.cpu_percent)}%` : "—"}
+              change={cpuDelta}
+              changeLabel={`from previous ${rangeMeta?.noun ?? "hour"}`}
+              changeTone="danger"
+              history={cpuHistory}
+              sparkTone="accent"
+            />
+            <MetricCard
+              icon={MemoryStick}
+              label="Memory"
+              value={current ? formatBytes(current.memory_used_bytes) : "—"}
+              change={memoryDelta}
+              changeLabel={
+                current
+                  ? `of ${formatBytes(current.memory_total_bytes)}`
+                  : undefined
+              }
+              changeTone="success"
+              history={memoryHistory}
+              sparkTone="info"
+            />
+            <MetricCard
+              icon={HardDrive}
+              label="Storage"
+              value={current ? formatBytes(current.disk_used_bytes) : "—"}
+              change={diskDelta}
+              changeLabel={
+                current
+                  ? `of ${formatBytes(current.disk_total_bytes)}`
+                  : undefined
+              }
+              changeTone="neutral"
+              history={diskHistory}
+              sparkTone="neutral"
+            />
+            <MetricCard
+              icon={Network}
+              label="Network"
+              value={network?.value ?? "—"}
+              unit={network?.unit}
+              hint={
+                current
+                  ? `↑ ${(current.network_tx_bytes_per_sec / KIB).toFixed(1)} KB/s out`
+                  : undefined
+              }
+              change={networkDelta}
+              changeLabel={`ingress, from previous ${rangeMeta?.noun ?? "hour"}`}
+              changeTone="neutral"
+              history={networkHistory}
+              sparkTone="warning"
+            />
+          </div>
+        )}
+
+        {/* The infra panels stack with breathing room between each other and
+            the host card row above. */}
+        <div className="mt-2.5 flex flex-col gap-2.5 sm:mt-3 sm:gap-3">
+          <DatabaseOverview windowMinutes={rangeMeta?.minutes ?? 60} />
+          <RedisOverview windowMinutes={rangeMeta?.minutes ?? 60} />
+          <APIHealthOverview />
+        </div>
+      </div>
 
       {/* Platform metrics */}
       <div>
@@ -302,6 +323,13 @@ export function AdminOverview() {
             tone="warning"
           />
         </div>
+        {/* Recent activity: the newest App deployments across all projects.
+            Omitted entirely when the summary query did not answer. */}
+        {recentDeployments && (
+          <div className="mt-3">
+            <RecentDeployments deployments={recentDeployments} />
+          </div>
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
