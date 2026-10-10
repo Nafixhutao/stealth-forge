@@ -27,7 +27,7 @@ jobs:
       - name: Set up Go for BuildKit mTLS smoke helpers
         uses: actions/setup-go@v7
         with:
-          go-version: 1.26.x
+          go-version: 1.26.9
           cache-dependency-path: go.sum
 
       - name: Validate smoke suite input
