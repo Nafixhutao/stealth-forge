@@ -30,7 +30,7 @@ describe("one-time secret dialog", () => {
     ).not.toBeInTheDocument();
 
     fireEvent.click(
-      screen.getByRole("checkbox", { name: /saved this secret/i }),
+      screen.getByRole("switch", { name: /saved this secret/i }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
     expect(onDone).toHaveBeenCalledOnce();

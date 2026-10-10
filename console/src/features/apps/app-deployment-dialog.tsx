@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/motion/switch";
 
 export function AppDeploymentDialog({
   open,
@@ -146,12 +147,13 @@ export function AppDeploymentDialog({
             />
           </div>
           <label className="flex items-start gap-3 rounded-md border border-graphite bg-white/[0.02] px-3.5 py-3 text-sm text-mist">
-            <input
-              type="checkbox"
+            <Switch
               checked={select}
+              onCheckedChange={setSelect}
               disabled={pending}
-              onChange={(event) => setSelect(event.target.checked)}
-              className="mt-0.5 size-4 accent-acid-lime"
+              ariaLabel="Select as desired image after a verified build"
+              className="mt-0.5 shrink-0"
+              activeClassName="bg-[var(--accent)]"
             />
             <span>
               Select as desired image after a verified build

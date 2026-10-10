@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/motion/switch";
 
 export function maskSecret(secret: string) {
   if (secret.length <= 4) return "•".repeat(12);
@@ -122,20 +122,15 @@ export function OneTimeSecretDialog({
           ) : null}
         </div>
         <div className="mt-5 flex items-start gap-3">
-          <input
-            id="secret-acknowledged"
-            type="checkbox"
-            aria-label="I have saved this secret safely"
+          <Switch
             checked={acknowledged}
-            onChange={(event) => setAcknowledged(event.target.checked)}
-            className="mt-0.5 size-4 shrink-0 accent-acid-lime"
+            onCheckedChange={setAcknowledged}
+            ariaLabel="I have saved this secret safely"
+            className="mt-0.5 shrink-0"
           />
-          <Label
-            htmlFor="secret-acknowledged"
-            className="text-sm leading-5 text-mist"
-          >
+          <span className="text-sm leading-5 text-mist">
             I have saved this secret safely.
-          </Label>
+          </span>
         </div>
         <DialogFooter>
           <Button type="button" disabled={!acknowledged} onClick={close}>

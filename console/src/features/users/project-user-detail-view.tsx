@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate } from "@/lib/format";
 import { BackLink } from "@/components/back-link";
+import { UserAvatar } from "@/features/users/user-avatars";
 
 export function ProjectUserDetailView({
   organizationId,
@@ -88,12 +89,34 @@ export function ProjectUserDetailView({
       <BackLink href={base + "/users"} label="Back to users" />
       <PageHeader
         eyebrow="Project Auth"
-        title={user.email}
-        description="Application identity metadata and lifecycle state from the Go API."
+        title={user.name ?? user.email}
+        description={user.name ? user.email : "Application identity details."}
+        actions={
+          <div className="flex items-center gap-3">
+            <StatusBadge status={user.status} />
+            {canManage && user.status === "active" ? (
+              <ConfirmDialog
+                trigger={
+                  <Button variant="outline" disabled={updateStatus.isPending}>
+                    Disable user
+                  </Button>
+                }
+                title="Disable user?"
+                description="This blocks the application identity from signing in until it is enabled again."
+                confirmLabel="Disable user"
+                pending={updateStatus.isPending}
+                onConfirm={changeStatus}
+              />
+            ) : null}
+          </div>
+        }
       />
       <div className="mb-5 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+        <UserAvatar email={user.email} name={user.name} size={44} />
         <ResourceId id={user.id} label="User ID" />
-        <StatusBadge status={user.status} />
+        <Badge variant={user.email_verified ? "success" : "warning"}>
+          {user.email_verified ? "Email verified" : "Email pending"}
+        </Badge>
         <span>Created {formatDate(user.created_at)}</span>
         <span>Updated {formatDate(user.updated_at)}</span>
       </div>
