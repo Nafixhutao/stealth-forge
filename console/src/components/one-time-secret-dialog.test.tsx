@@ -29,9 +29,7 @@ describe("one-time secret dialog", () => {
       screen.queryByRole("button", { name: "Close dialog" }),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getByRole("switch", { name: /saved this secret/i }),
-    );
+    fireEvent.click(screen.getByRole("switch", { name: /saved this secret/i }));
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
     expect(onDone).toHaveBeenCalledOnce();
   });

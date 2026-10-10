@@ -26,11 +26,6 @@ keyspace_misses:20
 db0:keys=42,expires=5,avg_ttl=0
 `
 
-type stubReply struct{ payload string }
-
-func (r *stubReply) Val() string { return r.payload }
-func (r *stubReply) Err() error  { return nil }
-
 type stubClient struct{ payload string }
 
 func (c stubClient) Info(_ context.Context, _ ...string) *redis.StringCmd {
