@@ -1,7 +1,8 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   AnimatePresence,
   motion,
@@ -87,6 +88,10 @@ function isActive(pathname: string, href: string) {
   return pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
 }
 
+// Navigation rows are real links so they keep link semantics (open in a new
+// tab, middle click) while still animating like the redesigned buttons.
+const MotionLink = motion.create(Link);
+
 function NavRow({
   icon,
   label,
@@ -100,11 +105,52 @@ function NavRow({
   collapsed = false,
 }: NavRowProps) {
   const reduce = useReducedMotion() ?? false;
-  const router = useRouter();
-  const select = () => {
-    onSelect?.();
-    if (href) router.push(href);
-  };
+
+  const inner = (
+    <>
+      {active && <ActiveRowPill layoutId={layoutId} reduce={reduce} />}
+      {icon}
+      <RailLabel
+        collapsed={collapsed}
+        className={`flex-1 origin-left truncate ${labelClassName}`}
+      >
+        {label}
+      </RailLabel>
+      {badge && (
+        <motion.span
+          initial={false}
+          aria-hidden={collapsed}
+          animate={{
+            opacity: collapsed ? 0 : 1,
+            maxWidth: collapsed ? 0 : 80,
+          }}
+          transition={
+            collapsed ? LABEL_EXIT_TRANSITION : LABEL_ENTER_TRANSITION
+          }
+          className="overflow-hidden"
+        >
+          <Badge kind={badge} />
+        </motion.span>
+      )}
+      {expandable && (
+        <motion.span
+          initial={false}
+          aria-hidden={collapsed}
+          animate={{
+            opacity: collapsed ? 0 : 1,
+            maxWidth: collapsed ? 0 : 20,
+          }}
+          transition={
+            collapsed ? LABEL_EXIT_TRANSITION : LABEL_ENTER_TRANSITION
+          }
+          className="overflow-hidden"
+        >
+          <ChevronToggle className="size-[13px] shrink-0 text-[#737078]" />
+        </motion.span>
+      )}
+    </>
+  );
+
   return (
     // layout wrapper lets rows below an opening/closing submenu glide
     <motion.div
@@ -112,55 +158,31 @@ function NavRow({
       transition={SPRING_LAYOUT}
       variants={NAV_ITEM_VARIANTS}
     >
-      <motion.button
-        type="button"
-        className={rowClass}
-        onClick={select}
-        aria-current={active ? "page" : undefined}
-        whileTap={tap(reduce)}
-        transition={SPRING_PRESS}
-      >
-        {active && <ActiveRowPill layoutId={layoutId} reduce={reduce} />}
-        {icon}
-        <RailLabel
-          collapsed={collapsed}
-          className={`flex-1 origin-left truncate ${labelClassName}`}
+      {href ? (
+        <MotionLink
+          href={href}
+          className={rowClass}
+          onClick={onSelect}
+          aria-current={active ? "page" : undefined}
+          title={collapsed ? label : undefined}
+          whileTap={tap(reduce)}
+          transition={SPRING_PRESS}
         >
-          {label}
-        </RailLabel>
-        {badge && (
-          <motion.span
-            initial={false}
-            aria-hidden={collapsed}
-            animate={{
-              opacity: collapsed ? 0 : 1,
-              maxWidth: collapsed ? 0 : 80,
-            }}
-            transition={
-              collapsed ? LABEL_EXIT_TRANSITION : LABEL_ENTER_TRANSITION
-            }
-            className="overflow-hidden"
-          >
-            <Badge kind={badge} />
-          </motion.span>
-        )}
-        {expandable && (
-          <motion.span
-            initial={false}
-            aria-hidden={collapsed}
-            animate={{
-              opacity: collapsed ? 0 : 1,
-              maxWidth: collapsed ? 0 : 20,
-            }}
-            transition={
-              collapsed ? LABEL_EXIT_TRANSITION : LABEL_ENTER_TRANSITION
-            }
-            className="overflow-hidden"
-          >
-            <ChevronToggle className="size-[13px] shrink-0 text-[#737078]" />
-          </motion.span>
-        )}
-      </motion.button>
+          {inner}
+        </MotionLink>
+      ) : (
+        <motion.button
+          type="button"
+          className={rowClass}
+          onClick={onSelect}
+          aria-current={active ? "page" : undefined}
+          title={collapsed ? label : undefined}
+          whileTap={tap(reduce)}
+          transition={SPRING_PRESS}
+        >
+          {inner}
+        </motion.button>
+      )}
     </motion.div>
   );
 }
@@ -320,7 +342,6 @@ function NavGroupSection({
   collapsed?: boolean;
 }) {
   const reduce = useReducedMotion() ?? false;
-  const router = useRouter();
   const submenuRef = useRef<HTMLDivElement>(null);
   const groupActive = group.items.some((item) => isActive(pathname, item.href));
 
@@ -395,26 +416,25 @@ function NavGroupSection({
             {group.items.map((item) => {
               const active = isActive(pathname, item.href);
               return (
-                <motion.button
-                  type="button"
+                <MotionLink
+                  href={item.href}
                   key={item.href}
-                  variants={reduce ? undefined : SUBMENU_ITEM_VARIANTS}
-                  onClick={() => {
-                    onNavigate?.();
-                    router.push(item.href);
-                  }}
+                  onClick={onNavigate}
                   aria-current={active ? "page" : undefined}
-                  whileTap={tap(reduce)}
-                  transition={SPRING_PRESS}
                   className={`flex h-[30px] w-full items-center text-left text-[12px] font-normal transition-colors lg:h-[34px] lg:text-[14px] ${
                     active
                       ? "bg-white/[0.03] text-[#EEEAF0]"
                       : "text-[#C5C1C9] hover:text-[#EEEAF0]"
                   }`}
                 >
-                  <span>{item.label}</span>
-                  {item.badge && <Badge kind={item.badge} />}
-                </motion.button>
+                  <motion.span
+                    variants={reduce ? undefined : SUBMENU_ITEM_VARIANTS}
+                    className="flex w-full items-center"
+                  >
+                    <span>{item.label}</span>
+                    {item.badge && <Badge kind={item.badge} />}
+                  </motion.span>
+                </MotionLink>
               );
             })}
           </motion.div>

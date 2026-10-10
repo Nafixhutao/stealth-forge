@@ -516,12 +516,14 @@ test("critical console flow can move from login to a resource and logout", async
   await expect(page).toHaveURL(/\/organizations\/org-1\/projects\/project-1$/);
   await expect(page.getByText("Project loaded")).toBeVisible();
 
+  await page.getByRole("button", { name: "Compute" }).click();
   await page.getByRole("link", { name: "Functions", exact: true }).click();
   await expect(page).toHaveURL(/\/functions$/);
   await expect(
     page.getByRole("heading", { name: "Functions", exact: true, level: 1 }),
   ).toBeVisible();
 
+  await page.getByRole("button", { name: "Observability" }).click();
   await page.getByRole("link", { name: "Logs", exact: true }).click();
   await expect(page).toHaveURL(/\/observability\/logs$/);
   await expect(
