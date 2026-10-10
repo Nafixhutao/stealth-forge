@@ -16,6 +16,7 @@ import {
 import { fetchCurrentAccount } from "@/api/queries/account";
 import { errorMessage } from "@/components/feedback/error-state";
 import { getSafeNextPath } from "@/lib/navigation";
+import { useLastAuthMethod } from "./last-auth-method";
 import {
   AUTH_PROVIDERS,
   authErrorText as errorText,
@@ -86,6 +87,7 @@ export function LoginView() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberEmail, setRememberEmail] = useState(true);
   const [providerNotice, setProviderNotice] = useState<string | null>(null);
+  const [lastMethod, rememberMethod] = useLastAuthMethod();
 
   // Prefill the remembered email once per mount. The password never leaves
   // the browser session.
@@ -98,6 +100,7 @@ export function LoginView() {
     writeRememberedEmail(rememberEmail ? values.email.trim() : null);
     try {
       await mutation.mutateAsync(values);
+      rememberMethod("password");
       // Instance owners and admins operate the platform, so send them to the
       // Admin Console. An explicit ?next= always wins (invitations, deep links).
       let target = destination;
@@ -131,6 +134,9 @@ export function LoginView() {
     startOAuth.mutate(provider as OAuthProvider, {
       onSuccess: (result) => {
         if (result?.authorization_url) {
+          // Remember the choice before leaving the page so the next visit
+          // badges this provider as "Last used".
+          rememberMethod(provider);
           window.location.assign(result.authorization_url);
         }
       },
@@ -143,11 +149,17 @@ export function LoginView() {
   const oauthMessage =
     oauthResult === "error"
       ? "That provider sign-in could not be completed. Try again or use your email and password."
-      : oauthResult === "unlinked"
-        ? "That provider account is not linked to a Stealth account yet. Sign in with your email and password, then link it from your account page."
-        : oauthResult === "unavailable"
-          ? "That sign-in provider is not configured on this instance."
-          : null;
+      : oauthResult === "no_email"
+        ? "That provider did not share an email address. Use your email and password instead."
+        : oauthResult === "unverified_email"
+          ? "That email already has an account, but the provider has not verified the address. Sign in with your password, then link the provider from your account page."
+          : oauthResult === "taken"
+            ? "That provider account is already linked to a different user."
+            : oauthResult === "bootstrap"
+              ? "Complete first-run instance setup before signing in with a provider."
+              : oauthResult === "unavailable"
+                ? "That sign-in provider is not configured on this instance."
+                : null;
 
   return (
     <StandaloneAuthShell>
@@ -168,18 +180,27 @@ export function LoginView() {
       </h1>
 
       <div className="mt-6 grid grid-cols-2 gap-2.5">
-        {AUTH_PROVIDERS.map((provider) => (
-          <button
-            key={provider.id}
-            type="button"
-            className={secondaryButton}
-            disabled={startOAuth.isPending}
-            onClick={() => handleProvider(provider.id, provider.name)}
-          >
-            {provider.mark}
-            {provider.name}
-          </button>
-        ))}
+        {AUTH_PROVIDERS.map((provider) => {
+          const isLast = lastMethod === provider.id;
+          return (
+            <div key={provider.id} className="relative">
+              {isLast ? (
+                <span className="pointer-events-none absolute -top-2 right-2 z-10 rounded-md border border-[#3a3a40] bg-[#1c1c1e] px-1.5 py-0.5 text-[10.5px] font-medium text-[#c9c9cf] shadow-[0_2px_8px_rgba(0,0,0,0.4)]">
+                  Last used
+                </span>
+              ) : null}
+              <button
+                type="button"
+                className={`${secondaryButton} w-full`}
+                disabled={startOAuth.isPending}
+                onClick={() => handleProvider(provider.id, provider.name)}
+              >
+                {provider.mark}
+                {provider.name}
+              </button>
+            </div>
+          );
+        })}
       </div>
 
       <button

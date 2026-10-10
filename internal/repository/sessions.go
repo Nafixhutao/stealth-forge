@@ -13,19 +13,33 @@ func (r *Repository) CreateSession(
 	sessionID, accountID uuid.UUID,
 	tokenHash []byte,
 	expires time.Time,
+	authMethod string,
 ) error {
+	if !ValidAuthMethod(authMethod) {
+		authMethod = "password"
+	}
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
-	if _, err = tx.Exec(ctx, `INSERT INTO sessions (id,account_id,token_hash,expires_at) VALUES ($1,$2,$3,$4)`, sessionID, accountID, tokenHash, expires); err != nil {
+	if _, err = tx.Exec(ctx, `INSERT INTO sessions (id,account_id,token_hash,expires_at,auth_method) VALUES ($1,$2,$3,$4,$5)`, sessionID, accountID, tokenHash, expires, authMethod); err != nil {
 		return err
 	}
 	if err = writeAudit(ctx, tx, uuid.Nil, accountID, "session.login", "session", sessionID); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+// ValidAuthMethod reports whether a sign-in method is one the schema records.
+func ValidAuthMethod(method string) bool {
+	switch method {
+	case "password", "github", "google":
+		return true
+	default:
+		return false
+	}
 }
 func (r *Repository) DeleteSession(ctx context.Context, sessionID uuid.UUID, accountID uuid.UUID) error {
 	tx, err := r.pool.Begin(ctx)
