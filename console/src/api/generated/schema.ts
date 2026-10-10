@@ -291,6 +291,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/db-metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Return the in-process PostgreSQL snapshot (connections, active queries, cache hit ratio, transaction rate, replication, size, uptime) and its short in-memory history for the admin Overview. Requires Instance Owner or Instance Admin and does not depend on the telemetry backend. */
+        get: operations["getAdminDBMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/redis-metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Return the in-process Redis snapshot (clients, ops/sec, hit rate, memory, keys, uptime) and its short in-memory history for the admin Overview. Requires Instance Owner or Instance Admin and does not depend on the telemetry backend. */
+        get: operations["getAdminRedisMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/api-metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Return the API process's own runtime vitals (goroutines, heap, GC pause, uptime) read directly from the Go runtime at request time. Requires Instance Owner or Instance Admin. */
+        get: operations["getAdminAPIMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description List every Console account for the Admin Console directory with its identity flags, instance role, linked sign-in providers, and most recent session. Passwords and provider secrets are never returned. */
+        get: operations["listAdminAccounts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/telemetry/sources": {
         parameters: {
             query?: never;
@@ -1307,6 +1375,57 @@ export interface paths {
         post?: never;
         /** @description Revoke one Console session owned by the authenticated account. Revoking the current session also clears its cookie. */
         delete: operations["revokeAccountSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/account/identities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description List the external sign-in identities linked to the authenticated account, plus the providers this instance can complete a round trip with. Provider secrets and provider user ids are never returned. */
+        get: operations["listAccountIdentities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/account/identities/{provider}/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Start linking an external sign-in provider to the authenticated account. Returns the provider authorization URL; the browser follows it and the provider callback attaches the identity to the signed-in account. */
+        get: operations["startAccountIdentityLink"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/account/identities/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Unlink one external sign-in provider from the authenticated account. The last remaining identity cannot be unlinked. */
+        delete: operations["unlinkAccountIdentity"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3369,6 +3488,17 @@ export interface components {
             telemetry: components["schemas"]["AdminTelemetryStatus"];
             http?: components["schemas"]["AdminHTTPOverview"];
             operations?: components["schemas"]["AdminOperationSummary"];
+            recent_deployments?: components["schemas"]["AdminRecentDeployment"][];
+        };
+        AdminRecentDeployment: {
+            /** Format: uuid */
+            id: string;
+            app_name: string;
+            version: number;
+            status: string;
+            build_status: string;
+            /** Format: date-time */
+            created_at: string;
         };
         AdminHTTPOverview: {
             request_rate: number;
@@ -3627,6 +3757,83 @@ export interface components {
         AdminHostMetricsSnapshot: {
             current: components["schemas"]["AdminHostMetricsSample"];
             history: components["schemas"]["AdminHostMetricsSample"][];
+        };
+        AdminDBMetricsSample: {
+            /** Format: date-time */
+            timestamp: string;
+            connections: number;
+            max_connections: number;
+            active_queries: number;
+            cache_hit_ratio_known: boolean;
+            cache_hit_ratio_percent: number;
+            transactions_per_sec: number;
+            query_latency_ms: number;
+            replication_standbys: number;
+            /** Format: int64 */
+            database_size_bytes: number;
+            uptime_seconds: number;
+        };
+        AdminDBMetricsSnapshot: {
+            current: components["schemas"]["AdminDBMetricsSample"];
+            history: components["schemas"]["AdminDBMetricsSample"][];
+            server_version: string;
+            reachable: boolean;
+        };
+        AdminRedisMetricsSample: {
+            /** Format: date-time */
+            timestamp: string;
+            connections: number;
+            max_clients: number;
+            ops_per_sec: number;
+            hit_rate_known: boolean;
+            hit_rate_percent: number;
+            /** Format: int64 */
+            memory_used_bytes: number;
+            /** Format: int64 */
+            memory_max_bytes: number;
+            keys: number;
+            uptime_seconds: number;
+        };
+        AdminRedisMetricsSnapshot: {
+            current: components["schemas"]["AdminRedisMetricsSample"];
+            history: components["schemas"]["AdminRedisMetricsSample"][];
+            server_version: string;
+            reachable: boolean;
+        };
+        AdminAPIMetrics: {
+            goroutines: number;
+            /** Format: int64 */
+            heap_alloc_bytes: number;
+            /** Format: int64 */
+            heap_objects: number;
+            /** Format: int64 */
+            stack_bytes: number;
+            /** Format: int64 */
+            sys_bytes: number;
+            gc_runs: number;
+            last_gc_pause_ms: number;
+            go_version: string;
+            process_uptime_seconds: number;
+        };
+        AdminAccount: {
+            /** Format: uuid */
+            id: string;
+            /** Format: email */
+            email: string;
+            email_verified: boolean;
+            instance_role?: string;
+            /** Format: date-time */
+            created_at: string;
+            providers: AdminAccountProviders[];
+            avatar_url?: string;
+            display_name?: string;
+            /** Format: date-time */
+            last_sign_in_at?: string;
+            /** @enum {string} */
+            last_sign_in_method?: AdminAccountLast_sign_in_method;
+        };
+        AdminAccountsResponse: {
+            items: components["schemas"]["AdminAccount"][];
         };
         AdminTelemetrySource: {
             service: string;
@@ -4365,6 +4572,20 @@ export interface components {
              * @description Provider authorization URL the browser should follow.
              */
             authorization_url: string;
+        };
+        AccountIdentity: {
+            /** @enum {string} */
+            provider: AccountIdentityProvider;
+            provider_login?: string;
+            display_name?: string;
+            avatar_url?: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        AccountIdentitiesResponse: {
+            items: components["schemas"]["AccountIdentity"][];
+            /** @description Sign-in providers configured on this instance. */
+            providers: AccountIdentitiesResponseProviders[];
         };
         AdminOAuthProvider: {
             /** @enum {string} */
@@ -7402,6 +7623,103 @@ export interface operations {
             503: components["responses"]["ServiceUnavailable"];
         };
     };
+    getAdminDBMetrics: {
+        parameters: {
+            query?: {
+                /** @description Return history from the last N minutes; omit for the full retained window. */
+                window_minutes?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Database metrics snapshot and history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDBMetricsSnapshot"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    getAdminRedisMetrics: {
+        parameters: {
+            query?: {
+                /** @description Return history from the last N minutes; omit for the full retained window. */
+                window_minutes?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redis metrics snapshot and history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRedisMetricsSnapshot"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    getAdminAPIMetrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description API process vitals */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAPIMetrics"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listAdminAccounts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Console accounts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAccountsResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     listAdminTelemetrySources: {
         parameters: {
             query?: {
@@ -9570,6 +9888,77 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listAccountIdentities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Linked identities and available providers */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountIdentitiesResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    startAccountIdentityLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: PathsV1AccountIdentitiesProviderLinkGetParametersPathProvider;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Provider authorization URL */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthStartResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            422: components["responses"]["ValidationError"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    unlinkAccountIdentity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: PathsV1AccountIdentitiesProviderDeleteParametersPathProvider;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Identity unlinked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationError"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -15602,6 +15991,14 @@ export enum PathsV1AdminOauthProvidersProviderDeleteParametersPathProvider {
     github = "github",
     google = "google"
 }
+export enum PathsV1AccountIdentitiesProviderLinkGetParametersPathProvider {
+    github = "github",
+    google = "google"
+}
+export enum PathsV1AccountIdentitiesProviderDeleteParametersPathProvider {
+    github = "github",
+    google = "google"
+}
 export enum PathsV1OauthProviderStartGetParametersPathProvider {
     github = "github",
     google = "google"
@@ -15674,6 +16071,15 @@ export enum AdminInfrastructureMetricScope {
     postgres = "postgres",
     redis = "redis",
     services = "services"
+}
+export enum AdminAccountProviders {
+    github = "github",
+    google = "google"
+}
+export enum AdminAccountLast_sign_in_method {
+    password = "password",
+    github = "github",
+    google = "google"
 }
 export enum AdminTelemetrySourceSignal {
     logs = "logs",
@@ -15949,6 +16355,14 @@ export enum SetupCheckStatus {
 export enum SetupInstallResponseStatus {
     accepted = "accepted",
     installing = "installing"
+}
+export enum AccountIdentityProvider {
+    github = "github",
+    google = "google"
+}
+export enum AccountIdentitiesResponseProviders {
+    github = "github",
+    google = "google"
 }
 export enum AdminOAuthProviderProvider {
     github = "github",

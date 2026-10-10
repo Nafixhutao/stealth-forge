@@ -3,16 +3,26 @@ import { describe, expect, it } from "vitest";
 import { HttpStatusBadge, StatusBadge } from "@/components/ui/badge";
 
 describe("StatusBadge", () => {
-  it("keeps pending status text visible and disables its pulse for reduced motion", () => {
+  it("renders the status label through the shared AnimatedBadge", () => {
     render(<StatusBadge status="pending" />);
 
-    const indicator = screen
-      .getByText("Pending")
-      .parentElement?.querySelector('[aria-hidden="true"]');
-    expect(indicator).toHaveClass(
-      "animate-pulse",
-      "motion-reduce:animate-none",
-    );
+    const label = screen.getByText("Pending");
+    expect(label).toHaveAttribute("data-badge-label");
+    // The badge is the shared pill primitive, not a bespoke span.
+    expect(label.closest("span.rounded-full")).not.toBeNull();
+  });
+
+  it("maps a successful status onto the success tone", () => {
+    render(<StatusBadge status="succeeded" />);
+
+    const label = screen.getByText("Succeeded");
+    const badge = label.closest("span.rounded-full");
+    expect(badge?.className).toContain("--projects-accent");
+  });
+
+  it("renders an unknown status without crashing", () => {
+    render(<StatusBadge status={null} />);
+    expect(screen.getByText("Unknown")).toBeVisible();
   });
 });
 

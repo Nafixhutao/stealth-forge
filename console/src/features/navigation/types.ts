@@ -16,6 +16,8 @@ export type BadgeKind = "Beta" | "New";
 export type NavRowProps = {
   icon: ReactNode;
   label: string;
+  /** Destination for the row. Rows without an href stay buttons (onSelect). */
+  href?: string;
   badge?: BadgeKind;
   expandable?: boolean;
   labelClassName?: string;
@@ -31,5 +33,5 @@ export type NavRowProps = {
 
 export type NavItem = Pick<
   NavRowProps,
-  "icon" | "label" | "badge" | "expandable" | "labelClassName"
+  "icon" | "label" | "badge" | "expandable" | "labelClassName" | "href"
 >;

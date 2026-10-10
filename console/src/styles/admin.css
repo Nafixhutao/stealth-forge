@@ -169,6 +169,31 @@
   border-radius: 99px;
 }
 
+/* Command palette scrollbar (ported from the redesign's base sheet). */
+.search-palette-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #737078 transparent;
+  scrollbar-gutter: stable;
+}
+.search-palette-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+.search-palette-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.search-palette-scrollbar::-webkit-scrollbar-thumb {
+  min-height: 44px;
+  border: 2px solid transparent;
+  border-radius: 99px;
+  background: #737078;
+  background-clip: padding-box;
+}
+.search-palette-scrollbar::-webkit-scrollbar-button {
+  display: none;
+  height: 0;
+  width: 0;
+}
+
 /* Dense data surfaces (log stream, wide tables): slim dark scrollbar with a
    generous min thumb so it stays grabbable in long streams. */
 .admin-scrollbar {

@@ -15,12 +15,14 @@ import (
 
 	"github.com/Stealth-deplover/stealth/internal/buildinfo"
 	"github.com/Stealth-deplover/stealth/internal/config"
+	"github.com/Stealth-deplover/stealth/internal/dbmetrics"
 	"github.com/Stealth-deplover/stealth/internal/functionsecret"
 	"github.com/Stealth-deplover/stealth/internal/hostmetrics"
 	"github.com/Stealth-deplover/stealth/internal/httpapi"
 	"github.com/Stealth-deplover/stealth/internal/observability"
 	"github.com/Stealth-deplover/stealth/internal/ratelimit"
 	"github.com/Stealth-deplover/stealth/internal/realtime"
+	"github.com/Stealth-deplover/stealth/internal/redismetrics"
 	"github.com/Stealth-deplover/stealth/internal/repository"
 	"github.com/Stealth-deplover/stealth/internal/runtime"
 	"github.com/Stealth-deplover/stealth/internal/telemetry"
@@ -147,6 +149,11 @@ func main() {
 	// Overview keeps its CPU/memory/disk/network cards without the telemetry
 	// stack. A 1-hour ring at 5s backs the Overview time-range selector.
 	hostMetrics := hostmetrics.New(5*time.Second, 720, "/")
+	// Database metrics ride the API's own pool on the same cadence so the
+	// Overview's database card reads PostgreSQL's own statistics directly.
+	dbMetrics := dbmetrics.New(pool, 5*time.Second, 720)
+	// Redis metrics ride the shared Redis client the same way.
+	redisMetrics := redismetrics.New(redisClient, 5*time.Second, 720)
 
 	handler, platformSiteHandler := httpapi.NewWithDependenciesAndPlatformSiteHandler(
 		cfg,
@@ -157,6 +164,8 @@ func main() {
 			RealtimeBroker: realtime.NewBroker(redisClient),
 			TelemetryStore: telemetryStore,
 			HostMetrics:    hostMetrics,
+			DBMetrics:      dbMetrics,
+			RedisMetrics:   redisMetrics,
 			Redis:          redisClient,
 		},
 	)
@@ -169,6 +178,11 @@ func main() {
 	// process lifetime, so it uses the signal context (canceled only on
 	// shutdown), never the bounded startup context.
 	go hostMetrics.Start(signalContext)
+	// The database collector shares the signal context so it stops with the
+	// process and its 5s queries never outlive a shutdown.
+	go dbMetrics.Start(signalContext)
+	// The Redis collector shares the same lifecycle.
+	go redisMetrics.Start(signalContext)
 	baseContext, cancelBaseContext := context.WithCancel(signalContext)
 	defer cancelBaseContext()
 	// The control-plane servers intentionally omit WriteTimeout: the realtime,

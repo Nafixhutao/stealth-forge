@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Stealth-deplover/stealth/internal/auth"
+	"github.com/Stealth-deplover/stealth/internal/domain"
 	"github.com/Stealth-deplover/stealth/internal/oauthlogin"
 	"github.com/Stealth-deplover/stealth/internal/repository"
 	"github.com/go-chi/chi/v5"
@@ -75,7 +76,22 @@ type oauthStatePayload struct {
 	Provider string `json:"provider"`
 	State    string `json:"state"`
 	Verifier string `json:"verifier"`
+	// Challenge is the S256(verifier) sent in the authorize URL. Kept in the
+	// cookie so the callback can prove the pair it sends to the token
+	// endpoint is the same pair the authorize request advertised.
+	Challenge string `json:"challenge"`
+	// Intent separates a sign-in round trip from linking a provider to the
+	// already signed-in account. Empty means login (the historical default).
+	Intent string `json:"intent,omitempty"`
+	// AccountID is the account a link intent is bound to. The callback
+	// re-checks the live session against it before writing anything.
+	AccountID string `json:"account_id,omitempty"`
 }
+
+const (
+	oauthIntentLogin = "login"
+	oauthIntentLink  = "link"
+)
 
 // oauthStartResponse is the non-secret provider redirect the browser follows.
 type oauthStartResponse struct {
@@ -85,6 +101,22 @@ type oauthStartResponse struct {
 // startOAuthLogin begins the browser flow and returns the provider URL. The
 // caller redirects the browser to it; no secret is exposed to the page.
 func (s *Server) startOAuthLogin(w http.ResponseWriter, r *http.Request) {
+	s.beginOAuth(w, r, oauthIntentLogin, "")
+}
+
+// startOAuthLink begins a link round trip for the signed-in account. The
+// provider callback attaches the identity instead of opening a new session,
+// so a link can never silently sign the browser into a different account.
+func (s *Server) startOAuthLink(w http.ResponseWriter, r *http.Request) {
+	account := accountFrom(r)
+	if account.ID == "" {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "authentication is required")
+		return
+	}
+	s.beginOAuth(w, r, oauthIntentLink, account.ID)
+}
+
+func (s *Server) beginOAuth(w http.ResponseWriter, r *http.Request, intent, accountID string) {
 	provider, configured := s.oauthProvider(r.Context(), chiURLParam(r, "provider"))
 	if !configured {
 		writeError(w, http.StatusServiceUnavailable, "oauth_not_configured", "this sign-in provider is not configured on this instance")
@@ -105,12 +137,28 @@ func (s *Server) startOAuthLogin(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	if err := s.setOAuthStateCookie(w, oauthStatePayload{Provider: provider.Name, State: state, Verifier: verifier}); err != nil {
+	if err := s.setOAuthStateCookie(w, oauthStatePayload{
+		Provider:  provider.Name,
+		State:     state,
+		Verifier:  verifier,
+		Challenge: challenge,
+		Intent:    intent,
+		AccountID: accountID,
+	}); err != nil {
 		internalError(s, w, err)
 		return
 	}
+	// Correlate the authorize challenge with the callback cookie by state so a
+	// stale browser URL is distinguishable from a provider rejection.
+	s.logger.Info(
+		"oauth start",
+		"provider", provider.Name,
+		"intent", intent,
+		"state", state[:8],
+		"challenge", challenge,
+	)
 	writeJSON(w, http.StatusOK, oauthStartResponse{
-		AuthorizationURL: provider.AuthorizationURL(callbackURL, state, challenge),
+		AuthorizationURL: provider.AuthorizationURL(callbackURL, state, verifier),
 	})
 }
 
@@ -147,7 +195,33 @@ func (s *Server) oauthCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	oauthToken, err := s.oauthLogin.Exchange(r.Context(), provider, code, callbackURL, payload.Verifier)
 	if err != nil {
-		s.logger.Warn("oauth token exchange failed", "provider", provider.Name, "error", err)
+		// Distinguish an internal pair mismatch from a provider rejection:
+		// if sha256(verifier) != the challenge advertised in the authorize
+		// URL, the cookie and the URL came from different starts and the
+		// fix is on this side; otherwise the provider rejected a consistent
+		// pair and the cause is external (clock, credentials, redirect).
+		computed := oauthlogin.S256Challenge(payload.Verifier)
+		if computed != payload.Challenge {
+			s.logger.Error(
+				"oauth pkce pair mismatch",
+				"provider", provider.Name,
+				"state", payload.State[:min(8, len(payload.State))],
+				"cookie_verifier_len", len(payload.Verifier),
+				"cookie_challenge", payload.Challenge,
+				"computed_challenge", computed,
+			)
+		} else {
+			s.logger.Warn(
+				"oauth token exchange failed with a consistent pkce pair",
+				"provider", provider.Name,
+				"state", payload.State[:min(8, len(payload.State))],
+				"verifier_len", len(payload.Verifier),
+				"challenge", payload.Challenge,
+				"redirect", callbackURL,
+				"client_id", provider.ClientID,
+				"error", err,
+			)
+		}
 		http.Redirect(w, r, s.consoleURL("/login?oauth=error"), http.StatusFound)
 		return
 	}
@@ -157,11 +231,17 @@ func (s *Server) oauthCallback(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, s.consoleURL("/login?oauth=error"), http.StatusFound)
 		return
 	}
+	if payload.Intent == oauthIntentLink {
+		s.finishOAuthLink(w, r, provider, payload, identity)
+		return
+	}
 	account, err := s.repo.AccountByProviderIdentity(r.Context(), provider.Name, identity.ProviderUserID)
 	if errors.Is(err, repository.ErrNotFound) {
-		// The identity is valid but not linked to any account. Do not create
-		// one implicitly; surface the state so the operator can link it.
-		http.Redirect(w, r, s.consoleURL("/login?oauth=unlinked"), http.StatusFound)
+		// Standard provider sign-in: an unknown identity provisions an account
+		// (or attaches to the existing account that owns the same verified
+		// email), opens a session, and lands on the dashboard. The user is
+		// never asked to link manually first.
+		s.provisionOAuthAccount(w, r, provider, identity)
 		return
 	}
 	if err != nil {
@@ -174,19 +254,143 @@ func (s *Server) oauthCallback(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	if err := s.repo.CreateSession(r.Context(), uuid.Must(uuid.NewV7()), uuid.Must(uuid.Parse(account.ID)), tokenHash, time.Now().UTC().Add(s.config.SessionTTL)); err != nil {
+	if err := s.repo.CreateSession(r.Context(), uuid.Must(uuid.NewV7()), uuid.Must(uuid.Parse(account.ID)), tokenHash, time.Now().UTC().Add(s.config.SessionTTL), provider.Name); err != nil {
 		s.logger.Error("oauth session creation failed", "error", err)
 		http.Redirect(w, r, s.consoleURL("/login?oauth=error"), http.StatusFound)
 		return
 	}
 	s.setSessionCookie(w, token)
-	// Instance owners and admins operate the Admin Console; everyone else
-	// lands on their organizations.
+	s.redirectAfterOAuthLogin(w, r, account)
+}
+
+// redirectAfterOAuthLogin sends the browser to the right landing page for the
+// account's role.
+func (s *Server) redirectAfterOAuthLogin(w http.ResponseWriter, r *http.Request, account domain.Account) {
 	destination := "/organizations"
 	if account.InstanceRole == "instance_owner" || account.InstanceRole == "instance_admin" {
 		destination = "/admin"
 	}
 	http.Redirect(w, r, s.consoleURL(destination), http.StatusFound)
+}
+
+// provisionOAuthAccount creates or claims the account for an unknown provider
+// identity, opens a session, and redirects. Every failure redirects back to
+// the sign-in page with a specific reason instead of leaving a dead end.
+func (s *Server) provisionOAuthAccount(w http.ResponseWriter, r *http.Request, provider oauthlogin.Provider, identity oauthlogin.Identity) {
+	if strings.TrimSpace(identity.Email) == "" {
+		s.logger.Warn("oauth signup without an email", "provider", provider.Name)
+		http.Redirect(w, r, s.consoleURL("/login?oauth=no_email"), http.StatusFound)
+		return
+	}
+	token, tokenHash, err := auth.NewSessionToken()
+	if err != nil {
+		internalError(s, w, err)
+		return
+	}
+	accountID := uuid.Must(uuid.NewV7())
+	organizationID := uuid.Must(uuid.NewV7())
+	login := strings.TrimSpace(identity.Login)
+	if login == "" {
+		login = identity.Email
+	}
+	displayName := strings.TrimSpace(identity.DisplayName)
+	if displayName == "" {
+		displayName = strings.Split(identity.Email, "@")[0]
+	}
+	slug := "personal-" + strings.ReplaceAll(organizationID.String(), "-", "")[:16]
+	account, _, err := s.repo.SignupWithIdentity(r.Context(), repository.IdentitySignupInput{
+		AccountID:        accountID,
+		OrganizationID:   organizationID,
+		SessionID:        uuid.Must(uuid.NewV7()),
+		Email:            identity.Email,
+		EmailVerified:    identity.EmailVerified,
+		OrganizationName: displayName + "'s organization",
+		OrganizationSlug: slug,
+		TokenHash:        tokenHash,
+		SessionExpiresAt: time.Now().UTC().Add(s.config.SessionTTL),
+		Provider:         provider.Name,
+		ProviderUserID:   identity.ProviderUserID,
+		ProviderLogin:    login,
+		DisplayName:      identity.DisplayName,
+		AvatarURL:        identity.AvatarURL,
+	})
+	switch {
+	case errors.Is(err, repository.ErrBootstrapRequired):
+		http.Redirect(w, r, s.consoleURL("/login?oauth=bootstrap"), http.StatusFound)
+		return
+	case errors.Is(err, repository.ErrIdentityEmailUnverified):
+		// An account already uses this email but the provider has not verified
+		// the address, so the sign-in cannot claim it.
+		s.logger.Warn("oauth signup blocked by unverified email", "provider", provider.Name)
+		http.Redirect(w, r, s.consoleURL("/login?oauth=unverified_email"), http.StatusFound)
+		return
+	case errors.Is(err, repository.ErrIdentityLinkedElsewhere):
+		http.Redirect(w, r, s.consoleURL("/login?oauth=taken"), http.StatusFound)
+		return
+	case err != nil:
+		s.logger.Error("oauth signup failed", "provider", provider.Name, "error", err)
+		http.Redirect(w, r, s.consoleURL("/login?oauth=error"), http.StatusFound)
+		return
+	}
+	s.logger.Info("oauth account provisioned", "provider", provider.Name, "account_id", account.ID)
+	s.setSessionCookie(w, token)
+	s.redirectAfterOAuthLogin(w, r, account)
+}
+
+// finishOAuthLink attaches the provider identity to the signed-in account. It
+// requires a live Console session whose account matches the one the link was
+// started from, so a stolen callback URL cannot attach an identity elsewhere.
+func (s *Server) finishOAuthLink(w http.ResponseWriter, r *http.Request, provider oauthlogin.Provider, payload oauthStatePayload, identity oauthlogin.Identity) {
+	redirectFailure := func(reason string) {
+		http.Redirect(w, r, s.consoleURL("/account?link="+reason), http.StatusFound)
+	}
+
+	cookie, err := r.Cookie(s.config.SessionCookieName)
+	if err != nil || cookie.Value == "" {
+		redirectFailure("session")
+		return
+	}
+	// Resolve the session without writing a JSON error: this is a browser
+	// redirect flow, so every outcome lands back on the account page.
+	account, _, err := s.repo.AccountBySession(r.Context(), auth.HashSessionToken(cookie.Value))
+	if err != nil {
+		redirectFailure("session")
+		return
+	}
+	if account.ID != payload.AccountID {
+		redirectFailure("mismatch")
+		return
+	}
+
+	login := strings.TrimSpace(identity.Login)
+	if login == "" {
+		login = strings.TrimSpace(identity.Email)
+	}
+	if login == "" {
+		login = provider.Name + "-user"
+	}
+
+	err = s.repo.LinkAccountIdentity(
+		r.Context(),
+		uuid.Must(uuid.Parse(account.ID)),
+		provider.Name,
+		identity.ProviderUserID,
+		login,
+		identity.Email,
+		identity.DisplayName,
+		identity.AvatarURL,
+	)
+	if errors.Is(err, repository.ErrIdentityLinkedElsewhere) {
+		redirectFailure("taken")
+		return
+	}
+	if err != nil {
+		s.logger.Error("oauth identity link failed", "provider", provider.Name, "error", err)
+		redirectFailure("error")
+		return
+	}
+	s.logger.Info("oauth identity linked", "provider", provider.Name, "account_id", account.ID)
+	http.Redirect(w, r, s.consoleURL("/account?link=ok&provider="+provider.Name), http.StatusFound)
 }
 
 func (s *Server) setOAuthStateCookie(w http.ResponseWriter, payload oauthStatePayload) error {

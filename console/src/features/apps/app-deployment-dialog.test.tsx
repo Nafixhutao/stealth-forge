@@ -31,7 +31,7 @@ describe("AppDeploymentDialog", () => {
     fireEvent.change(screen.getByLabelText("Dockerfile target (optional)"), {
       target: { value: "release" },
     });
-    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByRole("switch"));
     const queueButton = screen.getByRole("button", { name: "Queue build" });
     expect(queueButton).toBeEnabled();
     const formElement = queueButton.closest("form");

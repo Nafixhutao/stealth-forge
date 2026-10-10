@@ -5,6 +5,7 @@ import { Check } from "lucide-react";
 import { AdminHeader, AdminPageBody } from "../components/admin-panel";
 import { AdminPanel, AdminPanelHeader } from "../components/admin-panel";
 import { SignInProvidersPanel } from "./sign-in-providers-panel";
+import { Switch } from "@/components/motion/switch";
 import { cn } from "@/lib/utils";
 
 const fieldClass =
@@ -173,31 +174,13 @@ function ToggleRow({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex cursor-pointer select-none items-start gap-3 rounded-lg border border-[var(--projects-border)] bg-[var(--projects-control)] px-3.5 py-3 transition-colors hover:border-[var(--projects-border-hover)]">
-      <input
-        type="checkbox"
-        className="peer sr-only"
+    <div className="flex items-start gap-3 rounded-lg border border-[var(--projects-border)] bg-[var(--projects-control)] px-3.5 py-3 transition-colors hover:border-[var(--projects-border-hover)]">
+      <Switch
         checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
+        onCheckedChange={onChange}
+        ariaLabel={label}
+        className="mt-0.5 shrink-0"
       />
-      <span
-        aria-hidden="true"
-        className={cn(
-          "mt-0.5 flex h-5 w-9 shrink-0 items-center rounded-full border px-[2px] transition-colors",
-          checked
-            ? "border-[var(--projects-accent)] bg-[var(--projects-accent)]"
-            : "border-[var(--projects-border-hover)] bg-transparent",
-        )}
-      >
-        <span
-          className={cn(
-            "size-3.5 rounded-full bg-white transition-transform duration-150",
-            checked
-              ? "translate-x-4"
-              : "translate-x-0 bg-[var(--projects-muted)]",
-          )}
-        />
-      </span>
       <span className="min-w-0">
         <span className="block text-[13px] font-medium leading-5 text-[var(--projects-text)]">
           {label}
@@ -206,6 +189,6 @@ function ToggleRow({
           {description}
         </span>
       </span>
-    </label>
+    </div>
   );
 }

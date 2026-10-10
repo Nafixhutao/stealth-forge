@@ -11,6 +11,7 @@ import {
   StatusPill,
 } from "../primitives";
 import type { SetupFlow } from "../types";
+import { Switch } from "@/components/motion/switch";
 
 export function StorageStage({ flow }: { flow: SetupFlow }) {
   const {
@@ -109,22 +110,28 @@ export function StorageStage({ flow }: { flow: SetupFlow }) {
             </Field>
           </div>
           <div className="flex flex-wrap gap-5 text-sm text-slate-300">
-            <label className="flex min-h-11 items-center gap-2">
-              <input
-                type="checkbox"
-                className="size-4 accent-cyan-300"
-                {...configForm.register("storage_s3_use_ssl")}
-              />{" "}
-              Use TLS
-            </label>
-            <label className="flex min-h-11 items-center gap-2">
-              <input
-                type="checkbox"
-                className="size-4 accent-cyan-300"
-                {...configForm.register("storage_s3_path_style")}
-              />{" "}
-              Force path style
-            </label>
+            <Switch
+              checked={configForm.watch("storage_s3_use_ssl") === true}
+              onCheckedChange={(value) =>
+                configForm.setValue("storage_s3_use_ssl", value, {
+                  shouldDirty: true,
+                })
+              }
+              label="Use TLS"
+              activeClassName="bg-cyan-400"
+              className="min-h-11"
+            />
+            <Switch
+              checked={configForm.watch("storage_s3_path_style") === true}
+              onCheckedChange={(value) =>
+                configForm.setValue("storage_s3_path_style", value, {
+                  shouldDirty: true,
+                })
+              }
+              label="Force path style"
+              activeClassName="bg-cyan-400"
+              className="min-h-11"
+            />
           </div>
           <div className="flex flex-wrap items-center gap-3 border-t border-stealth-border pt-5">
             <Button

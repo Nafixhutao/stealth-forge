@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Search } from "lucide-react";
 import { useCreateProjectUser } from "@/api/mutations";
 import { nextCursor } from "@/api/pagination";
 import { useProjectUsers } from "@/api/queries";
@@ -23,6 +24,11 @@ import {
   userFields,
   userPayload,
 } from "@/features/users/user-form";
+import {
+  RelativeDate,
+  UserAvatar,
+  UsersStatStrip,
+} from "@/features/users/user-avatars";
 
 export function UsersView({
   organizationId,
@@ -34,9 +40,33 @@ export function UsersView({
   const router = useRouter();
   const navigation = useCursorPagination();
   const [createOpen, setCreateOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const query = useProjectUsers(projectId, { cursor: navigation.cursor });
   const create = useCreateProjectUser(projectId);
-  const users = query.data?.users ?? [];
+  const users = useMemo(() => query.data?.users ?? [], [query.data]);
+
+  // Search filters the current page client-side; server pagination still owns
+  // the data window, so this behaves like Vercel's in-page member filter.
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return users;
+    return users.filter(
+      (user) =>
+        user.email.toLowerCase().includes(term) ||
+        (user.name ?? "").toLowerCase().includes(term),
+    );
+  }, [users, search]);
+
+  const stats = useMemo(
+    () => ({
+      total: users.length,
+      active: users.filter((user) => user.status === "active").length,
+      blocked: users.filter((user) => user.status === "blocked").length,
+      pending: users.filter((user) => !user.email_verified).length,
+    }),
+    [users],
+  );
+
   const handleCreateUser = async (values: UserFormValues) => {
     const result = await create.mutateAsync(userPayload(values));
     toast.success("User created");
@@ -55,26 +85,29 @@ export function UsersView({
     () => [
       {
         accessorKey: "email",
-        header: "Identity",
+        header: "User",
         cell: ({ row }) => (
-          <div className="min-w-0">
-            <Link
-              href={
-                "/organizations/" +
-                organizationId +
-                "/projects/" +
-                projectId +
-                "/users/" +
-                row.original.id
-              }
-              className="wrap-anywhere font-medium text-white hover:text-cyan-200"
-              title={row.original.email}
-            >
-              {row.original.email}
-            </Link>
-            <p className="text-xs text-slate-500">
-              {row.original.name ?? "Unnamed user"}
-            </p>
+          <div className="flex min-w-0 items-center gap-3">
+            <UserAvatar email={row.original.email} name={row.original.name} />
+            <div className="min-w-0">
+              <Link
+                href={
+                  "/organizations/" +
+                  organizationId +
+                  "/projects/" +
+                  projectId +
+                  "/users/" +
+                  row.original.id
+                }
+                className="wrap-anywhere block truncate font-medium text-white hover:text-cyan-200"
+                title={row.original.email}
+              >
+                {row.original.email}
+              </Link>
+              <p className="truncate text-xs text-slate-500">
+                {row.original.name ?? "Unnamed user"}
+              </p>
+            </div>
           </div>
         ),
       },
@@ -85,7 +118,7 @@ export function UsersView({
       },
       {
         accessorKey: "email_verified",
-        header: "Verified",
+        header: "Verification",
         cell: ({ row }) =>
           row.original.email_verified ? (
             <Badge variant="success">Verified</Badge>
@@ -95,8 +128,15 @@ export function UsersView({
       },
       {
         accessorKey: "created_at",
-        header: "Created",
-        cell: ({ row }) => formatDate(row.original.created_at),
+        header: "Joined",
+        cell: ({ row }) => (
+          <span className="text-slate-400">
+            <RelativeDate iso={row.original.created_at} />
+            <span className="block text-xs text-slate-600">
+              {formatDate(row.original.created_at)}
+            </span>
+          </span>
+        ),
       },
       {
         id: "actions",
@@ -113,7 +153,7 @@ export function UsersView({
                 row.original.id
               }
             >
-              Open user
+              Manage
             </Link>
           </Button>
         ),
@@ -144,6 +184,31 @@ export function UsersView({
           ) : null
         }
       />
+
+      {/* Lifecycle counts from the loaded page — honest to the current window,
+          like the Platform tiles on the admin Overview. */}
+      {!query.isPending && !query.isError && <UsersStatStrip {...stats} />}
+
+      {/* In-page filter, only rendered once there is something to filter. */}
+      {!query.isPending && !query.isError && users.length > 0 ? (
+        <div className="relative">
+          <Search
+            size={14}
+            strokeWidth={1.8}
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+          />
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search by email or name…"
+            aria-label="Search users"
+            className="h-9 w-full rounded-lg border border-stealth-border bg-[#141416] pl-9 pr-3 text-sm text-white placeholder:text-slate-600 focus:border-cyan-300/40 focus:outline-none focus:ring-1 focus:ring-cyan-300/40"
+          />
+        </div>
+      ) : null}
+
       {query.isError ? (
         <ErrorState
           title="Could not load application users"
@@ -154,10 +219,10 @@ export function UsersView({
         <Card>
           <DataTable data={[]} columns={columns} loading />
         </Card>
-      ) : users.length || navigation.canFirst || nextCursor(query.data) ? (
+      ) : filtered.length || navigation.canFirst || nextCursor(query.data) ? (
         <Card>
           <DataTable
-            data={users}
+            data={filtered}
             columns={columns}
             serverPagination={pageControls(
               navigation,
@@ -166,6 +231,11 @@ export function UsersView({
             )}
           />
         </Card>
+      ) : search ? (
+        <EmptyState
+          title="No users match this search"
+          description={`Nothing on this page matches "${search}". Clear the filter to see all users.`}
+        />
       ) : (
         <EmptyState
           title="No application users yet"

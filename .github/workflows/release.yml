@@ -85,7 +85,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: 1.26.x
+          go-version: 1.26.9
           cache-dependency-path: go.sum
 
       - name: Go formatting
@@ -310,7 +310,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: 1.26.x
+          go-version: 1.26.9
           cache-dependency-path: go.sum
 
       - name: Build Linux CLI archives and checksums

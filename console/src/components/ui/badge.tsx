@@ -1,6 +1,10 @@
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
+import {
+  AnimatedBadge,
+  type AnimatedBadgeStatus,
+} from "@/components/motion/animated-badge";
 
 const badgeVariants = cva(
   "inline-flex items-center gap-1.5 whitespace-nowrap rounded-xs border px-1.5 py-0.5 text-xs font-medium tracking-[-0.01em]",
@@ -32,31 +36,25 @@ export function Badge({
 const UNDERSCORE = /_/g;
 const FIRST_CHAR = /^\w/;
 
+/** Console status chip, rendered by the shared AnimatedBadge so every status
+    in the app animates and sizes identically. The status vocabulary is mapped
+    onto the badge's semantic tones. */
 export function StatusBadge({ status }: { status: string | null | undefined }) {
   const normalized = status?.toLowerCase() ?? "unknown";
-  const variant = getStatusVariant(normalized);
+  const tone = getStatusTone(normalized);
   const label = status
     ? status
         .replace(UNDERSCORE, " ")
         .replace(FIRST_CHAR, (character) => character.toUpperCase())
     : "Unknown";
   return (
-    <Badge variant={variant}>
-      <span
-        className={cn(
-          "size-1.5 rounded-full bg-current",
-          variant === "building" && "animate-pulse motion-reduce:animate-none",
-        )}
-        aria-hidden="true"
-      />
+    <AnimatedBadge status={tone} size="sm" contentKey={label}>
       {label}
-    </Badge>
+    </AnimatedBadge>
   );
 }
 
-function getStatusVariant(
-  status: string,
-): "default" | "neutral" | "success" | "warning" | "error" | "building" {
+function getStatusTone(status: string): AnimatedBadgeStatus {
   switch (status) {
     case "ready":
     case "active":
@@ -70,7 +68,7 @@ function getStatusVariant(
     case "failed":
     case "error":
     case "blocked":
-      return "error";
+      return "danger";
     case "building":
     case "running":
     case "delivering":
@@ -82,7 +80,7 @@ function getStatusVariant(
     case "reconciling":
     case "waiting_for_runtime":
     case "waiting_for_health":
-      return "building";
+      return "loading";
     case "warning":
     case "past_due":
     case "degraded":

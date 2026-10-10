@@ -220,6 +220,37 @@ func (r *Repository) AdminOperationSummary(ctx context.Context) (domain.AdminOpe
 	return result, err
 }
 
+// ListRecentAppDeployments returns the newest app deployments across all
+// projects for the admin Overview. The join only reads the app's display
+// name, so a removed app hides its history rather than failing the query.
+func (r *Repository) ListRecentAppDeployments(ctx context.Context, limit int) ([]domain.AdminRecentDeployment, error) {
+	if r == nil || r.pool == nil {
+		return nil, ErrNotFound
+	}
+	if limit <= 0 || limit > 20 {
+		limit = 5
+	}
+	rows, err := r.pool.Query(ctx, `
+		SELECT d.id, a.name, d.version, d.status, d.build_status, d.created_at
+		FROM app_deployments d
+		JOIN project_apps a ON a.id = d.app_id
+		ORDER BY d.created_at DESC
+		LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]domain.AdminRecentDeployment, 0, limit)
+	for rows.Next() {
+		var item domain.AdminRecentDeployment
+		if err := rows.Scan(&item.ID, &item.AppName, &item.Version, &item.Status, &item.BuildStatus, &item.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
 const adminAuditMaxLimit = 100
 
 // ListInstanceAuditEvents is the instance-level view of the existing audit

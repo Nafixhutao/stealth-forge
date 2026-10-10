@@ -7,15 +7,8 @@ import { ApiError } from "@/api/client";
 import { ErrorState } from "@/components/feedback/error-state";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { PixelSkeleton } from "@/components/ui/pixel-skeleton";
-import { Sidebar } from "@/components/layout/sidebar";
+import { Sidebar } from "@/features/navigation/sidebar";
 import { Topbar } from "@/components/layout/topbar";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   ConsoleRouteContextProvider,
   useConsoleRouteContext,
@@ -30,7 +23,6 @@ function ConsoleShellContent({
   const { projectId } = useConsoleRouteContext();
   const account = useCurrentAccount();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const pathname = usePathname();
   const unauthorized =
@@ -106,27 +98,7 @@ function ConsoleShellContent({
         Skip to content
       </a>
       <div className="flex min-h-dvh">
-        <Sidebar
-          collapsed={sidebarCollapsed}
-          onToggle={() => setSidebarCollapsed((value) => !value)}
-        />
-        <Dialog open={mobileOpen} onOpenChange={setMobileOpen}>
-          <DialogContent
-            className="left-0 top-0 h-dvh max-h-dvh w-72 max-w-none translate-x-0 translate-y-0 rounded-none border-y-0 border-l-0 p-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] data-[state=open]:animate-drawer-in data-[state=closed]:animate-drawer-out"
-            onCloseAutoFocus={(event) => {
-              event.preventDefault();
-              mobileMenuTriggerRef.current?.focus();
-            }}
-          >
-            <DialogHeader className="sr-only">
-              <DialogTitle>Navigation menu</DialogTitle>
-              <DialogDescription>
-                Move between Stealth workspaces and resources.
-              </DialogDescription>
-            </DialogHeader>
-            <Sidebar mobile onNavigate={() => setMobileOpen(false)} />
-          </DialogContent>
-        </Dialog>
+        <Sidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
         <div className="min-w-0 flex-1">
           <Topbar
             onMenu={() => setMobileOpen(true)}

@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatDate } from "@/lib/format";
+import { ConnectedAccounts } from "@/features/account/connected-accounts";
 
 export function AccountView() {
   const router = useRouter();
@@ -229,6 +230,7 @@ export function AccountView() {
           </CardContent>
         </Card>
       </div>
+      <ConnectedAccounts />
       <Card className="mt-5">
         <CardHeader className="flex-row items-center justify-between">
           <div>
