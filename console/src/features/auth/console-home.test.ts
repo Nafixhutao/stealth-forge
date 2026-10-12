@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { consoleHomeForRole } from "./use-authenticated-redirect";
+import { consoleHomeForRole } from "./console-home";
 
 describe("consoleHomeForRole", () => {
   it("sends instance owners and admins to the admin console", () => {

@@ -16,11 +16,8 @@ import {
 import { fetchCurrentAccount } from "@/api/queries/account";
 import { errorMessage } from "@/components/feedback/error-state";
 import { getSafeNextPath } from "@/lib/navigation";
+import { consoleHomeForRole } from "./console-home";
 import { useLastAuthMethod } from "./last-auth-method";
-import {
-  consoleHomeForRole,
-  useAuthenticatedRedirect,
-} from "./use-authenticated-redirect";
 import {
   AUTH_PROVIDERS,
   authErrorText as errorText,
@@ -80,9 +77,6 @@ export function LoginView() {
   const mutation = useLogin();
   const rawNext = searchParams.get("next");
   const destination = getSafeNextPath(rawNext);
-  const nextPath = rawNext === null ? null : destination;
-  // A valid session must not be shown the sign-in form again.
-  const { authenticated, checking } = useAuthenticatedRedirect(nextPath);
   const registerHref =
     rawNext === null
       ? "/register"
@@ -166,21 +160,6 @@ export function LoginView() {
               : oauthResult === "unavailable"
                 ? "That sign-in provider is not configured on this instance."
                 : null;
-
-  // Do not flash the sign-in form at a visitor who is already signed in: hold
-  // the shell until the session check resolves, then either redirect or render
-  // the form.
-  if (checking || authenticated) {
-    return (
-      <StandaloneAuthShell>
-        <span role="status" aria-live="polite" className="sr-only">
-          {authenticated
-            ? "You are already signed in. Opening your console."
-            : "Checking your session."}
-        </span>
-      </StandaloneAuthShell>
-    );
-  }
 
   return (
     <StandaloneAuthShell>
