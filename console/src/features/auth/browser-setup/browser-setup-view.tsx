@@ -3,18 +3,14 @@
 import { CheckCircle2, RefreshCw, XCircle } from "lucide-react";
 import { ApiError } from "@/api/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useBrowserSetupFlow } from "../browser-setup-flow";
 import { setupSteps, type SetupStep } from "../browser-setup-model";
 import { HandoffSubmission } from "./handoff-submission";
 import { safeError } from "./helpers";
-import {
-  ActionError,
-  LoadingPanel,
-  ProductionLink,
-  StatusPill,
-} from "./primitives";
+import { ActionError, LoadingPanel, ProductionLink } from "./primitives";
 import { SetupShell } from "./setup-shell";
+import { SetupUnavailable } from "./setup-unavailable";
+import { StepRail } from "./step-rail";
 import { DataStage } from "./stages/data-stage";
 import { GitHubStage } from "./stages/github-stage";
 import { InstallStage } from "./stages/install-stage";
@@ -61,32 +57,30 @@ export function BrowserSetupView() {
       setupStatus.error instanceof ApiError &&
       setupStatus.error.status === 404
     ) {
-      return (
-        <SetupShell currentStep="welcome">
-          <ProductionLink />
-        </SetupShell>
-      );
+      // Setup is not available on this instance (already installed, or this
+      // deployment is not in setup mode). Never render the wizard here.
+      return <SetupUnavailable />;
     }
     return (
       <SetupShell currentStep="welcome">
-        <Card role="alert" className="border-rose-300/20 bg-rose-400/[0.04]">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-rose-200">
-              <XCircle className="size-4" /> Setup service unavailable
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-wrap items-center gap-3">
-            <p className="text-sm text-slate-400">
-              {safeError(setupStatus.error)}
-            </p>
-            <Button
-              variant="outline"
-              onClick={() => void setupStatus.refetch()}
-            >
-              <RefreshCw className="size-4" /> Retry
-            </Button>
-          </CardContent>
-        </Card>
+        <div
+          role="alert"
+          className="flex flex-col gap-4 rounded-lg border border-[#ea9198]/25 bg-[#ea9198]/[0.05] p-5"
+        >
+          <div className="flex items-center gap-2 text-[13px] font-medium text-[#f0b4b7]">
+            <XCircle className="size-4" /> Setup service unavailable
+          </div>
+          <p className="text-[13px] text-[var(--setup-text-muted)]">
+            {safeError(setupStatus.error)}
+          </p>
+          <Button
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={() => void setupStatus.refetch()}
+          >
+            <RefreshCw className="size-4" /> Retry
+          </Button>
+        </div>
       </SetupShell>
     );
   }
@@ -107,7 +101,17 @@ export function BrowserSetupView() {
   }
 
   return (
-    <SetupShell currentStep={activeStep}>
+    <SetupShell
+      currentStep={activeStep}
+      rail={
+        <StepRail
+          steps={setupSteps}
+          activeStep={activeStep}
+          canOpen={canOpenStep}
+          onSelect={moveTo}
+        />
+      }
+    >
       {handoffReady ? (
         <HandoffSubmission
           publicURL={installPublicURL}
@@ -115,81 +119,35 @@ export function BrowserSetupView() {
           token={handoffToken}
         />
       ) : null}
-      <div className="grid gap-7 lg:grid-cols-[220px_minmax(0,1fr)]">
-        <nav aria-label="Setup progress" className="lg:pt-1">
-          <div className="mb-3 flex items-center justify-between lg:block">
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-              Setup progress
-            </p>
-            <StatusPill
-              status={
-                installViewState?.phase === "failed" ? "error" : "pending"
-              }
-            >
-              {installViewState?.phase === "failed"
-                ? "Needs attention"
-                : "In progress"}
-            </StatusPill>
-          </div>
-          <ol className="flex gap-2 overflow-x-auto pb-2 lg:block lg:space-y-1 lg:overflow-visible">
-            {setupSteps.map((item, index) => {
-              const active = item.id === activeStep;
-              const available = canOpenStep(item.id) || active;
-              return (
-                <li key={item.id} className="shrink-0">
-                  <button
-                    type="button"
-                    disabled={!available}
-                    onClick={() => available && moveTo(item.id)}
-                    className={`flex min-h-11 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-acid-lime/40 lg:w-full ${active ? "bg-acid-lime/[0.08] text-mist" : available ? "text-fog hover:bg-white/[0.04] hover:text-paper" : "cursor-not-allowed text-slate-700"}`}
-                  >
-                    <span
-                      className={`flex size-6 items-center justify-center rounded-full border font-mono text-[10px] ${active ? "border-cyan-300/60" : "border-stealth-border"}`}
-                    >
-                      {index === 0 ? "S" : item.short}
-                    </span>
-                    <span className="hidden lg:block">{item.label}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-        </nav>
 
-        <section
-          className="min-w-0 rounded-xl border border-stealth-border bg-stealth-panel/70 p-5 sm:p-7"
-          aria-live="polite"
+      {notice || callbackNotice ? (
+        <div
+          className="mb-5 flex items-start gap-2 rounded-lg border border-[var(--setup-border-strong)] bg-white/[0.04] px-3 py-2.5 text-[12px] leading-5 text-[var(--setup-text-secondary)]"
+          role="status"
         >
-          {notice || callbackNotice ? (
-            <div
-              className="mb-5 flex items-start gap-2 rounded-lg border border-cyan-300/20 bg-cyan-300/[0.06] px-3 py-2.5 text-xs leading-5 text-cyan-100"
-              role="status"
-            >
-              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-cyan-300" />
-              <span>{notice || callbackNotice}</span>
-            </div>
-          ) : null}
-          <ActionError error={actionError ?? callbackError} />
+          <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[#76bc9a]" />
+          <span>{notice || callbackNotice}</span>
+        </div>
+      ) : null}
+      <ActionError error={actionError ?? callbackError} />
 
-          {activeStep === "welcome" ? <WelcomeStage flow={flow} /> : null}
+      {activeStep === "welcome" ? <WelcomeStage flow={flow} /> : null}
 
-          {activeStep === "instance" ? <InstanceStage flow={flow} /> : null}
+      {activeStep === "instance" ? <InstanceStage flow={flow} /> : null}
 
-          {activeStep === "github" ? <GitHubStage flow={flow} /> : null}
+      {activeStep === "github" ? <GitHubStage flow={flow} /> : null}
 
-          {activeStep === "networking" ? <NetworkingStage flow={flow} /> : null}
+      {activeStep === "networking" ? <NetworkingStage flow={flow} /> : null}
 
-          {activeStep === "data" ? <DataStage flow={flow} /> : null}
+      {activeStep === "data" ? <DataStage flow={flow} /> : null}
 
-          {activeStep === "storage" ? <StorageStage flow={flow} /> : null}
+      {activeStep === "storage" ? <StorageStage flow={flow} /> : null}
 
-          {activeStep === "signin" ? <SignInStage flow={flow} /> : null}
+      {activeStep === "signin" ? <SignInStage flow={flow} /> : null}
 
-          {activeStep === "review" ? <ReviewStage flow={flow} /> : null}
+      {activeStep === "review" ? <ReviewStage flow={flow} /> : null}
 
-          {activeStep === "install" ? <InstallStage flow={flow} /> : null}
-        </section>
-      </div>
+      {activeStep === "install" ? <InstallStage flow={flow} /> : null}
     </SetupShell>
   );
 }

@@ -1,4 +1,4 @@
-module github.com/Stealth-deplover/stealth
+module github.com/Nafixhutao/stealth-forge
 
 go 1.26.0
 

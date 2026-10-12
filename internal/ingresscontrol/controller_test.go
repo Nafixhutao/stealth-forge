@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Stealth-deplover/stealth/internal/cloudflare"
-	"github.com/Stealth-deplover/stealth/internal/domain"
+	"github.com/Nafixhutao/stealth-forge/internal/cloudflare"
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
 )
 
 type controllerFakeStore struct {

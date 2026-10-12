@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/Stealth-deplover/stealth/internal/domain"
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -100,6 +100,35 @@ func (r *Repository) LinkAccountIdentity(
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+// RefreshAccountIdentityProfile updates the cached provider profile for an
+// existing identity. Empty provider values never overwrite a stored value, so
+// a provider that omits a field on one login cannot blank the profile.
+func (r *Repository) RefreshAccountIdentityProfile(
+	ctx context.Context,
+	accountID uuid.UUID,
+	provider, providerLogin, providerEmail, displayName, avatarURL string,
+) error {
+	if r == nil || r.pool == nil {
+		return ErrNotFound
+	}
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	if !ValidOAuthProvider(provider) {
+		return ErrOAuthProviderInvalid
+	}
+	_, err := r.pool.Exec(ctx, `
+		UPDATE account_identities SET
+		  provider_login = COALESCE(NULLIF($3,''), provider_login),
+		  provider_email = COALESCE(NULLIF($4,''), provider_email),
+		  display_name   = COALESCE(NULLIF($5,''), display_name),
+		  avatar_url     = COALESCE(NULLIF($6,''), avatar_url),
+		  updated_at = now()
+		WHERE account_id=$1 AND provider=$2`,
+		accountID, provider,
+		strings.TrimSpace(providerLogin), strings.TrimSpace(providerEmail),
+		strings.TrimSpace(displayName), strings.TrimSpace(avatarURL))
+	return err
 }
 
 // DeleteAccountIdentity unlinks one provider from an account.

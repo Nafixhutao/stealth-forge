@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	dbcore "github.com/Stealth-deplover/stealth/internal/database"
-	"github.com/Stealth-deplover/stealth/internal/domain"
+	dbcore "github.com/Nafixhutao/stealth-forge/internal/database"
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )

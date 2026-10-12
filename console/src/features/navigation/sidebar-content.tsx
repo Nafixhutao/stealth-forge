@@ -1,14 +1,14 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useEffect, useId, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import {
   AnimatePresence,
   motion,
   useReducedMotion,
   type Variants,
 } from "motion/react";
+import { PixelSkeleton } from "@/components/ui/pixel-skeleton";
 import {
   EASE_OUT,
   LABEL_ENTER_TRANSITION,
@@ -21,13 +21,28 @@ import {
   SUBMENU_TRANSITION,
 } from "@/lib/ease";
 import { cn } from "@/lib/utils";
-import { ChevronDown, Search } from "lucide-react";
 import { useCurrentAccount } from "@/api/queries/account";
+import {
+  BookOpen,
+  Bot,
+  ChevronDown,
+  FileText,
+  FolderKanban,
+  Headphones,
+  House,
+  PieChart,
+  ReceiptText,
+  Search,
+  ShieldCheck,
+  Users,
+  X,
+} from "lucide-react";
 import { BottomProfile } from "./profile-menu";
 import { SearchPalette } from "./search-palette";
 import {
   ActiveRowPill,
   Badge,
+  BrandIcon,
   ChevronToggle,
   NavIcon,
   RailDivider,
@@ -35,13 +50,13 @@ import {
   rowClass,
   tap,
 } from "./sidebar-shared";
-import { useUserNav, type NavGroupData, type NavLink } from "./nav-data";
-import type { NavRowProps } from "./types";
+import type { NavItem, NavRowProps } from "./types";
 
 // Open keeps the original morph: clip-path reveal with a staggered blur-up.
 // The close is GSAP-style — the measured height tweens to 0 while fading, so
 // the rows below ride up with the collapsing box instead of waiting out an
-// empty reserved gap.
+// empty reserved gap. The object-form exit matters: the label-exit path
+// never visibly rendered the container's own values in this setup.
 const SUBMENU_VARIANTS: Variants = {
   closed: {
     opacity: 0,
@@ -84,73 +99,53 @@ const NAV_ITEM_VARIANTS: Variants = {
   },
 };
 
-function isActive(pathname: string, href: string) {
-  return pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
-}
+const primaryNavItems: NavItem[] = [
+  {
+    icon: NavIcon(Search),
+    label: "Search",
+    labelClassName: "text-[14px] leading-[20px] text-[oklch(0.949_0.0035_305)]",
+  },
+  { icon: NavIcon(House), label: "Explore" },
+  { icon: NavIcon(FolderKanban), label: "Projects" },
+  { icon: NavIcon(Bot), label: "Agent" },
+  { icon: NavIcon(PieChart), label: "Analytics", expandable: true },
+];
 
-// Navigation rows are real links so they keep link semantics (open in a new
-// tab, middle click) while still animating like the redesigned buttons.
-const MotionLink = motion.create(Link);
+const integrationNavItems: NavItem[] = [
+  {
+    icon: <BrandIcon brand="slack" />,
+    label: "Slack",
+    badge: "New",
+    expandable: true,
+  },
+  { icon: <BrandIcon brand="discord" />, label: "Discord", expandable: true },
+  {
+    icon: NavIcon(ShieldCheck),
+    label: "Security",
+    badge: "New",
+    expandable: true,
+  },
+  { icon: NavIcon(ReceiptText), label: "Plan", expandable: true },
+];
+
+const accountNavItems: NavItem[] = [
+  { icon: NavIcon(Users), label: "Account", expandable: true },
+  { icon: NavIcon(BookOpen), label: "Documentation" },
+  { icon: NavIcon(Headphones), label: "Contact Support" },
+];
 
 function NavRow({
   icon,
   label,
-  href,
   badge,
   expandable = false,
   labelClassName = "",
-  isActive: active = false,
+  isActive = false,
   layoutId,
   onSelect,
   collapsed = false,
 }: NavRowProps) {
   const reduce = useReducedMotion() ?? false;
-
-  const inner = (
-    <>
-      {active && <ActiveRowPill layoutId={layoutId} reduce={reduce} />}
-      {icon}
-      <RailLabel
-        collapsed={collapsed}
-        className={`flex-1 origin-left truncate ${labelClassName}`}
-      >
-        {label}
-      </RailLabel>
-      {badge && (
-        <motion.span
-          initial={false}
-          aria-hidden={collapsed}
-          animate={{
-            opacity: collapsed ? 0 : 1,
-            maxWidth: collapsed ? 0 : 80,
-          }}
-          transition={
-            collapsed ? LABEL_EXIT_TRANSITION : LABEL_ENTER_TRANSITION
-          }
-          className="overflow-hidden"
-        >
-          <Badge kind={badge} />
-        </motion.span>
-      )}
-      {expandable && (
-        <motion.span
-          initial={false}
-          aria-hidden={collapsed}
-          animate={{
-            opacity: collapsed ? 0 : 1,
-            maxWidth: collapsed ? 0 : 20,
-          }}
-          transition={
-            collapsed ? LABEL_EXIT_TRANSITION : LABEL_ENTER_TRANSITION
-          }
-          className="overflow-hidden"
-        >
-          <ChevronToggle className="size-[13px] shrink-0 text-[#737078]" />
-        </motion.span>
-      )}
-    </>
-  );
-
   return (
     // layout wrapper lets rows below an opening/closing submenu glide
     <motion.div
@@ -158,31 +153,55 @@ function NavRow({
       transition={SPRING_LAYOUT}
       variants={NAV_ITEM_VARIANTS}
     >
-      {href ? (
-        <MotionLink
-          href={href}
-          className={rowClass}
-          onClick={onSelect}
-          aria-current={active ? "page" : undefined}
-          title={collapsed ? label : undefined}
-          whileTap={tap(reduce)}
-          transition={SPRING_PRESS}
+      <motion.button
+        type="button"
+        className={rowClass}
+        onClick={onSelect}
+        aria-current={isActive ? "page" : undefined}
+        whileTap={tap(reduce)}
+        transition={SPRING_PRESS}
+      >
+        {isActive && <ActiveRowPill layoutId={layoutId} reduce={reduce} />}
+        {icon}
+        <RailLabel
+          collapsed={collapsed}
+          className={`flex-1 origin-left truncate ${labelClassName}`}
         >
-          {inner}
-        </MotionLink>
-      ) : (
-        <motion.button
-          type="button"
-          className={rowClass}
-          onClick={onSelect}
-          aria-current={active ? "page" : undefined}
-          title={collapsed ? label : undefined}
-          whileTap={tap(reduce)}
-          transition={SPRING_PRESS}
-        >
-          {inner}
-        </motion.button>
-      )}
+          {label}
+        </RailLabel>
+        {badge && (
+          <motion.span
+            initial={false}
+            aria-hidden={collapsed}
+            animate={{
+              opacity: collapsed ? 0 : 1,
+              maxWidth: collapsed ? 0 : 80,
+            }}
+            transition={
+              collapsed ? LABEL_EXIT_TRANSITION : LABEL_ENTER_TRANSITION
+            }
+            className="overflow-hidden"
+          >
+            <Badge kind={badge} />
+          </motion.span>
+        )}
+        {expandable && (
+          <motion.span
+            initial={false}
+            aria-hidden={collapsed}
+            animate={{
+              opacity: collapsed ? 0 : 1,
+              maxWidth: collapsed ? 0 : 20,
+            }}
+            transition={
+              collapsed ? LABEL_EXIT_TRANSITION : LABEL_ENTER_TRANSITION
+            }
+            className="overflow-hidden"
+          >
+            <ChevronToggle className="size-[13px] shrink-0 text-[#737078]" />
+          </motion.span>
+        )}
+      </motion.button>
     </motion.div>
   );
 }
@@ -196,19 +215,22 @@ function Header({
   collapsed?: boolean;
   onToggleCollapse?: () => void;
 }) {
-  const account = useCurrentAccount();
   const reduce = useReducedMotion() ?? false;
+  const account = useCurrentAccount();
+  const [planLoading, setPlanLoading] = useState(true);
   const identity = account.data?.account;
   const name =
     identity?.display_name?.trim() ||
     identity?.email?.split("@")[0] ||
     "Account";
-  const role =
-    identity?.instance_role === "instance_owner"
-      ? "Owner"
-      : identity?.instance_role === "instance_admin"
-        ? "Admin"
-        : null;
+  const avatar = identity?.avatar_url ?? "";
+
+  // The redesigned header shows a pixel skeleton for the plan chip, then the
+  // plan name. Mirror that so the badge settles in the same way.
+  useEffect(() => {
+    const timer = setTimeout(() => setPlanLoading(false), 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <header className="flex h-[44px] shrink-0 items-center px-4 lg:h-[48px]">
@@ -220,7 +242,7 @@ function Header({
         transition={collapsed ? LABEL_EXIT_TRANSITION : LABEL_ENTER_TRANSITION}
         className="flex min-w-0 items-center overflow-hidden"
       >
-        {identity?.avatar_url ? (
+        {avatar ? (
           <motion.img
             alt=""
             initial={false}
@@ -229,22 +251,24 @@ function Header({
               collapsed ? LABEL_EXIT_TRANSITION : LABEL_ENTER_TRANSITION
             }
             className="size-5 shrink-0 rounded-md object-cover"
-            src={identity.avatar_url}
+            src={avatar}
           />
         ) : (
-          <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-[#26242b] text-[10px] font-semibold text-[#C9C5CD]">
+          <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-[#2b2930] text-[10px] font-semibold text-[#edecf1]">
             {name.slice(0, 1).toUpperCase()}
           </span>
         )}
         <RailLabel collapsed={collapsed} className="flex items-center">
-          <span className="ml-2 text-[14px] font-medium leading-[20px] tracking-[-0.01em] text-[oklch(0.949_0.0035_305)]">
+          <span className="ml-2 min-w-0 flex-1 truncate text-[14px] font-medium tracking-[-0.01em] leading-[20px] text-[oklch(0.949_0.0035_305)]">
             {name}
           </span>
-          {role ? (
-            <span className="ml-2 shrink-0 rounded-[5px] bg-[#201E22] px-[6px] py-[2px] text-[12px] font-medium leading-[16px] text-[oklch(0.767_0.0105_305)]">
-              {role}
+          {planLoading ? (
+            <PixelSkeleton className="ml-2 h-5 w-14" />
+          ) : (
+            <span className="ml-2 shrink-0 whitespace-nowrap rounded-[5px] bg-[#201E22] px-[6px] py-[2px] text-[12px] font-medium leading-[16px] text-[oklch(0.767_0.0105_305)]">
+              Pro Plus
             </span>
-          ) : null}
+          )}
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -268,19 +292,7 @@ function Header({
         className="ml-auto inline-flex h-6 w-6 items-center justify-center text-[#AAA6AE] transition-colors hover:text-[#EEEAF0] lg:hidden"
         aria-label="Close sidebar"
       >
-        <svg
-          viewBox="0 0 16 16"
-          className="size-[14px]"
-          fill="none"
-          aria-hidden="true"
-        >
-          <path
-            d="M4 4l8 8M12 4l-8 8"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-          />
-        </svg>
+        <X size={14} strokeWidth={1.8} />
       </motion.button>
       <motion.button
         type="button"
@@ -291,6 +303,8 @@ function Header({
         transition={SPRING_PRESS}
         className={cn(
           "group/btn hidden shrink-0 text-[#AAA6AE] transition-colors hover:text-[#EEEAF0] lg:block",
+          // in the rail the toggle belongs to the icon column (reference
+          // center 23.5); only the expanded panel pins it to the right edge
           collapsed ? "mr-auto" : "ml-auto",
         )}
       >
@@ -326,27 +340,93 @@ function Header({
   );
 }
 
-function NavGroupSection({
-  group,
-  pathname,
+function CompactSidebarHeader({
+  collapsed,
+  onToggleCollapse,
+}: {
+  collapsed: boolean;
+  onToggleCollapse?: () => void;
+}) {
+  const reduce = useReducedMotion() ?? false;
+
+  return (
+    <header className="flex h-[38px] shrink-0 items-center px-4">
+      <motion.button
+        type="button"
+        onClick={onToggleCollapse}
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        aria-expanded={!collapsed}
+        whileTap={tap(reduce)}
+        transition={SPRING_PRESS}
+        className={cn(
+          "group/btn shrink-0 text-[#AAA6AE] transition-colors hover:text-[#EEEAF0]",
+          collapsed ? "mr-auto" : "ml-auto",
+        )}
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          className="size-4"
+          aria-hidden="true"
+        >
+          <rect
+            x="2"
+            y="3"
+            width="12"
+            height="10"
+            rx="2"
+            stroke="currentColor"
+            strokeWidth="2"
+          />
+          <rect
+            x="4"
+            y="5"
+            width="2"
+            height="6"
+            rx="1"
+            fill="currentColor"
+            className="transition-[width] duration-300 ease-out [width:2px] group-hover/btn:[width:1px]"
+          />
+        </svg>
+      </motion.button>
+    </header>
+  );
+}
+
+function ReviewSection({
   open,
   onToggle,
-  onNavigate,
+  isActive = false,
+  layoutId,
+  onActivate,
   collapsed = false,
 }: {
-  group: NavGroupData;
-  pathname: string;
   open: boolean;
   onToggle: () => void;
-  onNavigate?: () => void;
+  isActive?: boolean;
+  layoutId?: string;
+  onActivate?: () => void;
   collapsed?: boolean;
 }) {
   const reduce = useReducedMotion() ?? false;
   const submenuRef = useRef<HTMLDivElement>(null);
-  const groupActive = group.items.some((item) => isActive(pathname, item.href));
+  // beui pattern: choosing a child highlights it statically and moves the
+  // shared pill onto the parent group row.
+  const [activeItem, setActiveItem] = useState<string | null>(null);
+  const submenu = [
+    "Triage",
+    "Repositories",
+    "Integrations",
+    "Learnings",
+    "Caches",
+    "Organization Settings",
+  ];
 
   // A resting filter forces a compositing layer and flips the submenu text
-  // from subpixel to grayscale antialiasing. The clip-path stays.
+  // from subpixel to grayscale antialiasing. The clip-path stays: the exit
+  // reveal needs an interpolable origin, and inset(0 0 0% 0) does not composite.
   const clearSubmenuArtifacts = () => {
     submenuRef.current
       ?.querySelectorAll("button")
@@ -354,6 +434,8 @@ function NavGroupSection({
   };
 
   return (
+    // joins the nav entrance stagger like every other row; layout keeps the
+    // rows below gliding when the submenu opens/closes
     <motion.section
       layout="position"
       transition={SPRING_LAYOUT}
@@ -364,14 +446,18 @@ function NavGroupSection({
         className={rowClass}
         onClick={onToggle}
         aria-expanded={open}
-        aria-current={groupActive && !open ? "page" : undefined}
+        aria-current={isActive ? "page" : undefined}
         whileTap={tap(reduce)}
         transition={SPRING_PRESS}
       >
-        {groupActive && <ActiveRowPill reduce={reduce} />}
-        {group.icon}
+        {isActive && <ActiveRowPill layoutId={layoutId} reduce={reduce} />}
+        <FileText
+          size={15}
+          strokeWidth={1.8}
+          className="shrink-0 text-[#AAA6AE]"
+        />
         <RailLabel collapsed={collapsed} className="flex-1">
-          {group.label}
+          Review
         </RailLabel>
         <motion.span
           initial={false}
@@ -389,10 +475,11 @@ function NavGroupSection({
           />
         </motion.span>
       </motion.button>
+      {/* a submenu cannot render inside the icon rail (beui: !panel.collapsed) */}
       <AnimatePresence>
         {open && !collapsed && (
           <motion.div
-            key="submenu"
+            key="review-submenu"
             ref={submenuRef}
             className="ml-[22px] overflow-hidden border-l border-[#3A373F] pl-[20px]"
             variants={reduce ? undefined : SUBMENU_VARIANTS}
@@ -410,33 +497,33 @@ function NavGroupSection({
             onAnimationComplete={() => {
               if (!open) return;
               clearSubmenuArtifacts();
+              // the item stagger settles after the container's own tween —
+              // strip the filters again once it has finished writing them
               setTimeout(clearSubmenuArtifacts, 500);
             }}
           >
-            {group.items.map((item) => {
-              const active = isActive(pathname, item.href);
-              return (
-                <MotionLink
-                  href={item.href}
-                  key={item.href}
-                  onClick={onNavigate}
-                  aria-current={active ? "page" : undefined}
-                  className={`flex h-[30px] w-full items-center text-left text-[12px] font-normal transition-colors lg:h-[34px] lg:text-[14px] ${
-                    active
-                      ? "bg-white/[0.03] text-[#EEEAF0]"
-                      : "text-[#C5C1C9] hover:text-[#EEEAF0]"
-                  }`}
-                >
-                  <motion.span
-                    variants={reduce ? undefined : SUBMENU_ITEM_VARIANTS}
-                    className="flex w-full items-center"
-                  >
-                    <span>{item.label}</span>
-                    {item.badge && <Badge kind={item.badge} />}
-                  </motion.span>
-                </MotionLink>
-              );
-            })}
+            {submenu.map((item) => (
+              <motion.button
+                type="button"
+                key={item}
+                variants={reduce ? undefined : SUBMENU_ITEM_VARIANTS}
+                onClick={() => {
+                  setActiveItem(item);
+                  onActivate?.();
+                }}
+                aria-current={activeItem === item ? "page" : undefined}
+                whileTap={tap(reduce)}
+                transition={SPRING_PRESS}
+                className={`flex h-[30px] w-full items-center text-left text-[12px] font-normal transition-colors lg:h-[34px] lg:text-[14px] ${
+                  activeItem === item
+                    ? "bg-white/[0.03] text-[#EEEAF0]"
+                    : "text-[#C5C1C9] hover:text-[#EEEAF0]"
+                }`}
+              >
+                <span>{item}</span>
+                {item === "Triage" && <Badge kind="Beta" />}
+              </motion.button>
+            ))}
           </motion.div>
         )}
       </AnimatePresence>
@@ -457,25 +544,59 @@ export function SidebarContent({
   onToggleCollapse?: () => void;
 }) {
   const pathname = usePathname();
-  const nav = useUserNav();
+  const router = useRouter();
+  const [reviewOpen, setReviewOpen] = useState(true);
+  const [active, setActive] = useState<string | null>(() =>
+    pathname === "/" ? "Projects" : pathname === "/agent" ? "Agent" : null,
+  );
   const [searchOpen, setSearchOpen] = useState(false);
   const pillId = useId();
   const reduce = useReducedMotion() ?? false;
 
-  const activeGroup = nav.groups.find((group) =>
-    group.items.some((item) => isActive(pathname, item.href)),
-  )?.label;
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
-  const groupOpen = (group: NavGroupData) =>
-    openGroups[group.label] ?? activeGroup === group.label;
-  const anyGroupOpen = nav.groups.some((group) => groupOpen(group));
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (pathname === "/") setActive("Projects");
+    else if (pathname === "/agent") setActive("Agent");
+  }, [pathname]);
 
-  const renderNavItem = (item: NavLink) => (
+  useEffect(() => {
+    const openSearch = () => setSearchOpen(true);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener("open-command-palette", openSearch);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("open-command-palette", openSearch);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, []);
+
+  // Selecting from the rail navigates without unfolding the panel, so the
+  // sidebar stays closed when jumping to another page.
+  const select = (label: string) => {
+    setActive(label);
+  };
+
+  const selectNavigation = (label: string) => {
+    select(label);
+    if (label === "Projects" && pathname !== "/") router.push("/");
+    if (label === "Agent" && pathname !== "/agent") router.push("/agent");
+  };
+
+  const renderNavItem = (item: NavItem) => (
     <NavRow
-      key={item.href}
+      key={item.label}
       {...item}
-      isActive={isActive(pathname, item.href)}
+      isActive={active === item.label}
       layoutId={pillId}
+      onSelect={() => {
+        if (item.label === "Search") setSearchOpen(true);
+        else selectNavigation(item.label);
+      }}
       collapsed={collapsed}
     />
   );
@@ -488,7 +609,12 @@ export function SidebarContent({
           collapsed={collapsed}
           onToggleCollapse={onToggleCollapse}
         />
-      ) : null}
+      ) : (
+        <CompactSidebarHeader
+          collapsed={collapsed}
+          onToggleCollapse={onToggleCollapse}
+        />
+      )}
       <motion.nav
         className="sidebar-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto pb-1"
         aria-label="Sidebar links"
@@ -496,43 +622,22 @@ export function SidebarContent({
         initial={reduce ? false : "hidden"}
         animate="visible"
       >
-        <NavRow
-          icon={NavIcon(Search)}
-          label="Search"
-          labelClassName="text-[14px] leading-[20px] text-[oklch(0.949_0.0035_305)]"
+        {primaryNavItems.map(renderNavItem)}
+        <RailDivider collapsed={collapsed} />
+        <ReviewSection
+          open={reviewOpen}
+          onToggle={() => setReviewOpen((value) => !value)}
+          isActive={active === "Review"}
           layoutId={pillId}
-          onSelect={() => setSearchOpen(true)}
+          onActivate={() => select("Review")}
           collapsed={collapsed}
         />
-        {nav.primary.map(renderNavItem)}
-        {nav.groups.length > 0 ? <RailDivider collapsed={collapsed} /> : null}
-        {nav.groups.map((group) => (
-          <NavGroupSection
-            key={group.label}
-            group={group}
-            pathname={pathname}
-            open={groupOpen(group)}
-            onToggle={() =>
-              setOpenGroups((prev) => ({
-                ...prev,
-                [group.label]: !(
-                  prev[group.label] ?? activeGroup === group.label
-                ),
-              }))
-            }
-            onNavigate={onMobileClose}
-            collapsed={collapsed}
-          />
-        ))}
-        {nav.admin ? (
-          <>
-            <RailDivider collapsed={collapsed} />
-            {renderNavItem(nav.admin)}
-          </>
-        ) : null}
+        {integrationNavItems.map(renderNavItem)}
+        <RailDivider collapsed={collapsed} />
+        {accountNavItems.map(renderNavItem)}
       </motion.nav>
       <AnimatePresence>
-        {nav.groups.length > 0 && !collapsed && (
+        {reviewOpen && !collapsed && (
           <motion.div
             key="view-more"
             initial={reduce ? false : { opacity: 0, y: 6 }}
@@ -552,15 +657,6 @@ export function SidebarContent({
               type="button"
               whileTap={tap(reduce)}
               transition={SPRING_PRESS}
-              onClick={() =>
-                setOpenGroups(
-                  anyGroupOpen
-                    ? {}
-                    : Object.fromEntries(
-                        nav.groups.map((group) => [group.label, true]),
-                      ),
-                )
-              }
               className="relative z-10 inline-flex h-[26px] shrink-0 items-center gap-1.5 rounded-full border border-[#322F37] bg-[#121014] px-[10px] text-[12px] font-medium leading-[16px] text-[oklch(0.949_0.0035_305)] transition-colors hover:border-[#4a4650] hover:bg-[#121014]"
             >
               <ChevronDown size={12} strokeWidth={2} className="shrink-0" />
@@ -576,14 +672,11 @@ export function SidebarContent({
       <SearchPalette
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
-        results={nav.primary
-          .concat(nav.groups.flatMap((group) => group.items))
-          .map((item) => ({
-            label: `Go to ${item.label}`,
-            section: "Navigation",
-            href: item.href,
-            Icon: item.icon,
-          }))}
+        onSelect={(result) => {
+          setSearchOpen(false);
+          if (result.label.startsWith("Go to "))
+            selectNavigation(result.label.slice(6));
+        }}
       />
     </>
   );

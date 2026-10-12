@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "../styles/admin.css";
 @import "../styles/auth-standalone.css";
+@import "../styles/setup.css";
+@import "../styles/error-surface.css";
 
 @theme {
   /* Stealth's visual language: a quiet operations surface with one action accent. */
@@ -60,6 +62,21 @@
   --color-stealth-warning: #d4b36e;
   --color-stealth-danger: #ea9198;
   --color-stealth-info: #6fc0cc;
+
+  /* shadcn-compatible semantic names. beUI components are distributed as
+     shadcn registry items and address colour through these names, so they must
+     exist as theme tokens for utilities like `text-foreground` to be generated.
+     Values follow the Console palette rather than shadcn's defaults. */
+  --color-background: #121014;
+  --color-foreground: #eeeaf0;
+  --color-card: #1b1b1e;
+  --color-card-foreground: #eeeaf0;
+  --color-muted: #201e22;
+  --color-muted-foreground: #aaa6ae;
+  --color-primary: #edecf1;
+  --color-primary-foreground: #121014;
+  --color-border: #322f37;
+  --color-ring: #55555b;
 
   /* Legacy utility names are semantic aliases, not a second palette. */
   --color-cyan-100: #f2f2f3;
@@ -315,12 +332,17 @@ html:has([data-app-shell]) {
   overscroll-behavior: none;
 }
 
-button,
-a,
-input,
-textarea,
-select {
-  font: inherit;
+/* Keep control fonts inherited from their container. This belongs in the base
+   layer so Tailwind utilities (text-*) still win — an unlayered rule here
+   outranks them and silently broke the ported sidebar's type scale. */
+@layer base {
+  button,
+  a,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
 }
 
 button,
@@ -348,9 +370,14 @@ button,
   }
 }
 
-:focus-visible {
-  outline: 2px solid var(--color-acid-lime);
-  outline-offset: 2px;
+/* Keep the focus ring in the base layer so component utilities (for example a
+   text input's `outline-none`) can opt out — an unlayered rule here outranks
+   them and painted a ring inside the ported command palette. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-acid-lime);
+    outline-offset: 2px;
+  }
 }
 
 input::placeholder,

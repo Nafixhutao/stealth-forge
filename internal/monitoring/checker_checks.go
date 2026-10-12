@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
 )
 
 func checkHTTP(ctx context.Context, job repository.AdminMonitorJob, config monitorConfig, details *json.RawMessage) (*int, error) {

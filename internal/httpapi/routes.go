@@ -3,7 +3,7 @@ package httpapi
 import (
 	"net/http"
 
-	"github.com/Stealth-deplover/stealth/internal/observability"
+	"github.com/Nafixhutao/stealth-forge/internal/observability"
 	"github.com/go-chi/chi/v5"
 )
 

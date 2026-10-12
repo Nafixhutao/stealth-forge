@@ -17,7 +17,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/buildinfo"
+	"github.com/Nafixhutao/stealth-forge/internal/buildinfo"
 )
 
 const (

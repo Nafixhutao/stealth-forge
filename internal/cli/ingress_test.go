@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Stealth-deplover/stealth/internal/installengine"
+	"github.com/Nafixhutao/stealth-forge/internal/installengine"
 )
 
 type ingressCommandCall struct {

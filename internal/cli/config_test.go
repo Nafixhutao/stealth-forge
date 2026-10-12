@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Stealth-deplover/stealth/internal/buildinfo"
-	"github.com/Stealth-deplover/stealth/internal/installengine"
+	"github.com/Nafixhutao/stealth-forge/internal/buildinfo"
+	"github.com/Nafixhutao/stealth-forge/internal/installengine"
 )
 
 const testGitHubAppClientID = "Iv1.test-client-id"

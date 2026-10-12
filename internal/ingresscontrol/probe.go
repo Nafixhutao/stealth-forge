@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/domainname"
+	"github.com/Nafixhutao/stealth-forge/internal/domainname"
 )
 
 const maxProbeBody = 64 << 10
@@ -114,10 +114,10 @@ func (p *HTTPProbe) LocalTraefik(ctx context.Context, hostname string) error {
 	if isRedirect(rootStatus) {
 		origin := &url.URL{Scheme: "https", Host: hostname, Path: "/"}
 		redirect, redirectErr := safeConsoleRedirect(origin, origin, locations)
-		if redirectErr != nil || redirect.Path != "/organizations" || redirect.RawQuery != "" {
+		if redirectErr != nil || redirect.Path != "/admin" || redirect.RawQuery != "" {
 			return errors.New("local Traefik Console root returned an unexpected redirect")
 		}
-		rootStatus, _, err = p.localTraefikRequest(ctx, target, hostname, "/organizations")
+		rootStatus, _, err = p.localTraefikRequest(ctx, target, hostname, "/admin")
 		if err != nil {
 			return err
 		}

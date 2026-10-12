@@ -7,24 +7,22 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/bootstrap"
-	"github.com/Stealth-deplover/stealth/internal/setupconfig"
-	"github.com/Stealth-deplover/stealth/internal/setuphandoff"
-	"github.com/Stealth-deplover/stealth/internal/setupstate"
+	"github.com/Nafixhutao/stealth-forge/internal/bootstrap"
+	"github.com/Nafixhutao/stealth-forge/internal/setupconfig"
+	"github.com/Nafixhutao/stealth-forge/internal/setuphandoff"
+	"github.com/Nafixhutao/stealth-forge/internal/setupstate"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
 
 func (s *Server) registerSetupRoutes(r chi.Router) {
 	r.Get("/setup/status", s.setupStatus)
-	r.Get("/setup/github/manifest/callback", s.setupGitHubManifestCallback)
 	r.Get("/setup/github/authorize/callback", s.setupGitHubAuthorizationCallback)
 	r.Get("/setup/cloudflare/oauth/callback", s.setupCloudflareOAuthCallback)
 	r.Post("/setup/quick-tunnel", s.registerSetupQuickTunnel)
 	r.Post("/setup/recovery", s.recoverSetupSession)
 	r.With(s.requireSetup).Get("/setup/preflight", s.setupPreflight)
 	r.With(s.requireSetupMutation).Put("/setup/config", s.saveSetupConfig)
-	r.With(s.requireSetupMutation).Post("/setup/github/manifest/start", s.startGitHubManifest)
 	r.With(s.requireSetupMutation).Post("/setup/github/authorize/start", s.startGitHubAuthorization)
 	r.With(s.requireSetupMutation).Post("/setup/github/manual", s.saveGitHubManual)
 	r.With(s.requireSetupMutation).Post("/setup/cloudflare/oauth/start", s.startCloudflareOAuth)

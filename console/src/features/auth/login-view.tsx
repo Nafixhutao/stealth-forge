@@ -101,18 +101,20 @@ export function LoginView() {
     try {
       await mutation.mutateAsync(values);
       rememberMethod("password");
-      // Instance owners and admins operate the platform, so send them to the
-      // Admin Console. An explicit ?next= always wins (invitations, deep links).
+      // Instance owners and admins operate the platform, so they land on the
+      // Admin Console; every other account lands on the customer console. An
+      // explicit ?next= always wins (invitations, deep links).
       let target = destination;
       if (rawNext === null) {
         try {
           const account = await fetchCurrentAccount();
           const role = account?.account.instance_role;
-          if (role === "instance_owner" || role === "instance_admin") {
-            target = "/admin";
+          if (role !== "instance_owner" && role !== "instance_admin") {
+            target = "/user";
           }
         } catch {
-          // Fall back to the default destination if the role cannot be read.
+          // Fall back to the default destination; AdminGate forwards
+          // non-admins to the user console.
         }
       }
       router.replace(target);

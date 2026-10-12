@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/realtime"
+	"github.com/Nafixhutao/stealth-forge/internal/realtime"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )

@@ -6,11 +6,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/config"
-	"github.com/Stealth-deplover/stealth/internal/domain"
-	"github.com/Stealth-deplover/stealth/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/config"
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
 	"github.com/google/uuid"
 )
 
@@ -30,18 +29,6 @@ func (*bootstrapStoreFake) CreateBootstrapSession(context.Context, repository.Bo
 
 func (*bootstrapStoreFake) VerifyBootstrapCode(context.Context, []byte) (repository.BootstrapVerification, error) {
 	return repository.BootstrapVerification{}, nil
-}
-
-func (*bootstrapStoreFake) StartGitHubDeviceFlow(context.Context, repository.GitHubDeviceFlowInput) (repository.GitHubDeviceFlow, error) {
-	return repository.GitHubDeviceFlow{}, nil
-}
-
-func (*bootstrapStoreFake) ClaimGitHubDevicePoll(context.Context, uuid.UUID) (repository.GitHubDeviceFlow, bool, error) {
-	return repository.GitHubDeviceFlow{}, false, nil
-}
-
-func (*bootstrapStoreFake) UpdateGitHubDeviceFlow(context.Context, uuid.UUID, string, time.Duration, time.Time) error {
-	return nil
 }
 
 func (*bootstrapStoreFake) CreateGitHubInstanceOwner(context.Context, repository.GitHubOwnerInput) (domain.Account, error) {

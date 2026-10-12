@@ -40,8 +40,6 @@ export const configSchema = z.object({
 export const manualGitHubSchema = z.object({
   client_id: z.string().trim().min(1, "Client ID is required."),
   client_secret: z.string().min(1, "Client secret is required."),
-  private_key: z.string().min(1, "Private key is required."),
-  webhook_secret: z.string(),
 });
 
 export const setupCodeSchema = z
@@ -67,20 +65,23 @@ export type SetupStep =
   | "review"
   | "install";
 
+/**
+ * The wizard's ordered steps. The rail derives each marker from the index, so
+ * numbering can never drift from the order or from the header's "Step X of Y".
+ */
 export const setupSteps: Array<{
   id: SetupStep;
   label: string;
-  short: string;
 }> = [
-  { id: "welcome", label: "Welcome", short: "Start" },
-  { id: "instance", label: "Instance", short: "01" },
-  { id: "github", label: "GitHub", short: "02" },
-  { id: "networking", label: "Networking", short: "03" },
-  { id: "data", label: "Database & Redis", short: "04" },
-  { id: "storage", label: "Storage", short: "05" },
-  { id: "signin", label: "Sign-in", short: "06" },
-  { id: "review", label: "Review", short: "07" },
-  { id: "install", label: "Install", short: "08" },
+  { id: "welcome", label: "Welcome" },
+  { id: "instance", label: "Instance" },
+  { id: "github", label: "GitHub" },
+  { id: "networking", label: "Networking" },
+  { id: "data", label: "Database & Redis" },
+  { id: "storage", label: "Storage" },
+  { id: "signin", label: "Sign-in" },
+  { id: "review", label: "Review" },
+  { id: "install", label: "Install" },
 ];
 
 export const installationSteps = [

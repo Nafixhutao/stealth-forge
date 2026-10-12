@@ -83,7 +83,7 @@ function ProviderFields({
     <div className="rounded-xl border border-stealth-border p-5">
       <div className="flex items-center gap-2">
         <KeyRound className="size-4 text-slate-300" aria-hidden="true" />
-        <p className="text-sm font-medium text-white">{title}</p>
+        <p className="text-sm font-medium text-paper">{title}</p>
       </div>
       <div className="mt-4 grid gap-5 sm:grid-cols-2">
         <Field id={`${clientIdField}-id`} label="Client ID">

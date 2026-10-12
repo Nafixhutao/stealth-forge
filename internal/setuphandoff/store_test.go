@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/auth"
-	"github.com/Stealth-deplover/stealth/internal/functionsecret"
+	"github.com/Nafixhutao/stealth-forge/internal/auth"
+	"github.com/Nafixhutao/stealth-forge/internal/functionsecret"
 )
 
 func TestFileStoreEncryptsAndConsumesHandoffOnce(t *testing.T) {

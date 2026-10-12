@@ -12,11 +12,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/appsecret"
-	"github.com/Stealth-deplover/stealth/internal/appstore"
-	"github.com/Stealth-deplover/stealth/internal/observability"
-	"github.com/Stealth-deplover/stealth/internal/ociartifact"
-	"github.com/Stealth-deplover/stealth/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/appsecret"
+	"github.com/Nafixhutao/stealth-forge/internal/appstore"
+	"github.com/Nafixhutao/stealth-forge/internal/observability"
+	"github.com/Nafixhutao/stealth-forge/internal/ociartifact"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
 	"github.com/google/uuid"
 )
 

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	dbcore "github.com/Stealth-deplover/stealth/internal/database"
+	dbcore "github.com/Nafixhutao/stealth-forge/internal/database"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )

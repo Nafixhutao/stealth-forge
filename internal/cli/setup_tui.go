@@ -340,16 +340,15 @@ func (m setupModel) View() string {
 		builder.WriteString("The local installation remains unchanged while setup starts.")
 	case setupWaiting:
 		builder.WriteString("Create your Stealth owner\n\n")
+		setupURL := m.localURL
 		if m.tunnelURL != "" {
 			builder.WriteString("Temporary onboarding tunnel\n")
-			builder.WriteString("  " + cyanStyle.Render(m.tunnelURL+"/setup") + "\n\n")
+			setupURL = m.tunnelURL + "/setup"
 		} else {
 			builder.WriteString("Temporary tunnel unavailable; use the local setup page\n")
-			builder.WriteString("  " + cyanStyle.Render(m.localURL) + "\n\n")
 		}
-		builder.WriteString("Setup code\n")
-		builder.WriteString("  " + successStyle.Render(m.session.SetupCode) + "\n")
-		builder.WriteString(fmt.Sprintf("\nExpires in %s\n", formatSetupCountdown(time.Until(m.session.ExpiresAt))))
+		builder.WriteString("  " + cyanStyle.Render(setupURL+"?code="+m.session.SetupCode) + "\n")
+		builder.WriteString(fmt.Sprintf("\nThe link carries the one-time setup token (expires in %s).\n", formatSetupCountdown(time.Until(m.session.ExpiresAt))))
 		if m.warning != "" {
 			builder.WriteString("\n" + warningStyle.Render("! "+m.warning) + "\n")
 		}
@@ -357,7 +356,7 @@ func (m setupModel) View() string {
 			builder.WriteString("\n" + warningStyle.Render("! Waiting for the API; retrying automatically") + "\n")
 		}
 		builder.WriteString(
-			"\nEnter the setup code on the page, then authorize the first Instance Owner in GitHub's browser flow.\n",
+			"\nOpen the link, then authorize the first Instance Owner in GitHub's browser flow.\n",
 		)
 		builder.WriteString(m.spinner.View() + " Waiting for GitHub authorization…\n\n")
 		builder.WriteString(renderSubtitle("Ctrl+C cancels safely; data and configuration are preserved."))

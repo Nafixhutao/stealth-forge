@@ -10,10 +10,10 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/Stealth-deplover/stealth/internal/appbuildspec"
-	"github.com/Stealth-deplover/stealth/internal/domain"
-	"github.com/Stealth-deplover/stealth/internal/storage"
-	"github.com/Stealth-deplover/stealth/internal/workloadspec"
+	"github.com/Nafixhutao/stealth-forge/internal/appbuildspec"
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
+	"github.com/Nafixhutao/stealth-forge/internal/storage"
+	"github.com/Nafixhutao/stealth-forge/internal/workloadspec"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )

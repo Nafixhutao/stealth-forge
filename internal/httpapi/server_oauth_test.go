@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Stealth-deplover/stealth/internal/config"
-	"github.com/Stealth-deplover/stealth/internal/httpapi"
+	"github.com/Nafixhutao/stealth-forge/internal/config"
+	"github.com/Nafixhutao/stealth-forge/internal/httpapi"
 )
 
 // TestOAuthStartPKCEChallengeMatchesCookieVerifier is the regression guard for

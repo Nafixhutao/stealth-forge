@@ -7,8 +7,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Stealth-deplover/stealth/internal/buildinfo"
-	"github.com/Stealth-deplover/stealth/internal/installengine"
+	"github.com/Nafixhutao/stealth-forge/internal/buildinfo"
+	"github.com/Nafixhutao/stealth-forge/internal/installengine"
 )
 
 func validateReleaseVersion(version string) error {

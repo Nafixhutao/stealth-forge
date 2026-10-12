@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/secretkey"
+	"github.com/Nafixhutao/stealth-forge/internal/secretkey"
 )
 
 type Config struct {

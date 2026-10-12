@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/observability"
+	"github.com/Nafixhutao/stealth-forge/internal/observability"
 	"github.com/google/uuid"
 	dto "github.com/prometheus/client_model/go"
 )

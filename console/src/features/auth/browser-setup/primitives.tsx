@@ -17,13 +17,13 @@ import {
   Wifi,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { safeError } from "./helpers";
 
 function fieldError(id: string, message: string | undefined) {
   return message ? (
-    <p id={id} className="text-xs text-rose-300" role="alert">
+    <p id={id} className="text-xs text-[#f0b4b7]" role="alert">
       {message}
     </p>
   ) : null;
@@ -35,17 +35,21 @@ export function BrandMark() {
       <Image
         src="/stealth-mark.png"
         alt="Stealth"
-        width={36}
-        height={36}
-        className="size-9 rounded-md"
+        width={32}
+        height={32}
+        className="size-8"
       />
-      <span className="text-sm font-semibold tracking-[-0.012em] text-paper">
+      <span className="text-[14px] font-medium tracking-[-0.01em] text-[var(--setup-text)]">
         Stealth
       </span>
     </div>
   );
 }
 
+/**
+ * Card used for the mutually-exclusive setup choices (network mode, database
+ * mode, and so on): a radio-shaped tile that shows its selected state inline.
+ */
 export function ChoiceCard({
   active,
   icon: Icon,
@@ -64,19 +68,32 @@ export function ChoiceCard({
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`flex min-h-28 w-full items-start gap-3 rounded-lg border p-4 text-left transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-acid-lime/40 ${active ? "border-acid-lime/60 bg-acid-lime/[0.08]" : "border-graphite bg-carbon hover:border-smoke"}`}
+      className={cn(
+        "flex h-full min-h-24 w-full items-start gap-3 rounded-lg border p-4 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/15",
+        active
+          ? "border-[var(--setup-border-strong)] bg-[var(--setup-row-active)]"
+          : "border-[var(--setup-border)] bg-[var(--setup-surface-raised)] hover:border-[var(--setup-border-strong)]",
+      )}
     >
       <Icon
-        className={`mt-0.5 size-5 shrink-0 ${active ? "text-acid-lime" : "text-fog"}`}
+        className={cn(
+          "mt-0.5 size-[18px] shrink-0",
+          active
+            ? "text-[var(--setup-text)]"
+            : "text-[var(--setup-text-faint)]",
+        )}
+        strokeWidth={1.8}
       />
-      <span>
-        <span className="block text-sm font-medium text-paper">{title}</span>
-        <span className="mt-1 block text-xs leading-5 text-fog">
+      <span className="min-w-0">
+        <span className="block text-[13px] font-medium text-[var(--setup-text)]">
+          {title}
+        </span>
+        <span className="mt-1 block text-[12px] leading-5 text-[var(--setup-text-muted)]">
           {description}
         </span>
       </span>
       {active ? (
-        <Check className="ml-auto size-4 shrink-0 text-acid-lime" />
+        <Check className="ml-auto size-4 shrink-0 text-[var(--setup-text)]" />
       ) : null}
     </button>
   );
@@ -90,14 +107,17 @@ export function StatusPill({
   children: ReactNode;
 }) {
   const styles = {
-    ready: "border-emerald-300/25 bg-emerald-300/10 text-emerald-200",
-    pending: "border-acid-lime/25 bg-acid-lime/10 text-mist",
-    warning: "border-amber-300/25 bg-amber-300/10 text-amber-200",
-    error: "border-rose-300/25 bg-rose-300/10 text-rose-200",
+    ready: "border-[#76bc9a]/30 bg-[#76bc9a]/10 text-[#a3d6bd]",
+    pending: "border-[var(--setup-border-strong)] bg-white/[0.04] text-[var(--setup-text-secondary)]",
+    warning: "border-[#d4b36e]/30 bg-[#d4b36e]/10 text-[#ecd9b0]",
+    error: "border-[#ea9198]/30 bg-[#ea9198]/10 text-[#f0b4b7]",
   }[status];
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-xs border px-1.5 py-1 text-xs font-medium ${styles}`}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-[5px] border px-1.5 py-1 text-[11px] font-medium",
+        styles,
+      )}
     >
       <span className="size-1.5 rounded-full bg-current" />
       {children}
@@ -109,7 +129,7 @@ export function ActionError({ error }: { error: unknown }) {
   if (!error) return null;
   return (
     <div
-      className="flex items-start gap-2 rounded-lg border border-rose-300/20 bg-rose-400/[0.08] px-3 py-2.5 text-xs leading-5 text-rose-200"
+      className="flex items-start gap-2 rounded-lg border border-[#ea9198]/25 bg-[#ea9198]/[0.06] px-3 py-2.5 text-xs leading-5 text-[#f0b4b7]"
       role="alert"
     >
       <CircleAlert className="mt-0.5 size-4 shrink-0" />
@@ -123,12 +143,14 @@ export function Field({
   label,
   hint,
   error,
+  className,
   children,
 }: {
   id: string;
   label: string;
   hint?: string;
   error?: string;
+  className?: string;
   children: ReactNode;
 }) {
   const hintID = `${id}-hint`;
@@ -146,11 +168,13 @@ export function Field({
       : children;
 
   return (
-    <div className="space-y-2">
-      <Label htmlFor={id}>{label}</Label>
+    <div className={cn("space-y-2", className)}>
+      <Label htmlFor={id} className="text-[13px] text-[var(--setup-text-secondary)]">
+        {label}
+      </Label>
       {control}
       {hint ? (
-        <p id={hintID} className="text-xs leading-5 text-slate-600">
+        <p id={hintID} className="text-xs leading-5 text-[var(--setup-text-muted)]">
           {hint}
         </p>
       ) : null}
@@ -171,14 +195,16 @@ export function StageHeader({
   description: string;
 }) {
   return (
-    <header className="mb-7">
-      <p className="mb-2 text-xs font-medium uppercase tracking-[0.14em] text-fog">
+    <header className="mb-6">
+      <p className="mb-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-[var(--setup-text-muted)]">
         {eyebrow}
       </p>
-      <h1 className="text-2xl font-semibold leading-tight tracking-[-0.022em] text-paper sm:text-3xl">
+      <h1 className="text-[22px] font-semibold leading-[1.15] tracking-[-0.02em] text-balance text-[var(--setup-text)] sm:text-[24px]">
         {title}
       </h1>
-      <p className="mt-3 max-w-2xl text-sm leading-6 text-fog">{description}</p>
+      <p className="mt-3 max-w-[62ch] text-[13px] leading-6 text-pretty text-[var(--setup-text-muted)]">
+        {description}
+      </p>
     </header>
   );
 }
@@ -189,15 +215,19 @@ export function StageActions({
   nextLabel = "Continue",
   nextDisabled,
   pending,
+  arrow = true,
 }: {
   back?: () => void;
   next?: () => void;
   nextLabel?: string;
   nextDisabled?: boolean;
   pending?: boolean;
+  /** Forward-navigation cue. Action buttons (Save, Install, Test) set this
+      false: an arrow means "goes to the next screen", not "runs a command". */
+  arrow?: boolean;
 }) {
   return (
-    <div className="mt-8 flex flex-col-reverse gap-3 border-t border-stealth-border pt-5 sm:flex-row sm:items-center sm:justify-between">
+    <div className="mt-8 flex flex-col-reverse gap-3 border-t border-[var(--setup-border)] pt-5 sm:flex-row sm:items-center sm:justify-between">
       {back ? (
         <Button type="button" variant="ghost" onClick={back}>
           <ArrowLeft className="size-4" /> Back
@@ -209,7 +239,7 @@ export function StageActions({
         <Button type="button" onClick={next} disabled={nextDisabled || pending}>
           {pending ? <Loader2 className="size-4 animate-spin" /> : null}
           {pending ? "Saving…" : nextLabel}
-          {!pending ? <ArrowRight className="size-4" /> : null}
+          {!pending && arrow ? <ArrowRight className="size-4" /> : null}
         </Button>
       ) : null}
     </div>
@@ -218,11 +248,11 @@ export function StageActions({
 
 export function ReviewRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col gap-1 border-b border-stealth-border/70 py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
-      <dt className="text-xs uppercase tracking-[0.12em] text-slate-600">
+    <div className="flex flex-col gap-1 border-b border-[var(--setup-border)] px-4 py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+      <dt className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--setup-text-muted)]">
         {label}
       </dt>
-      <dd className="break-all text-sm text-slate-200 sm:text-right">
+      <dd className="break-all text-[13px] text-[var(--setup-text-secondary)] sm:text-right">
         {value}
       </dd>
     </div>
@@ -231,14 +261,14 @@ export function ReviewRow({ label, value }: { label: string; value: string }) {
 
 export function ProductionLink({ publicURL }: { publicURL?: string }) {
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-emerald-300/20 bg-emerald-300/[0.06] p-5">
+    <div className="flex flex-col gap-4 rounded-lg border border-[#76bc9a]/25 bg-[#76bc9a]/[0.05] p-5">
       <div className="flex items-start gap-3">
-        <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-300" />
+        <CheckCircle2 className="mt-0.5 size-[18px] shrink-0 text-[#76bc9a]" />
         <div>
-          <p className="text-sm font-medium text-emerald-100">
+          <p className="text-[13px] font-medium text-[#a3d6bd]">
             Production is ready
           </p>
-          <p className="mt-1 text-xs leading-5 text-emerald-200/70">
+          <p className="mt-1 text-xs leading-5 text-[#a3d6bd]/70">
             The setup route is sealed. Open the production Console to sign in.
           </p>
         </div>
@@ -254,31 +284,51 @@ export function ProductionLink({ publicURL }: { publicURL?: string }) {
 
 export function LoadingPanel({ label }: { label: string }) {
   return (
-    <Card className="mx-auto max-w-xl bg-carbon">
-      <CardContent
-        className="flex items-center gap-3 p-6 text-sm text-fog"
-        aria-live="polite"
-      >
-        <Loader2 className="size-5 animate-spin text-acid-lime" /> {label}
-      </CardContent>
-    </Card>
+    <div
+      className="flex items-center gap-3 rounded-lg border border-[var(--setup-border)] bg-[var(--setup-surface-raised)] p-6 text-[13px] text-[var(--setup-text-muted)]"
+      aria-live="polite"
+    >
+      <Loader2 className="size-[18px] animate-spin text-[var(--setup-text-muted)]" />
+      {label}
+    </div>
   );
 }
 
-export function InfoCard({
-  icon: Icon,
-  title,
-  description,
+/**
+ * Three short assurances about how setup behaves, rendered as one panel split
+ * by hairlines instead of three floating cards, so it reads as a single
+ * statement about the process rather than a generic feature-card row.
+ */
+export function AssuranceStrip({
+  items,
 }: {
-  icon: typeof Terminal;
-  title: string;
-  description: string;
+  items: Array<{
+    icon: typeof Terminal;
+    title: string;
+    description: string;
+  }>;
 }) {
   return (
-    <div className="rounded-lg border border-graphite bg-carbon p-4">
-      <Icon className="size-5 text-fog" />
-      <p className="mt-4 text-sm font-medium text-paper">{title}</p>
-      <p className="mt-1 text-xs leading-5 text-fog">{description}</p>
+    <div className="mt-6 grid gap-px overflow-hidden rounded-lg border border-[var(--setup-border)] bg-[var(--setup-border)] sm:grid-cols-3">
+      {items.map(({ icon: Icon, title, description }) => (
+        <div
+          key={title}
+          className="flex flex-col gap-2 bg-[var(--setup-surface-raised)] p-4"
+        >
+          <span className="flex items-center gap-2">
+            <Icon
+              className="size-4 shrink-0 text-[var(--setup-text-muted)]"
+              strokeWidth={1.8}
+            />
+            <span className="text-[13px] font-medium text-[var(--setup-text)]">
+              {title}
+            </span>
+          </span>
+          <p className="text-[12px] leading-5 text-[var(--setup-text-muted)]">
+            {description}
+          </p>
+        </div>
+      ))}
     </div>
   );
 }
@@ -303,26 +353,36 @@ export function DependencySection({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-graphite bg-carbon/40 p-5">
+    <section className="rounded-lg border border-[var(--setup-border)] bg-[var(--setup-surface-raised)] p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
-          <Icon className="mt-0.5 size-5 shrink-0 text-fog" />
+          <Icon
+            className="mt-0.5 size-[18px] shrink-0 text-[var(--setup-text-faint)]"
+            strokeWidth={1.8}
+          />
           <div>
-            <h2 className="text-sm font-medium text-paper">{title}</h2>
-            <p className="mt-1 text-xs text-fog">
+            <h2 className="text-[13px] font-medium text-[var(--setup-text)]">
+              {title}
+            </h2>
+            <p className="mt-1 text-[12px] text-[var(--setup-text-muted)]">
               {mode === "bundled"
                 ? "Managed by this setup Compose project."
                 : "Your endpoint is tested before install."}
             </p>
           </div>
         </div>
-        <div className="flex gap-1 rounded-md border border-graphite p-1">
+        <div className="flex gap-1 rounded-md border border-[var(--setup-border)] bg-[var(--setup-bg)] p-1">
           {(["bundled", "external"] as const).map((option) => (
             <button
               key={option}
               type="button"
               onClick={() => onModeChange(option)}
-              className={`min-h-11 rounded-sm px-3 text-xs font-medium transition-colors duration-150 ${mode === option ? "bg-acid-lime text-void" : "text-fog hover:text-paper"}`}
+              className={cn(
+                "min-h-9 rounded-[5px] px-3 text-[12px] font-medium transition-colors duration-150",
+                mode === option
+                  ? "bg-[var(--setup-row-active)] text-[var(--setup-text)]"
+                  : "text-[var(--setup-text-muted)] hover:text-[var(--setup-text)]",
+              )}
             >
               {option === "bundled" ? "Bundled" : "External"}
             </button>

@@ -41,8 +41,6 @@ export function MobileSheet({
   // from whenever motion settles: a ref keeps it on the current one.
   const openRef = useRef(open);
 
-  // Portal mounting and open-slide bookkeeping are inherently effect-driven;
-  // these updates run once per mount / open transition, not per render.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
 
@@ -97,6 +95,7 @@ export function MobileSheet({
 
   return createPortal(
     <div
+      data-user
       className={cn(
         "pointer-events-none fixed left-0 top-0 z-50 size-0 lg:hidden",
         hidden && !open ? "invisible" : "visible",

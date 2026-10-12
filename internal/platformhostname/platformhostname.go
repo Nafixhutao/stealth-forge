@@ -7,7 +7,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/Stealth-deplover/stealth/internal/domainname"
+	"github.com/Nafixhutao/stealth-forge/internal/domainname"
 	"github.com/google/uuid"
 )
 

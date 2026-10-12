@@ -47,7 +47,7 @@ public HTTPS behavior, persists `traefik` as the desired origin, uses the
 origin-only Cloudflare reconciler under the existing PostgreSQL advisory lock,
 then verifies the provider read-back and public HTTPS Console/API routes,
 browser security headers, and HSTS. The Console root may safely redirect (for
-example, `307 /organizations`); verification follows at most five redirects
+example, `307 /admin`); verification follows at most five redirects
 only when they remain on the configured HTTPS hostname and port. Every hop
 must preserve the required security headers and HSTS. If public verification
 fails, it persists `proxy`, uses the same origin-only operation to restore
@@ -238,7 +238,7 @@ security headers on representative Console and API responses and an Admin SSE
 connection. It also runs a temporary echo backend through Traefik to verify the
 forwarded-header trust boundary at runtime: an untrusted ingress peer cannot
 preserve spoofed forwarding metadata, while the configured Cloudflared `/32`
-can. For `/`, it observes the first `307 /organizations` response and the
+can. For `/`, it observes the first `307 /admin` response and the
 successful final document response on both origins.
 
 ## Browser security headers and HSTS

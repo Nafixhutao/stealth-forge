@@ -1,0 +1,51 @@
+/* Root 404 surface.
+
+   The redesigned console (sidebar and admin chrome) is authored against
+   Tailwind's DEFAULT theme tokens. The Console's global @theme remaps several
+   of them for the Inlark palette, which changes spacing, line-heights and the
+   body font outside those scoped surfaces. Restore the defaults here so the
+   error page renders in the sidebar's language instead of the Inlark one:
+
+   - Type: Geist for UI, Source Code Pro for technical metadata, matching the
+     sidebar's voice.
+   - Palette: the sidebar's warm near-black #121014 with hairline #322F37 and
+     the monochrome oklch text ramp. No accent: the sidebar itself carries none.
+   - Spacing: Tailwind's N * 0.25rem scale. Without this, tokens like
+     --spacing-4 resolve to a literal 4px and `leading-4`/`leading-8` collapse
+     to 4px/8px line-heights. */
+[data-error] {
+  --font-sans:
+    "Geist Variable", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono:
+    "Source Code Pro Variable", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", monospace;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --spacing-4: calc(var(--spacing) * 4);
+  --spacing-8: calc(var(--spacing) * 8);
+  --spacing-12: calc(var(--spacing) * 12);
+  --spacing-16: calc(var(--spacing) * 16);
+  --spacing-20: calc(var(--spacing) * 20);
+  --spacing-24: calc(var(--spacing) * 24);
+  --spacing-28: calc(var(--spacing) * 28);
+  --spacing-32: calc(var(--spacing) * 32);
+  --spacing-36: calc(var(--spacing) * 36);
+  --spacing-40: calc(var(--spacing) * 40);
+  --spacing-48: calc(var(--spacing) * 48);
+  --spacing-56: calc(var(--spacing) * 56);
+  --spacing-64: calc(var(--spacing) * 64);
+  --spacing-80: calc(var(--spacing) * 80);
+  --spacing-96: calc(var(--spacing) * 96);
+  --spacing-128: calc(var(--spacing) * 128);
+
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+
+  font-family: var(--font-sans);
+  background-color: #121014;
+  color: oklch(0.949 0.0035 305);
+}

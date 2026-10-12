@@ -7,8 +7,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/domain"
-	"github.com/Stealth-deplover/stealth/internal/domainname"
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
+	"github.com/Nafixhutao/stealth-forge/internal/domainname"
 )
 
 const tunnelServiceDomain = "cfargotunnel.com"

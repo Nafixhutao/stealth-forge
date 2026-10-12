@@ -34,13 +34,6 @@ export function useSaveSetupConfig() {
   });
 }
 
-export function useStartSetupGitHubManifest() {
-  return useMutation({
-    mutationFn: async () =>
-      unwrap(await api.POST("/v1/setup/github/manifest/start", setupMutation)),
-  });
-}
-
 export function useStartSetupGitHubAuthorization() {
   return useMutation({
     mutationFn: async () =>

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Stealth-deplover/stealth/internal/buildkitpki"
+	"github.com/Nafixhutao/stealth-forge/internal/buildkitpki"
 )
 
 func TestLayoutSeparatesStateAndBuildKitPKI(t *testing.T) {

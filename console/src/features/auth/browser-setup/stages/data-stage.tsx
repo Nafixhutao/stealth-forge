@@ -51,6 +51,7 @@ export function DataStage({ flow }: { flow: SetupFlow }) {
             id="database-url"
             label="PostgreSQL URL"
             hint="The URL is kept server-side and is not returned in setup status."
+            className="max-w-[560px]"
           >
             <Input
               id="database-url"
@@ -78,6 +79,7 @@ export function DataStage({ flow }: { flow: SetupFlow }) {
             id="redis-url"
             label="Redis URL"
             hint="Use rediss:// when the provider requires TLS."
+            className="max-w-[560px]"
           >
             <Input
               id="redis-url"
@@ -102,6 +104,7 @@ export function DataStage({ flow }: { flow: SetupFlow }) {
         nextLabel="Save and configure storage"
         nextDisabled={!dataReady}
         pending={saveConfig.isPending}
+        arrow={false}
       />
     </>
   );

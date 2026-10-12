@@ -200,7 +200,7 @@ release evidence.
       and a working platform Site. The commands do not change Cloudflare HSTS
       or other zone-wide settings.
 - [ ] Confirm Console root verification follows its bounded same-origin HTTPS
-      redirect (normally `307 /organizations`) and rejects downgrade,
+      redirect (normally `307 /admin`) and rejects downgrade,
       cross-host, loop, and over-limit redirects.
 - [ ] Confirm manual rollback preflight requires healthy local proxy/Nginx and
       running Cloudflared, plus healthy PostgreSQL only when bundled. It must

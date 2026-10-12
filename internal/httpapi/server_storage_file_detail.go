@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/Stealth-deplover/stealth/internal/database"
-	"github.com/Stealth-deplover/stealth/internal/domain"
-	"github.com/Stealth-deplover/stealth/internal/repository"
-	"github.com/Stealth-deplover/stealth/internal/storage"
+	"github.com/Nafixhutao/stealth-forge/internal/database"
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/storage"
 )
 
 func (s *Server) getStorageFile(w http.ResponseWriter, r *http.Request) {

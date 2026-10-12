@@ -6,9 +6,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Stealth-deplover/stealth/internal/domain"
-	"github.com/Stealth-deplover/stealth/internal/domainname"
-	"github.com/Stealth-deplover/stealth/internal/platformhostname"
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
+	"github.com/Nafixhutao/stealth-forge/internal/domainname"
+	"github.com/Nafixhutao/stealth-forge/internal/platformhostname"
 	"github.com/jackc/pgx/v5"
 )
 

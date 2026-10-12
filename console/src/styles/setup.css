@@ -1,0 +1,222 @@
+/* First-run browser setup surface.
+   Design Read: setup wizard for a self-hosted developer platform, operators
+   installing their own instance, in the existing Stealth console language,
+   dial ENERGY 1 / RHYTHM 2 / MOTION 2.
+
+   Reasons (R-31):
+   - Palette: the wizard is bound to the ported sidebar system the owner asked
+     to match (warm near-black #121014, hairline #322F37, monochrome ramp), so
+     no second accent is introduced (R-29).
+   - Theme: dark is the product's identity here. It is a developer/ops tool that
+     matches the dark Admin Console, and the wizard runs before any account or
+     theme preference exists, so there is nothing to toggle yet (R-21).
+   - Type: Geist for UI, Source Code Pro for step/index metadata, matching the
+     Admin Console's technical-metadata voice (R-06).
+   - Radius: one system (12px panels, 8px cards, 6px controls, 5px markers) so
+     radius marks hierarchy rather than decorating (R-11).
+
+   The scope restores the Tailwind defaults the Console's global @theme
+   overrides (spacing, radii, shadows, font weights) and remaps the semantic
+   palette, so the shared primitives render in the sidebar palette without
+   duplicating every utility class. */
+[data-setup] {
+  font-family:
+    "Geist Variable",
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif,
+    "Apple Color Emoji",
+    "Segoe UI Emoji",
+    "Segoe UI Symbol",
+    "Noto Color Emoji";
+  color: #eeeaf0;
+  font-feature-settings: normal;
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
+  text-rendering: auto;
+
+  --font-sans:
+    "Geist Variable", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono:
+    "Source Code Pro Variable", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", monospace;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+  --font-weight-black: 900;
+
+  /* Tailwind default spacing scale (N * 0.25rem). The Console overrides the
+     4px-multiple tokens with literal pixel values, which would break the
+     ported layout. */
+  --spacing-4: calc(var(--spacing) * 4);
+  --spacing-8: calc(var(--spacing) * 8);
+  --spacing-12: calc(var(--spacing) * 12);
+  --spacing-16: calc(var(--spacing) * 16);
+  --spacing-20: calc(var(--spacing) * 20);
+  --spacing-24: calc(var(--spacing) * 24);
+  --spacing-28: calc(var(--spacing) * 28);
+  --spacing-32: calc(var(--spacing) * 32);
+  --spacing-36: calc(var(--spacing) * 36);
+  --spacing-40: calc(var(--spacing) * 40);
+  --spacing-48: calc(var(--spacing) * 48);
+  --spacing-56: calc(var(--spacing) * 56);
+  --spacing-64: calc(var(--spacing) * 64);
+  --spacing-80: calc(var(--spacing) * 80);
+  --spacing-96: calc(var(--spacing) * 96);
+  --spacing-128: calc(var(--spacing) * 128);
+
+  /* Tailwind default radii. */
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+  --radius-4xl: 2rem;
+  --radius-full: 9999px;
+
+  /* Tailwind default shadows. */
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg:
+    0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl:
+    0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+
+  /* Setup palette, ported from the redesigned sidebar. */
+  --setup-bg: #121014;
+  --setup-surface: #17161a;
+  --setup-surface-raised: #1a181d;
+  --setup-border: #322f37;
+  --setup-border-strong: #3a373f;
+  --setup-chip: #201e22;
+  --setup-text: #eeeaf0;
+  --setup-text-secondary: #c5c1c9;
+  --setup-text-muted: #aaa6ae;
+  /* Non-text only (icon glyphs, rails): 3.70:1 on the surface clears the 3:1
+     UI-component bar but fails the 4.5:1 text bar, so it is never used for
+     body or label text (R-25). */
+  --setup-text-faint: #737078;
+  --setup-row-hover: rgb(255 255 255 / 0.035);
+  --setup-row-active: rgb(255 255 255 / 0.06);
+
+  /* Remap the semantic palette onto the sidebar ramp so the shared primitives
+     (Input, Button, Label, Switch) inherit it without per-file edits. The
+     primary action becomes the light monochrome button, matching the sidebar's
+     light-on-dark treatment rather than introducing a second accent. */
+  --color-void: #121014;
+  --color-carbon: #17161a;
+  --color-obsidian: #1a181d;
+  --color-graphite: #2a2830;
+  --color-smoke: #3a373f;
+  --color-ash: #6b6873;
+  --color-fog: #8a8791;
+  --color-mist: #c5c1c9;
+  --color-bone: #dedde2;
+  --color-paper: #eeeaf0;
+  --color-control-border: #3a373f;
+  --color-stealth-bg: #121014;
+  --color-stealth-panel: #17161a;
+  --color-stealth-elevated: #1a181d;
+  --color-stealth-subtle: #201e22;
+  --color-stealth-border: #322f37;
+  --color-stealth-muted: #8a8791;
+  --color-acid-lime: #eeeaf0;
+  --color-stealth-accent: #eeeaf0;
+
+  /* Neutralize the legacy accent utilities the stages still reference. */
+  --color-cyan-100: #eeeaf0;
+  --color-cyan-200: #dedde2;
+  --color-cyan-300: #c5c1c9;
+  --color-cyan-400: #c5c1c9;
+  --color-cyan-500: #b3b0ba;
+  --color-cyan-600: #8a8791;
+
+  /* Muted semantic tones for status. */
+  --color-slate-100: #dedde2;
+  --color-slate-200: #c5c1c9;
+  --color-slate-300: #b3b0ba;
+  --color-slate-400: #a3a0aa;
+  --color-slate-500: #8a8791;
+  --color-slate-600: #8a8791;
+  --color-slate-700: #8a8791;
+  --color-emerald-100: #cbe8da;
+  --color-emerald-200: #a3d6bd;
+  --color-emerald-300: #76bc9a;
+  --color-emerald-400: #76bc9a;
+  --color-rose-100: #f7d4d6;
+  --color-rose-200: #f0b4b7;
+  --color-rose-300: #ea9198;
+  --color-rose-400: #ea9198;
+  --color-rose-500: #ea9198;
+  --color-amber-100: #ecd9b0;
+  --color-amber-200: #d4b36e;
+  --color-amber-300: #d4b36e;
+  --color-amber-400: #b8944f;
+
+  /* Switch control tokens. */
+  --projects-ring: #3a373f;
+  --projects-bg: #121014;
+  --projects-accent: #5f5b68;
+  --projects-text: #c5c1c9;
+}
+
+/* Tailwind v4 preflight dropped `cursor: pointer` on buttons; the sidebar
+   restores the v3 behavior. */
+[data-setup] button,
+[data-setup] [role="button"] {
+  cursor: pointer;
+}
+
+/* The Console's unlayered `* { border-color }` tints borderless elements; keep
+   the setup surface on its own hairline default. */
+[data-setup],
+[data-setup] *,
+[data-setup] *::before,
+[data-setup] *::after {
+  border-color: var(--setup-border);
+}
+
+/* Slim scrollbar for the step rail, matching the sidebar panel. */
+[data-setup] .setup-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #3a373f transparent;
+}
+[data-setup] .setup-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+[data-setup] .setup-scrollbar::-webkit-scrollbar-thumb {
+  background: #3a373f;
+  border-radius: 99px;
+}
+
+/* Stage entrance: a short fade-and-lift so switching steps feels deliberate
+   without animating layout. */
+@keyframes setup-stage-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+[data-setup] .setup-stage {
+  animation: setup-stage-in 240ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-setup] .setup-stage {
+    animation: none;
+  }
+}

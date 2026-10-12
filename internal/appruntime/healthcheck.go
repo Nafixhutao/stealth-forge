@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/workloadspec"
+	"github.com/Nafixhutao/stealth-forge/internal/workloadspec"
 )
 
 var (

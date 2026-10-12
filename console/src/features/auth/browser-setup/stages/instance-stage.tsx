@@ -29,6 +29,7 @@ export function InstanceStage({ flow }: { flow: SetupFlow }) {
           label="Instance name"
           hint="This label stays inside your installation."
           error={configForm.formState.errors.instance_name?.message}
+          className="max-w-[520px]"
         >
           <Input id="instance-name" {...configForm.register("instance_name")} />
         </Field>
@@ -37,6 +38,7 @@ export function InstanceStage({ flow }: { flow: SetupFlow }) {
           label="Public Console URL"
           hint="Use the final URL, without a path, query, or fragment."
           error={configForm.formState.errors.public_url?.message}
+          className="max-w-[520px]"
         >
           <Input
             id="public-url"
@@ -60,6 +62,7 @@ export function InstanceStage({ flow }: { flow: SetupFlow }) {
         }
         nextLabel="Save and connect GitHub"
         pending={isPending}
+        arrow={false}
       />
     </form>
   );

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/appbuildspec"
+	"github.com/Nafixhutao/stealth-forge/internal/appbuildspec"
 )
 
 var (

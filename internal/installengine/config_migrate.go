@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Stealth-deplover/stealth/internal/secretkey"
+	"github.com/Nafixhutao/stealth-forge/internal/secretkey"
 )
 
 // migrateReleaseConfig advances release-owned defaults while preserving

@@ -118,7 +118,6 @@ export function StorageStage({ flow }: { flow: SetupFlow }) {
                 })
               }
               label="Use TLS"
-              activeClassName="bg-cyan-400"
               className="min-h-11"
             />
             <Switch
@@ -129,7 +128,6 @@ export function StorageStage({ flow }: { flow: SetupFlow }) {
                 })
               }
               label="Force path style"
-              activeClassName="bg-cyan-400"
               className="min-h-11"
             />
           </div>
@@ -154,7 +152,7 @@ export function StorageStage({ flow }: { flow: SetupFlow }) {
           </div>
         </div>
       ) : (
-        <div className="mt-6 rounded-xl border border-stealth-border bg-black/10 p-5 text-sm leading-6 text-slate-400">
+        <div className="mt-6 rounded-xl border border-stealth-border bg-white/[0.02] p-5 text-sm leading-6 text-slate-400">
           The setup API will verify that the local storage volume is writable
           during the system check.
         </div>

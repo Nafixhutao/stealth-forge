@@ -18,11 +18,11 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/Stealth-deplover/stealth/internal/functionsecret"
-	"github.com/Stealth-deplover/stealth/internal/mailer"
-	"github.com/Stealth-deplover/stealth/internal/observability"
-	"github.com/Stealth-deplover/stealth/internal/repository"
-	"github.com/Stealth-deplover/stealth/internal/retry"
+	"github.com/Nafixhutao/stealth-forge/internal/functionsecret"
+	"github.com/Nafixhutao/stealth-forge/internal/mailer"
+	"github.com/Nafixhutao/stealth-forge/internal/observability"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/retry"
 	"github.com/google/uuid"
 )
 

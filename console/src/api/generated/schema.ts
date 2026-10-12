@@ -782,46 +782,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/bootstrap/github/device": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * @deprecated
-         * @description Legacy compatibility endpoint for existing non-browser callers. The active browser setup wizard uses GitHub Web Application Flow because Device Flow must be enabled separately in GitHub App settings.
-         */
-        post: operations["startBootstrapGitHubDeviceFlow"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/bootstrap/github/poll": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * @deprecated
-         * @description Legacy compatibility endpoint for existing non-browser callers. The active browser setup wizard uses the one-time GitHub web authorization callback instead.
-         */
-        post: operations["pollBootstrapGitHubDeviceFlow"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/bootstrap/adoption/accounts": {
         parameters: {
             query?: never;
@@ -907,23 +867,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/setup/github/manifest/callback": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Consume GitHub's one-time App Manifest callback, persist the converted credentials server-side, and redirect into the browser owner-authorization flow. */
-        get: operations["completeSetupGitHubManifest"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/setup/github/authorize/callback": {
         parameters: {
             query?: never;
@@ -986,23 +929,6 @@ export interface paths {
         /** @description Save the reviewed instance, networking, database, Redis, and storage choices. Secret values are write-only and are encrypted in the setup state. */
         put: operations["saveSetupConfig"];
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/setup/github/manifest/start": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Create a short-lived GitHub App Manifest POST action and non-secret JSON payload using the current HTTPS setup origin. */
-        post: operations["startSetupGitHubManifest"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4283,36 +4209,6 @@ export interface components {
             /** Format: date-time */
             expires_at: string;
         };
-        StartGitHubDeviceRequest: {
-            /** Format: uuid */
-            authorization_session_id: string;
-            setup_code: string;
-        };
-        GitHubDeviceResponse: {
-            /** Format: uuid */
-            authorization_session_id: string;
-            user_code: string;
-            /**
-             * Format: uri
-             * @constant
-             */
-            verification_uri: "https://github.com/login/device";
-            /** Format: date-time */
-            expires_at: string;
-            interval_seconds: number;
-        };
-        PollGitHubDeviceRequest: {
-            /** Format: uuid */
-            authorization_session_id: string;
-        };
-        GitHubPollResponse: {
-            /** @enum {string} */
-            status: GitHubPollResponseStatus;
-            retry_after_seconds?: number;
-            account?: components["schemas"]["Account"];
-            /** @description Setup-mode-only in-memory handoff credential; it must be posted to the final production origin and never stored. */
-            handoff_token?: string;
-        };
         BootstrapAdoptionAccount: {
             /** Format: uuid */
             id: string;
@@ -4396,8 +4292,6 @@ export interface components {
             connected?: boolean;
             /** Format: uuid */
             authorization_session?: string;
-            /** Format: date-time */
-            manifest_expires_at?: string;
         };
         /** @description OAuth is retained only as an inactive experimental compatibility value. Production setup uses api_token. */
         SetupCloudflareState: {
@@ -4439,17 +4333,6 @@ export interface components {
             oauth_google_client_id?: string;
             oauth_google_client_secret?: string;
         };
-        SetupGitHubManifestResponse: {
-            /**
-             * Format: uri
-             * @description GitHub's POST action URL
-             */
-            manifest_url: string;
-            /** @description Non-secret JSON manifest submitted by the browser */
-            manifest: string;
-            /** Format: date-time */
-            expires_at: string;
-        };
         SetupGitHubAuthorizationResponse: {
             /** Format: uri */
             authorization_url: string;
@@ -4459,7 +4342,7 @@ export interface components {
         SetupGitHubManualRequest: {
             client_id: string;
             client_secret: string;
-            private_key: string;
+            private_key?: string;
             webhook_secret?: string;
         };
         SetupCloudflareOAuthResponse: {
@@ -8883,78 +8766,6 @@ export interface operations {
             429: components["responses"]["RateLimited"];
         };
     };
-    startBootstrapGitHubDeviceFlow: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["StartGitHubDeviceRequest"];
-            };
-        };
-        responses: {
-            /** @description Legacy GitHub Device Flow user code for non-browser compatibility */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GitHubDeviceResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            410: components["responses"]["BootstrapComplete"];
-            413: components["responses"]["PayloadTooLarge"];
-            415: components["responses"]["UnsupportedMediaType"];
-            429: components["responses"]["RateLimited"];
-            502: components["responses"]["BadGateway"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    pollBootstrapGitHubDeviceFlow: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PollGitHubDeviceRequest"];
-            };
-        };
-        responses: {
-            /** @description Authorization is still pending */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GitHubPollResponse"];
-                };
-            };
-            /** @description First Instance Owner and authenticated session created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GitHubPollResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            409: components["responses"]["Conflict"];
-            410: components["responses"]["BootstrapComplete"];
-            413: components["responses"]["PayloadTooLarge"];
-            415: components["responses"]["UnsupportedMediaType"];
-            429: components["responses"]["RateLimited"];
-            502: components["responses"]["BadGateway"];
-        };
-    };
     listBootstrapAdoptionAccounts: {
         parameters: {
             query?: never;
@@ -9084,27 +8895,6 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
-    completeSetupGitHubManifest: {
-        parameters: {
-            query: {
-                code: string;
-                state: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Redirect to GitHub browser authorization or back to the setup Console with a non-sensitive result marker */
-            302: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
     completeSetupGitHubAuthorization: {
         parameters: {
             query: {
@@ -9199,33 +8989,6 @@ export interface operations {
             413: components["responses"]["PayloadTooLarge"];
             415: components["responses"]["UnsupportedMediaType"];
             422: components["responses"]["ValidationError"];
-        };
-    };
-    startSetupGitHubManifest: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Required on setup mutations. The setup Console sends the fixed value 1 and the server additionally checks the browser origin when supplied. */
-                "X-Stealth-Setup": components["parameters"]["SetupCSRF"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description GitHub App Manifest POST action and payload */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SetupGitHubManifestResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            503: components["responses"]["ServiceUnavailable"];
         };
     };
     startSetupGitHubAuthorization: {
@@ -16291,10 +16054,6 @@ export enum AdminPublicIncidentStatus {
     monitoring = "monitoring",
     resolved = "resolved"
 }
-export enum GitHubPollResponseStatus {
-    pending = "pending",
-    complete = "complete"
-}
 export enum SetupStatePhase {
     collecting = "collecting",
     install_requested = "install_requested",
@@ -16322,7 +16081,6 @@ export enum SetupDraftStorage_mode {
     s3 = "s3"
 }
 export enum SetupGitHubStateMode {
-    manifest = "manifest",
     manual = "manual"
 }
 export enum SetupCloudflareStateMode {

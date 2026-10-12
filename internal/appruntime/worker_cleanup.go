@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
 )
 
 func (w *Worker) ensureStartupSweep(ctx context.Context) error {

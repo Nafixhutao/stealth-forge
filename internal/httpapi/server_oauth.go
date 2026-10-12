@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/auth"
-	"github.com/Stealth-deplover/stealth/internal/domain"
-	"github.com/Stealth-deplover/stealth/internal/oauthlogin"
-	"github.com/Stealth-deplover/stealth/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/auth"
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
+	"github.com/Nafixhutao/stealth-forge/internal/oauthlogin"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
@@ -254,6 +254,20 @@ func (s *Server) oauthCallback(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
+	// Refresh the cached provider profile so a renamed account or a new avatar
+	// is reflected on the next visit instead of the value captured at first
+	// login. A refresh failure never blocks the sign-in itself.
+	if err := s.repo.RefreshAccountIdentityProfile(
+		r.Context(),
+		uuid.Must(uuid.Parse(account.ID)),
+		provider.Name,
+		identity.Login,
+		identity.Email,
+		identity.DisplayName,
+		identity.AvatarURL,
+	); err != nil {
+		s.logger.Warn("oauth identity profile refresh failed", "provider", provider.Name, "error", err)
+	}
 	if err := s.repo.CreateSession(r.Context(), uuid.Must(uuid.NewV7()), uuid.Must(uuid.Parse(account.ID)), tokenHash, time.Now().UTC().Add(s.config.SessionTTL), provider.Name); err != nil {
 		s.logger.Error("oauth session creation failed", "error", err)
 		http.Redirect(w, r, s.consoleURL("/login?oauth=error"), http.StatusFound)
@@ -266,7 +280,7 @@ func (s *Server) oauthCallback(w http.ResponseWriter, r *http.Request) {
 // redirectAfterOAuthLogin sends the browser to the right landing page for the
 // account's role.
 func (s *Server) redirectAfterOAuthLogin(w http.ResponseWriter, r *http.Request, account domain.Account) {
-	destination := "/organizations"
+	destination := "/user"
 	if account.InstanceRole == "instance_owner" || account.InstanceRole == "instance_admin" {
 		destination = "/admin"
 	}
@@ -342,7 +356,7 @@ func (s *Server) provisionOAuthAccount(w http.ResponseWriter, r *http.Request, p
 // started from, so a stolen callback URL cannot attach an identity elsewhere.
 func (s *Server) finishOAuthLink(w http.ResponseWriter, r *http.Request, provider oauthlogin.Provider, payload oauthStatePayload, identity oauthlogin.Identity) {
 	redirectFailure := func(reason string) {
-		http.Redirect(w, r, s.consoleURL("/account?link="+reason), http.StatusFound)
+		http.Redirect(w, r, s.consoleURL("/user?link="+reason), http.StatusFound)
 	}
 
 	cookie, err := r.Cookie(s.config.SessionCookieName)
@@ -390,7 +404,7 @@ func (s *Server) finishOAuthLink(w http.ResponseWriter, r *http.Request, provide
 		return
 	}
 	s.logger.Info("oauth identity linked", "provider", provider.Name, "account_id", account.ID)
-	http.Redirect(w, r, s.consoleURL("/account?link=ok&provider="+provider.Name), http.StatusFound)
+	http.Redirect(w, r, s.consoleURL("/user?link=ok&provider="+provider.Name), http.StatusFound)
 }
 
 func (s *Server) setOAuthStateCookie(w http.ResponseWriter, payload oauthStatePayload) error {

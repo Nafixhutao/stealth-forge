@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	dbcore "github.com/Stealth-deplover/stealth/internal/database"
-	"github.com/Stealth-deplover/stealth/internal/repository"
+	dbcore "github.com/Nafixhutao/stealth-forge/internal/database"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
 )
 
 func decodeRowObject(raw json.RawMessage) (map[string]any, error) {

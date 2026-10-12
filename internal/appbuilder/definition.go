@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/Stealth-deplover/stealth/internal/appbuildspec"
+	"github.com/Nafixhutao/stealth-forge/internal/appbuildspec"
 )
 
 const maxDockerfileBytes = 1 << 20

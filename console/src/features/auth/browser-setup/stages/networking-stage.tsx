@@ -98,7 +98,7 @@ export function NetworkingStage({ flow }: { flow: SetupFlow }) {
         <div className="mt-6 space-y-5 rounded-xl border border-stealth-border p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-medium text-white">
+              <p className="text-sm font-medium text-paper">
                 Cloudflare connection
               </p>
               <p className="mt-1 text-xs text-slate-500">
@@ -119,6 +119,7 @@ export function NetworkingStage({ flow }: { flow: SetupFlow }) {
                 id="cloudflare-api-token"
                 label="API Token"
                 hint="The token is sent only to the setup API and is never returned to browser state."
+                className="max-w-[560px]"
               >
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <Input
@@ -162,7 +163,7 @@ export function NetworkingStage({ flow }: { flow: SetupFlow }) {
                       setCloudflareAccountID(event.target.value);
                       setCloudflareZoneID("");
                     }}
-                    className="min-h-11 w-full rounded-lg border border-control-border bg-stealth-panel px-3 text-sm text-white focus-visible:border-cyan-300/60"
+                    className="min-h-11 w-full rounded-lg border border-control-border bg-stealth-panel px-3 text-sm text-paper focus-visible:border-cyan-300/60"
                   >
                     <option value="">
                       {accounts.isPending
@@ -190,7 +191,7 @@ export function NetworkingStage({ flow }: { flow: SetupFlow }) {
                       setCloudflareZoneID(event.target.value)
                     }
                     disabled={!selectedAccount}
-                    className="min-h-11 w-full rounded-lg border border-control-border bg-stealth-panel px-3 text-sm text-white focus-visible:border-cyan-300/60 disabled:opacity-50"
+                    className="min-h-11 w-full rounded-lg border border-control-border bg-stealth-panel px-3 text-sm text-paper focus-visible:border-cyan-300/60 disabled:opacity-50"
                   >
                     <option value="">
                       {zones.isPending
@@ -215,6 +216,7 @@ export function NetworkingStage({ flow }: { flow: SetupFlow }) {
                 id="cloudflare-hostname"
                 label="Dashboard hostname"
                 hint="The hostname must be inside the selected zone."
+                className="max-w-[560px]"
               >
                 <Input
                   id="cloudflare-hostname"
@@ -237,8 +239,8 @@ export function NetworkingStage({ flow }: { flow: SetupFlow }) {
           )}
         </div>
       ) : (
-        <div className="mt-6 rounded-xl border border-stealth-border bg-black/10 p-5">
-          <p className="text-sm font-medium text-white">Public URL</p>
+        <div className="mt-6 rounded-xl border border-stealth-border bg-white/[0.02] p-5">
+          <p className="text-sm font-medium text-paper">Public URL</p>
           <p className="mt-1 text-xs leading-5 text-slate-500">
             {watchedConfig.public_url}
           </p>

@@ -25,8 +25,8 @@ import (
 )
 
 const (
-	apiInstrumentationName    = "github.com/Stealth-deplover/stealth"
-	workerInstrumentationName = "github.com/Stealth-deplover/stealth/worker"
+	apiInstrumentationName    = "github.com/Nafixhutao/stealth-forge"
+	workerInstrumentationName = "github.com/Nafixhutao/stealth-forge/worker"
 )
 
 // TracerConfig controls the optional OTLP HTTP exporter. An empty endpoint is

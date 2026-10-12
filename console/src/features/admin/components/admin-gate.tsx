@@ -2,9 +2,8 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ApiError } from "@/api/client";
-import { useCurrentAccount } from "@/api/queries/account";
 import { ErrorState } from "@/components/feedback/error-state";
+import { useSessionGuard } from "@/components/session-gate";
 
 /**
  * AdminGate guards the standalone /admin area. The redesigned admin chrome was
@@ -14,9 +13,7 @@ import { ErrorState } from "@/components/feedback/error-state";
  */
 export function AdminGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const account = useCurrentAccount();
-  const unauthorized =
-    account.error instanceof ApiError && account.error.status === 401;
+  const { account, checking } = useSessionGuard();
   const role = account.data?.account.instance_role;
   const notAdmin =
     Boolean(account.data) &&
@@ -24,17 +21,16 @@ export function AdminGate({ children }: { children: React.ReactNode }) {
     role !== "instance_admin";
 
   useEffect(() => {
-    if (unauthorized) router.replace("/login");
-    else if (notAdmin) router.replace("/organizations");
-  }, [unauthorized, notAdmin, router]);
+    if (notAdmin) router.replace("/user");
+  }, [notAdmin, router]);
 
   // The access check is a short, silent wait: rendering a placeholder here
   // only flashes grey boxes before the admin chrome paints.
-  if (account.isPending || unauthorized || notAdmin) {
+  if (checking || notAdmin) {
     return (
       <div className="flex min-h-dvh items-center justify-center">
         <span role="status" aria-live="polite" className="sr-only">
-          Checking admin access…
+          {notAdmin ? "Opening the user console…" : "Checking admin access…"}
         </span>
       </div>
     );

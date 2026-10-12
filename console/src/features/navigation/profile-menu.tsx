@@ -5,8 +5,12 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useRouter } from "next/navigation";
 import {
   ChevronsUpDown,
+  ExternalLink,
   LogOut,
-  Settings,
+  Monitor,
+  Moon,
+  Sun,
+  User,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -19,6 +23,8 @@ import {
 } from "@/lib/ease";
 import { cn } from "@/lib/utils";
 import { Divider, menuRowClass, RailLabel, tap } from "./sidebar-shared";
+
+type Theme = "light" | "dark" | "system";
 
 const GOO_OPEN_SPRING = {
   type: "spring",
@@ -73,24 +79,136 @@ function ProfileMenuItem({
   );
 }
 
-function ProfileMenu({
-  onClose,
-  onNavigate,
+function ThemeToggle({
+  theme,
+  onToggle,
+  reduce,
 }: {
-  onClose: () => void;
-  onNavigate?: () => void;
+  theme: Theme;
+  onToggle: (theme: Theme) => void;
+  reduce: boolean;
 }) {
+  const options: Array<{ value: Theme; label: string; Icon: LucideIcon }> = [
+    { value: "light", label: "Light mode", Icon: Sun },
+    { value: "dark", label: "Dark mode", Icon: Moon },
+    { value: "system", label: "System theme", Icon: Monitor },
+  ];
+
+  const selectTheme = (nextTheme: Theme) => {
+    if (nextTheme === theme) return;
+
+    if (reduce || !("startViewTransition" in document)) {
+      onToggle(nextTheme);
+      return;
+    }
+
+    const root = document.documentElement;
+    root.style.setProperty("--beui-vt-origin", "50% 100%");
+    root.setAttribute("data-beui-vt", "circle-blur");
+    const transition = (
+      document as Document & {
+        startViewTransition(callback: () => void): { finished: Promise<void> };
+      }
+    ).startViewTransition(() => onToggle(nextTheme));
+
+    transition.finished.finally(() => {
+      root.removeAttribute("data-beui-vt");
+    });
+  };
+
+  return (
+    <div className="flex items-center gap-0.5 rounded-full border border-[#3a373f] bg-[#1a181d] p-0.5">
+      {options.map(({ value, label, Icon }) => {
+        const selected = theme === value;
+        return (
+          <motion.button
+            key={value}
+            type="button"
+            aria-label={label}
+            aria-pressed={selected}
+            onClick={() => selectTheme(value)}
+            whileTap={tap(reduce)}
+            transition={SPRING_PRESS}
+            className={cn(
+              "flex size-6 items-center justify-center rounded-full transition-colors",
+              selected
+                ? "bg-white text-[#1a181d]"
+                : "text-[#aaa6ae] hover:bg-white/[0.08] hover:text-white",
+            )}
+          >
+            <AnimatePresence initial={false} mode="wait">
+              {selected ? (
+                <motion.span
+                  key={value}
+                  initial={
+                    reduce
+                      ? false
+                      : { opacity: 0, filter: "blur(8px)", scale: 0.7 }
+                  }
+                  animate={{ opacity: 1, filter: "blur(0px)", scale: 1 }}
+                  exit={
+                    reduce
+                      ? undefined
+                      : { opacity: 0, filter: "blur(8px)", scale: 0.7 }
+                  }
+                  transition={{ duration: 0.2, ease: "easeInOut" }}
+                  className="flex"
+                >
+                  <Icon size={14} strokeWidth={2} aria-hidden="true" />
+                </motion.span>
+              ) : (
+                <Icon
+                  key={`${value}-idle`}
+                  size={14}
+                  strokeWidth={1.8}
+                  aria-hidden="true"
+                />
+              )}
+            </AnimatePresence>
+          </motion.button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** The signed-in account's display identity, shared by the header and footer. */
+function useIdentity() {
   const account = useCurrentAccount();
-  const logout = useLogout();
-  const router = useRouter();
-  const menuRef = useRef<HTMLDivElement>(null);
-  const reduce = useReducedMotion() ?? false;
   const identity = account.data?.account;
   const name =
     identity?.display_name?.trim() ||
     identity?.email?.split("@")[0] ||
     "Account";
-  const handle = identity?.email ? `@${identity.email.split("@")[0]}` : "";
+  return {
+    name,
+    handle: identity?.email ?? "",
+    avatar: identity?.avatar_url ?? "",
+  };
+}
+
+function ProfileMenu({ onClose }: { onClose: () => void }) {
+  const router = useRouter();
+  const logout = useLogout();
+  const { name, handle, avatar } = useIdentity();
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof document === "undefined") return "dark";
+    return document.documentElement.dataset.theme === "light"
+      ? "light"
+      : "dark";
+  });
+  const reduce = useReducedMotion() ?? false;
+
+  useEffect(() => {
+    const resolved =
+      theme === "system"
+        ? window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light"
+        : theme;
+    document.documentElement.dataset.theme = resolved;
+  }, [theme]);
 
   useEffect(() => {
     const el = menuRef.current;
@@ -141,15 +259,15 @@ function ProfileMenu({
         />
 
         <div className="flex items-center gap-2.5 px-2.5 py-2.5">
-          {identity?.avatar_url ? (
-            <motion.img
+          {avatar ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
               alt=""
-              initial={false}
               className="size-9 shrink-0 rounded-full object-cover"
-              src={identity.avatar_url}
+              src={avatar}
             />
           ) : (
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#26242b] text-[13px] font-semibold text-[#C9C5CD]">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#2b2930] text-[13px] font-semibold text-[#edecf1]">
               {name.slice(0, 1).toUpperCase()}
             </span>
           )}
@@ -157,23 +275,28 @@ function ProfileMenu({
             <p className="m-0 truncate text-[13px] font-semibold text-[#edecf1]">
               {name}
             </p>
-            <p className="m-0 mt-[2px] truncate text-[12px] text-[#8a8791]">
-              {handle}
-            </p>
+            {handle ? (
+              <p className="m-0 mt-[2px] truncate text-[12px] text-[#8a8791]">
+                {handle}
+              </p>
+            ) : null}
           </div>
         </div>
 
         <Divider />
 
+        <div className="flex items-center justify-between px-2.5 py-2">
+          <span className="text-[13px] text-[#b3b0ba]">Theme</span>
+          <ThemeToggle theme={theme} reduce={reduce} onToggle={setTheme} />
+        </div>
+
+        <Divider />
+
+        <ProfileMenuItem Icon={User} label="Profile Settings" reduce={reduce} />
         <ProfileMenuItem
-          Icon={Settings}
-          label="Account settings"
+          Icon={ExternalLink}
+          label="Refer and Earn"
           reduce={reduce}
-          onSelect={() => {
-            onClose();
-            onNavigate?.();
-            router.push("/account");
-          }}
         />
         <ProfileMenuItem
           Icon={LogOut}
@@ -190,22 +313,14 @@ function ProfileMenu({
 export function BottomProfile({
   collapsed = false,
   onToggleCollapse,
-  onNavigate,
 }: {
   collapsed?: boolean;
   onToggleCollapse?: () => void;
-  onNavigate?: () => void;
 }) {
-  const account = useCurrentAccount();
   const [open, setOpen] = useState(false);
   const reduce = useReducedMotion() ?? false;
   const close = useCallback(() => setOpen(false), []);
-  const identity = account.data?.account;
-  const name =
-    identity?.display_name?.trim() ||
-    identity?.email?.split("@")[0] ||
-    "Account";
-  const handle = identity?.email ? `@${identity.email.split("@")[0]}` : "";
+  const { name, handle, avatar } = useIdentity();
 
   return (
     <footer className="relative shrink-0">
@@ -223,7 +338,7 @@ export function BottomProfile({
         className="flex w-full items-center px-[14px] py-[10px] text-left transition-colors hover:bg-white/[0.035]"
       >
         {/* rail shows a small 20px avatar, the panel wraps it in the full row */}
-        {identity?.avatar_url ? (
+        {avatar ? (
           <motion.img
             alt=""
             initial={false}
@@ -234,8 +349,8 @@ export function BottomProfile({
             transition={
               collapsed ? LABEL_EXIT_TRANSITION : LABEL_ENTER_TRANSITION
             }
-            className="shrink-0 rounded-full object-cover"
-            src={identity.avatar_url}
+            className="shrink-0 object-cover rounded-full"
+            src={avatar}
           />
         ) : (
           <motion.span
@@ -247,7 +362,7 @@ export function BottomProfile({
             transition={
               collapsed ? LABEL_EXIT_TRANSITION : LABEL_ENTER_TRANSITION
             }
-            className="flex shrink-0 items-center justify-center rounded-full bg-[#26242b] text-[11px] font-semibold text-[#C9C5CD]"
+            className="flex shrink-0 items-center justify-center rounded-full bg-[#2b2930] text-[12px] font-semibold text-[#edecf1]"
           >
             {name.slice(0, 1).toUpperCase()}
           </motion.span>
@@ -260,9 +375,11 @@ export function BottomProfile({
             <p className="m-0 truncate text-[14px] leading-[20px] text-[oklch(0.767_0.0105_305)]">
               {name}
             </p>
-            <p className="m-0 mt-[2px] truncate text-[12px] leading-[16px] text-[oklch(0.585_0.0161_305)]">
-              {handle}
-            </p>
+            {handle ? (
+              <p className="m-0 mt-[2px] truncate text-[12px] leading-[16px] text-[oklch(0.585_0.0161_305)]">
+                {handle}
+              </p>
+            ) : null}
           </div>
           <ChevronsUpDown
             size={12}
@@ -273,13 +390,7 @@ export function BottomProfile({
         </RailLabel>
       </motion.button>
       <AnimatePresence>
-        {open && (
-          <ProfileMenu
-            key="profile-menu"
-            onClose={close}
-            onNavigate={onNavigate}
-          />
-        )}
+        {open && <ProfileMenu key="profile-menu" onClose={close} />}
       </AnimatePresence>
     </footer>
   );

@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	dbcore "github.com/Stealth-deplover/stealth/internal/database"
-	"github.com/Stealth-deplover/stealth/internal/repository"
+	dbcore "github.com/Nafixhutao/stealth-forge/internal/database"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
 )
 
 func TestCanonicalCursorValuePreservesTextBoundaries(t *testing.T) {

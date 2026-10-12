@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/buildkitpki"
-	"github.com/Stealth-deplover/stealth/internal/preflight"
+	"github.com/Nafixhutao/stealth-forge/internal/buildkitpki"
+	"github.com/Nafixhutao/stealth-forge/internal/preflight"
 )
 
 type statusServiceTarget struct {

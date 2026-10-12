@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/telemetry"
+	"github.com/Nafixhutao/stealth-forge/internal/telemetry"
 )
 
 func TestResolveAppRuntimeLogRange(t *testing.T) {

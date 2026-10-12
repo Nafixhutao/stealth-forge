@@ -8,135 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/bootstrap"
-	"github.com/Stealth-deplover/stealth/internal/githubauth"
-	"github.com/Stealth-deplover/stealth/internal/setupstate"
+	"github.com/Nafixhutao/stealth-forge/internal/bootstrap"
+	"github.com/Nafixhutao/stealth-forge/internal/githubauth"
+	"github.com/Nafixhutao/stealth-forge/internal/setupstate"
 	"github.com/google/uuid"
 )
-
-func (s *Server) startGitHubManifest(w http.ResponseWriter, r *http.Request) {
-	if s.githubManifest == nil || s.githubOAuth == nil {
-		writeError(w, http.StatusServiceUnavailable, "github_manifest_unavailable", "GitHub App Manifest setup is unavailable")
-		return
-	}
-	callbackURL, err := s.externalURL(r, "/v1/setup/github/manifest/callback")
-	if err != nil || !strings.HasPrefix(callbackURL, "https://") {
-		writeError(w, http.StatusUnprocessableEntity, "https_required", "open the temporary HTTPS setup URL before connecting GitHub")
-		return
-	}
-	authorizationCallbackURL, err := s.externalURL(r, "/v1/setup/github/authorize/callback")
-	if err != nil || !strings.HasPrefix(authorizationCallbackURL, "https://") {
-		writeError(w, http.StatusUnprocessableEntity, "https_required", "open the temporary HTTPS setup URL before connecting GitHub")
-		return
-	}
-	plainState, stateHash, expiresAt, err := setupstate.NewManifestState()
-	if err != nil {
-		internalError(s, w, err)
-		return
-	}
-	appName, err := githubauth.DefaultAppName()
-	if err != nil {
-		internalError(s, w, err)
-		return
-	}
-	appURL, appURLErr := s.externalURL(r, "/")
-	if appURLErr != nil {
-		writeError(w, http.StatusUnprocessableEntity, "https_required", "the setup host is invalid")
-		return
-	}
-	setupURL, setupURLErr := s.externalURL(r, "/setup")
-	if setupURLErr != nil {
-		writeError(w, http.StatusUnprocessableEntity, "https_required", "the setup host is invalid")
-		return
-	}
-	manifestURL, manifestPayload, err := githubauth.ManifestForm(githubauth.AppManifest{
-		Name:         appName,
-		Description:  "Stealth developer control plane",
-		URL:          appURL,
-		RedirectURL:  callbackURL,
-		CallbackURLs: []string{authorizationCallbackURL},
-		Public:       false,
-		// The setup service does not consume GitHub webhooks. Requesting an
-		// installation event without a hook endpoint would make the manifest
-		// inconsistent with the actual installation and needlessly expand the
-		// App's configuration.
-		DefaultEvents: []string{},
-		DefaultPerms:  map[string]string{"contents": "read", "metadata": "read"},
-		SetupURL:      setupURL,
-	}, plainState)
-	if err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "github_manifest_invalid", "the setup host cannot be used for GitHub App registration")
-		return
-	}
-	if _, err := s.setupState.Update(r.Context(), func(state *setupstate.State) error {
-		if setupstate.InstallationLocked(*state) {
-			return errors.New("installation is already in progress or complete")
-		}
-		state.GitHub.Mode = "manifest"
-		state.GitHub.ManifestStateHash = stateHash
-		state.GitHub.ManifestExpiresAt = expiresAt
-		return nil
-	}); err != nil {
-		writeError(w, http.StatusConflict, "setup_state_conflict", "the GitHub setup session could not be started")
-		return
-	}
-	writeJSON(w, http.StatusOK, setupGitHubManifestResponse{ManifestURL: manifestURL, Manifest: manifestPayload, ExpiresAt: expiresAt})
-}
-
-func (s *Server) setupGitHubManifestCallback(w http.ResponseWriter, r *http.Request) {
-	code := strings.TrimSpace(r.URL.Query().Get("code"))
-	providedState := strings.TrimSpace(r.URL.Query().Get("state"))
-	if code == "" || len(code) > 4096 || strings.ContainsAny(code, "\x00\r\n") || providedState == "" || s.setupState == nil || s.githubManifest == nil || s.githubOAuth == nil {
-		http.Redirect(w, r, setupRedirect("/setup?github=error"), http.StatusFound)
-		return
-	}
-	state, err := s.setupState.Load(r.Context())
-	if err != nil || state.GitHub.ManifestExpiresAt.Before(time.Now().UTC()) || !compareStateHash(state.GitHub.ManifestStateHash, providedState) {
-		http.Redirect(w, r, setupRedirect("/setup?github=error"), http.StatusFound)
-		return
-	}
-	if _, err := s.setupState.Update(r.Context(), func(state *setupstate.State) error {
-		if setupstate.InstallationLocked(*state) {
-			return errors.New("installation is already in progress or complete")
-		}
-		if state.GitHub.ManifestExpiresAt.Before(time.Now().UTC()) || !compareStateHash(state.GitHub.ManifestStateHash, providedState) {
-			return errors.New("GitHub manifest state is expired or already used")
-		}
-		state.GitHub.ManifestStateHash = ""
-		state.GitHub.ManifestExpiresAt = time.Time{}
-		return nil
-	}); err != nil {
-		http.Redirect(w, r, setupRedirect("/setup?github=error"), http.StatusFound)
-		return
-	}
-	credentials, err := s.githubManifest.ConvertManifest(r.Context(), code)
-	if err != nil {
-		http.Redirect(w, r, setupRedirect("/setup?github=error"), http.StatusFound)
-		return
-	}
-	_, err = s.setupState.Update(r.Context(), func(state *setupstate.State) error {
-		if setupstate.InstallationLocked(*state) {
-			return errors.New("installation is already in progress or complete")
-		}
-		state.GitHub.Mode = "manifest"
-		state.GitHub.ClientID = credentials.ClientID
-		state.GitHub.Connected = true
-		state.SetSecret("github_client_secret", credentials.ClientSecret)
-		state.SetSecret("github_private_key", credentials.PrivateKey)
-		state.SetSecret("github_webhook_secret", credentials.WebhookSecret)
-		return nil
-	})
-	if err != nil {
-		http.Redirect(w, r, setupRedirect("/setup?github=error"), http.StatusFound)
-		return
-	}
-	authorizationURL, _, err := s.beginGitHubAuthorization(r.Context(), r, credentials.ClientID)
-	if err != nil {
-		http.Redirect(w, r, setupRedirect("/setup?github=error"), http.StatusFound)
-		return
-	}
-	http.Redirect(w, r, authorizationURL, http.StatusFound)
-}
 
 func (s *Server) startGitHubAuthorization(w http.ResponseWriter, r *http.Request) {
 	if s.githubOAuth == nil || s.setupState == nil {
@@ -287,11 +163,13 @@ func (s *Server) saveGitHubManual(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &request) {
 		return
 	}
-	if !githubauth.ValidClientID(request.ClientID) || strings.TrimSpace(request.ClientSecret) == "" || strings.TrimSpace(request.PrivateKey) == "" || strings.ContainsAny(request.ClientSecret+request.WebhookSecret, "\x00\r\n") || strings.ContainsRune(request.PrivateKey, '\x00') || len(request.ClientSecret) > 512 || len(request.PrivateKey) > 32768 || len(request.WebhookSecret) > 512 {
+	if !githubauth.ValidClientID(request.ClientID) || strings.TrimSpace(request.ClientSecret) == "" || strings.ContainsAny(request.ClientSecret+request.WebhookSecret, "\x00\r\n") || strings.ContainsRune(request.PrivateKey, '\x00') || len(request.ClientSecret) > 512 || len(request.PrivateKey) > 32768 || len(request.WebhookSecret) > 512 {
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", "GitHub App credentials are invalid")
 		return
 	}
-	if !strings.Contains(request.PrivateKey, "BEGIN") || !strings.Contains(request.PrivateKey, "END") {
+	// The private key is optional: an OAuth App only needs the client id and
+	// secret, while a GitHub App also supplies the PEM key.
+	if request.PrivateKey != "" && (!strings.Contains(request.PrivateKey, "BEGIN") || !strings.Contains(request.PrivateKey, "END")) {
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", "GitHub private key is invalid")
 		return
 	}
@@ -303,8 +181,12 @@ func (s *Server) saveGitHubManual(w http.ResponseWriter, r *http.Request) {
 		state.GitHub.ClientID = strings.TrimSpace(request.ClientID)
 		state.GitHub.Connected = true
 		state.SetSecret("github_client_secret", request.ClientSecret)
-		state.SetSecret("github_private_key", request.PrivateKey)
-		state.SetSecret("github_webhook_secret", request.WebhookSecret)
+		if request.PrivateKey != "" {
+			state.SetSecret("github_private_key", request.PrivateKey)
+		}
+		if request.WebhookSecret != "" {
+			state.SetSecret("github_webhook_secret", request.WebhookSecret)
+		}
 		return nil
 	})
 	if err != nil {

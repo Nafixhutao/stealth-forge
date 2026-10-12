@@ -1,29 +1,63 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
-import { Search } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  BookOpen,
+  Bot,
+  Building2,
+  CircleDollarSign,
+  Database,
+  FileText,
+  FolderKanban,
+  Headphones,
+  LayoutDashboard,
+  LogOut,
+  Search,
+  ShieldCheck,
+  UserRound,
+  type LucideIcon,
+} from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { EASE_OUT } from "@/lib/ease";
 import { cn } from "@/lib/utils";
 
-export type SearchResult = {
+type SearchResult = {
   label: string;
   section: string;
-  href: string;
-  Icon: ReactNode;
+  Icon: LucideIcon;
 };
+
+const SEARCH_RESULTS: SearchResult[] = [
+  { section: "Navigation", label: "Go to Repositories", Icon: Database },
+  { section: "Navigation", label: "Go to Projects", Icon: FolderKanban },
+  { section: "Navigation", label: "Go to Agents", Icon: Bot },
+  { section: "Navigation", label: "Go to Dashboard", Icon: LayoutDashboard },
+  {
+    section: "Settings",
+    label: "Go to Organization Settings",
+    Icon: Building2,
+  },
+  { section: "Settings", label: "Go to Billing", Icon: CircleDollarSign },
+  { section: "Account", label: "Go to Profile", Icon: UserRound },
+  { section: "Account", label: "Logout", Icon: LogOut },
+  { section: "Help Center", label: "Go to Documentation", Icon: BookOpen },
+  { section: "Help Center", label: "Contact Support", Icon: Headphones },
+  { section: "Help Center", label: "Keyboard Shortcuts", Icon: FileText },
+  { section: "Help Center", label: "Release Notes", Icon: FileText },
+  { section: "Help Center", label: "Status", Icon: ShieldCheck },
+  { section: "Help Center", label: "API Reference", Icon: BookOpen },
+  { section: "Help Center", label: "Report a Problem", Icon: Headphones },
+];
 
 export function SearchPalette({
   open,
   onClose,
-  results,
+  onSelect,
 }: {
   open: boolean;
   onClose: () => void;
-  results: SearchResult[];
+  onSelect: (result: SearchResult) => void;
 }) {
-  const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
@@ -31,7 +65,7 @@ export function SearchPalette({
 
   const groups = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    const matches = results.filter((result) =>
+    const matches = SEARCH_RESULTS.filter((result) =>
       result.label.toLowerCase().includes(normalizedQuery),
     );
     return Array.from(new Set(matches.map((result) => result.section))).map(
@@ -40,21 +74,20 @@ export function SearchPalette({
         results: matches.filter((result) => result.section === section),
       }),
     );
-  }, [query, results]);
+  }, [query]);
 
   // Index is computed once per keystroke instead of searching per rendered
   // item, keeping lookup O(1) instead of O(n) inside the render loop.
-  const { flat, indexByResult } = useMemo(() => {
-    const list = groups.flatMap((group) => group.results);
+  const { results, indexByResult } = useMemo(() => {
+    const flat = groups.flatMap((group) => group.results);
     return {
-      flat: list,
-      indexByResult: new Map(list.map((result, index) => [result, index])),
+      results: flat,
+      indexByResult: new Map(flat.map((result, index) => [result, index])),
     };
   }, [groups]);
 
   useEffect(() => {
     if (!open) return;
-    // Reset the palette each time it opens; runs once per open transition.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setQuery("");
     setActiveIndex(0);
@@ -69,28 +102,30 @@ export function SearchPalette({
       if (event.key === "Escape") {
         event.preventDefault();
         onClose();
-      } else if (event.key === "ArrowDown" && flat.length > 0) {
+      } else if (event.key === "ArrowDown" && results.length > 0) {
         event.preventDefault();
-        setActiveIndex((index) => (index + 1) % flat.length);
-      } else if (event.key === "ArrowUp" && flat.length > 0) {
+        setActiveIndex((index) => (index + 1) % results.length);
+      } else if (event.key === "ArrowUp" && results.length > 0) {
         event.preventDefault();
-        setActiveIndex((index) => (index - 1 + flat.length) % flat.length);
-      } else if (event.key === "Enter" && flat[activeIndex]) {
+        setActiveIndex(
+          (index) => (index - 1 + results.length) % results.length,
+        );
+      } else if (event.key === "Enter" && results[activeIndex]) {
         event.preventDefault();
-        onClose();
-        router.push(flat[activeIndex].href);
+        onSelect(results[activeIndex]);
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeIndex, flat, onClose, open, router]);
+  }, [activeIndex, onClose, onSelect, open, results]);
 
   useEffect(() => {
     if (!open) return;
 
     // Lock the page scroll without losing the position: setting overflow on
-    // <html> resets scrollY to 0, so pin the body and restore on close.
+    // <html> resets scrollY to 0, so pin the body and restore on close
+    // (same pattern as the mobile sheet).
     const scrollY = window.scrollY;
     const body = document.body;
     const previousStyles = {
@@ -177,18 +212,20 @@ export function SearchPalette({
                       return (
                         <button
                           type="button"
-                          key={result.href}
-                          onClick={() => {
-                            onClose();
-                            router.push(result.href);
-                          }}
+                          key={result.label}
+                          onClick={() => onSelect(result)}
                           onMouseEnter={() => setActiveIndex(index)}
                           className={cn(
                             "flex h-8 w-full items-center gap-3 rounded-[5px] px-2.5 text-left text-[14px] font-normal leading-[20px] text-[oklch(0.949_0.0035_305)] transition-colors",
                             active ? "bg-[#302e34]" : "hover:bg-[#2b2930]",
                           )}
                         >
-                          {result.Icon}
+                          <result.Icon
+                            size={15}
+                            strokeWidth={1.8}
+                            className="shrink-0 text-[#aaa6ae]"
+                            aria-hidden="true"
+                          />
                           <span className="truncate">{result.label}</span>
                         </button>
                       );

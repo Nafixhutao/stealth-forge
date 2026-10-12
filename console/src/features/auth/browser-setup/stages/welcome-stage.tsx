@@ -1,16 +1,13 @@
 "use client";
 
-import {
-  KeyRound,
-  Loader2,
-  RefreshCw,
-  ShieldCheck,
-  Terminal,
-} from "lucide-react";
+import { Loader2, RefreshCw, ShieldCheck, Terminal } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { InfoCard, StageActions, StageHeader, StatusPill } from "../primitives";
+import {
+  AssuranceStrip,
+  StageActions,
+  StageHeader,
+  StatusPill,
+} from "../primitives";
 import type { SetupFlow } from "../types";
 
 export function WelcomeStage({ flow }: { flow: SetupFlow }) {
@@ -19,11 +16,9 @@ export function WelcomeStage({ flow }: { flow: SetupFlow }) {
     checksPass,
     moveTo,
     preflight,
-    setupCode,
+    retrySetupVerification,
     setupVerified,
-    setSetupCode,
     verifyCode,
-    verifySetupCode,
   } = flow;
   return (
     <>
@@ -32,92 +27,58 @@ export function WelcomeStage({ flow }: { flow: SetupFlow }) {
         title="Set up your Stealth instance"
         description="The browser handles the reviewed configuration. Your terminal stays responsible for Docker and the temporary setup connection."
       />
-      <div className="grid gap-4 sm:grid-cols-3">
-        <InfoCard
-          icon={Terminal}
-          title="Local control"
-          description="The setup API is reachable only through your temporary setup URL."
-        />
-        <InfoCard
-          icon={ShieldCheck}
-          title="Server-side secrets"
-          description="Provider credentials stay encrypted and never enter the public state."
-        />
-        <InfoCard
-          icon={RefreshCw}
-          title="Resumable"
-          description="Refresh or reconnect without restarting the installation from scratch."
-        />
-      </div>
-      <div className="mt-7 rounded-xl border border-stealth-border bg-black/10 p-5">
-        <div className="flex items-start gap-3">
-          <KeyRound className="mt-0.5 size-5 shrink-0 text-cyan-300" />
-          <div>
-            <p className="text-sm font-medium text-white">
-              Verify this setup session
-            </p>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
-              Enter the one-time code printed by `stealth install`. It expires
-              after 15 minutes and is not placed in the URL.
-            </p>
-          </div>
-        </div>
-        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="flex-1 space-y-2">
-            <Label htmlFor="browser-setup-code">Setup code</Label>
-            <Input
-              id="browser-setup-code"
-              value={setupCode}
-              onChange={(event) =>
-                setSetupCode(event.target.value.toUpperCase())
-              }
-              placeholder="STEALTH-XXXX-XXXX-XXXX"
-              autoComplete="one-time-code"
-              spellCheck={false}
-              translate="no"
-              disabled={setupVerified}
-            />
-          </div>
-          <Button
-            type="button"
-            onClick={() => void verifySetupCode()}
-            disabled={setupVerified || verifyCode.isPending}
-          >
-            {verifyCode.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <ShieldCheck className="size-4" />
-            )}
-            {setupVerified ? "Verified" : "Verify code"}
-          </Button>
-        </div>
-      </div>
-      <div className="mt-7 rounded-xl border border-stealth-border p-5">
+      <AssuranceStrip
+        items={[
+          {
+            icon: Terminal,
+            title: "Local control",
+            description:
+              "The setup API is reachable only through your temporary setup URL.",
+          },
+          {
+            icon: ShieldCheck,
+            title: "Server-side secrets",
+            description:
+              "Provider credentials stay encrypted and never enter the public state.",
+          },
+          {
+            icon: RefreshCw,
+            title: "Resumable",
+            description:
+              "Refresh or reconnect without restarting the installation from scratch.",
+          },
+        ]}
+      />
+      <div className="mt-7 rounded-lg border border-[var(--setup-border)] p-5">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-white">System check</p>
-            <p className="mt-1 text-xs text-slate-500">
-              Live dependency checks run after you verify the setup code.
+            <p className="text-[13px] font-medium text-[var(--setup-text)]">
+              System check
+            </p>
+            <p className="mt-1 text-[12px] text-[var(--setup-text-muted)]">
+              Checks run automatically when the setup link opens this page.
             </p>
           </div>
           {preflight.isPending ? (
-            <Loader2 className="size-5 animate-spin text-cyan-300" />
+            <Loader2 className="size-[18px] animate-spin text-[var(--setup-text-muted)]" />
           ) : null}
         </div>
-        <div className="mt-4 space-y-2">
+        <div className="mt-4 overflow-hidden rounded-lg border border-[var(--setup-border)]">
           {checks.length === 0 ? (
-            <p className="text-sm text-slate-600">
+            <p className="px-3.5 py-3 text-[13px] text-[var(--setup-text-muted)]">
               System checks will appear here.
             </p>
           ) : (
             checks.map((check) => (
               <div
                 key={check.name}
-                className="flex items-start justify-between gap-4 rounded-lg bg-black/10 px-3 py-2.5"
+                className="flex items-center justify-between gap-4 border-b border-[var(--setup-border)] px-3.5 py-3 last:border-b-0"
               >
-                <div>
-                  <p className="text-sm text-slate-200">{check.name}</p>
-                  <p className="mt-0.5 text-xs text-slate-600">
+                <div className="min-w-0">
+                  <p className="text-[13px] text-[var(--setup-text-secondary)]">
+                    {check.name}
+                  </p>
+                  <p className="mt-0.5 text-[12px] text-[var(--setup-text-muted)]">
                     {check.detail}
                   </p>
                 </div>
@@ -141,6 +102,34 @@ export function WelcomeStage({ flow }: { flow: SetupFlow }) {
           )}
         </div>
       </div>
+      {!setupVerified ? (
+        <div className="mt-7 flex flex-col gap-3 rounded-lg border border-[var(--setup-border)] p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-[13px] font-medium text-[var(--setup-text)]">
+              Setup link not verified
+            </p>
+            <p className="mt-1 max-w-[52ch] text-[12px] leading-5 text-[var(--setup-text-muted)]">
+              This page verifies the one-time code carried by the setup link the
+              CLI printed. Open that link, or retry here while the code is still
+              valid.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void retrySetupVerification()}
+            disabled={verifyCode.isPending}
+            className="shrink-0"
+          >
+            {verifyCode.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <RefreshCw className="size-4" />
+            )}
+            Retry verification
+          </Button>
+        </div>
+      ) : null}
       <StageActions
         next={() => moveTo("instance")}
         nextLabel="Start configuration"

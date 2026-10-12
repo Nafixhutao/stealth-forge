@@ -11,8 +11,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Stealth-deplover/stealth/internal/cloudflareimport"
-	"github.com/Stealth-deplover/stealth/internal/functionsecret"
+	"github.com/Nafixhutao/stealth-forge/internal/cloudflareimport"
+	"github.com/Nafixhutao/stealth-forge/internal/functionsecret"
 )
 
 const (

@@ -22,20 +22,12 @@ func NewCallbackState(purpose string) (plain string, hash string, expiresAt time
 	return plain, hash, time.Now().UTC().Add(10 * time.Minute), nil
 }
 
-func NewManifestState() (plain string, hash string, expiresAt time.Time, err error) {
-	return NewCallbackState("GitHub manifest")
-}
-
 func NewOAuthState() (plain string, hash string, expiresAt time.Time, err error) {
 	return NewCallbackState("GitHub OAuth")
 }
 
 func HashCallbackState(value string) string {
 	return base64.RawURLEncoding.EncodeToString(sha256Bytes([]byte(strings.TrimSpace(value))))
-}
-
-func hashManifestState(value string) string {
-	return HashCallbackState(value)
 }
 
 func HashOAuthState(value string) string {

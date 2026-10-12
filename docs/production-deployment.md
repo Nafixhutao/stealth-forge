@@ -517,7 +517,7 @@ The host invokes a restricted one-shot `ingress-control` Compose service. It
 uses configured PostgreSQL and the encrypted Cloudflare connection, takes the
 existing reconciler's PostgreSQL advisory lock, changes only the Console ingress
 inside the existing tunnel, verifies the provider configuration, and probes
-public DNS and HTTPS. The Console root may return its normal `307 /organizations`
+public DNS and HTTPS. The Console root may return its normal `307 /admin`
 redirect; public verification follows at most five same-host HTTPS redirects
 and rejects host/port changes, IP literals, loops, and downgrades. Every hop
 must retain the required browser security headers and HSTS. The public checks

@@ -6,11 +6,11 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/Stealth-deplover/stealth/internal/apikey"
-	"github.com/Stealth-deplover/stealth/internal/auth"
-	dbcore "github.com/Stealth-deplover/stealth/internal/database"
-	"github.com/Stealth-deplover/stealth/internal/domain"
-	"github.com/Stealth-deplover/stealth/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/apikey"
+	"github.com/Nafixhutao/stealth-forge/internal/auth"
+	dbcore "github.com/Nafixhutao/stealth-forge/internal/database"
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )

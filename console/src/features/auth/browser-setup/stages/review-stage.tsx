@@ -22,11 +22,11 @@ export function ReviewStage({ flow }: { flow: SetupFlow }) {
   return (
     <>
       <StageHeader
-        eyebrow="06 / Review"
+        eyebrow="07 / Review"
         title="Review the production handoff"
         description="This is the final configuration the setup service will validate and persist before the host installer starts the production Compose project."
       />
-      <dl className="rounded-xl border border-stealth-border px-4">
+      <dl className="overflow-hidden rounded-xl border border-[var(--setup-border)]">
         <ReviewRow
           label="Instance"
           value={watchedConfig.instance_name ?? defaultConfig.instance_name}
@@ -81,6 +81,7 @@ export function ReviewStage({ flow }: { flow: SetupFlow }) {
         nextLabel="Install Stealth"
         nextDisabled={!ownerConfirmed || !dataReady || !storageReady}
         pending={isPending}
+        arrow={false}
       />
     </>
   );

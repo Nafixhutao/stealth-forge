@@ -12,8 +12,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/domainname"
-	"github.com/Stealth-deplover/stealth/internal/functionsecret"
+	"github.com/Nafixhutao/stealth-forge/internal/domainname"
+	"github.com/Nafixhutao/stealth-forge/internal/functionsecret"
 )
 
 type Store interface {
