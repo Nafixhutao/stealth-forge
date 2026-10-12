@@ -5,7 +5,6 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"errors"
-	"math"
 	"net/http"
 	"strings"
 	"time"
@@ -331,21 +330,6 @@ func (s *Server) allowBootstrapAttemptWith(
 		}
 	}
 	return true
-}
-
-func retryAfterSeconds(next time.Time) int {
-	remaining := time.Until(next)
-	if remaining <= 0 {
-		return 1
-	}
-	return maxInt(1, int(math.Ceil(remaining.Seconds())))
-}
-
-func maxInt(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 func writeBootstrapJSON(w http.ResponseWriter, status int, value any) {

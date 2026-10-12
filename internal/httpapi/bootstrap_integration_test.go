@@ -229,12 +229,6 @@ type bootstrapHTTPTestResponse struct {
 	Body       []byte
 }
 
-type bootstrapResult struct {
-	client   *http.Client
-	response bootstrapHTTPTestResponse
-	err      error
-}
-
 func createBootstrapSessionForTest(t *testing.T, client *http.Client, serverURL string, key []byte) bootstrapSessionTestResponse {
 	t.Helper()
 	response := bootstrapRequest(t, client, http.MethodPost, serverURL+"/v1/bootstrap/sessions", nil, map[string]string{bootstrap.CLIProofHeader: bootstrap.CLIProof(key)})
