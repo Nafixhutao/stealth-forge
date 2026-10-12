@@ -1,7 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { ApiError } from "@/api/client";
-import { BrowserSetupField, safeError } from "@/features/auth/browser-setup-view";
+import {
+  BrowserSetupField,
+  safeError,
+} from "@/features/auth/browser-setup-view";
 
 describe("BrowserSetupField", () => {
   it("associates an invalid control with its field error", () => {

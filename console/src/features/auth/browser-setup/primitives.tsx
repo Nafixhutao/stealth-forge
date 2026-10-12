@@ -108,7 +108,8 @@ export function StatusPill({
 }) {
   const styles = {
     ready: "border-[#76bc9a]/30 bg-[#76bc9a]/10 text-[#a3d6bd]",
-    pending: "border-[var(--setup-border-strong)] bg-white/[0.04] text-[var(--setup-text-secondary)]",
+    pending:
+      "border-[var(--setup-border-strong)] bg-white/[0.04] text-[var(--setup-text-secondary)]",
     warning: "border-[#d4b36e]/30 bg-[#d4b36e]/10 text-[#ecd9b0]",
     error: "border-[#ea9198]/30 bg-[#ea9198]/10 text-[#f0b4b7]",
   }[status];
@@ -169,12 +170,18 @@ export function Field({
 
   return (
     <div className={cn("space-y-2", className)}>
-      <Label htmlFor={id} className="text-[13px] text-[var(--setup-text-secondary)]">
+      <Label
+        htmlFor={id}
+        className="text-[13px] text-[var(--setup-text-secondary)]"
+      >
         {label}
       </Label>
       {control}
       {hint ? (
-        <p id={hintID} className="text-xs leading-5 text-[var(--setup-text-muted)]">
+        <p
+          id={hintID}
+          className="text-xs leading-5 text-[var(--setup-text-muted)]"
+        >
           {hint}
         </p>
       ) : null}
