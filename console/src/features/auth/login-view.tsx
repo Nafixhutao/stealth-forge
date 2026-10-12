@@ -18,6 +18,10 @@ import { errorMessage } from "@/components/feedback/error-state";
 import { getSafeNextPath } from "@/lib/navigation";
 import { useLastAuthMethod } from "./last-auth-method";
 import {
+  consoleHomeForRole,
+  useAuthenticatedRedirect,
+} from "./use-authenticated-redirect";
+import {
   AUTH_PROVIDERS,
   authErrorText as errorText,
   authInputBorder as inputBorder,
@@ -76,6 +80,9 @@ export function LoginView() {
   const mutation = useLogin();
   const rawNext = searchParams.get("next");
   const destination = getSafeNextPath(rawNext);
+  const nextPath = rawNext === null ? null : destination;
+  // A valid session must not be shown the sign-in form again.
+  const { authenticated, checking } = useAuthenticatedRedirect(nextPath);
   const registerHref =
     rawNext === null
       ? "/register"
@@ -108,10 +115,7 @@ export function LoginView() {
       if (rawNext === null) {
         try {
           const account = await fetchCurrentAccount();
-          const role = account?.account.instance_role;
-          if (role !== "instance_owner" && role !== "instance_admin") {
-            target = "/user";
-          }
+          target = consoleHomeForRole(account?.account.instance_role);
         } catch {
           // Fall back to the default destination; AdminGate forwards
           // non-admins to the user console.
@@ -162,6 +166,21 @@ export function LoginView() {
               : oauthResult === "unavailable"
                 ? "That sign-in provider is not configured on this instance."
                 : null;
+
+  // Do not flash the sign-in form at a visitor who is already signed in: hold
+  // the shell until the session check resolves, then either redirect or render
+  // the form.
+  if (checking || authenticated) {
+    return (
+      <StandaloneAuthShell>
+        <span role="status" aria-live="polite" className="sr-only">
+          {authenticated
+            ? "You are already signed in. Opening your console."
+            : "Checking your session."}
+        </span>
+      </StandaloneAuthShell>
+    );
+  }
 
   return (
     <StandaloneAuthShell>

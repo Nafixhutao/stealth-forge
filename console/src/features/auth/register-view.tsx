@@ -22,6 +22,7 @@ import {
   authSubmitButton as submitButton,
   StandaloneAuthShell,
 } from "./auth-standalone";
+import { useAuthenticatedRedirect } from "./use-authenticated-redirect";
 
 const schema = z.object({
   email: z.string().email("Enter a valid email address."),
@@ -41,6 +42,10 @@ export function RegisterView() {
   const mutation = useRegister();
   const rawNext = searchParams.get("next");
   const destination = getSafeNextPath(rawNext);
+  // A valid session must not be shown the sign-up form again.
+  const { authenticated, checking } = useAuthenticatedRedirect(
+    rawNext === null ? null : destination,
+  );
   const signInHref =
     rawNext === null
       ? "/login"
@@ -69,6 +74,19 @@ export function RegisterView() {
 
   const emailError = form.formState.errors.email;
   const passwordError = form.formState.errors.password;
+
+  // Do not flash the sign-up form at a visitor who is already signed in.
+  if (checking || authenticated) {
+    return (
+      <StandaloneAuthShell>
+        <span role="status" aria-live="polite" className="sr-only">
+          {authenticated
+            ? "You are already signed in. Opening your console."
+            : "Checking your session."}
+        </span>
+      </StandaloneAuthShell>
+    );
+  }
 
   return (
     <StandaloneAuthShell>
