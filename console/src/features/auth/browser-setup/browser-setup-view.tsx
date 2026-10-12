@@ -45,10 +45,17 @@ export function BrowserSetupView() {
   };
 
   if (setupStatus.isPending) {
+    // Deliberately NOT SetupShell: the wizard header, step rail and footer must
+    // not appear until the API confirms setup is available. On a host where
+    // setup is not offered (any production domain), rendering the shell here
+    // leaked the wizard chrome for a moment before the 404 arrived.
     return (
-      <SetupShell currentStep="welcome">
+      <div
+        data-setup
+        className="flex min-h-dvh items-center justify-center bg-[var(--setup-bg)] px-4"
+      >
         <LoadingPanel label="Checking setup service" />
-      </SetupShell>
+      </div>
     );
   }
 
@@ -61,11 +68,16 @@ export function BrowserSetupView() {
       // deployment is not in setup mode). Never render the wizard here.
       return <SetupUnavailable />;
     }
+    // Any other failure also leaves setup unconfirmed, so this stays free of the
+    // wizard chrome for the same reason as the pending state above.
     return (
-      <SetupShell currentStep="welcome">
+      <div
+        data-setup
+        className="flex min-h-dvh items-center justify-center bg-[var(--setup-bg)] px-4"
+      >
         <div
           role="alert"
-          className="flex flex-col gap-4 rounded-lg border border-[#ea9198]/25 bg-[#ea9198]/[0.05] p-5"
+          className="flex w-full max-w-lg flex-col gap-4 rounded-lg border border-[#ea9198]/25 bg-[#ea9198]/[0.05] p-5"
         >
           <div className="flex items-center gap-2 text-[13px] font-medium text-[#f0b4b7]">
             <XCircle className="size-4" /> Setup service unavailable
@@ -81,7 +93,7 @@ export function BrowserSetupView() {
             <RefreshCw className="size-4" /> Retry
           </Button>
         </div>
-      </SetupShell>
+      </div>
     );
   }
 
