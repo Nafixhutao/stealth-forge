@@ -120,9 +120,8 @@ export type CacheChange =
  * into a single invalidation target.
  */
 export function addCacheKey(keys: CacheQueryKey[], key: CacheQueryKey) {
-  if (
-    !keys.some((candidate) => JSON.stringify(candidate) === JSON.stringify(key))
-  ) {
+  const serialized = JSON.stringify(key);
+  if (!keys.some((candidate) => JSON.stringify(candidate) === serialized)) {
     keys.push(key);
   }
 }
@@ -131,8 +130,16 @@ export function addCacheKey(keys: CacheQueryKey[], key: CacheQueryKey) {
 export function dedupeCacheKeys(
   keys: readonly CacheQueryKey[],
 ): CacheQueryKey[] {
+  // Serialize each key once and dedupe through a Set, so this stays linear
+  // rather than re-stringifying every candidate per insert.
+  const seen = new Set<string>();
   const unique: CacheQueryKey[] = [];
-  for (const key of keys) addCacheKey(unique, key);
+  for (const key of keys) {
+    const serialized = JSON.stringify(key);
+    if (seen.has(serialized)) continue;
+    seen.add(serialized);
+    unique.push(key);
+  }
   return unique;
 }
 

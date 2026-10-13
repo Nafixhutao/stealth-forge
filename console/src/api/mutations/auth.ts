@@ -58,33 +58,6 @@ export function useVerifyBootstrapCode() {
   });
 }
 
-export function useStartGitHubDeviceFlow() {
-  return useMutation({
-    mutationFn: async (
-      body: components["schemas"]["StartGitHubDeviceRequest"],
-    ) => unwrap(await api.POST("/v1/bootstrap/github/device", { body })),
-  });
-}
-
-export function usePollGitHubDeviceFlow() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (
-      body: components["schemas"]["PollGitHubDeviceRequest"],
-    ) => unwrap(await api.POST("/v1/bootstrap/github/poll", { body })),
-    onSuccess: (result) => {
-      if (result?.status !== "complete") return;
-      return applyCacheChanges(queryClient, [
-        {
-          kind: "account",
-          includeOrganizations: true,
-          includeBootstrapStatus: true,
-        },
-      ]);
-    },
-  });
-}
-
 export function useRecoveryRequest() {
   return useMutation({
     mutationFn: async (

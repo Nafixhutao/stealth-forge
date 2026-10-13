@@ -48,21 +48,19 @@ export function AdminShell({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div data-admin className="min-h-dvh bg-[var(--projects-bg)]">
-      <div className="lg:flex">
-        <AdminSidebar
-          open={sidebarOpen}
-          onClose={closeSidebar}
+    <div data-admin className="flex min-h-dvh bg-[var(--projects-bg)]">
+      <AdminSidebar
+        open={sidebarOpen}
+        onClose={closeSidebar}
+        collapsed={collapsed}
+      />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <AdminTopBar
           collapsed={collapsed}
+          onToggleCollapsed={toggleCollapsed}
+          onOpenMobile={openSidebar}
         />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <AdminTopBar
-            collapsed={collapsed}
-            onToggleCollapsed={toggleCollapsed}
-            onOpenMobile={openSidebar}
-          />
-          <main className="relative min-h-dvh min-w-0 flex-1">{children}</main>
-        </div>
+        <main className="relative min-w-0 flex-1">{children}</main>
       </div>
     </div>
   );

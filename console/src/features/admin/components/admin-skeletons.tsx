@@ -57,7 +57,7 @@ export function ProviderCardsSkeleton({ cards = 2 }: { cards?: number }) {
 export function MetricCardsSkeleton({ cards = 4 }: { cards?: number }) {
   return (
     <div
-      className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4"
+      className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4"
       aria-hidden="true"
     >
       {Array.from({ length: cards }, (_, index) => (

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Stealth-deplover/stealth/internal/functionsecret"
-	"github.com/Stealth-deplover/stealth/internal/setupstate"
+	"github.com/Nafixhutao/stealth-forge/internal/functionsecret"
+	"github.com/Nafixhutao/stealth-forge/internal/setupstate"
 )
 
 // TestComposeSmokeLegacyHandoff is an opt-in helper invoked by the real

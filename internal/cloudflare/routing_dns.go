@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Stealth-deplover/stealth/internal/domainname"
+	"github.com/Nafixhutao/stealth-forge/internal/domainname"
 )
 
 func ensureWildcardDNS(ctx context.Context, client Client, zoneID, hostname, target, oldZoneID, oldHostname, storedRecordID string) (DNSRecord, bool, error) {

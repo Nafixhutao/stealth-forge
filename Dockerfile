@@ -10,7 +10,7 @@ COPY . .
 ARG VERSION=dev
 ARG COMMIT_SHA=unknown
 ARG BUILD_TIME=unknown
-ENV BUILD_LDFLAGS="-s -w -X github.com/Stealth-deplover/stealth/internal/buildinfo.Version=${VERSION} -X github.com/Stealth-deplover/stealth/internal/buildinfo.Commit=${COMMIT_SHA} -X github.com/Stealth-deplover/stealth/internal/buildinfo.BuildTime=${BUILD_TIME}"
+ENV BUILD_LDFLAGS="-s -w -X github.com/Nafixhutao/stealth-forge/internal/buildinfo.Version=${VERSION} -X github.com/Nafixhutao/stealth-forge/internal/buildinfo.Commit=${COMMIT_SHA} -X github.com/Nafixhutao/stealth-forge/internal/buildinfo.BuildTime=${BUILD_TIME}"
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="${BUILD_LDFLAGS}" -o /out/stealth-api ./cmd/api
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="${BUILD_LDFLAGS}" -o /out/stealth-worker ./cmd/worker
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="${BUILD_LDFLAGS}" -o /out/stealth-cloudflare-import-init ./cmd/cloudflare-import-init
@@ -34,7 +34,7 @@ LABEL org.opencontainers.image.title="Stealth" \
       org.opencontainers.image.version="$VERSION" \
       org.opencontainers.image.revision="$COMMIT_SHA" \
       org.opencontainers.image.created="$BUILD_TIME" \
-      org.opencontainers.image.source="https://github.com/Stealth-deplover/stealth"
+      org.opencontainers.image.source="https://github.com/Nafixhutao/stealth-forge"
 
 FROM runtime-base AS api
 COPY --from=build /out/stealth-api /usr/local/bin/stealth-api
@@ -83,7 +83,7 @@ LABEL org.opencontainers.image.title="Stealth ingress control" \
       org.opencontainers.image.version="$VERSION" \
       org.opencontainers.image.revision="$COMMIT_SHA" \
       org.opencontainers.image.created="$BUILD_TIME" \
-      org.opencontainers.image.source="https://github.com/Stealth-deplover/stealth"
+      org.opencontainers.image.source="https://github.com/Nafixhutao/stealth-forge"
 ENTRYPOINT ["/usr/local/bin/stealth-ingress-control"]
 
 FROM runtime-base AS migrate

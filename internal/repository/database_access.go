@@ -6,9 +6,9 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/Stealth-deplover/stealth/internal/apikey"
-	dbcore "github.com/Stealth-deplover/stealth/internal/database"
-	"github.com/Stealth-deplover/stealth/internal/domain"
+	"github.com/Nafixhutao/stealth-forge/internal/apikey"
+	dbcore "github.com/Nafixhutao/stealth-forge/internal/database"
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )

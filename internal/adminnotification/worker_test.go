@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/functionsecret"
-	"github.com/Stealth-deplover/stealth/internal/mailer"
-	"github.com/Stealth-deplover/stealth/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/functionsecret"
+	"github.com/Nafixhutao/stealth-forge/internal/mailer"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
 	"github.com/google/uuid"
 )
 

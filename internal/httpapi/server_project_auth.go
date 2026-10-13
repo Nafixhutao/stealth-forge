@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/auth"
-	"github.com/Stealth-deplover/stealth/internal/domain"
-	"github.com/Stealth-deplover/stealth/internal/repository"
-	"github.com/Stealth-deplover/stealth/internal/validate"
+	"github.com/Nafixhutao/stealth-forge/internal/auth"
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/validate"
 	"github.com/google/uuid"
 )
 

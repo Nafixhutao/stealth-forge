@@ -20,7 +20,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/Stealth-deplover/stealth/internal/config"
+	"github.com/Nafixhutao/stealth-forge/internal/config"
 )
 
 var ErrDisabled = errors.New("email delivery is disabled")

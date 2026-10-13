@@ -10,9 +10,14 @@ export function useSetupStatus() {
     queryFn: ({ signal }) => execute(api.GET("/v1/setup/status", { signal })),
     retry: false,
     staleTime: 2_000,
+    // Polls only while an install is in flight or awaiting handoff. This is the
+    // single owner of setup-status polling; the flow no longer runs its own
+    // interval, which also means background tabs stop polling.
     refetchInterval: (query) =>
       query.state.data?.state.phase === "install_requested" ||
-      query.state.data?.state.phase === "installing"
+      query.state.data?.state.phase === "installing" ||
+      query.state.data?.state.phase === "failed" ||
+      query.state.data?.state.phase === "handoff"
         ? 2_000
         : false,
   });

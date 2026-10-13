@@ -55,3 +55,21 @@ export const LABEL_EXIT_TRANSITION = {
   duration: 0.12,
   ease: EASE_OUT,
 } as const;
+
+// Added for the beUI status-bar chart port (its tooltip and bar motion).
+export const EASE_IN_OUT: [number, number, number, number] = [
+  0.77, 0, 0.175, 1,
+];
+/** Content swaps, e.g. a label trading places with an icon. */
+export const SPRING_SWAP = {
+  type: "spring",
+  stiffness: 460,
+  damping: 30,
+  mass: 0.55,
+} as const;
+/** Cursor-follow physics for decorative pointer tracking. */
+export const SPRING_MOUSE = {
+  stiffness: 200,
+  damping: 15,
+  mass: 0.3,
+} as const;

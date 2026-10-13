@@ -7,3 +7,6 @@ coverage.out
 # Local tool caches and throwaway diagnostics.
 /graphify-out/
 /tmp-diag/
+
+# Compiled API/worker binaries at the repo root.
+/api

@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/config"
-	"github.com/Stealth-deplover/stealth/internal/ratelimit"
+	"github.com/Nafixhutao/stealth-forge/internal/config"
+	"github.com/Nafixhutao/stealth-forge/internal/ratelimit"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )

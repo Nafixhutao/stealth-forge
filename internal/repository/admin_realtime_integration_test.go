@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/migrate"
+	"github.com/Nafixhutao/stealth-forge/internal/migrate"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"

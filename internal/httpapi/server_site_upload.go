@@ -10,12 +10,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Stealth-deplover/stealth/internal/domain"
-	"github.com/Stealth-deplover/stealth/internal/functionrunner"
-	"github.com/Stealth-deplover/stealth/internal/functionstore"
-	"github.com/Stealth-deplover/stealth/internal/repository"
-	"github.com/Stealth-deplover/stealth/internal/sitestore"
-	"github.com/Stealth-deplover/stealth/internal/storage"
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
+	"github.com/Nafixhutao/stealth-forge/internal/functionrunner"
+	"github.com/Nafixhutao/stealth-forge/internal/functionstore"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/sitestore"
+	"github.com/Nafixhutao/stealth-forge/internal/storage"
 	"github.com/google/uuid"
 )
 

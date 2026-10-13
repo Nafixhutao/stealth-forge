@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Stealth-deplover/stealth/internal/domainname"
+	"github.com/Nafixhutao/stealth-forge/internal/domainname"
 )
 
 func (r *Reconciler) ReconcileConsoleOrigin(ctx context.Context) (origin string, err error) {

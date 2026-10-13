@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/auth"
-	"github.com/Stealth-deplover/stealth/internal/domain"
-	"github.com/Stealth-deplover/stealth/internal/repository"
-	"github.com/Stealth-deplover/stealth/internal/validate"
+	"github.com/Nafixhutao/stealth-forge/internal/auth"
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/validate"
 	"github.com/google/uuid"
 )
 
@@ -165,7 +165,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 500, "internal_error", "unable to create session")
 		return
 	}
-	if err = s.repo.CreateSession(r.Context(), uuid.Must(uuid.NewV7()), accountID, tokenHash, time.Now().UTC().Add(s.config.SessionTTL)); err != nil {
+	if err = s.repo.CreateSession(r.Context(), uuid.Must(uuid.NewV7()), accountID, tokenHash, time.Now().UTC().Add(s.config.SessionTTL), "password"); err != nil {
 		s.logger.Error("session creation failed", "error", err)
 		writeError(w, 500, "internal_error", "unable to create session")
 		return

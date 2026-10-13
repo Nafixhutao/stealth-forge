@@ -11,7 +11,7 @@ import type { Trace, TraceSpan } from "../types/traces";
 import type { ErrorGroup } from "../types/errors";
 import type { AgentRun } from "../types/runs";
 import type { Incident } from "../types/incidents";
-import type { AdminUser, ModelUsage, Provider } from "../types/platform";
+import type { ModelUsage, Provider } from "../types/platform";
 
 // ---------------------------------------------------------------------------
 // Deterministic mock generation. Every series comes from a seeded PRNG so the
@@ -1409,81 +1409,6 @@ export const ERROR_GROUPS: ErrorGroup[] = [
 // ---------------------------------------------------------------------------
 // Platform — users, providers, usage, status page
 // ---------------------------------------------------------------------------
-
-export const USERS: AdminUser[] = [
-  {
-    id: "usr_01",
-    name: "Alex Rivera",
-    email: "alex@stealth.dev",
-    role: "Owner",
-    runs: 342,
-    lastActive: "2m ago",
-    status: "active",
-  },
-  {
-    id: "usr_02",
-    name: "Sarah Chen",
-    email: "sarah@stealth.dev",
-    role: "Admin",
-    runs: 287,
-    lastActive: "5m ago",
-    status: "active",
-  },
-  {
-    id: "usr_03",
-    name: "John Okafor",
-    email: "john@stealth.dev",
-    role: "Member",
-    runs: 198,
-    lastActive: "Now",
-    status: "active",
-  },
-  {
-    id: "usr_04",
-    name: "Mia Tan",
-    email: "mia@stealth.dev",
-    role: "Member",
-    runs: 154,
-    lastActive: "12m ago",
-    status: "active",
-  },
-  {
-    id: "usr_05",
-    name: "Leo Martins",
-    email: "leo@stealth.dev",
-    role: "Member",
-    runs: 121,
-    lastActive: "30m ago",
-    status: "idle",
-  },
-  {
-    id: "usr_06",
-    name: "Priya Sharma",
-    email: "priya@stealth.dev",
-    role: "Member",
-    runs: 98,
-    lastActive: "1h ago",
-    status: "idle",
-  },
-  {
-    id: "usr_07",
-    name: "Tom Becker",
-    email: "tom@stealth.dev",
-    role: "Member",
-    runs: 64,
-    lastActive: "3h ago",
-    status: "idle",
-  },
-  {
-    id: "usr_08",
-    name: "Nina Volkova",
-    email: "nina@stealth.dev",
-    role: "Member",
-    runs: 12,
-    lastActive: "6d ago",
-    status: "suspended",
-  },
-];
 
 export const PROVIDERS: Provider[] = [
   {

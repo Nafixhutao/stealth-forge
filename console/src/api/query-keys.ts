@@ -7,6 +7,7 @@ export const queryKeys = {
     ["setup-cloudflare-zones", accountId] as const,
   account: ["account"] as const,
   accountSessions: ["account-sessions"] as const,
+  accountIdentities: ["account-identities"] as const,
   organizations: ["organizations"] as const,
   organization: (organizationId: string) =>
     ["organization", organizationId] as const,
@@ -145,6 +146,10 @@ export const queryKeys = {
     ["admin", "dashboard", dashboardId] as const,
   adminStatusPage: ["admin", "status-page"] as const,
   adminHostMetrics: ["admin", "host-metrics"] as const,
+  adminDBMetrics: ["admin", "db-metrics"] as const,
+  adminRedisMetrics: ["admin", "redis-metrics"] as const,
+  adminAPIMetrics: ["admin", "api-metrics"] as const,
+  adminAccounts: ["admin", "accounts"] as const,
   publicStatusPage: ["public", "status-page"] as const,
   adminTelemetry: (signal: string, query: unknown) =>
     ["admin", "telemetry", signal, query] as const,

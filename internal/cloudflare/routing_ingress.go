@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/Stealth-deplover/stealth/internal/domainname"
+	"github.com/Nafixhutao/stealth-forge/internal/domainname"
 )
 
 const (

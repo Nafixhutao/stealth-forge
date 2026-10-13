@@ -8,6 +8,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { LogOut, X } from "lucide-react";
 import { useLogout } from "@/api/mutations/auth";
 import {
+  EASE_OUT,
   LABEL_ENTER_TRANSITION,
   LABEL_EXIT_TRANSITION,
   PANEL_CLOSE_TRANSITION,
@@ -224,8 +225,8 @@ function AdminSidebarBody({
 
       <footer
         className={cn(
-          "shrink-0 border-t border-[#26242b] py-3",
-          collapsed ? "px-2" : "px-4",
+          "mt-auto shrink-0 border-t border-[#26242b] py-2.5",
+          collapsed ? "px-2" : "px-3",
         )}
       >
         <Link
@@ -233,37 +234,66 @@ function AdminSidebarBody({
           onClick={() => onNavigate?.("/admin/status")}
           title={collapsed ? "All systems operational" : undefined}
           className={cn(
-            "flex items-center text-[12px] text-[#AAA6AE] transition-colors hover:text-[#EEEAF0]",
-            collapsed ? "justify-center" : "gap-2",
+            "group flex items-center rounded-md text-left text-[12px] text-[#AAA6AE] transition-colors hover:bg-white/[0.035] hover:text-[#EEEAF0]",
+            collapsed ? "h-9 justify-center" : "h-9 gap-2.5 px-2.5",
           )}
         >
-          <span className="relative flex size-2 shrink-0">
-            <span className="absolute inline-flex size-full animate-ping rounded-full bg-[var(--projects-accent)] opacity-50" />
-            <span className="relative inline-flex size-2 rounded-full bg-[var(--projects-accent)]" />
-          </span>
+          <StatusDot />
           {!collapsed && (
             <span className="truncate">All systems operational</span>
           )}
         </Link>
-        <button
+        <motion.button
           type="button"
           onClick={handleSignOut}
           disabled={logout.isPending}
+          whileTap={reduce ? undefined : { scale: 0.98 }}
+          transition={SPRING_PRESS}
           title={collapsed ? "Sign out" : undefined}
           className={cn(
-            "mt-2.5 flex w-full items-center text-[12px] text-[#AAA6AE] transition-colors hover:text-[#EEEAF0] disabled:opacity-60",
-            collapsed ? "justify-center" : "gap-2",
+            "mt-1 flex w-full items-center rounded-md text-left text-[12px] text-[#AAA6AE] transition-colors hover:bg-white/[0.035] hover:text-[#EEEAF0] disabled:opacity-60",
+            collapsed ? "h-9 justify-center" : "h-9 gap-2.5 px-2.5",
           )}
         >
-          <LogOut size={13} strokeWidth={1.8} aria-hidden="true" />
+          <LogOut size={16} strokeWidth={1.8} aria-hidden="true" />
           {!collapsed && (
             <span className="truncate">
               {logout.isPending ? "Signing out…" : "Sign out"}
             </span>
           )}
-        </button>
+        </motion.button>
       </footer>
     </>
+  );
+}
+
+/** The footer status indicator. A gentle two-layer glow: a soft breathing
+    halo behind a steady dot, driven by motion's looping animation instead of
+    the stock tailwind ping, so the pulse reads as calm rather than urgent.
+    Honors prefers-reduced-motion by rendering the dot alone. */
+function StatusDot() {
+  const reduce = useReducedMotion() ?? false;
+  return (
+    <span className="relative flex size-4 shrink-0 items-center justify-center">
+      {!reduce && (
+        <motion.span
+          aria-hidden="true"
+          animate={{ scale: [1, 1.9], opacity: [0.45, 0] }}
+          transition={{
+            duration: 2.4,
+            ease: EASE_OUT,
+            repeat: Infinity,
+            repeatDelay: 0.6,
+          }}
+          className="absolute inset-0 rounded-full bg-[var(--projects-accent)]"
+        />
+      )}
+      <span
+        className="relative size-2 rounded-full bg-[var(--projects-accent)]"
+        role="status"
+        aria-label="All systems operational"
+      />
+    </span>
   );
 }
 
@@ -343,7 +373,7 @@ export function AdminSidebar({
         transition={
           collapsed ? SIDEBAR_COLLAPSE_TRANSITION : SIDEBAR_EXPAND_TRANSITION
         }
-        className="sticky top-0 hidden h-dvh shrink-0 flex-col overflow-hidden border-r border-[#322F37] bg-[#121014] lg:flex"
+        className="hidden shrink-0 flex-col overflow-hidden border-r border-[#322F37] bg-[#121014] lg:flex"
       >
         <AdminSidebarBody collapsed={collapsed} />
       </motion.aside>

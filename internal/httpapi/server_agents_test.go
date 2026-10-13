@@ -3,7 +3,7 @@ package httpapi
 import (
 	"testing"
 
-	"github.com/Stealth-deplover/stealth/internal/config"
+	"github.com/Nafixhutao/stealth-forge/internal/config"
 )
 
 func TestValidAgentProviderModel(t *testing.T) {

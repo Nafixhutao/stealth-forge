@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	defaultAssetBase        = "https://raw.githubusercontent.com/Stealth-deplover/stealth"
-	defaultReleaseAssetBase = "https://github.com/Stealth-deplover/stealth/releases/download"
+	defaultAssetBase        = "https://raw.githubusercontent.com/Nafixhutao/stealth-forge"
+	defaultReleaseAssetBase = "https://github.com/Nafixhutao/stealth-forge/releases/download"
 	maxAssetSize            = 2 << 20
 	lockFileName            = "install.lock"
 )

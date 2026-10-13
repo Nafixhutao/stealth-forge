@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/realtime"
-	"github.com/Stealth-deplover/stealth/internal/requestcontext"
+	"github.com/Nafixhutao/stealth-forge/internal/realtime"
+	"github.com/Nafixhutao/stealth-forge/internal/requestcontext"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )

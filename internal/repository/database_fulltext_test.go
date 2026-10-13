@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	dbcore "github.com/Stealth-deplover/stealth/internal/database"
+	dbcore "github.com/Nafixhutao/stealth-forge/internal/database"
 	"github.com/google/uuid"
 )
 

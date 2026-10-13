@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Stealth-deplover/stealth/internal/domainname"
-	"github.com/Stealth-deplover/stealth/internal/setupstate"
+	"github.com/Nafixhutao/stealth-forge/internal/domainname"
+	"github.com/Nafixhutao/stealth-forge/internal/setupstate"
 	"github.com/google/uuid"
 )
 

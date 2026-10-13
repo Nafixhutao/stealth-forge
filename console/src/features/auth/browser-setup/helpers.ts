@@ -29,27 +29,6 @@ export function safeError(error: unknown) {
   return errorMessage(error);
 }
 
-export function submitGitHubManifest(actionURL: string, manifest: string) {
-  const target = new URL(actionURL);
-  if (
-    target.origin !== "https://github.com" ||
-    target.pathname !== "/settings/apps/new"
-  ) {
-    throw new Error("GitHub returned an invalid App Manifest destination.");
-  }
-  const form = document.createElement("form");
-  form.method = "post";
-  form.action = target.toString();
-  form.hidden = true;
-  const field = document.createElement("input");
-  field.type = "hidden";
-  field.name = "manifest";
-  field.value = manifest;
-  form.appendChild(field);
-  document.body.appendChild(form);
-  form.submit();
-}
-
 export function handoffURL(
   publicURL: string,
   allowedOrigins: Array<string | undefined> = [],

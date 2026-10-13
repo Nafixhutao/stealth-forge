@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Stealth-deplover/stealth/internal/repository"
-	"github.com/Stealth-deplover/stealth/internal/workloadspec"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/workloadspec"
 	"github.com/google/uuid"
 )
 

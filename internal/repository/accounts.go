@@ -6,7 +6,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/domain"
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -71,7 +71,13 @@ func (r *Repository) AccountBySession(ctx context.Context, tokenHash []byte) (do
 		FROM sessions s
 		JOIN accounts a ON a.id=s.account_id
 		LEFT JOIN instance_roles ir ON ir.account_id=a.id
-		LEFT JOIN account_identities ai ON ai.account_id=a.id AND ai.provider='github'
+		LEFT JOIN LATERAL (
+		  SELECT provider, provider_user_id, provider_login, display_name, avatar_url
+		  FROM account_identities
+		  WHERE account_id=a.id
+		  ORDER BY (provider='github') DESC, created_at
+		  LIMIT 1
+		) ai ON true
 		WHERE s.token_hash=$1 AND s.expires_at > now()`, tokenHash).Scan(
 		&account.ID, &email, &account.EmailVerified, &instanceRole,
 		&provider, &providerUserID, &providerLogin, &displayName, &avatarURL,
@@ -85,7 +91,7 @@ func (r *Repository) AccountBySession(ctx context.Context, tokenHash []byte) (do
 	if instanceRole.Valid {
 		account.InstanceRole = instanceRole.String
 	}
-	populateGitHubIdentity(&account, provider, providerUserID, providerLogin, displayName, avatarURL)
+	populateIdentity(&account, provider, providerUserID, providerLogin, displayName, avatarURL)
 	return account, sessionID, err
 }
 func (r *Repository) AccountPassword(ctx context.Context, email string) (uuid.UUID, string, error) {
@@ -127,7 +133,7 @@ func scanAccount(row pgx.Row) (domain.Account, error) {
 	if instanceRole.Valid {
 		account.InstanceRole = instanceRole.String
 	}
-	populateGitHubIdentity(&account, provider, providerUserID, providerLogin, displayName, avatarURL)
+	populateIdentity(&account, provider, providerUserID, providerLogin, displayName, avatarURL)
 	return account, nil
 }
 
@@ -154,7 +160,13 @@ func (r *Repository) AccountByID(ctx context.Context, accountID uuid.UUID) (doma
 		SELECT `+accountSelectColumns+`
 		FROM accounts a
 		LEFT JOIN instance_roles ir ON ir.account_id=a.id
-		LEFT JOIN account_identities ai ON ai.account_id=a.id AND ai.provider='github'
+		LEFT JOIN LATERAL (
+		  SELECT provider, provider_user_id, provider_login, display_name, avatar_url
+		  FROM account_identities
+		  WHERE account_id=a.id
+		  ORDER BY (provider='github') DESC, created_at
+		  LIMIT 1
+		) ai ON true
 		WHERE a.id=$1`, accountID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Account{}, ErrNotFound
@@ -162,7 +174,7 @@ func (r *Repository) AccountByID(ctx context.Context, accountID uuid.UUID) (doma
 	return account, err
 }
 
-func populateGitHubIdentity(
+func populateIdentity(
 	account *domain.Account,
 	provider, providerUserID, providerLogin, displayName, avatarURL sql.NullString,
 ) {

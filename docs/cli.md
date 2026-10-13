@@ -191,7 +191,7 @@ App. In setup mode the runtime check is skipped. `logs` delegates to
 configuration, local Traefik routes, public Console HTTPS behavior, browser
 security headers, and HSTS. Console routes may use up to five safe HTTPS
 redirects on the configured hostname and port; `/` normally redirects to
-`/organizations`. Every redirect response must retain the required security
+`/admin`. Every redirect response must retain the required security
 headers and HSTS. Add `--site-hostname portfolio.apps.example.com`
 to verify a platform Site below the configured workload domain;
 `--site-sha256` can require a deterministic body digest.

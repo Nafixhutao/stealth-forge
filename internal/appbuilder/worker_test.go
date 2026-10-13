@@ -17,12 +17,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/appbuildspec"
-	"github.com/Stealth-deplover/stealth/internal/appstore"
-	"github.com/Stealth-deplover/stealth/internal/domain"
-	"github.com/Stealth-deplover/stealth/internal/functionrunner"
-	"github.com/Stealth-deplover/stealth/internal/repository"
-	"github.com/Stealth-deplover/stealth/internal/workloadspec"
+	"github.com/Nafixhutao/stealth-forge/internal/appbuildspec"
+	"github.com/Nafixhutao/stealth-forge/internal/appstore"
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
+	"github.com/Nafixhutao/stealth-forge/internal/functionrunner"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/workloadspec"
 	"github.com/google/uuid"
 )
 

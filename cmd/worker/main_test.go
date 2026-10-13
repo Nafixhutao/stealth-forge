@@ -12,11 +12,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Stealth-deplover/stealth/internal/buildinfo"
-	"github.com/Stealth-deplover/stealth/internal/cloudflareimport"
-	"github.com/Stealth-deplover/stealth/internal/domain"
-	"github.com/Stealth-deplover/stealth/internal/functionsecret"
-	"github.com/Stealth-deplover/stealth/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/buildinfo"
+	"github.com/Nafixhutao/stealth-forge/internal/cloudflareimport"
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
+	"github.com/Nafixhutao/stealth-forge/internal/functionsecret"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
 )
 
 type legacyCloudflareImportFake struct {

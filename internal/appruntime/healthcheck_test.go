@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/workloadspec"
+	"github.com/Nafixhutao/stealth-forge/internal/workloadspec"
 )
 
 type healthTestDialer func(context.Context, string, string) (net.Conn, error)

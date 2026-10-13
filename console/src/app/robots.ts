@@ -5,10 +5,9 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        // The authenticated console is not a public site; only the public
-        // status page is intended to be discoverable.
+        // The console is authenticated and internal; nothing here is a public
+        // site, so keep the whole surface out of search indexes.
         disallow: "/",
-        allow: "/status",
       },
     ],
   };

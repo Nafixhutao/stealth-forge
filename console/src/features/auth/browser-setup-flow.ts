@@ -10,7 +10,6 @@ import {
   useSaveSetupConfig,
   useSaveSetupGitHubManual,
   useStartSetupGitHubAuthorization,
-  useStartSetupGitHubManifest,
   useStartSetupInstall,
   useTestSetupDatabase,
   useTestSetupRedis,
@@ -38,6 +37,16 @@ import {
   type SetupStep,
 } from "./browser-setup-model";
 
+/**
+ * The CLI prints a setup URL that carries the one-time code as `?code=`. Read
+ * it once per attempt so a retry can re-use the same link.
+ */
+function readSetupCodeFromURL(): string {
+  if (typeof window === "undefined") return "";
+  const raw = new URLSearchParams(window.location.search).get("code") ?? "";
+  return raw.toUpperCase();
+}
+
 export function useBrowserSetupFlow() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -59,17 +68,11 @@ export function useBrowserSetupFlow() {
     defaultValues: {
       client_id: "",
       client_secret: "",
-      private_key: "",
-      webhook_secret: "",
     },
     mode: "onTouched",
   });
   const [step, setStep] = useState<SetupStep>("welcome");
-  const [setupCode, setSetupCode] = useState("");
   const [setupVerified, setSetupVerified] = useState(false);
-  const [providerMode, setProviderMode] = useState<"manifest" | "manual">(
-    "manifest",
-  );
   const [cloudflareToken, setCloudflareToken] = useState("");
   const [cloudflareAccountID, setCloudflareAccountID] = useState<string | null>(
     null,
@@ -83,9 +86,9 @@ export function useBrowserSetupFlow() {
   const hydrated = useRef(false);
   const callbackHandled = useRef("");
   const handoffSubmitted = useRef(false);
+  const autoCodeHandled = useRef(false);
   const verifyCode = useVerifyBootstrapCode();
   const saveConfig = useSaveSetupConfig();
-  const startManifest = useStartSetupGitHubManifest();
   const startAuthorization = useStartSetupGitHubAuthorization();
   const saveManual = useSaveSetupGitHubManual();
   const saveCloudflareToken = useSaveSetupCloudflareToken();
@@ -102,6 +105,7 @@ export function useBrowserSetupFlow() {
   // every render.
   const refetchSetupStatus = setupStatus.refetch;
   const saveConfigMutate = saveConfig.mutateAsync;
+  const verifySetupCode = verifyCode.mutateAsync;
   const watchedConfig = useWatch({ control: configForm.control });
   const networkMode = watchedConfig.network_mode ?? defaultConfig.network_mode;
   const databaseMode =
@@ -109,22 +113,31 @@ export function useBrowserSetupFlow() {
   const redisMode = watchedConfig.redis_mode ?? defaultConfig.redis_mode;
   const storageMode = watchedConfig.storage_mode ?? defaultConfig.storage_mode;
   const requestedAccount =
-    cloudflareAccountID ?? state?.draft.cloudflare_account_id ?? "";
+    cloudflareAccountID ?? state?.draft?.cloudflare_account_id ?? "";
   const requestedZone =
-    cloudflareZoneID ?? state?.draft.cloudflare_zone_id ?? "";
+    cloudflareZoneID ?? state?.draft?.cloudflare_zone_id ?? "";
   const ownerConfirmed = Boolean(
     setupStatus.data && !setupStatus.data.setup_required,
   );
   const setupAccess =
     setupVerified ||
     ownerConfirmed ||
-    Boolean(state?.github.authorization_session);
+    Boolean(state?.github?.authorization_session);
+  // Every hop is optional-chained: the API contract marks these fields required,
+  // but a partial or older payload must not crash the wizard shell.
   const cloudflareConnected = Boolean(
-    state?.cloudflare.connected &&
+    state?.cloudflare?.connected &&
     state.cloudflare.mode === "api_token" &&
     state.cloudflare.token_valid,
   );
   const preflight = useSetupPreflight(setupAccess);
+  // Bound method, read once, so effects and callbacks can depend on the stable
+  // function instead of the query result object (see the note above).
+  const refetchPreflight = preflight.refetch;
+  // Primitive projections of the server snapshot. The object itself gets a new
+  // identity on every poll and SSE snapshot, so effects depend on these.
+  const statePhase = state?.phase;
+  const statePublicURL = state?.draft?.public_url;
   const accounts = useSetupCloudflareAccounts(
     setupAccess && cloudflareConnected,
   );
@@ -211,26 +224,18 @@ export function useBrowserSetupFlow() {
   }, [activeStep]);
 
   useEffect(() => {
-    if (activeStep !== "install") return;
-    const timer = window.setInterval(() => void refetchSetupStatus(), 2_000);
-    return () => window.clearInterval(timer);
-  }, [activeStep, refetchSetupStatus]);
-
-  useEffect(() => {
     issueHandoffRef.current = issueHandoff.mutateAsync;
   }, [issueHandoff.mutateAsync]);
 
   useEffect(() => {
     if (
       activeStep !== "install" ||
-      !state ||
-      (state.phase !== "complete" && state.phase !== "handoff") ||
+      (statePhase !== "complete" && statePhase !== "handoff") ||
       handoffSubmitted.current
     ) {
       return;
     }
-    const publicURL =
-      state.draft.public_url ?? configForm.getValues("public_url");
+    const publicURL = statePublicURL ?? configForm.getValues("public_url");
     if (!publicURL) return;
     handoffSubmitted.current = true;
     if (handoffToken) {
@@ -253,7 +258,9 @@ export function useBrowserSetupFlow() {
       .catch((error) => {
         setActionError(error);
       });
-  }, [activeStep, configForm, handoffToken, state]);
+    // Depend on the fields the effect reads, not the whole snapshot: the state
+    // object gets a new identity on every poll and SSE snapshot.
+  }, [activeStep, configForm, handoffToken, statePhase, statePublicURL]);
 
   const persistConfig = useCallback(
     async (values: ConfigValues) => {
@@ -270,28 +277,34 @@ export function useBrowserSetupFlow() {
     setStep(next);
   };
 
-  const verifySetupCode = async () => {
-    const parsed = setupCodeSchema.safeParse(setupCode);
-    if (!parsed.success) {
-      setActionError(
-        new Error(
-          parsed.error.issues[0]?.message ??
-            "Enter the setup code shown by the CLI.",
-        ),
-      );
-      return;
-    }
-    setActionError(undefined);
+  // The CLI prints a setup URL that carries the one-time code as `?code=`.
+  // Verify it automatically so the operator never has to type the code. The
+  // wizard's only forward action is gated on `setupVerified`, so a failure is
+  // surfaced rather than swallowed, and the operator can retry from the
+  // welcome stage (the link keeps working until the code expires).
+  const retrySetupVerification = useCallback(async () => {
+    const parsed = setupCodeSchema.safeParse(readSetupCodeFromURL());
+    if (!parsed.success) return;
     try {
-      const result = await verifyCode.mutateAsync({ setup_code: parsed.data });
+      const result = await verifySetupCode({ setup_code: parsed.data });
       if (!result) return;
-      setSetupCode(parsed.data);
+      setActionError(undefined);
       setSetupVerified(true);
-      await preflight.refetch();
+      await refetchPreflight();
     } catch (error) {
       setActionError(error);
     }
-  };
+  }, [refetchPreflight, verifySetupCode]);
+
+  useEffect(() => {
+    if (autoCodeHandled.current) return;
+    if (!setupCodeSchema.safeParse(readSetupCodeFromURL()).success) return;
+    autoCodeHandled.current = true;
+    // Deferred a microtask so the verification's state updates land outside the
+    // effect body (react-hooks/set-state-in-effect) while still running on the
+    // first client render.
+    queueMicrotask(() => void retrySetupVerification());
+  }, [retrySetupVerification]);
 
   const authorizeGitHubOwner = async () => {
     setActionError(undefined);
@@ -464,15 +477,15 @@ export function useBrowserSetupFlow() {
     checks.length > 0 &&
     checks.every((check) => !check.required || check.status === "pass");
   const tunnelReady = Boolean(
-    state?.draft.cloudflare_tunnel_id &&
+    state?.draft?.cloudflare_tunnel_id &&
     state.draft.cloudflare_record_id &&
     state.draft.hostname,
   );
   const dataReady =
-    (databaseMode === "bundled" || Boolean(state?.draft.database_tested)) &&
-    (redisMode === "bundled" || Boolean(state?.draft.redis_tested));
+    (databaseMode === "bundled" || Boolean(state?.draft?.database_tested)) &&
+    (redisMode === "bundled" || Boolean(state?.draft?.redis_tested));
   const storageReady =
-    storageMode === "local" || Boolean(state?.draft.storage_tested);
+    storageMode === "local" || Boolean(state?.draft?.storage_tested);
   const installViewState = installState ?? state;
   const installPhase = state?.phase ?? installViewState?.phase;
   const installPublicURL =
@@ -527,9 +540,9 @@ export function useBrowserSetupFlow() {
     ownerConfirmed,
     persistConfig,
     preflight,
-    providerMode,
     redisMode,
     retryProductionInstall,
+    retrySetupVerification,
     saveConfig,
     saveManual,
     saveManualGitHub,
@@ -538,12 +551,10 @@ export function useBrowserSetupFlow() {
     selectedZone,
     setActionError,
     sseConnected,
-    setupCode,
     setupStatus,
     setupVerified,
     authorizeGitHubOwner,
     startAuthorization,
-    startManifest,
     storageMode,
     storageReady,
     state,
@@ -555,15 +566,12 @@ export function useBrowserSetupFlow() {
     testStorageConnection,
     tunnelReady,
     verifyCode,
-    verifySetupCode,
     watchedConfig,
     zones,
     connectCloudflareToken,
     setCloudflareAccountID,
     setCloudflareToken,
     setCloudflareZoneID,
-    setProviderMode,
-    setSetupCode,
     startProductionInstall,
   };
 }

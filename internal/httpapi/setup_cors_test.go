@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/bootstrap"
-	"github.com/Stealth-deplover/stealth/internal/config"
-	"github.com/Stealth-deplover/stealth/internal/functionsecret"
-	"github.com/Stealth-deplover/stealth/internal/repository"
-	"github.com/Stealth-deplover/stealth/internal/setupstate"
+	"github.com/Nafixhutao/stealth-forge/internal/bootstrap"
+	"github.com/Nafixhutao/stealth-forge/internal/config"
+	"github.com/Nafixhutao/stealth-forge/internal/functionsecret"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/setupstate"
 	"github.com/google/uuid"
 )
 
@@ -60,7 +60,6 @@ func newSetupCORSTestServer(t *testing.T, publicURL, tunnelURL string) (http.Han
 	}, nil, slog.Default(), Dependencies{
 		BootstrapStore: bootstrapFake,
 		SetupState:     store,
-		GitHubManifest: setupManifestFake{},
 		GitHubOAuth:    &setupGitHubOAuthFake{},
 	})
 	register := httptest.NewRecorder()

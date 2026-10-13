@@ -1,7 +1,6 @@
 package bootstrap
 
 import (
-	"bytes"
 	"encoding/base64"
 	"strings"
 	"testing"
@@ -64,27 +63,5 @@ func TestCLIProofIsDerivedAndConstantFormat(t *testing.T) {
 	}
 	if VerifyCLIProof(nil, proof) || VerifyCLIProof(key, "not-a-proof") {
 		t.Fatal("invalid proof was accepted")
-	}
-}
-
-func TestDeviceCodeEncryptionDoesNotPersistPlaintext(t *testing.T) {
-	key := bytes.Repeat([]byte{0x37}, 32)
-	deviceCode := "device-code-test-value"
-	sealed, err := SealDeviceCode(key, deviceCode)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if bytes.Contains(sealed, []byte(deviceCode)) {
-		t.Fatal("sealed device code contains plaintext")
-	}
-	opened, err := OpenDeviceCode(key, sealed)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if opened != deviceCode {
-		t.Fatalf("opened device code = %q, want %q", opened, deviceCode)
-	}
-	if _, err := OpenDeviceCode(bytes.Repeat([]byte{0x38}, 32), sealed); err == nil {
-		t.Fatal("wrong key opened sealed device code")
 	}
 }

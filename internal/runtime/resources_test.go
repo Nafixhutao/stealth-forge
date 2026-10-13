@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Stealth-deplover/stealth/internal/config"
+	"github.com/Nafixhutao/stealth-forge/internal/config"
 )
 
 func TestOpenRejectsMalformedRedisBeforeOpeningDatabase(t *testing.T) {

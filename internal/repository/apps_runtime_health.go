@@ -6,7 +6,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/domain"
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
 	"github.com/google/uuid"
 	pgx "github.com/jackc/pgx/v5"
 )

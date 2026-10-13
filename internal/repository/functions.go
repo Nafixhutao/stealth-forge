@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/Stealth-deplover/stealth/internal/apikey"
-	"github.com/Stealth-deplover/stealth/internal/domain"
-	"github.com/Stealth-deplover/stealth/internal/functionsecret"
+	"github.com/Nafixhutao/stealth-forge/internal/apikey"
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
+	"github.com/Nafixhutao/stealth-forge/internal/functionsecret"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )

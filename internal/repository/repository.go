@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"github.com/Stealth-deplover/stealth/internal/functionsecret"
+	"github.com/Nafixhutao/stealth-forge/internal/functionsecret"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

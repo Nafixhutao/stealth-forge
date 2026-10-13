@@ -220,6 +220,76 @@ export function useAdminHostMetrics(
   });
 }
 
+// Database metrics are sampled in-process by the API through its own pool (no
+// telemetry backend). Same cadence and shape as the host metrics hook so the
+// Overview's database card behaves like the host cards. `windowMinutes`
+// narrows the history; the server computes the cutoff, so render stays pure.
+export function useAdminDBMetrics(
+  windowMinutes?: number,
+  options?: { refetchInterval?: number | false },
+) {
+  return useQuery({
+    queryKey: [...queryKeys.adminDBMetrics, windowMinutes ?? "all"],
+    queryFn: cancellableQuery((signal) =>
+      api.GET("/v1/admin/db-metrics", {
+        params: {
+          query: windowMinutes ? { window_minutes: windowMinutes } : {},
+        },
+        signal,
+      }),
+    ),
+    refetchInterval: options?.refetchInterval ?? 5_000,
+  });
+}
+
+// Redis metrics are sampled in-process by the API through its own client.
+// Same cadence and shape as the database metrics hook.
+export function useAdminRedisMetrics(
+  windowMinutes?: number,
+  options?: { refetchInterval?: number | false },
+) {
+  return useQuery({
+    queryKey: [...queryKeys.adminRedisMetrics, windowMinutes ?? "all"],
+    queryFn: cancellableQuery((signal) =>
+      api.GET("/v1/admin/redis-metrics", {
+        params: {
+          query: windowMinutes ? { window_minutes: windowMinutes } : {},
+        },
+        signal,
+      }),
+    ),
+    refetchInterval: options?.refetchInterval ?? 5_000,
+  });
+}
+
+// API process vitals are read at request time from the Go runtime, so there
+// is no sampling ring; a slightly slower poll is enough.
+export function useAdminAPIMetrics(options?: {
+  refetchInterval?: number | false;
+}) {
+  return useQuery({
+    queryKey: queryKeys.adminAPIMetrics,
+    queryFn: cancellableQuery((signal) =>
+      api.GET("/v1/admin/api-metrics", { signal }),
+    ),
+    refetchInterval: options?.refetchInterval ?? 15_000,
+  });
+}
+
+// The Admin Console user directory reads real Console accounts. It is not a
+// sampling feed, so a modest poll keeps sign-in activity current.
+export function useAdminAccounts(options?: {
+  refetchInterval?: number | false;
+}) {
+  return useQuery({
+    queryKey: queryKeys.adminAccounts,
+    queryFn: cancellableQuery((signal) =>
+      api.GET("/v1/admin/accounts", { signal }),
+    ),
+    refetchInterval: options?.refetchInterval ?? 30_000,
+  });
+}
+
 export function useAdminAuditEvents(
   query: { before?: string; limit?: number } = {},
   options?: { refetchInterval?: number | false },

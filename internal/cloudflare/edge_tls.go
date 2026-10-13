@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/domainname"
+	"github.com/Nafixhutao/stealth-forge/internal/domainname"
 )
 
 const (

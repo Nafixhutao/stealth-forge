@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/Stealth-deplover/stealth/internal/config"
-	"github.com/Stealth-deplover/stealth/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/config"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
 	"github.com/google/uuid"
 )
 

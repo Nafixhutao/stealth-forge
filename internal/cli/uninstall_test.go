@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Stealth-deplover/stealth/internal/buildkitpki"
+	"github.com/Nafixhutao/stealth-forge/internal/buildkitpki"
 
 	tea "github.com/charmbracelet/bubbletea"
 )

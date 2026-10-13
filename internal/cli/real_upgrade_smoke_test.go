@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/installengine"
+	"github.com/Nafixhutao/stealth-forge/internal/installengine"
 )
 
 const (
@@ -356,7 +356,7 @@ func buildReleaseTestCLI(t *testing.T, version string, tags ...string) string {
 	if len(tags) > 0 {
 		args = append(args, "-tags", strings.Join(tags, ","))
 	}
-	args = append(args, "-ldflags", "-s -w -X github.com/Stealth-deplover/stealth/internal/buildinfo.Version="+version, "-o", output, "./cmd/stealth")
+	args = append(args, "-ldflags", "-s -w -X github.com/Nafixhutao/stealth-forge/internal/buildinfo.Version="+version, "-o", output, "./cmd/stealth")
 	command := exec.Command("go", args...)
 	command.Dir = repositoryRoot
 	if outputBytes, err := command.CombinedOutput(); err != nil {

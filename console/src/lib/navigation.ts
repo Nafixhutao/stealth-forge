@@ -1,4 +1,4 @@
-const fallbackPath = "/organizations";
+const fallbackPath = "/admin";
 const consoleOrigin = "https://stealth-console.invalid";
 
 export function getSafeNextPath(value: string | null | undefined) {

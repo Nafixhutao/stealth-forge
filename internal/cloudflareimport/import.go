@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Stealth-deplover/stealth/internal/functionsecret"
-	"github.com/Stealth-deplover/stealth/internal/setupstate"
+	"github.com/Nafixhutao/stealth-forge/internal/functionsecret"
+	"github.com/Nafixhutao/stealth-forge/internal/setupstate"
 )
 
 const (

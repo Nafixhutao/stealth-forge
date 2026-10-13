@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Stealth-deplover/stealth/internal/domain"
-	"github.com/Stealth-deplover/stealth/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
 	"github.com/google/uuid"
 )
 

@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/bootstrap"
-	"github.com/Stealth-deplover/stealth/internal/repository"
-	"github.com/Stealth-deplover/stealth/internal/setupstate"
+	"github.com/Nafixhutao/stealth-forge/internal/bootstrap"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/setupstate"
 )
 
 const (

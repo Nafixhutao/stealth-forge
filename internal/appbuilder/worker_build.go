@@ -8,12 +8,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/appbuildspec"
-	"github.com/Stealth-deplover/stealth/internal/appstore"
-	"github.com/Stealth-deplover/stealth/internal/buildkitmetadata"
-	"github.com/Stealth-deplover/stealth/internal/functionrunner"
-	"github.com/Stealth-deplover/stealth/internal/ociartifact"
-	"github.com/Stealth-deplover/stealth/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/appbuildspec"
+	"github.com/Nafixhutao/stealth-forge/internal/appstore"
+	"github.com/Nafixhutao/stealth-forge/internal/buildkitmetadata"
+	"github.com/Nafixhutao/stealth-forge/internal/functionrunner"
+	"github.com/Nafixhutao/stealth-forge/internal/ociartifact"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
 	"github.com/google/uuid"
 )
 

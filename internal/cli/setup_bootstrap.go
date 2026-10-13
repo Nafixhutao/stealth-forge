@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/bootstrap"
+	"github.com/Nafixhutao/stealth-forge/internal/bootstrap"
 )
 
 func (a *App) bootstrapStatus(ctx context.Context, endpoint string) (bootstrapStatusPayload, error) {

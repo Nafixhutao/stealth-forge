@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 
-	"github.com/Stealth-deplover/stealth/internal/domain"
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
 )
 
 const (

@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Stealth-deplover/stealth/internal/apikey"
-	"github.com/Stealth-deplover/stealth/internal/database"
-	"github.com/Stealth-deplover/stealth/internal/functionstore"
-	"github.com/Stealth-deplover/stealth/internal/repository"
-	"github.com/Stealth-deplover/stealth/internal/storage"
+	"github.com/Nafixhutao/stealth-forge/internal/apikey"
+	"github.com/Nafixhutao/stealth-forge/internal/database"
+	"github.com/Nafixhutao/stealth-forge/internal/functionstore"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/storage"
 	"github.com/google/uuid"
 )
 

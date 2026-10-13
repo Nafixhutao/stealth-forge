@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/appsecret"
+	"github.com/Nafixhutao/stealth-forge/internal/appsecret"
 	"github.com/google/uuid"
 )
 

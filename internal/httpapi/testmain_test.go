@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/auth"
-	"github.com/Stealth-deplover/stealth/internal/bootstrap"
-	"github.com/Stealth-deplover/stealth/internal/migrate"
-	"github.com/Stealth-deplover/stealth/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/auth"
+	"github.com/Nafixhutao/stealth-forge/internal/bootstrap"
+	"github.com/Nafixhutao/stealth-forge/internal/migrate"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/preflight"
+	"github.com/Nafixhutao/stealth-forge/internal/preflight"
 )
 
 func (s *Server) setupPreflight(w http.ResponseWriter, r *http.Request) {

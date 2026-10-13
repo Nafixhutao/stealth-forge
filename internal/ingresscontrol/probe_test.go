@@ -47,7 +47,7 @@ func newProbeServerWithHandler(t *testing.T, handler func(http.ResponseWriter, *
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
 		w.Header().Set("X-Frame-Options", "DENY")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' https://github.com; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self';")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' https://github.com; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.googleusercontent.com https://avatars.githubusercontent.com; font-src 'self' data:; connect-src 'self';")
 		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		handler(w, r)
 	}))
@@ -106,14 +106,14 @@ func newLocalTraefikProbe(t *testing.T, handler func(http.ResponseWriter, *http.
 }
 
 func TestLocalTraefikAcceptsOnlySafeConsoleRootRedirect(t *testing.T) {
-	for _, location := range []string{"/organizations", "https://cloud.example.com/organizations"} {
+	for _, location := range []string{"/admin", "https://cloud.example.com/admin"} {
 		t.Run(location, func(t *testing.T) {
 			probe, paths := newLocalTraefikProbe(t, func(w http.ResponseWriter, r *http.Request) {
 				switch r.URL.Path {
 				case "/":
 					w.Header().Set("Location", location)
 					w.WriteHeader(http.StatusTemporaryRedirect)
-				case "/organizations":
+				case "/admin":
 					w.WriteHeader(http.StatusOK)
 				case "/v1/account":
 					w.WriteHeader(http.StatusUnauthorized)
@@ -125,7 +125,7 @@ func TestLocalTraefikAcceptsOnlySafeConsoleRootRedirect(t *testing.T) {
 				t.Fatalf("safe local Console redirect failed: %v", err)
 			}
 			got := paths.snapshot()
-			if strings.Join(got, ",") != "/,/organizations,/v1/account" {
+			if strings.Join(got, ",") != "/,/admin,/v1/account" {
 				t.Fatalf("local preflight paths = %#v", got)
 			}
 		})
@@ -135,7 +135,7 @@ func TestLocalTraefikAcceptsOnlySafeConsoleRootRedirect(t *testing.T) {
 func TestLocalTraefikRejectsExternalConsoleRootRedirect(t *testing.T) {
 	probe, paths := newLocalTraefikProbe(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
-			w.Header().Set("Location", "https://evil.example.com/organizations")
+			w.Header().Set("Location", "https://evil.example.com/admin")
 			w.WriteHeader(http.StatusTemporaryRedirect)
 			return
 		}
@@ -155,8 +155,8 @@ func TestPublicConsoleFollowsBoundedSameOriginHTTPSRedirects(t *testing.T) {
 		location func(*http.Request) string
 		status   int
 	}{
-		{name: "relative 307", status: http.StatusTemporaryRedirect, location: func(*http.Request) string { return "/organizations" }},
-		{name: "absolute 308", status: http.StatusPermanentRedirect, location: func(r *http.Request) string { return "https://" + r.Host + "/organizations" }},
+		{name: "relative 307", status: http.StatusTemporaryRedirect, location: func(*http.Request) string { return "/admin" }},
+		{name: "absolute 308", status: http.StatusPermanentRedirect, location: func(r *http.Request) string { return "https://" + r.Host + "/admin" }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -165,7 +165,7 @@ func TestPublicConsoleFollowsBoundedSameOriginHTTPSRedirects(t *testing.T) {
 				case "/":
 					w.Header().Set("Location", test.location(r))
 					w.WriteHeader(test.status)
-				case "/organizations":
+				case "/admin":
 					w.WriteHeader(http.StatusOK)
 					_, _ = w.Write([]byte("organizations page"))
 				case "/v1/account":
@@ -179,10 +179,10 @@ func TestPublicConsoleFollowsBoundedSameOriginHTTPSRedirects(t *testing.T) {
 				t.Fatalf("safe Console redirect failed: %v", err)
 			}
 			root := evidence.Routes["/"]
-			if root.StatusCode != test.status || root.FinalStatusCode != http.StatusOK || root.FinalPath != "/organizations" {
+			if root.StatusCode != test.status || root.FinalStatusCode != http.StatusOK || root.FinalPath != "/admin" {
 				t.Fatalf("Console redirect evidence = %#v", root)
 			}
-			if len(root.RedirectChain) != 1 || root.RedirectChain[0].Path != "/organizations" {
+			if len(root.RedirectChain) != 1 || root.RedirectChain[0].Path != "/admin" {
 				t.Fatalf("Console redirect chain = %#v", root.RedirectChain)
 			}
 		})
@@ -196,7 +196,7 @@ func TestPublicConsoleRejectsUnsafeOrUnboundedRedirects(t *testing.T) {
 	}{
 		{name: "HTTP downgrade", handler: func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/" {
-				w.Header().Set("Location", "http://localhost/organizations")
+				w.Header().Set("Location", "http://localhost/admin")
 				w.WriteHeader(http.StatusTemporaryRedirect)
 			}
 		}},
@@ -214,19 +214,19 @@ func TestPublicConsoleRejectsUnsafeOrUnboundedRedirects(t *testing.T) {
 		}},
 		{name: "embedded credentials", handler: func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/" {
-				w.Header().Set("Location", "https://user@cloud.example.com/organizations")
+				w.Header().Set("Location", "https://user@cloud.example.com/admin")
 				w.WriteHeader(http.StatusTemporaryRedirect)
 			}
 		}},
 		{name: "noncanonical port", handler: func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/" {
-				w.Header().Set("Location", "https://cloud.example.com:0443/organizations")
+				w.Header().Set("Location", "https://cloud.example.com:0443/admin")
 				w.WriteHeader(http.StatusTemporaryRedirect)
 			}
 		}},
 		{name: "different HTTPS port", handler: func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/" {
-				w.Header().Set("Location", "https://cloud.example.com:444/organizations")
+				w.Header().Set("Location", "https://cloud.example.com:444/admin")
 				w.WriteHeader(http.StatusTemporaryRedirect)
 			}
 		}},
@@ -238,9 +238,9 @@ func TestPublicConsoleRejectsUnsafeOrUnboundedRedirects(t *testing.T) {
 		}},
 		{name: "loop", handler: func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/" {
-				w.Header().Set("Location", "/organizations")
+				w.Header().Set("Location", "/admin")
 				w.WriteHeader(http.StatusTemporaryRedirect)
-			} else if r.URL.Path == "/organizations" {
+			} else if r.URL.Path == "/admin" {
 				w.Header().Set("Location", "/")
 				w.WriteHeader(http.StatusPermanentRedirect)
 			}
@@ -259,7 +259,7 @@ func TestPublicConsoleRejectsUnsafeOrUnboundedRedirects(t *testing.T) {
 		}},
 		{name: "final 500", handler: func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/" {
-				w.Header().Set("Location", "/organizations")
+				w.Header().Set("Location", "/admin")
 				w.WriteHeader(http.StatusTemporaryRedirect)
 				return
 			}
@@ -268,7 +268,7 @@ func TestPublicConsoleRejectsUnsafeOrUnboundedRedirects(t *testing.T) {
 		{name: "redirect response missing HSTS", handler: func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/" {
 				w.Header().Del("Strict-Transport-Security")
-				w.Header().Set("Location", "/organizations")
+				w.Header().Set("Location", "/admin")
 				w.WriteHeader(http.StatusTemporaryRedirect)
 			}
 		}},
@@ -286,11 +286,11 @@ func TestPublicConsoleRejectsUnsafeOrUnboundedRedirects(t *testing.T) {
 func TestPublicConsoleParityComparesNormalizedRedirectBehavior(t *testing.T) {
 	baselineProbe, publicURL := newProbeServerWithHandler(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
-			w.Header().Set("Location", "/organizations")
+			w.Header().Set("Location", "/admin")
 			w.WriteHeader(http.StatusTemporaryRedirect)
 			return
 		}
-		if r.URL.Path == "/organizations" {
+		if r.URL.Path == "/admin" {
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte("organizations page"))
 			return
@@ -307,11 +307,11 @@ func TestPublicConsoleParityComparesNormalizedRedirectBehavior(t *testing.T) {
 	}
 	afterProbe, afterURL := newProbeServerWithHandler(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
-			w.Header().Set("Location", "https://"+r.Host+"/organizations")
+			w.Header().Set("Location", "https://"+r.Host+"/admin")
 			w.WriteHeader(http.StatusPermanentRedirect)
 			return
 		}
-		if r.URL.Path == "/organizations" {
+		if r.URL.Path == "/admin" {
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte("organizations page"))
 			return

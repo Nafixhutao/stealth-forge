@@ -34,7 +34,7 @@ the current public HTTPS behavior, persists `traefik` as desired state, then
 uses the origin-only Cloudflare reconciler and PostgreSQL advisory lock to
 update and verify just the Console rule in the existing tunnel. Console public
 verification follows at most five same-host HTTPS redirects, including the
-Console root's expected `307 /organizations`, while checking browser security
+Console root's expected `307 /admin`, while checking browser security
 headers and HSTS on each hop. If a post-cutover check fails, it changes the
 desired origin back to `proxy`, reconciles the same tunnel through the same
 narrow path, and verifies public recovery. This emergency operation preserves

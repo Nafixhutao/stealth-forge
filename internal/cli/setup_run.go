@@ -13,8 +13,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/installengine"
-	"github.com/Stealth-deplover/stealth/internal/setupstate"
+	"github.com/Nafixhutao/stealth-forge/internal/installengine"
+	"github.com/Nafixhutao/stealth-forge/internal/setupstate"
 )
 
 func (a *App) runSetup(args []string) int {

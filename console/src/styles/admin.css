@@ -15,7 +15,8 @@
 /* The redesigned admin console was authored with the Geist Variable body font
    and Source Code Pro for technical metadata. Scope both to the admin area so
    the rest of the Console keeps the Inlark/Inter type. */
-[data-admin] {
+[data-admin],
+[data-user] {
   font-family:
     "Geist Variable",
     ui-sans-serif,
@@ -87,9 +88,19 @@
   --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
 }
 
+/* The Console's body applies Inlark's Inter feature settings and antialiasing,
+   which cascade into the ported user sidebar and change its glyphs. The
+   redesign authored the sidebar without them, so neutralize both here. */
+[data-user] {
+  font-feature-settings: normal;
+  -webkit-font-smoothing: auto;
+  text-rendering: auto;
+}
+
 /* The Console's `shadow-xl` inlines the Inlark shadow into `--tw-shadow`, so a
    variable reset is not enough; restore the Tailwind default directly. */
-[data-admin] .shadow-xl {
+[data-admin] .shadow-xl,
+[data-user] .shadow-xl {
   --tw-shadow:
     0 20px 25px -5px var(--tw-shadow-color, rgb(0 0 0 / 0.1)),
     0 8px 10px -6px var(--tw-shadow-color, rgb(0 0 0 / 0.1));
@@ -98,8 +109,115 @@
 /* Tailwind v4 preflight dropped `cursor: pointer` on buttons; the redesign
    restores v3 behavior. Keep it scoped to the admin surface. */
 [data-admin] button,
-[data-admin] [role="button"] {
+[data-admin] [role="button"],
+[data-user] button,
+[data-user] [role="button"] {
   cursor: pointer;
+}
+
+/* Light theme for the user console, ported from the redesigned sidebar's
+   theme sheet. The profile menu's theme toggle flips html[data-theme]; rules
+   stay scoped to [data-user] so the admin console keeps its own dark palette.
+   The redesigned sidebar hard-codes several hex classes, so the palette swap
+   covers both the semantic tokens and those literal classes. */
+html[data-theme="light"] [data-user] {
+  --skeleton-background: #e7e7eb;
+  --skeleton-gradient-start: #a855d4;
+  --skeleton-gradient-end: #7e3fb2;
+  --projects-bg: #f7f8f7;
+  --projects-surface: #ffffff;
+  --projects-card-bg: #ffffff;
+  --projects-control: #ecefed;
+  --projects-border: #d9ddda;
+  --projects-border-hover: #c5cac7;
+  --projects-divider: #dfe3e0;
+  --projects-ring: #aeb5b0;
+  --projects-text: #151816;
+  --projects-muted: #68706b;
+  --projects-progress-track: #d8ddd9;
+  --projects-accent: #16875b;
+  --projects-accent-strong: #08784e;
+  --projects-accent-border: #16875b;
+  --projects-accent-hover: #066b45;
+  --projects-warning: #a86e00;
+  --projects-danger: #bd3f49;
+  color-scheme: light;
+}
+
+html[data-theme="light"] [data-user] [class~="bg-[#121014]"],
+html[data-theme="light"] [data-user] [class~="bg-[#1A181D]"],
+html[data-theme="light"] [data-user] [class~="bg-[#1a181d]"],
+html[data-theme="light"] [data-user] [class~="bg-[#201E22]"],
+html[data-theme="light"] [data-user] [class~="bg-[#232127]"],
+html[data-theme="light"] [data-user] [class~="bg-[#2b2930]"] {
+  background-color: #f7f7f8;
+}
+
+html[data-theme="light"] [data-user] [class~="border-[#322F37]"],
+html[data-theme="light"] [data-user] [class~="border-[#302E34]"],
+html[data-theme="light"] [data-user] [class~="border-[#2d2d35]"],
+html[data-theme="light"] [data-user] [class~="border-[#3a373f]"],
+html[data-theme="light"] [data-user] [class~="border-[#3A373F]"] {
+  border-color: #dedde2;
+}
+
+html[data-theme="light"] [data-user] [class~="text-[#edecf1]"],
+html[data-theme="light"] [data-user] [class~="text-[#EEEAF0]"],
+html[data-theme="light"] [data-user] [class~="text-[#C5C1C9]"] {
+  color: #1a181d;
+}
+
+html[data-theme="light"] [data-user] [class~="text-[#aaa6ae]"],
+html[data-theme="light"] [data-user] [class~="text-[#AAA6AE]"],
+html[data-theme="light"] [data-user] [class~="text-[#b3b0ba]"],
+html[data-theme="light"] [data-user] [class~="text-[#737078]"],
+html[data-theme="light"] [data-user] [class~="text-[#8a8791]"] {
+  color: #68636d;
+}
+
+/* The sidebar's primary labels and the palette use oklch text colors. The
+   redesigned sheet does not remap these, so they keep the dark-mode value in
+   light mode; we mirror that exactly to match the reference (the header
+   identity and Search label stay light, as in the source). */
+html[data-theme="light"] [data-user] [class~="text-[oklch(0.767_0.0105_305)]"] {
+  color: #3f3d44;
+}
+html[data-theme="light"] [data-user] [class~="text-[oklch(0.585_0.0161_305)]"] {
+  color: #68636d;
+}
+
+/* Active-row pill and hover washes are white-alpha; give them a dark-alpha
+   equivalent in light mode so the selection stays visible. */
+html[data-theme="light"] [data-user] [class~="bg-white/[0.06]"] {
+  background-color: rgb(0 0 0 / 0.06);
+}
+html[data-theme="light"] [data-user] [class~="bg-white/[0.035]"] {
+  background-color: rgb(0 0 0 / 0.035);
+}
+html[data-theme="light"] [data-user] [class~="hover:bg-white/[0.035]"]:hover,
+html[data-theme="light"] [data-user] [class~="hover:bg-white/[0.04]"]:hover,
+html[data-theme="light"] [data-user] [class~="hover:bg-white/[0.05]"]:hover {
+  background-color: rgb(0 0 0 / 0.045);
+}
+
+/* beUI theme-toggle circle-blur reveal, ported from the redesign. */
+html[data-beui-vt="circle-blur"]::view-transition-old(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+html[data-beui-vt="circle-blur"]::view-transition-new(root) {
+  animation: beui-circle-blur-reveal 700ms cubic-bezier(0.4, 0, 0.2, 1);
+  mix-blend-mode: normal;
+}
+@keyframes beui-circle-blur-reveal {
+  from {
+    clip-path: circle(0% at var(--beui-vt-origin, 50% 100%));
+    filter: blur(8px);
+  }
+  to {
+    clip-path: circle(150% at var(--beui-vt-origin, 50% 100%));
+    filter: blur(0);
+  }
 }
 
 /* Technical metadata font: timestamps, ids, hostnames, stack traces. */
@@ -167,6 +285,31 @@
 .sidebar-scrollbar::-webkit-scrollbar-thumb {
   background: #3a373f;
   border-radius: 99px;
+}
+
+/* Command palette scrollbar (ported from the redesign's base sheet). */
+.search-palette-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #737078 transparent;
+  scrollbar-gutter: stable;
+}
+.search-palette-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+.search-palette-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.search-palette-scrollbar::-webkit-scrollbar-thumb {
+  min-height: 44px;
+  border: 2px solid transparent;
+  border-radius: 99px;
+  background: #737078;
+  background-clip: padding-box;
+}
+.search-palette-scrollbar::-webkit-scrollbar-button {
+  display: none;
+  height: 0;
+  width: 0;
 }
 
 /* Dense data surfaces (log stream, wide tables): slim dark scrollbar with a

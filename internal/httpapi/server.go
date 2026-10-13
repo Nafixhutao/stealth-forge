@@ -10,26 +10,28 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/appsecret"
-	"github.com/Stealth-deplover/stealth/internal/appstore"
-	"github.com/Stealth-deplover/stealth/internal/cloudflare"
-	"github.com/Stealth-deplover/stealth/internal/config"
-	"github.com/Stealth-deplover/stealth/internal/functionsecret"
-	"github.com/Stealth-deplover/stealth/internal/functionstore"
-	"github.com/Stealth-deplover/stealth/internal/gitarchive"
-	"github.com/Stealth-deplover/stealth/internal/githubauth"
-	"github.com/Stealth-deplover/stealth/internal/hostmetrics"
-	"github.com/Stealth-deplover/stealth/internal/mailer"
-	"github.com/Stealth-deplover/stealth/internal/oauthlogin"
-	"github.com/Stealth-deplover/stealth/internal/observability"
-	"github.com/Stealth-deplover/stealth/internal/ratelimit"
-	"github.com/Stealth-deplover/stealth/internal/realtime"
-	"github.com/Stealth-deplover/stealth/internal/repository"
-	"github.com/Stealth-deplover/stealth/internal/setuphandoff"
-	"github.com/Stealth-deplover/stealth/internal/setupstate"
-	"github.com/Stealth-deplover/stealth/internal/sitestore"
-	"github.com/Stealth-deplover/stealth/internal/storage"
-	"github.com/Stealth-deplover/stealth/internal/telemetry"
+	"github.com/Nafixhutao/stealth-forge/internal/appsecret"
+	"github.com/Nafixhutao/stealth-forge/internal/appstore"
+	"github.com/Nafixhutao/stealth-forge/internal/cloudflare"
+	"github.com/Nafixhutao/stealth-forge/internal/config"
+	"github.com/Nafixhutao/stealth-forge/internal/dbmetrics"
+	"github.com/Nafixhutao/stealth-forge/internal/functionsecret"
+	"github.com/Nafixhutao/stealth-forge/internal/functionstore"
+	"github.com/Nafixhutao/stealth-forge/internal/gitarchive"
+	"github.com/Nafixhutao/stealth-forge/internal/githubauth"
+	"github.com/Nafixhutao/stealth-forge/internal/hostmetrics"
+	"github.com/Nafixhutao/stealth-forge/internal/mailer"
+	"github.com/Nafixhutao/stealth-forge/internal/oauthlogin"
+	"github.com/Nafixhutao/stealth-forge/internal/observability"
+	"github.com/Nafixhutao/stealth-forge/internal/ratelimit"
+	"github.com/Nafixhutao/stealth-forge/internal/realtime"
+	"github.com/Nafixhutao/stealth-forge/internal/redismetrics"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/setuphandoff"
+	"github.com/Nafixhutao/stealth-forge/internal/setupstate"
+	"github.com/Nafixhutao/stealth-forge/internal/sitestore"
+	"github.com/Nafixhutao/stealth-forge/internal/storage"
+	"github.com/Nafixhutao/stealth-forge/internal/telemetry"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
@@ -60,18 +62,18 @@ type Server struct {
 	realtimeSlots     chan struct{}
 	realtimeBroker    *realtime.Broker
 	authEmailSender   mailer.AuthSender
-	githubClient      githubauth.Client
 	githubOAuth       githubauth.OAuthClient
 	oauthLogin        oauthlogin.Client
-	githubFlowMu      sync.Mutex
 	setupState        setupstate.Store
 	setupHandoff      setuphandoff.Store
-	githubManifest    githubauth.ManifestClient
 	cloudflareOAuth   CloudflareOAuthClient
 	cloudflareFactory CloudflareClientFactory
 	telemetry         telemetry.Store
 	hostMetrics       *hostmetrics.Collector
+	dbMetrics         *dbmetrics.Collector
+	redisMetrics      *redismetrics.Collector
 	redis             *redis.Client
+	startedAt         time.Time
 
 	adminRealtimeAuthRecheckInterval time.Duration
 	// setupMu serializes setup transitions that can have external provider side
@@ -93,17 +95,17 @@ type Dependencies struct {
 	// wrap it in mailer.AuthSender; project messaging uses it directly.
 	EmailSender       mailer.Sender
 	RealtimeBroker    *realtime.Broker
-	GitHubClient      githubauth.Client
 	GitHubOAuth       githubauth.OAuthClient
 	OAuthLogin        oauthlogin.Client
 	BootstrapStore    repository.BootstrapStore
 	SetupState        setupstate.Store
 	SetupHandoff      setuphandoff.Store
-	GitHubManifest    githubauth.ManifestClient
 	CloudflareOAuth   CloudflareOAuthClient
 	CloudflareFactory CloudflareClientFactory
 	TelemetryStore    telemetry.Store
 	HostMetrics       *hostmetrics.Collector
+	DBMetrics         *dbmetrics.Collector
+	RedisMetrics      *redismetrics.Collector
 	Redis             *redis.Client
 
 	// AdminRealtimeAuthRecheckInterval is primarily useful for deterministic
@@ -155,14 +157,9 @@ func NewWithDependenciesAndPlatformSiteHandler(
 		deps.EmailSender = mailer.NewFromConfig(cfg, logger)
 	}
 	authEmailSender := mailer.NewAuthSender(deps.EmailSender)
-	if deps.GitHubClient == nil {
-		deps.GitHubClient = githubauth.NewClient(nil)
-	}
 	githubOAuth := deps.GitHubOAuth
 	if githubOAuth == nil {
-		if oauthClient, ok := deps.GitHubClient.(githubauth.OAuthClient); ok {
-			githubOAuth = oauthClient
-		}
+		githubOAuth = githubauth.NewClient(nil)
 	}
 	oauthLogin := deps.OAuthLogin
 	if oauthLogin == nil {
@@ -259,14 +256,6 @@ func NewWithDependenciesAndPlatformSiteHandler(
 		}
 	}
 	storageReady := storageErr == nil
-	githubManifest := deps.GitHubManifest
-	if githubManifest == nil {
-		var manifestErr error
-		githubManifest, manifestErr = githubauth.NewManifestClient("", http.DefaultClient)
-		if manifestErr != nil {
-			logger.Error("GitHub manifest client configuration error", "error", manifestErr)
-		}
-	}
 	cloudflareOAuth := deps.CloudflareOAuth
 	if cloudflareOAuth == nil && cfg.CloudflareOAuthClientID != "" && cfg.CloudflareOAuthClientSecret != "" {
 		var oauthErr error
@@ -313,17 +302,18 @@ func NewWithDependenciesAndPlatformSiteHandler(
 		adminRealtimeAuthRecheckInterval: authRecheckInterval,
 		realtimeBroker:                   deps.RealtimeBroker,
 		authEmailSender:                  authEmailSender,
-		githubClient:                     deps.GitHubClient,
 		githubOAuth:                      githubOAuth,
 		oauthLogin:                       oauthLogin,
 		setupState:                       setupStateStore,
 		setupHandoff:                     setupHandoffStore,
-		githubManifest:                   githubManifest,
 		cloudflareOAuth:                  cloudflareOAuth,
 		cloudflareFactory:                cloudflareFactory,
 		telemetry:                        deps.TelemetryStore,
 		hostMetrics:                      deps.HostMetrics,
+		dbMetrics:                        deps.DBMetrics,
+		redisMetrics:                     deps.RedisMetrics,
 		redis:                            deps.Redis,
+		startedAt:                        time.Now(),
 	}
 	// Export database-pool saturation on the API metrics registry so pool
 	// exhaustion is visible and alertable.

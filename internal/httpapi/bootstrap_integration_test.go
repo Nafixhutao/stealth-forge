@@ -12,17 +12,15 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/bootstrap"
-	"github.com/Stealth-deplover/stealth/internal/config"
-	"github.com/Stealth-deplover/stealth/internal/githubauth"
-	"github.com/Stealth-deplover/stealth/internal/httpapi"
-	"github.com/Stealth-deplover/stealth/internal/migrate"
-	"github.com/Stealth-deplover/stealth/internal/ratelimit"
-	"github.com/Stealth-deplover/stealth/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/bootstrap"
+	"github.com/Nafixhutao/stealth-forge/internal/config"
+	"github.com/Nafixhutao/stealth-forge/internal/httpapi"
+	"github.com/Nafixhutao/stealth-forge/internal/migrate"
+	"github.com/Nafixhutao/stealth-forge/internal/ratelimit"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -57,13 +55,6 @@ func TestInstanceBootstrapIntegration(t *testing.T) {
 	if _, err := rand.Read(key); err != nil {
 		t.Fatal(err)
 	}
-	githubClient := &fakeGitHubClient{device: githubauth.DeviceAuthorization{
-		DeviceCode:      "device-code-test-value",
-		UserCode:        "WDJB-MJHT",
-		VerificationURI: "https://github.com/login/device",
-		ExpiresIn:       15 * time.Minute,
-		PollingInterval: time.Second,
-	}, user: githubauth.User{ID: 424242, Login: "stealth-owner", Email: "owner@example.test", Name: "Stealth Owner", AvatarURL: "https://avatars.githubusercontent.com/u/424242"}}
 	server := httptest.NewServer(httpapi.NewWithDependencies(
 		config.Config{
 			SessionCookieName:        "stealth_session",
@@ -77,7 +68,7 @@ func TestInstanceBootstrapIntegration(t *testing.T) {
 		},
 		repository.New(pool),
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
-		httpapi.Dependencies{AuthLimiter: ratelimit.NoopLimiter{}, GitHubClient: githubClient},
+		httpapi.Dependencies{AuthLimiter: ratelimit.NoopLimiter{}},
 	))
 	defer server.Close()
 
@@ -131,106 +122,6 @@ func TestInstanceBootstrapIntegration(t *testing.T) {
 	}
 	if err := json.Unmarshal(verified.Body, &verification); err != nil {
 		t.Fatal(err)
-	}
-	device := bootstrapRequest(t, client, http.MethodPost, server.URL+"/v1/bootstrap/github/device", map[string]string{
-		"authorization_session_id": verification.AuthorizationSessionID,
-		"setup_code":               secondSession.SetupCode,
-	}, nil)
-	if device.StatusCode != http.StatusCreated || strings.Contains(string(device.Body), "device-code-test-value") {
-		t.Fatalf("device flow response = %d %q", device.StatusCode, device.Body)
-	}
-	var deviceResponse struct {
-		AuthorizationSessionID string `json:"authorization_session_id"`
-		UserCode               string `json:"user_code"`
-		VerificationURI        string `json:"verification_uri"`
-	}
-	if err := json.Unmarshal(device.Body, &deviceResponse); err != nil {
-		t.Fatal(err)
-	}
-	if deviceResponse.AuthorizationSessionID != verification.AuthorizationSessionID || deviceResponse.UserCode != "WDJB-MJHT" || deviceResponse.VerificationURI != "https://github.com/login/device" {
-		t.Fatalf("unexpected device response = %#v", deviceResponse)
-	}
-	var sealedDeviceCode []byte
-	if err := pool.QueryRow(ctx, `SELECT github_device_code_ciphertext FROM bootstrap_sessions WHERE id=$1`, uuid.MustParse(verification.AuthorizationSessionID)).Scan(&sealedDeviceCode); err != nil {
-		t.Fatal(err)
-	}
-	if bytes.Contains(sealedDeviceCode, []byte("device-code-test-value")) {
-		t.Fatal("GitHub device code was stored in plaintext")
-	}
-	if _, err := pool.Exec(ctx, `UPDATE bootstrap_sessions SET github_next_poll_at=now() WHERE id=$1`, uuid.MustParse(verification.AuthorizationSessionID)); err != nil {
-		t.Fatal(err)
-	}
-	clients := []*http.Client{newBootstrapClient(t), newBootstrapClient(t)}
-	results := make(chan bootstrapResult, len(clients))
-	start := make(chan struct{})
-	var wait sync.WaitGroup
-	for index, ownerClient := range clients {
-		wait.Add(1)
-		go func(index int, ownerClient *http.Client) {
-			defer wait.Done()
-			<-start
-			response, err := bootstrapRequestRaw(ownerClient, http.MethodPost, server.URL+"/v1/bootstrap/github/poll", map[string]string{
-				"authorization_session_id": verification.AuthorizationSessionID,
-			}, nil)
-			results <- bootstrapResult{client: ownerClient, response: response, err: err}
-		}(index, ownerClient)
-	}
-	close(start)
-	wait.Wait()
-	close(results)
-
-	winners := 0
-	var winningClient *http.Client
-	for result := range results {
-		if result.err != nil {
-			t.Fatal(result.err)
-		}
-		if result.response.StatusCode == http.StatusCreated {
-			winners++
-			winningClient = result.client
-			continue
-		}
-		if result.response.StatusCode != http.StatusGone {
-			t.Fatalf("concurrent bootstrap response = %d %q, want one 201 and one 410", result.response.StatusCode, result.response.Body)
-		}
-	}
-	if winners != 1 || winningClient == nil {
-		t.Fatalf("concurrent bootstrap winners = %d, want exactly one", winners)
-	}
-
-	status = bootstrapRequest(t, client, http.MethodGet, server.URL+"/v1/bootstrap/status", nil, nil)
-	if status.StatusCode != http.StatusOK || !strings.Contains(string(status.Body), `"setup_required":false`) {
-		t.Fatalf("sealed bootstrap status = %d %q", status.StatusCode, status.Body)
-	}
-	replay := bootstrapRequest(t, client, http.MethodPost, server.URL+"/v1/bootstrap/verify", map[string]string{"setup_code": secondSession.SetupCode}, nil)
-	if replay.StatusCode != http.StatusGone {
-		t.Fatalf("replayed code after seal status = %d, want 410", replay.StatusCode)
-	}
-
-	account := bootstrapRequest(t, winningClient, http.MethodGet, server.URL+"/v1/account", nil, nil)
-	if account.StatusCode != http.StatusOK || !strings.Contains(string(account.Body), `"instance_role":"instance_owner"`) {
-		t.Fatalf("owner session account = %d %q", account.StatusCode, account.Body)
-	}
-	var ownerCount int
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM instance_roles WHERE role='instance_owner'`).Scan(&ownerCount); err != nil {
-		t.Fatal(err)
-	}
-	if ownerCount != 1 {
-		t.Fatalf("instance owner count = %d, want 1", ownerCount)
-	}
-	var sealedReason string
-	if err := pool.QueryRow(ctx, `SELECT sealed_reason FROM instance_bootstrap WHERE id=TRUE`).Scan(&sealedReason); err != nil {
-		t.Fatal(err)
-	}
-	if sealedReason != "instance_owner_created" {
-		t.Fatalf("bootstrap sealed reason = %q", sealedReason)
-	}
-	var passwordIsNull, emailIsNull bool
-	if err := pool.QueryRow(ctx, `SELECT password_hash IS NULL,email IS NULL FROM accounts WHERE id=(SELECT account_id FROM instance_roles WHERE role='instance_owner')`).Scan(&passwordIsNull, &emailIsNull); err != nil {
-		t.Fatal(err)
-	}
-	if !passwordIsNull || !emailIsNull {
-		t.Fatalf("GitHub owner retained local credentials: password_null=%v email_null=%v", passwordIsNull, emailIsNull)
 	}
 }
 
@@ -336,12 +227,6 @@ type bootstrapSessionTestResponse struct {
 type bootstrapHTTPTestResponse struct {
 	StatusCode int
 	Body       []byte
-}
-
-type bootstrapResult struct {
-	client   *http.Client
-	response bootstrapHTTPTestResponse
-	err      error
 }
 
 func createBootstrapSessionForTest(t *testing.T, client *http.Client, serverURL string, key []byte) bootstrapSessionTestResponse {

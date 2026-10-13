@@ -9,8 +9,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/Stealth-deplover/stealth/internal/ociartifact"
-	"github.com/Stealth-deplover/stealth/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/ociartifact"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
 	"github.com/google/uuid"
 )
 

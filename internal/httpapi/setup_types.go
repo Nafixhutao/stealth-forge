@@ -3,7 +3,7 @@ package httpapi
 import (
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/setupstate"
+	"github.com/Nafixhutao/stealth-forge/internal/setupstate"
 )
 
 type setupStatusResponse struct {
@@ -21,12 +21,6 @@ type setupCheck struct {
 
 type setupPreflightResponse struct {
 	Checks []setupCheck `json:"checks"`
-}
-
-type setupGitHubManifestResponse struct {
-	ManifestURL string    `json:"manifest_url"`
-	Manifest    string    `json:"manifest"`
-	ExpiresAt   time.Time `json:"expires_at"`
 }
 
 type setupGitHubAuthorizationResponse struct {

@@ -708,7 +708,7 @@ func TestRunUpdateRejectsMissingReleaseAssets(t *testing.T) {
 
 func TestRunUpdateRejectsNonHTTPSEndpoints(t *testing.T) {
 	app := NewApp(strings.NewReader(""), io.Discard, io.Discard)
-	app.releaseAPIBase = "http://github.example.test/repos/Stealth-deplover/stealth"
+	app.releaseAPIBase = "http://github.example.test/repos/Nafixhutao/stealth-forge"
 	if _, err := app.latestStableRelease(context.Background()); err == nil {
 		t.Fatal("HTTP GitHub API endpoint was accepted")
 	}

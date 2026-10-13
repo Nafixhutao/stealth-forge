@@ -16,7 +16,7 @@ import (
 
 	"log/slog"
 
-	"github.com/Stealth-deplover/stealth/internal/domain"
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
 )
 
 const (

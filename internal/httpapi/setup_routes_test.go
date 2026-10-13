@@ -19,16 +19,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/auth"
-	"github.com/Stealth-deplover/stealth/internal/bootstrap"
-	"github.com/Stealth-deplover/stealth/internal/cloudflare"
-	"github.com/Stealth-deplover/stealth/internal/config"
-	"github.com/Stealth-deplover/stealth/internal/functionsecret"
-	"github.com/Stealth-deplover/stealth/internal/githubauth"
-	"github.com/Stealth-deplover/stealth/internal/repository"
-	"github.com/Stealth-deplover/stealth/internal/setupconfig"
-	"github.com/Stealth-deplover/stealth/internal/setuphandoff"
-	"github.com/Stealth-deplover/stealth/internal/setupstate"
+	"github.com/Nafixhutao/stealth-forge/internal/auth"
+	"github.com/Nafixhutao/stealth-forge/internal/bootstrap"
+	"github.com/Nafixhutao/stealth-forge/internal/cloudflare"
+	"github.com/Nafixhutao/stealth-forge/internal/config"
+	"github.com/Nafixhutao/stealth-forge/internal/functionsecret"
+	"github.com/Nafixhutao/stealth-forge/internal/githubauth"
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
+	"github.com/Nafixhutao/stealth-forge/internal/setupconfig"
+	"github.com/Nafixhutao/stealth-forge/internal/setuphandoff"
+	"github.com/Nafixhutao/stealth-forge/internal/setupstate"
 	"github.com/google/uuid"
 )
 
@@ -40,8 +40,6 @@ type setupBootstrapFake struct {
 func (f *setupBootstrapFake) VerifyBootstrapCode(context.Context, []byte) (repository.BootstrapVerification, error) {
 	return f.verification, nil
 }
-
-type setupManifestFake struct{}
 
 type lockedSetupResponseRecorder struct {
 	mu    sync.Mutex
@@ -74,17 +72,6 @@ func (r *lockedSetupResponseRecorder) BodyString() string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.inner.Body.String()
-}
-
-func (setupManifestFake) ConvertManifest(context.Context, string) (githubauth.AppCredentials, error) {
-	return githubauth.AppCredentials{
-		ID:            42,
-		Name:          "stealth",
-		ClientID:      "Iv1.setup-client",
-		ClientSecret:  "github-client-secret",
-		PrivateKey:    "-----BEGIN PRIVATE KEY-----\nprivate-key\n-----END PRIVATE KEY-----",
-		WebhookSecret: "github-webhook-secret",
-	}, nil
 }
 
 type setupGitHubOAuthFake struct {
@@ -230,7 +217,6 @@ func TestSetupHTTPFlowClaimsCodeAndKeepsProviderSecretsServerSide(t *testing.T) 
 	handler := NewWithDependencies(configValue, nil, slog.Default(), Dependencies{
 		BootstrapStore: bootstrapFake,
 		SetupState:     store,
-		GitHubManifest: setupManifestFake{},
 		GitHubOAuth:    githubOAuth,
 	})
 
@@ -274,42 +260,29 @@ func TestSetupHTTPFlowClaimsCodeAndKeepsProviderSecretsServerSide(t *testing.T) 
 		t.Fatalf("S3 setup config response = %d: %s", s3ConfigResponse.Code, s3ConfigResponse.Body.String())
 	}
 
-	manifestResponse := authenticatedSetupRequest(t, handler, setupCookie[0], http.MethodPost, "https://silent-moon.trycloudflare.com/v1/setup/github/manifest/start", `{}`)
-	if manifestResponse.Code != http.StatusOK {
-		t.Fatalf("manifest start = %d: %s", manifestResponse.Code, manifestResponse.Body.String())
+	manualResponse := authenticatedSetupRequest(t, handler, setupCookie[0], http.MethodPost, "https://silent-moon.trycloudflare.com/v1/setup/github/manual", `{"client_id":"Iv1.setup-client","client_secret":"github-client-secret"}`)
+	if manualResponse.Code != http.StatusOK {
+		t.Fatalf("github manual = %d: %s", manualResponse.Code, manualResponse.Body.String())
 	}
-	var manifestPayload struct {
-		ManifestURL string `json:"manifest_url"`
-		Manifest    string `json:"manifest"`
+	authorizeStart := authenticatedSetupRequest(t, handler, setupCookie[0], http.MethodPost, "https://silent-moon.trycloudflare.com/v1/setup/github/authorize/start", `{}`)
+	if authorizeStart.Code != http.StatusOK {
+		t.Fatalf("authorize start = %d: %s", authorizeStart.Code, authorizeStart.Body.String())
 	}
-	if err := json.Unmarshal(manifestResponse.Body.Bytes(), &manifestPayload); err != nil {
+	var authorizePayload struct {
+		AuthorizationURL string `json:"authorization_url"`
+	}
+	if err := json.Unmarshal(authorizeStart.Body.Bytes(), &authorizePayload); err != nil {
 		t.Fatal(err)
 	}
-	manifestURL, err := url.Parse(manifestPayload.ManifestURL)
+	authorizationURL, err := url.Parse(authorizePayload.AuthorizationURL)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if manifestURL.Query().Get("manifest") != "" || manifestURL.Query().Get("state") == "" || manifestPayload.Manifest == "" {
-		t.Fatalf("manifest response is not a POST form payload: %#v", manifestPayload)
-	}
-	var registeredManifest githubauth.AppManifest
-	if err := json.Unmarshal([]byte(manifestPayload.Manifest), &registeredManifest); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.HasPrefix(registeredManifest.Name, "Stealth Setup ") || len(registeredManifest.DefaultEvents) != 0 || registeredManifest.RedirectURL != "https://silent-moon.trycloudflare.com/v1/setup/github/manifest/callback" {
-		t.Fatalf("unexpected GitHub App manifest: %#v", registeredManifest)
-	}
-	callback := httptest.NewRecorder()
-	callbackRequest := httptest.NewRequest(http.MethodGet, "https://silent-moon.trycloudflare.com/v1/setup/github/manifest/callback?code=temporary-code&state="+url.QueryEscape(manifestURL.Query().Get("state")), nil)
-	callbackRequest.Host = "silent-moon.trycloudflare.com"
-	handler.ServeHTTP(callback, callbackRequest)
-	authorizationLocation := callback.Header().Get("Location")
-	authorizationURL, _ := url.Parse(authorizationLocation)
-	if callback.Code != http.StatusFound || authorizationURL.Host != "github.com" || authorizationURL.Path != "/login/oauth/authorize" {
-		t.Fatalf("manifest callback = %d, headers=%#v", callback.Code, callback.Header())
+	if authorizationURL.Host != "github.com" || authorizationURL.Path != "/login/oauth/authorize" {
+		t.Fatalf("authorize start = %s", authorizePayload.AuthorizationURL)
 	}
 	if authorizationURL.Query().Get("client_id") != "Iv1.setup-client" || authorizationURL.Query().Get("redirect_uri") != "https://silent-moon.trycloudflare.com/v1/setup/github/authorize/callback" || authorizationURL.Query().Get("code_challenge_method") != "S256" || authorizationURL.Query().Get("code_challenge") == "" {
-		t.Fatalf("manifest callback did not start browser authorization: %s", authorizationLocation)
+		t.Fatalf("authorize start did not build browser authorization: %s", authorizePayload.AuthorizationURL)
 	}
 
 	authorizeCallback := httptest.NewRecorder()
@@ -326,11 +299,6 @@ func TestSetupHTTPFlowClaimsCodeAndKeepsProviderSecretsServerSide(t *testing.T) 
 		t.Fatalf("GitHub authorization callback replay = %d, headers=%#v exchanges=%d", repeatedAuthorizationCallback.Code, repeatedAuthorizationCallback.Header(), githubOAuth.exchanges)
 	}
 
-	repeatedCallback := httptest.NewRecorder()
-	handler.ServeHTTP(repeatedCallback, callbackRequest)
-	if repeatedCallback.Code != http.StatusFound || !strings.Contains(repeatedCallback.Header().Get("Location"), "github=error") {
-		t.Fatalf("manifest callback replay = %d, headers=%#v", repeatedCallback.Code, repeatedCallback.Header())
-	}
 	state, err := store.Load(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -348,7 +316,7 @@ func TestSetupHTTPFlowClaimsCodeAndKeepsProviderSecretsServerSide(t *testing.T) 
 	if credentials.DatabaseURL != "postgres://db-user:db-password@example.test/stealth" || credentials.RedisURL != "redis://:redis-password@example.test/0" || credentials.StorageS3AccessKey != "s3-access-key" || credentials.StorageS3SecretKey != "s3-secret-key" {
 		t.Fatalf("setup credentials were not persisted in the encrypted state: %#v", credentials)
 	}
-	if state.Secret("github_client_secret") != "github-client-secret" || state.Secret("github_private_key") == "" {
+	if state.Secret("github_client_secret") != "github-client-secret" {
 		t.Fatalf("provider credentials were not persisted in encrypted state: %#v", state)
 	}
 	if state.Secret("github_oauth_code_verifier") != "" || state.GitHub.AuthorizationStateHash != "" {
@@ -614,17 +582,6 @@ func TestGitHubAuthorizationIdentityFailureConsumesState(t *testing.T) {
 	}
 	if state.GitHub.AuthorizationStateHash != "" || state.Secret("github_oauth_code_verifier") != "" {
 		t.Fatalf("identity failure did not consume one-time state: %#v", state.GitHub)
-	}
-}
-
-func TestSetupModeDoesNotStartGitHubDeviceFlow(t *testing.T) {
-	server := &Server{config: config.Config{SetupMode: true}}
-	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "/v1/bootstrap/github/device", strings.NewReader(`{"authorization_session_id":"00000000-0000-0000-0000-000000000000","setup_code":"STEALTH-ABCD-2345-EFGH"}`))
-	request.Header.Set("Content-Type", "application/json")
-	server.startGitHubDeviceFlow(recorder, request)
-	if recorder.Code != http.StatusGone || !strings.Contains(recorder.Body.String(), "github_device_flow_inactive") {
-		t.Fatalf("setup-mode Device Flow response = %d: %s", recorder.Code, recorder.Body.String())
 	}
 }
 
@@ -1052,8 +1009,6 @@ func TestSetupRedirectRejectsUnsafeTargets(t *testing.T) {
 		})
 	}
 }
-
-var _ githubauth.ManifestClient = setupManifestFake{}
 
 // failingDNSCloudflareClient succeeds through tunnel provisioning but fails the
 // Console DNS write, the way Cloudflare does when the scoped token is missing

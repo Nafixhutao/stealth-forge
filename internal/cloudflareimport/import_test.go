@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/Stealth-deplover/stealth/internal/functionsecret"
-	"github.com/Stealth-deplover/stealth/internal/setupstate"
+	"github.com/Nafixhutao/stealth-forge/internal/functionsecret"
+	"github.com/Nafixhutao/stealth-forge/internal/setupstate"
 )
 
 func importTestCipher(t *testing.T) *functionsecret.Cipher {

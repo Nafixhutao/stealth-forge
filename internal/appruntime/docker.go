@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/ociartifact"
+	"github.com/Nafixhutao/stealth-forge/internal/ociartifact"
 )
 
 const (

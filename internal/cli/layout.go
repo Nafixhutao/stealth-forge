@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Stealth-deplover/stealth/internal/buildkitpki"
-	"github.com/Stealth-deplover/stealth/internal/installengine"
+	"github.com/Nafixhutao/stealth-forge/internal/buildkitpki"
+	"github.com/Nafixhutao/stealth-forge/internal/installengine"
 )
 
 type InstallLayout = installengine.Layout

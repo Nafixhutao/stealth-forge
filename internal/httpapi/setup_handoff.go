@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Stealth-deplover/stealth/internal/auth"
+	"github.com/Nafixhutao/stealth-forge/internal/auth"
 )
 
 type setupHandoffRequest struct {
@@ -48,7 +48,7 @@ func (s *Server) completeSetupHandoff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.setSessionCookie(w, sessionToken)
-	target := strings.TrimRight(s.config.PublicAppURL, "/") + "/organizations"
+	target := strings.TrimRight(s.config.PublicAppURL, "/") + "/admin"
 	http.Redirect(w, r, target, http.StatusSeeOther)
 }
 

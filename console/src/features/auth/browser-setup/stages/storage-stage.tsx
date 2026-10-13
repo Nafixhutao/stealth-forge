@@ -11,6 +11,7 @@ import {
   StatusPill,
 } from "../primitives";
 import type { SetupFlow } from "../types";
+import { Switch } from "@/components/motion/switch";
 
 export function StorageStage({ flow }: { flow: SetupFlow }) {
   const {
@@ -109,22 +110,26 @@ export function StorageStage({ flow }: { flow: SetupFlow }) {
             </Field>
           </div>
           <div className="flex flex-wrap gap-5 text-sm text-slate-300">
-            <label className="flex min-h-11 items-center gap-2">
-              <input
-                type="checkbox"
-                className="size-4 accent-cyan-300"
-                {...configForm.register("storage_s3_use_ssl")}
-              />{" "}
-              Use TLS
-            </label>
-            <label className="flex min-h-11 items-center gap-2">
-              <input
-                type="checkbox"
-                className="size-4 accent-cyan-300"
-                {...configForm.register("storage_s3_path_style")}
-              />{" "}
-              Force path style
-            </label>
+            <Switch
+              checked={configForm.watch("storage_s3_use_ssl") === true}
+              onCheckedChange={(value) =>
+                configForm.setValue("storage_s3_use_ssl", value, {
+                  shouldDirty: true,
+                })
+              }
+              label="Use TLS"
+              className="min-h-11"
+            />
+            <Switch
+              checked={configForm.watch("storage_s3_path_style") === true}
+              onCheckedChange={(value) =>
+                configForm.setValue("storage_s3_path_style", value, {
+                  shouldDirty: true,
+                })
+              }
+              label="Force path style"
+              className="min-h-11"
+            />
           </div>
           <div className="flex flex-wrap items-center gap-3 border-t border-stealth-border pt-5">
             <Button
@@ -147,7 +152,7 @@ export function StorageStage({ flow }: { flow: SetupFlow }) {
           </div>
         </div>
       ) : (
-        <div className="mt-6 rounded-xl border border-stealth-border bg-black/10 p-5 text-sm leading-6 text-slate-400">
+        <div className="mt-6 rounded-xl border border-stealth-border bg-white/[0.02] p-5 text-sm leading-6 text-slate-400">
           The setup API will verify that the local storage volume is writable
           during the system check.
         </div>

@@ -58,8 +58,6 @@ type SetupCredentials struct {
 type GitHubState struct {
 	Mode                   string    `json:"mode,omitempty"`
 	ClientID               string    `json:"client_id,omitempty"`
-	ManifestStateHash      string    `json:"manifest_state_hash,omitempty"`
-	ManifestExpiresAt      time.Time `json:"manifest_expires_at,omitempty"`
 	AuthorizationStateHash string    `json:"authorization_state_hash,omitempty"`
 	AuthorizationExpiresAt time.Time `json:"authorization_expires_at,omitempty"`
 	Connected              bool      `json:"connected,omitempty"`
@@ -178,11 +176,10 @@ type PublicDraft struct {
 }
 
 type PublicGitHub struct {
-	Mode                 string    `json:"mode,omitempty"`
-	ClientID             string    `json:"client_id,omitempty"`
-	Connected            bool      `json:"connected,omitempty"`
-	AuthorizationSession string    `json:"authorization_session,omitempty"`
-	ManifestExpiresAt    time.Time `json:"manifest_expires_at,omitempty"`
+	Mode                 string `json:"mode,omitempty"`
+	ClientID             string `json:"client_id,omitempty"`
+	Connected            bool   `json:"connected,omitempty"`
+	AuthorizationSession string `json:"authorization_session,omitempty"`
 }
 
 type PublicCloudflare struct {

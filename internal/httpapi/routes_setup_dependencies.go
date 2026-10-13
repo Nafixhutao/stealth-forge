@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/setupconfig"
-	"github.com/Stealth-deplover/stealth/internal/setupstate"
-	"github.com/Stealth-deplover/stealth/internal/storage"
+	"github.com/Nafixhutao/stealth-forge/internal/setupconfig"
+	"github.com/Nafixhutao/stealth-forge/internal/setupstate"
+	"github.com/Nafixhutao/stealth-forge/internal/storage"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )

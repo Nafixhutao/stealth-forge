@@ -63,7 +63,7 @@ jobs:
         if: env.HOST_MODE == 'ephemeral-qemu'
         uses: actions/setup-go@v7
         with:
-          go-version: 1.26.x
+          go-version: 1.26.9
           cache: false
 
       - name: Start ephemeral Linux VM or configure SSH host

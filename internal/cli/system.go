@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/Stealth-deplover/stealth/internal/preflight"
+	"github.com/Nafixhutao/stealth-forge/internal/preflight"
 )
 
 type SystemCheck = preflight.Check

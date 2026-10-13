@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/domain"
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -32,30 +32,6 @@ type BootstrapSessionInput struct {
 	ID        uuid.UUID
 	CodeHash  []byte
 	ExpiresAt time.Time
-}
-
-type GitHubDeviceFlow struct {
-	ID                   uuid.UUID
-	CodeHash             []byte
-	DeviceCodeCiphertext []byte
-	UserCode             string
-	VerificationURI      string
-	ExpiresAt            time.Time
-	GitHubExpiresAt      time.Time
-	Interval             time.Duration
-	NextPollAt           time.Time
-	Status               string
-}
-
-type GitHubDeviceFlowInput struct {
-	ID                   uuid.UUID
-	CodeHash             []byte
-	DeviceCodeCiphertext []byte
-	UserCode             string
-	VerificationURI      string
-	ExpiresAt            time.Time
-	GitHubExpiresAt      time.Time
-	Interval             time.Duration
 }
 
 type GitHubOwnerInput struct {
@@ -87,9 +63,6 @@ type BootstrapStore interface {
 	BootstrapStatus(context.Context) (BootstrapStatus, error)
 	CreateBootstrapSession(context.Context, BootstrapSessionInput) error
 	VerifyBootstrapCode(context.Context, []byte) (BootstrapVerification, error)
-	StartGitHubDeviceFlow(context.Context, GitHubDeviceFlowInput) (GitHubDeviceFlow, error)
-	ClaimGitHubDevicePoll(context.Context, uuid.UUID) (GitHubDeviceFlow, bool, error)
-	UpdateGitHubDeviceFlow(context.Context, uuid.UUID, string, time.Duration, time.Time) error
 	CreateGitHubInstanceOwner(context.Context, GitHubOwnerInput) (domain.Account, error)
 	ListBootstrapAdoptionAccounts(context.Context) ([]BootstrapAdoptionAccount, error)
 	AdoptInstanceOwner(context.Context, uuid.UUID) error

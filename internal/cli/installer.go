@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Stealth-deplover/stealth/internal/installengine"
+	"github.com/Nafixhutao/stealth-forge/internal/installengine"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 )

@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/bootstrap"
-	"github.com/Stealth-deplover/stealth/internal/cloudflare"
-	"github.com/Stealth-deplover/stealth/internal/installengine"
-	"github.com/Stealth-deplover/stealth/internal/setupconfig"
-	"github.com/Stealth-deplover/stealth/internal/setupinstall"
-	"github.com/Stealth-deplover/stealth/internal/setupstate"
+	"github.com/Nafixhutao/stealth-forge/internal/bootstrap"
+	"github.com/Nafixhutao/stealth-forge/internal/cloudflare"
+	"github.com/Nafixhutao/stealth-forge/internal/installengine"
+	"github.com/Nafixhutao/stealth-forge/internal/setupconfig"
+	"github.com/Nafixhutao/stealth-forge/internal/setupinstall"
+	"github.com/Nafixhutao/stealth-forge/internal/setupstate"
 )
 
 type cloudflareClientFactory func(string) (cloudflare.Client, error)

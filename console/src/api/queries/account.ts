@@ -27,3 +27,13 @@ export function useAccountSessions() {
     retry: false,
   });
 }
+
+export function useAccountIdentities() {
+  return useQuery({
+    queryKey: queryKeys.accountIdentities,
+    queryFn: cancellableQuery((signal) =>
+      api.GET("/v1/account/identities", { signal }),
+    ),
+    retry: false,
+  });
+}

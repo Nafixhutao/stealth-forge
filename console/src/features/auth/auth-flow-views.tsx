@@ -73,7 +73,7 @@ export function AccountVerificationView() {
           Email verification is complete. You can return to the project console.
         </p>
         <Button asChild className="mt-6 w-full">
-          <Link href="/organizations">Open console</Link>
+          <Link href="/admin">Open console</Link>
         </Button>
       </AuthCard>
     );

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/Stealth-deplover/stealth/internal/buildinfo"
+	"github.com/Nafixhutao/stealth-forge/internal/buildinfo"
 )
 
 type platformRollbackState struct {

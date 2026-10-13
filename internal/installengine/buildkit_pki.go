@@ -8,7 +8,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/Stealth-deplover/stealth/internal/buildkitpki"
+	"github.com/Nafixhutao/stealth-forge/internal/buildkitpki"
 )
 
 // ensureBuildKitPKI moves the pre-release PKI bundle out of setup StateDir

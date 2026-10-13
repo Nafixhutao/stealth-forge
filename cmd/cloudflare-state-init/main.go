@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Stealth-deplover/stealth/internal/cloudflareimport"
+	"github.com/Nafixhutao/stealth-forge/internal/cloudflareimport"
 )
 
 const (

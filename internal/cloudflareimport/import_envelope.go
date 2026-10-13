@@ -10,9 +10,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/Stealth-deplover/stealth/internal/domainname"
-	"github.com/Stealth-deplover/stealth/internal/functionsecret"
-	"github.com/Stealth-deplover/stealth/internal/setupstate"
+	"github.com/Nafixhutao/stealth-forge/internal/domainname"
+	"github.com/Nafixhutao/stealth-forge/internal/functionsecret"
+	"github.com/Nafixhutao/stealth-forge/internal/setupstate"
 )
 
 func Encrypt(envelope Envelope, cipher *functionsecret.Cipher) ([]byte, error) {

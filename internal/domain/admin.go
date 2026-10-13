@@ -30,6 +30,18 @@ type AdminOperationSummary struct {
 	FailedJobs        int64 `json:"failed_jobs"`
 }
 
+// AdminRecentDeployment is one row of the admin Overview's recent activity
+// list: the app's display name plus the deployment state the platform
+// already tracks. It carries no secret material.
+type AdminRecentDeployment struct {
+	ID          string    `json:"id"`
+	AppName     string    `json:"app_name"`
+	Version     int64     `json:"version"`
+	Status      string    `json:"status"`
+	BuildStatus string    `json:"build_status"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
 // AdminMonitor is the safe instance-level projection of a persisted monitor.
 // Secret headers, request bodies, heartbeat tokens, and provider credentials
 // are held encrypted by the control plane and never appear in this DTO.

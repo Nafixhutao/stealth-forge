@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/bootstrap"
+	"github.com/Nafixhutao/stealth-forge/internal/bootstrap"
 )
 
 func (a *App) startQuickTunnel(ctx context.Context, layout InstallLayout, network, containerName string) (string, error) {

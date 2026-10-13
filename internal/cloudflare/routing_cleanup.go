@@ -8,7 +8,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/Stealth-deplover/stealth/internal/domainname"
+	"github.com/Nafixhutao/stealth-forge/internal/domainname"
 )
 
 func (r *Reconciler) cleanupRetiring(ctx context.Context, client Client) (bool, error) {

@@ -5,15 +5,11 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/config"
-	"github.com/Stealth-deplover/stealth/internal/githubauth"
-	"github.com/Stealth-deplover/stealth/internal/ratelimit"
-	"github.com/Stealth-deplover/stealth/internal/repository"
-	"github.com/google/uuid"
+	"github.com/Nafixhutao/stealth-forge/internal/config"
+	"github.com/Nafixhutao/stealth-forge/internal/ratelimit"
 )
 
 func TestBootstrapRateLimitUsesIPAndSessionBuckets(t *testing.T) {
@@ -63,56 +59,5 @@ func TestBootstrapUsesDedicatedKeyWithoutFunctionsFallback(t *testing.T) {
 	server.config.BootstrapCLIKey = nil
 	if got := server.bootstrapCLIKey(); len(got) != 0 {
 		t.Fatalf("missing dedicated key returned %q; FunctionsSecretKey must not be reused", got)
-	}
-}
-
-func TestBootstrapSessionRateLimitDimensionCanonicalizesUUID(t *testing.T) {
-	id := uuid.MustParse("019c0000-0000-7000-8000-000000000001")
-	if got := bootstrapSessionRateLimitDimension("  " + strings.ToUpper(id.String()) + "  "); got != id.String() {
-		t.Fatalf("canonical session dimension = %q, want %q", got, id.String())
-	}
-	if got := bootstrapSessionRateLimitDimension(strings.Repeat("x", 1<<20)); got != "" {
-		t.Fatalf("invalid session dimension = %q, want empty", got)
-	}
-}
-
-func TestGitHubOwnerInputAllowsProviderOnlyIdentity(t *testing.T) {
-	flow := repository.GitHubDeviceFlow{}
-	user := githubauth.User{
-		ID:        424242,
-		Login:     "stealth-owner",
-		Name:      "Stealth Owner",
-		AvatarURL: "https://avatars.githubusercontent.com/u/424242?v=4",
-	}
-
-	input, err := githubOwnerInput(user, flow)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if input.ProviderUserID != "424242" || input.ProviderLogin != user.Login || input.ProviderEmail != "" {
-		t.Fatalf("provider-only identity = %#v", input)
-	}
-	if input.AvatarURL != user.AvatarURL {
-		t.Fatalf("GitHub avatar URL = %q, want %q", input.AvatarURL, user.AvatarURL)
-	}
-}
-
-func TestGitHubOwnerInputDropsInvalidProviderEmailAndRejectsUnsafeMetadata(t *testing.T) {
-	flow := repository.GitHubDeviceFlow{}
-	input, err := githubOwnerInput(githubauth.User{
-		ID:        424242,
-		Login:     "stealth-owner",
-		Email:     "not-an-email",
-		Name:      "Stealth Owner",
-		AvatarURL: "https://avatars.githubusercontent.com/u/424242",
-	}, flow)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if input.ProviderEmail != "" {
-		t.Fatalf("invalid provider email was persisted: %q", input.ProviderEmail)
-	}
-	if _, err := githubOwnerInput(githubauth.User{ID: 424242, Login: "unsafe\nlogin"}, flow); err == nil || !strings.Contains(err.Error(), "invalid GitHub identity") {
-		t.Fatalf("unsafe GitHub login error = %v", err)
 	}
 }

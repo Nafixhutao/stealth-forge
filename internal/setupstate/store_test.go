@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/functionsecret"
+	"github.com/Nafixhutao/stealth-forge/internal/functionsecret"
 )
 
 func testCipher(t *testing.T) *functionsecret.Cipher {
@@ -449,7 +449,6 @@ func TestPublicProjectionOmitsRawCredentialFields(t *testing.T) {
 		StorageS3SecretKey: "secret",
 	})
 	state.SetSecret("cloudflare_access_token", "cf-token")
-	state.GitHub.ManifestStateHash = "manifest-hash"
 	state.Cloudflare.OAuthStateHash = "oauth-hash"
 	public := state.Public()
 	if public.Draft.DatabaseMode == "" || public.Draft.StorageMode == "" {
@@ -460,30 +459,10 @@ func TestPublicProjectionOmitsRawCredentialFields(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(contents)
-	for _, forbidden := range []string{"password", "redis-password", "access", "secret", "cf-token", "manifest-hash", "oauth-hash"} {
+	for _, forbidden := range []string{"password", "redis-password", "access", "secret", "cf-token", "oauth-hash"} {
 		if strings.Contains(text, forbidden) {
 			t.Fatalf("public projection contains %q: %s", forbidden, text)
 		}
-	}
-}
-
-func TestManifestStateIsRandomHashedAndExpires(t *testing.T) {
-	plain, hash, expiresAt, err := NewManifestState()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if plain == "" || hash == "" || !expiresAt.After(time.Now().UTC()) {
-		t.Fatalf("manifest state = %q, %q, %s", plain, hash, expiresAt)
-	}
-	if hash != hashManifestState(plain) || hash == plain {
-		t.Fatalf("manifest hash = %q, want digest of %q", hash, plain)
-	}
-	other, _, _, err := NewManifestState()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if other == plain {
-		t.Fatal("manifest state was not random")
 	}
 }
 

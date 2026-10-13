@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/buildkitpki"
+	"github.com/Nafixhutao/stealth-forge/internal/buildkitpki"
 )
 
 // Layout is the on-host installation boundary. The host CLI writes durable

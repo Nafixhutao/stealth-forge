@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Stealth-deplover/stealth/internal/githubauth"
-	"github.com/Stealth-deplover/stealth/internal/installengine"
+	"github.com/Nafixhutao/stealth-forge/internal/githubauth"
+	"github.com/Nafixhutao/stealth-forge/internal/installengine"
 )
 
 type InstallPlan = installengine.Plan

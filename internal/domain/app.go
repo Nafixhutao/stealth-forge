@@ -3,7 +3,7 @@ package domain
 import (
 	"time"
 
-	"github.com/Stealth-deplover/stealth/internal/workloadspec"
+	"github.com/Nafixhutao/stealth-forge/internal/workloadspec"
 )
 
 // App is durable desired configuration for a persistent project workload.

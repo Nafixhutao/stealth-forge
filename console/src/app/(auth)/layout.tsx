@@ -19,7 +19,7 @@ export default function AuthLayout({
               alt="Stealth"
               width={36}
               height={36}
-              className="size-9 rounded-md"
+              className="size-9"
             />
             <span className="text-sm font-semibold tracking-[-0.012em] text-paper">
               Stealth

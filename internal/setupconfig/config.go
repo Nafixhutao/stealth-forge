@@ -7,8 +7,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/Stealth-deplover/stealth/internal/githubauth"
-	"github.com/Stealth-deplover/stealth/internal/setupstate"
+	"github.com/Nafixhutao/stealth-forge/internal/githubauth"
+	"github.com/Nafixhutao/stealth-forge/internal/setupstate"
 )
 
 // Request is the browser setup configuration input. Credential fields are
