@@ -3,9 +3,12 @@
 import { useDeferredValue, useMemo, useState } from "react";
 import {
   Activity,
+  ArrowDown,
+  ArrowUp,
   BadgeCheck,
   ChevronLeft,
   ChevronRight,
+  ChevronsUpDown,
   RefreshCw,
   SearchX,
   ShieldCheck,
@@ -14,7 +17,6 @@ import {
 } from "lucide-react";
 import { useAdminAccounts } from "@/api/queries/admin-telemetry";
 import type { components } from "@/api/generated/schema";
-import { cn } from "@/lib/utils";
 import { formatCount, formatDate, formatRelative } from "@/lib/format";
 import {
   AdminHeader,
@@ -42,9 +44,10 @@ type SortKey = "recent" | "newest" | "oldest" | "name";
 
 const PAGE_SIZE = 12;
 
-/** Desktop row template: user stretches, the rest hold fixed widths. */
-const ROW_GRID =
-  "lg:grid lg:grid-cols-[minmax(0,1.7fr)_120px_minmax(0,1fr)_140px_150px] lg:items-center lg:gap-3";
+const TH_CLASS =
+  "px-3 py-2.5 text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)] first:pl-4 last:pr-4 sm:first:pl-5 sm:last:pr-5";
+const TD_CLASS =
+  "px-3 py-3.5 align-middle first:pl-4 last:pr-4 sm:first:pl-5 sm:last:pr-5";
 
 const dayFormat = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -104,10 +107,11 @@ function computeStats(items: AdminAccount[]) {
 }
 
 /**
- * Users — the Console account directory. Header, stat tiles, filter toolbar,
- * then a responsive account list: a real grid on desktop, stacked cards on
- * phones so nothing scrolls sideways. Pagination is client-side and always
- * reflects the filtered set; the old footer showed a dead page 1.
+ * Users — the Console account directory as a real table: header, stat tiles,
+ * filter toolbar, then a semantic table with sortable User / Last active /
+ * Added columns. The table scrolls horizontally on narrow screens instead of
+ * collapsing into cards. Pagination is client-side and always reflects the
+ * filtered set.
  */
 export function UsersPage() {
   const [query, setQuery] = useState("");
@@ -175,8 +179,8 @@ export function UsersPage() {
     [sorted, safePage],
   );
 
-  // Filtering, sorting, or searching restarts at the first page. This lives
-  // in the event handlers (not an effect) so no cascading render occurs.
+  // Filtering or sorting restarts at the first page. This lives in the event
+  // handlers (not an effect) so no cascading render occurs.
   const handleQueryChange = (value: string) => {
     setQuery(value);
     setPage(1);
@@ -193,11 +197,16 @@ export function UsersPage() {
     setSort(value);
     setPage(1);
   };
+  const toggleAddedSort = () => {
+    setSort((current) => (current === "oldest" ? "newest" : "oldest"));
+    setPage(1);
+  };
 
   const hasFilters =
     deferredQuery.trim() !== "" || role !== "all" || verified !== "all";
   const rangeStart = sorted.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
   const rangeEnd = Math.min(safePage * PAGE_SIZE, sorted.length);
+  const addedActive = sort === "newest" || sort === "oldest";
 
   const clearFilters = () => {
     setQuery("");
@@ -286,18 +295,6 @@ export function UsersPage() {
               { value: "unverified", label: "Unverified" },
             ]}
           />
-          <AdminSelect
-            label="Sort users"
-            value={sort}
-            onChange={handleSortChange}
-            align="right"
-            options={[
-              { value: "recent", label: "Recently active" },
-              { value: "newest", label: "Newest first" },
-              { value: "oldest", label: "Oldest first" },
-              { value: "name", label: "Name A–Z" },
-            ]}
-          />
           <div className="ml-auto flex items-center gap-2">
             {hasFilters && (
               <button
@@ -323,188 +320,229 @@ export function UsersPage() {
 
       <AdminReveal delay={0.1}>
         <div className="overflow-hidden rounded-lg border border-[var(--projects-border)] bg-[#141416]">
-          <div
-            aria-hidden="true"
-            className={cn(
-              "hidden border-b border-[var(--projects-divider)] bg-[var(--projects-control)] px-4 py-2.5 sm:px-5",
-              ROW_GRID,
-            )}
-          >
-            <ColumnLabel>User</ColumnLabel>
-            <ColumnLabel>Role</ColumnLabel>
-            <ColumnLabel>Sign-in</ColumnLabel>
-            <ColumnLabel>Last active</ColumnLabel>
-            <ColumnLabel>Added</ColumnLabel>
-          </div>
-
-          {accounts.isPending ? (
-            <div aria-hidden="true">
-              <p className="sr-only">Loading users…</p>
-              {Array.from({ length: 6 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="border-b border-[var(--projects-divider)] px-4 py-3.5 last:border-b-0 sm:px-5"
-                >
-                  <div className="hidden lg:grid lg:grid-cols-[minmax(0,1.7fr)_120px_minmax(0,1fr)_140px_150px] lg:items-center lg:gap-3">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="size-8 shrink-0 animate-pulse rounded-full bg-white/[0.05] motion-reduce:animate-none" />
-                      <div className="min-w-0 flex-1 space-y-1.5">
-                        <div className="h-3.5 w-28 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
-                        <div className="h-3 w-36 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
-                      </div>
-                    </div>
-                    <div className="h-5 w-16 animate-pulse rounded-full bg-white/[0.05] motion-reduce:animate-none" />
-                    <div className="h-3.5 w-20 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
-                    <div className="h-3.5 w-20 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
-                    <div className="h-3.5 w-20 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
-                  </div>
-                  <div className="flex items-center gap-3 lg:hidden">
-                    <div className="size-8 shrink-0 animate-pulse rounded-full bg-white/[0.05] motion-reduce:animate-none" />
-                    <div className="min-w-0 flex-1 space-y-1.5">
-                      <div className="h-3.5 w-2/3 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
-                      <div className="h-3 w-1/2 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
-                    </div>
-                    <div className="h-5 w-16 shrink-0 animate-pulse rounded-full bg-white/[0.05] motion-reduce:animate-none" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : accounts.isError ? (
-            <div className="flex flex-col items-center px-4 py-14 text-center">
-              <span className="flex size-10 items-center justify-center rounded-lg border border-[color-mix(in_srgb,var(--projects-danger)_40%,var(--projects-border))] bg-[color-mix(in_srgb,var(--projects-danger)_10%,transparent)] text-[var(--projects-danger)]">
-                <TriangleAlert size={18} strokeWidth={1.8} aria-hidden="true" />
-              </span>
-              <h2 className="m-0 mt-3 text-[15px] font-semibold tracking-[-0.01em] text-[var(--projects-text)] [text-wrap:balance]">
-                Could not load accounts
-              </h2>
-              <p className="m-0 mt-1 max-w-[38ch] text-[13px] leading-5 text-[var(--projects-muted)] [text-wrap:pretty]">
-                Check your connection and retry. The directory reloads
-                automatically every 30 seconds.
-              </p>
-              <button
-                type="button"
-                onClick={() => void accounts.refetch()}
-                disabled={accounts.isFetching}
-                className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--projects-border)] bg-[var(--projects-control)] px-4 text-[13px] font-medium text-[var(--projects-text)] transition-colors hover:border-[var(--projects-border-hover)] hover:bg-white/[0.04] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--projects-accent)] disabled:opacity-60"
-              >
-                <RefreshCw
-                  size={14}
-                  strokeWidth={1.8}
-                  aria-hidden="true"
-                  className={accounts.isFetching ? "animate-spin" : undefined}
-                />
-                Try again
-              </button>
-            </div>
-          ) : paged.length === 0 ? (
-            <div className="flex flex-col items-center px-4 py-14 text-center">
-              <span className="flex size-10 items-center justify-center rounded-lg border border-[var(--projects-border)] bg-[var(--projects-control)] text-[var(--projects-muted)]">
-                {items.length === 0 ? (
-                  <Users size={18} strokeWidth={1.8} aria-hidden="true" />
-                ) : (
-                  <SearchX size={18} strokeWidth={1.8} aria-hidden="true" />
-                )}
-              </span>
-              <h2 className="m-0 mt-3 text-[15px] font-semibold tracking-[-0.01em] text-[var(--projects-text)] [text-wrap:balance]">
-                {items.length === 0
-                  ? "No accounts yet"
-                  : "No accounts match these filters"}
-              </h2>
-              <p className="m-0 mt-1 max-w-[42ch] text-[13px] leading-5 text-[var(--projects-muted)] [text-wrap:pretty]">
-                {items.length === 0
-                  ? "Accounts appear here once people sign up or are invited."
-                  : "Try a different search term or clear the role and verification filters."}
-              </p>
-              {items.length > 0 && hasFilters && (
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  className="mt-4 inline-flex h-9 items-center rounded-lg border border-[var(--projects-border)] bg-[var(--projects-control)] px-4 text-[13px] font-medium text-[var(--projects-text)] transition-colors hover:border-[var(--projects-border-hover)] hover:bg-white/[0.04] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--projects-accent)]"
-                >
-                  Clear filters
-                </button>
-              )}
-            </div>
-          ) : (
-            <ul className="m-0 list-none p-0">
-              {paged.map((account) => {
-                const accountRole = roleOf(account);
-                return (
-                  <li
-                    key={account.id}
-                    className="border-b border-[var(--projects-divider)] last:border-b-0 [content-visibility:auto] [contain-intrinsic-size:auto_76px]"
-                  >
-                    <div className={cn("px-4 py-3.5 sm:px-5", ROW_GRID)}>
-                      {/* Desktop cells. */}
-                      <div className="hidden min-w-0 items-center gap-3 lg:flex">
-                        <GradientAvatar
-                          email={account.email}
-                          url={account.avatar_url}
-                          size={32}
-                        />
-                        <UserIdentity account={account} />
-                      </div>
-                      <div className="hidden lg:block">
-                        <StatusBadge
-                          tone={roleTone(accountRole)}
-                          label={roleLabel(accountRole)}
-                        />
-                      </div>
-                      <div className="hidden min-w-0 lg:block">
-                        <SignInMethods
-                          providers={[...account.providers]}
-                          lastMethod={account.last_sign_in_method}
-                        />
-                      </div>
-                      <LastActiveCell iso={account.last_sign_in_at} />
-                      <AddedCell iso={account.created_at} />
-
-                      {/* Mobile card. */}
-                      <div className="min-w-0 lg:hidden">
-                        <div className="flex items-center gap-3">
-                          <GradientAvatar
-                            email={account.email}
-                            url={account.avatar_url}
-                            size={32}
+          {accounts.isPending && (
+            <p className="sr-only" role="status">
+              Loading users…
+            </p>
+          )}
+          <div className="overflow-x-auto admin-scrollbar">
+            <table className="w-full min-w-[820px] table-fixed border-collapse text-left">
+              <caption className="sr-only">
+                Console accounts with role, sign-in method, last activity, and
+                join date. Sort with the User, Last active, and Added column
+                headers.
+              </caption>
+              <colgroup>
+                <col className="w-[32%]" />
+                <col className="w-[13%]" />
+                <col className="w-[17%]" />
+                <col className="w-[17%]" />
+                <col className="w-[21%]" />
+              </colgroup>
+              <thead>
+                <tr className="border-b border-[var(--projects-divider)] bg-[var(--projects-control)]">
+                  <SortableHeader
+                    label="User"
+                    sortLabel="Sort by name"
+                    active={sort === "name"}
+                    direction="asc"
+                    onSort={() => handleSortChange("name")}
+                  />
+                  <StaticHeader label="Role" />
+                  <StaticHeader label="Sign-in" />
+                  <SortableHeader
+                    label="Last active"
+                    sortLabel="Sort by recent activity"
+                    active={sort === "recent"}
+                    direction="desc"
+                    onSort={() => handleSortChange("recent")}
+                  />
+                  <SortableHeader
+                    label="Added"
+                    sortLabel={
+                      sort === "oldest"
+                        ? "Sort by newest first"
+                        : "Sort by oldest first"
+                    }
+                    active={addedActive}
+                    direction={sort === "oldest" ? "asc" : "desc"}
+                    onSort={toggleAddedSort}
+                  />
+                </tr>
+              </thead>
+              <tbody aria-hidden={accounts.isPending ? true : undefined}>
+                {accounts.isPending ? (
+                  Array.from({ length: 6 }).map((_, index) => (
+                    <tr
+                      key={index}
+                      className="border-b border-[var(--projects-divider)] last:border-b-0"
+                    >
+                      <td className={TD_CLASS}>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="size-8 shrink-0 animate-pulse rounded-full bg-white/[0.05] motion-reduce:animate-none" />
+                          <div className="min-w-0 flex-1 space-y-1.5">
+                            <div className="h-3.5 w-28 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
+                            <div className="h-3 w-36 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
+                          </div>
+                        </div>
+                      </td>
+                      <td className={TD_CLASS}>
+                        <div className="h-5 w-16 animate-pulse rounded-full bg-white/[0.05] motion-reduce:animate-none" />
+                      </td>
+                      <td className={TD_CLASS}>
+                        <div className="h-3.5 w-20 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
+                      </td>
+                      <td className={TD_CLASS}>
+                        <div className="h-3.5 w-20 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
+                      </td>
+                      <td className={TD_CLASS}>
+                        <div className="h-3.5 w-20 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
+                      </td>
+                    </tr>
+                  ))
+                ) : accounts.isError ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-14 text-center sm:px-5">
+                      <div className="flex flex-col items-center text-center">
+                        <span className="flex size-10 items-center justify-center rounded-lg border border-[color-mix(in_srgb,var(--projects-danger)_40%,var(--projects-border))] bg-[color-mix(in_srgb,var(--projects-danger)_10%,transparent)] text-[var(--projects-danger)]">
+                          <TriangleAlert
+                            size={18}
+                            strokeWidth={1.8}
+                            aria-hidden="true"
                           />
-                          <div className="min-w-0 flex-1">
+                        </span>
+                        <h2 className="m-0 mt-3 text-[15px] font-semibold tracking-[-0.01em] text-[var(--projects-text)] [text-wrap:balance]">
+                          Could not load accounts
+                        </h2>
+                        <p className="m-0 mt-1 max-w-[38ch] text-[13px] leading-5 text-[var(--projects-muted)] [text-wrap:pretty]">
+                          Check your connection and retry. The directory reloads
+                          automatically every 30 seconds.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => void accounts.refetch()}
+                          disabled={accounts.isFetching}
+                          className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--projects-border)] bg-[var(--projects-control)] px-4 text-[13px] font-medium text-[var(--projects-text)] transition-colors hover:border-[var(--projects-border-hover)] hover:bg-white/[0.04] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--projects-accent)] disabled:opacity-60"
+                        >
+                          <RefreshCw
+                            size={14}
+                            strokeWidth={1.8}
+                            aria-hidden="true"
+                            className={
+                              accounts.isFetching ? "animate-spin" : undefined
+                            }
+                          />
+                          Try again
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : paged.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-14 text-center sm:px-5">
+                      <div className="flex flex-col items-center text-center">
+                        <span className="flex size-10 items-center justify-center rounded-lg border border-[var(--projects-border)] bg-[var(--projects-control)] text-[var(--projects-muted)]">
+                          {items.length === 0 ? (
+                            <Users
+                              size={18}
+                              strokeWidth={1.8}
+                              aria-hidden="true"
+                            />
+                          ) : (
+                            <SearchX
+                              size={18}
+                              strokeWidth={1.8}
+                              aria-hidden="true"
+                            />
+                          )}
+                        </span>
+                        <h2 className="m-0 mt-3 text-[15px] font-semibold tracking-[-0.01em] text-[var(--projects-text)] [text-wrap:balance]">
+                          {items.length === 0
+                            ? "No accounts yet"
+                            : "No accounts match these filters"}
+                        </h2>
+                        <p className="m-0 mt-1 max-w-[42ch] text-[13px] leading-5 text-[var(--projects-muted)] [text-wrap:pretty]">
+                          {items.length === 0
+                            ? "Accounts appear here once people sign up or are invited."
+                            : "Try a different search term or clear the role and verification filters."}
+                        </p>
+                        {items.length > 0 && hasFilters && (
+                          <button
+                            type="button"
+                            onClick={clearFilters}
+                            className="mt-4 inline-flex h-9 items-center rounded-lg border border-[var(--projects-border)] bg-[var(--projects-control)] px-4 text-[13px] font-medium text-[var(--projects-text)] transition-colors hover:border-[var(--projects-border-hover)] hover:bg-white/[0.04] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--projects-accent)]"
+                          >
+                            Clear filters
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  paged.map((account) => {
+                    const accountRole = roleOf(account);
+                    return (
+                      <tr
+                        key={account.id}
+                        className="border-b border-[var(--projects-divider)] transition-colors last:border-b-0 hover:bg-white/[0.02]"
+                      >
+                        <td className={TD_CLASS}>
+                          <div className="flex min-w-0 items-center gap-3">
+                            <GradientAvatar
+                              email={account.email}
+                              url={account.avatar_url}
+                              size={32}
+                            />
                             <UserIdentity account={account} />
                           </div>
-                          <span className="shrink-0">
-                            <StatusBadge
-                              tone={roleTone(accountRole)}
-                              label={roleLabel(accountRole)}
+                        </td>
+                        <td className={TD_CLASS}>
+                          <StatusBadge
+                            tone={roleTone(accountRole)}
+                            label={roleLabel(accountRole)}
+                          />
+                        </td>
+                        <td className={TD_CLASS}>
+                          <span className="block truncate">
+                            <SignInMethods
+                              providers={[...account.providers]}
+                              lastMethod={account.last_sign_in_method}
                             />
                           </span>
-                        </div>
-                        <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11.5px] text-[var(--projects-muted)]">
-                          <SignInMethods
-                            providers={[...account.providers]}
-                            lastMethod={account.last_sign_in_method}
-                          />
-                          <MobileMeta
-                            label="Active"
-                            title={
-                              account.last_sign_in_at
-                                ? formatDate(account.last_sign_in_at)
-                                : undefined
-                            }
+                        </td>
+                        <td className={TD_CLASS}>
+                          {account.last_sign_in_at ? (
+                            <span
+                              title={formatDate(account.last_sign_in_at)}
+                              className="block truncate"
+                            >
+                              <Mono className="truncate text-[12.5px] tabular-nums text-[var(--projects-muted)]">
+                                {formatRelative(account.last_sign_in_at)}
+                              </Mono>
+                            </span>
+                          ) : (
+                            <Mono className="block truncate text-[12.5px] tabular-nums text-[var(--projects-muted)]">
+                              Never
+                            </Mono>
+                          )}
+                        </td>
+                        <td className={TD_CLASS}>
+                          <span
+                            title={formatDate(account.created_at)}
+                            className="block truncate"
                           >
-                            {account.last_sign_in_at
-                              ? formatRelative(account.last_sign_in_at)
-                              : "Never"}
-                          </MobileMeta>
-                          <MobileMeta title={formatDate(account.created_at)}>
-                            {shortDay(account.created_at)}
-                          </MobileMeta>
-                        </div>
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+                            <Mono className="truncate text-[12.5px] tabular-nums text-[var(--projects-muted)]">
+                              {shortDay(account.created_at)}
+                            </Mono>
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
 
           {sorted.length > 0 && (
             <footer className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--projects-divider)] bg-[var(--projects-card-bg)] px-4 py-3 sm:px-5">
@@ -550,11 +588,69 @@ export function UsersPage() {
   );
 }
 
-function ColumnLabel({ children }: { children: React.ReactNode }) {
+function StaticHeader({ label }: { label: string }) {
   return (
-    <span className="truncate text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)]">
-      {children}
-    </span>
+    <th scope="col" className={TH_CLASS}>
+      {label}
+    </th>
+  );
+}
+
+function SortableHeader({
+  label,
+  sortLabel,
+  active,
+  direction,
+  onSort,
+}: {
+  label: string;
+  sortLabel: string;
+  active: boolean;
+  direction: "asc" | "desc";
+  onSort: () => void;
+}) {
+  let ariaSort: "ascending" | "descending" | undefined;
+  if (active) ariaSort = direction === "asc" ? "ascending" : "descending";
+  return (
+    <th scope="col" aria-sort={ariaSort} className={TH_CLASS}>
+      <button
+        type="button"
+        onClick={onSort}
+        aria-label={sortLabel}
+        title={sortLabel}
+        className={`inline-flex max-w-full items-center gap-1 text-[10.5px] font-medium uppercase tracking-[0.08em] transition-colors hover:text-[var(--projects-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--projects-accent)] ${
+          active
+            ? "text-[var(--projects-text)]"
+            : "text-[var(--projects-muted)]"
+        }`}
+      >
+        <span className="truncate">{label}</span>
+        {active ? (
+          direction === "asc" ? (
+            <ArrowUp
+              size={12}
+              strokeWidth={2}
+              aria-hidden="true"
+              className="shrink-0"
+            />
+          ) : (
+            <ArrowDown
+              size={12}
+              strokeWidth={2}
+              aria-hidden="true"
+              className="shrink-0"
+            />
+          )
+        ) : (
+          <ChevronsUpDown
+            size={12}
+            strokeWidth={2}
+            aria-hidden="true"
+            className="shrink-0 opacity-40"
+          />
+        )}
+      </button>
+    </th>
   );
 }
 
@@ -571,51 +667,5 @@ function UserIdentity({ account }: { account: AdminAccount }) {
         </Mono>
       </span>
     </div>
-  );
-}
-
-function LastActiveCell({ iso }: { iso?: string }) {
-  if (!iso) {
-    return (
-      <Mono className="hidden truncate text-[12.5px] tabular-nums text-[var(--projects-muted)] lg:block">
-        Never
-      </Mono>
-    );
-  }
-  return (
-    <span title={formatDate(iso)} className="hidden truncate lg:block">
-      <Mono className="truncate text-[12.5px] tabular-nums text-[var(--projects-muted)]">
-        {formatRelative(iso)}
-      </Mono>
-    </span>
-  );
-}
-
-function AddedCell({ iso }: { iso: string }) {
-  return (
-    <span title={formatDate(iso)} className="hidden truncate lg:block">
-      <Mono className="truncate text-[12.5px] tabular-nums text-[var(--projects-muted)]">
-        {shortDay(iso)}
-      </Mono>
-    </span>
-  );
-}
-
-function MobileMeta({
-  children,
-  label,
-  title,
-}: {
-  children: React.ReactNode;
-  label?: string;
-  title?: string;
-}) {
-  return (
-    <span title={title} className="tabular-nums">
-      <Mono className="tabular-nums">
-        {label ? `${label} ` : null}
-        {children}
-      </Mono>
-    </span>
   );
 }
