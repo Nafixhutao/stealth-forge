@@ -1,6 +1,8 @@
 "use client";
 
-import Image from "next/image";
+import { KeyRound } from "lucide-react";
+import { GitHubMark, GoogleMark } from "@/features/auth/auth-standalone";
+import { cn } from "@/lib/utils";
 
 /** Deterministic gradient avatar from the identity. When the account has a
     provider avatar it is shown as a background image (no next/image remote
@@ -100,43 +102,51 @@ export function VerifiedBadge() {
   );
 }
 
-/** Provider mark for how the account signs in. Brand marks are inline SVGs so
-    no icon package is added. */
-export function ProviderMark({ provider }: { provider: string }) {
-  if (provider === "github") {
-    return (
-      <span title="Signed in with GitHub" className="inline-flex items-center">
-        <Image
-          src="/github-mark.svg"
-          alt="GitHub"
-          width={14}
-          height={14}
-          unoptimized
-          className="size-3.5 object-contain"
-        />
-      </span>
-    );
-  }
-  if (provider === "google") {
-    return (
-      <span title="Signed in with Google" className="inline-flex items-center">
-        <Image
-          src="/google-g.svg"
-          alt="Google"
-          width={14}
-          height={14}
-          unoptimized
-          className="size-3.5 object-contain"
-        />
-      </span>
-    );
-  }
+/** Provider mark for how the account signs in. Brand marks are the same inline
+    SVGs as the sign-in screen (full-color Google G, white GitHub mark), so the
+    table never shows the old washed-out grey file assets. Every provider sits
+    in one uniform tile; the most recently used one carries an accent border. */
+export function ProviderMark({
+  provider,
+  lastUsed = false,
+}: {
+  provider: string;
+  lastUsed?: boolean;
+}) {
+  const label =
+    provider === "github"
+      ? "GitHub"
+      : provider === "google"
+        ? "Google"
+        : "Password";
   return (
     <span
-      title="Signs in with a password"
-      className="inline-flex items-center rounded border border-[var(--projects-border)] px-1 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--projects-muted)]"
+      role="img"
+      aria-label={lastUsed ? `${label}, last used` : label}
+      title={
+        lastUsed
+          ? `Signed in with ${label} · last used`
+          : `Signed in with ${label}`
+      }
+      className={cn(
+        "inline-flex size-7 shrink-0 items-center justify-center rounded-md border transition-colors",
+        lastUsed
+          ? "border-[color-mix(in_srgb,var(--projects-accent)_55%,var(--projects-border))] bg-[color-mix(in_srgb,var(--projects-accent)_10%,transparent)]"
+          : "border-[var(--projects-border)] bg-[var(--projects-control)]",
+      )}
     >
-      pass
+      {provider === "github" ? (
+        <GitHubMark />
+      ) : provider === "google" ? (
+        <GoogleMark />
+      ) : (
+        <KeyRound
+          size={14}
+          strokeWidth={1.8}
+          aria-hidden="true"
+          className="text-[var(--projects-muted)]"
+        />
+      )}
     </span>
   );
 }
@@ -149,26 +159,21 @@ export function SignInMethods({
   providers: string[];
   lastMethod?: string;
 }) {
-  const methods = providers.length > 0 ? providers : [];
-  if (methods.length === 0) {
-    return (
-      <span className="text-[12px] text-[var(--projects-muted)]">Password</span>
-    );
-  }
+  const methods = providers.length > 0 ? providers : ["password"];
   return (
     <span className="inline-flex items-center gap-1.5">
       {methods.map((provider) => (
-        <span
+        <ProviderMark
           key={provider}
-          className={
-            provider === lastMethod
-              ? "rounded-md bg-white/[0.06] p-0.5 ring-1 ring-[var(--projects-accent)]/40"
-              : "p-0.5"
-          }
-        >
-          <ProviderMark provider={provider} />
-        </span>
+          provider={provider}
+          lastUsed={provider === lastMethod}
+        />
       ))}
+      {methods.length === 1 && methods[0] === "password" ? (
+        <span className="truncate text-[12px] text-[var(--projects-muted)]">
+          Password
+        </span>
+      ) : null}
     </span>
   );
 }
