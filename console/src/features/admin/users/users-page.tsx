@@ -27,18 +27,19 @@ import {
 import { AdminSelect } from "../components/admin-select";
 import { LiveIndicator } from "../components/live-indicator";
 import { StatTile } from "../components/stat-tile";
-import { StatusBadge } from "../components/status-badge";
 import { ToolbarSearch } from "../components/toolbar-search";
 import {
   GradientAvatar,
+  RoleBadge,
   SignInMethods,
   VerifiedBadge,
   maskEmail,
+  type AccountRole,
 } from "./user-table-pieces";
 
 type AdminAccount = components["schemas"]["AdminAccount"];
 
-type RoleFilter = "all" | "owner" | "admin" | "member";
+type RoleFilter = "all" | AccountRole;
 type VerifiedFilter = "all" | "verified" | "unverified";
 type SortKey = "recent" | "newest" | "oldest" | "name";
 
@@ -55,7 +56,7 @@ const dayFormat = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
 });
 
-function roleOf(account: AdminAccount): Exclude<RoleFilter, "all"> {
+function roleOf(account: AdminAccount): AccountRole {
   const raw = (account.instance_role ?? "")
     .replace(/^instance_/, "")
     .toLowerCase();
@@ -63,17 +64,6 @@ function roleOf(account: AdminAccount): Exclude<RoleFilter, "all"> {
   return "member";
 }
 
-function roleLabel(role: Exclude<RoleFilter, "all">): string {
-  return role.charAt(0).toUpperCase() + role.slice(1);
-}
-
-function roleTone(role: Exclude<RoleFilter, "all">) {
-  if (role === "owner") return "warning" as const;
-  if (role === "admin") return "info" as const;
-  return "neutral" as const;
-}
-
-/** Short day like "Sep 10, 2026" with an absolute title elsewhere. */
 function shortDay(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "—";
@@ -497,10 +487,7 @@ export function UsersPage() {
                           </div>
                         </td>
                         <td className={TD_CLASS}>
-                          <StatusBadge
-                            tone={roleTone(accountRole)}
-                            label={roleLabel(accountRole)}
-                          />
+                          <RoleBadge role={accountRole} />
                         </td>
                         <td className={TD_CLASS}>
                           <span className="block truncate">

@@ -1,6 +1,7 @@
 "use client";
 
-import { KeyRound } from "lucide-react";
+import { Crown, KeyRound, ShieldCheck } from "lucide-react";
+import { AnimatedBadge } from "@/components/motion/animated-badge";
 import { GitHubMark, GoogleMark } from "@/features/auth/auth-standalone";
 import { cn } from "@/lib/utils";
 
@@ -99,6 +100,48 @@ export function VerifiedBadge() {
         />
       </svg>
     </span>
+  );
+}
+
+/** Instance role without the `instance_` prefix. */
+export type AccountRole = "owner" | "admin" | "member";
+
+export function roleLabel(role: AccountRole): string {
+  return role.charAt(0).toUpperCase() + role.slice(1);
+}
+
+function roleTone(role: AccountRole) {
+  if (role === "owner") return "warning" as const;
+  if (role === "admin") return "info" as const;
+  return "neutral" as const;
+}
+
+/** Role badge with a role-meaningful icon: crown for owners, shield for
+    admins, plain dot for members. The generic status badge read wrong here —
+    a warning triangle on every owner looked like an error state. */
+export function RoleBadge({ role }: { role: AccountRole }) {
+  const label = roleLabel(role);
+  return (
+    <AnimatedBadge
+      status={roleTone(role)}
+      size="sm"
+      contentKey={label}
+      className="font-medium"
+      icon={
+        role === "owner" ? (
+          <Crown size={12} strokeWidth={2} aria-hidden="true" />
+        ) : role === "admin" ? (
+          <ShieldCheck size={12} strokeWidth={2} aria-hidden="true" />
+        ) : (
+          <span
+            aria-hidden="true"
+            className="size-1.5 rounded-full bg-current"
+          />
+        )
+      }
+    >
+      {label}
+    </AnimatedBadge>
   );
 }
 
