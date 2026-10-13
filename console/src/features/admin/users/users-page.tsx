@@ -1,241 +1,621 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { useDeferredValue, useMemo, useState } from "react";
+import {
+  Activity,
+  BadgeCheck,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+  SearchX,
+  ShieldCheck,
+  TriangleAlert,
+  Users,
+} from "lucide-react";
 import { useAdminAccounts } from "@/api/queries/admin-telemetry";
+import type { components } from "@/api/generated/schema";
 import { cn } from "@/lib/utils";
-import { AdminPageBody, Mono } from "../components/admin-panel";
+import { formatCount, formatDate, formatRelative } from "@/lib/format";
+import {
+  AdminHeader,
+  AdminPageBody,
+  AdminReveal,
+  Mono,
+} from "../components/admin-panel";
+import { AdminSelect } from "../components/admin-select";
+import { LiveIndicator } from "../components/live-indicator";
+import { StatTile } from "../components/stat-tile";
+import { StatusBadge } from "../components/status-badge";
 import { ToolbarSearch } from "../components/toolbar-search";
-import { GradientAvatar, VerifiedBadge, maskEmail } from "./user-table-pieces";
+import {
+  GradientAvatar,
+  SignInMethods,
+  VerifiedBadge,
+  maskEmail,
+} from "./user-table-pieces";
 
-/**
- * Column template shared by the header row and every data row, mirroring the
- * redesigned Projects list table. Kept on one string so the header and rows can
- * never drift apart.
- */
-const tableColumns =
-  "grid-cols-[minmax(220px,1.6fr)_minmax(88px,.55fr)_minmax(120px,.85fr)_minmax(110px,.7fr)]";
+type AdminAccount = components["schemas"]["AdminAccount"];
 
-function roleOf(instanceRole?: string): string {
-  return instanceRole ? instanceRole.replace("instance_", "") : "member";
+type RoleFilter = "all" | "owner" | "admin" | "member";
+type VerifiedFilter = "all" | "verified" | "unverified";
+type SortKey = "recent" | "newest" | "oldest" | "name";
+
+const PAGE_SIZE = 12;
+
+/** Desktop row template: user stretches, the rest hold fixed widths. */
+const ROW_GRID =
+  "lg:grid lg:grid-cols-[minmax(0,1.7fr)_120px_minmax(0,1fr)_140px_150px] lg:items-center lg:gap-3";
+
+const dayFormat = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+
+function roleOf(account: AdminAccount): Exclude<RoleFilter, "all"> {
+  const raw = (account.instance_role ?? "")
+    .replace(/^instance_/, "")
+    .toLowerCase();
+  if (raw === "owner" || raw === "admin" || raw === "member") return raw;
+  return "member";
 }
 
-/** Short date like "9/10/2026". */
-function shortDate(iso: string): string {
+function roleLabel(role: Exclude<RoleFilter, "all">): string {
+  return role.charAt(0).toUpperCase() + role.slice(1);
+}
+
+function roleTone(role: Exclude<RoleFilter, "all">) {
+  if (role === "owner") return "warning" as const;
+  if (role === "admin") return "info" as const;
+  return "neutral" as const;
+}
+
+/** Short day like "Sep 10, 2026" with an absolute title elsewhere. */
+function shortDay(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString();
+  return dayFormat.format(date);
+}
+
+function displayNameOf(account: AdminAccount): string {
+  const name = account.display_name?.trim();
+  return name || maskEmail(account.email);
+}
+
+/** Directory totals for the stat tiles. Module-level like relativeTime in
+    recent-deployments, so the clock never lives in the component body. */
+function computeStats(items: AdminAccount[]) {
+  const now = Date.now();
+  const week = 7 * 24 * 60 * 60 * 1000;
+  let admins = 0;
+  let verifiedCount = 0;
+  let active = 0;
+  for (const account of items) {
+    const accountRole = roleOf(account);
+    if (accountRole === "admin" || accountRole === "owner") admins += 1;
+    if (account.email_verified) verifiedCount += 1;
+    if (account.last_sign_in_at) {
+      const seen = new Date(account.last_sign_in_at).getTime();
+      if (Number.isFinite(seen) && now - seen >= 0 && now - seen <= week)
+        active += 1;
+    }
+  }
+  return { total: items.length, admins, verifiedCount, active };
 }
 
 /**
- * Users — the real Console account directory, laid out as the redesigned
- * Projects table: a title row, a toolbar, then a bordered panel with a header
- * row, data rows, and a "Showing X of Y" footer. Emails are masked and verified
- * addresses carry a blue check. Nothing here is mock data.
+ * Users — the Console account directory. Header, stat tiles, filter toolbar,
+ * then a responsive account list: a real grid on desktop, stacked cards on
+ * phones so nothing scrolls sideways. Pagination is client-side and always
+ * reflects the filtered set; the old footer showed a dead page 1.
  */
 export function UsersPage() {
   const [query, setQuery] = useState("");
+  const [role, setRole] = useState<RoleFilter>("all");
+  const [verified, setVerified] = useState<VerifiedFilter>("all");
+  const [sort, setSort] = useState<SortKey>("recent");
+  const [page, setPage] = useState(1);
+
   const accounts = useAdminAccounts();
   const items = useMemo(() => accounts.data?.items ?? [], [accounts.data]);
 
-  const visible = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    if (!term) return items;
-    // Search matches the real email even though the list renders it masked,
-    // so an operator can still find an account without reading it aloud.
-    return items.filter(
-      (account) =>
+  // Defer the filter so typing stays responsive on large directories.
+  const deferredQuery = useDeferredValue(query);
+
+  // The 7-day activity window is evaluated at render through a module helper
+  // (same pattern as relativeTime in recent-deployments). The scan is a
+  // single cheap pass, so no memo is needed.
+  const stats = computeStats(items);
+
+  const sorted = useMemo(() => {
+    const term = deferredQuery.trim().toLowerCase();
+    const filtered = items.filter((account) => {
+      if (role !== "all" && roleOf(account) !== role) return false;
+      if (verified === "verified" && !account.email_verified) return false;
+      if (verified === "unverified" && account.email_verified) return false;
+      if (!term) return true;
+      // Search matches the real email even though the list renders it masked,
+      // so an operator can still find an account without reading it aloud.
+      return (
         account.email.toLowerCase().includes(term) ||
         (account.display_name ?? "").toLowerCase().includes(term) ||
-        account.id.toLowerCase().includes(term),
-    );
-  }, [items, query]);
+        account.id.toLowerCase().includes(term)
+      );
+    });
+
+    const byTime = (iso?: string) => {
+      if (!iso) return Number.NEGATIVE_INFINITY;
+      const time = new Date(iso).getTime();
+      return Number.isFinite(time) ? time : Number.NEGATIVE_INFINITY;
+    };
+    return [...filtered].sort((a, b) => {
+      switch (sort) {
+        case "newest":
+          return byTime(b.created_at) - byTime(a.created_at);
+        case "oldest":
+          return byTime(a.created_at) - byTime(b.created_at);
+        case "name":
+          return displayNameOf(a)
+            .toLowerCase()
+            .localeCompare(displayNameOf(b).toLowerCase());
+        case "recent":
+        default:
+          return (
+            byTime(b.last_sign_in_at) - byTime(a.last_sign_in_at) ||
+            byTime(b.created_at) - byTime(a.created_at)
+          );
+      }
+    });
+  }, [items, deferredQuery, role, verified, sort]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paged = useMemo(
+    () => sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [sorted, safePage],
+  );
+
+  // Filtering, sorting, or searching restarts at the first page. This lives
+  // in the event handlers (not an effect) so no cascading render occurs.
+  const handleQueryChange = (value: string) => {
+    setQuery(value);
+    setPage(1);
+  };
+  const handleRoleChange = (value: RoleFilter) => {
+    setRole(value);
+    setPage(1);
+  };
+  const handleVerifiedChange = (value: VerifiedFilter) => {
+    setVerified(value);
+    setPage(1);
+  };
+  const handleSortChange = (value: SortKey) => {
+    setSort(value);
+    setPage(1);
+  };
+
+  const hasFilters =
+    deferredQuery.trim() !== "" || role !== "all" || verified !== "all";
+  const rangeStart = sorted.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(safePage * PAGE_SIZE, sorted.length);
+
+  const clearFilters = () => {
+    setQuery("");
+    setRole("all");
+    setVerified("all");
+    setPage(1);
+  };
 
   return (
     <AdminPageBody>
-      {/* Title row — big heading + count pill + subtitle, Refresh on the right. */}
-      <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 border-b border-[var(--projects-border)] pb-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2.5">
-            <h1 className="m-0 text-[26px] font-semibold leading-8 tracking-[-0.035em] text-[var(--projects-text)]">
-              Users
-            </h1>
-            <span className="inline-flex h-7 items-center rounded-full bg-[color-mix(in_srgb,var(--projects-accent)_14%,transparent)] px-2.5 text-xs font-medium text-[var(--projects-accent)]">
-              {items.length} {items.length === 1 ? "account" : "accounts"}
-            </span>
-          </div>
-          <p className="m-0 mt-2 text-[14px] leading-5 text-[var(--projects-muted)]">
-            People with access to the platform and their activity.
-          </p>
-        </div>
+      <AdminHeader
+        title="Users"
+        subtitle="People with access to the platform and their activity."
+      >
+        <LiveIndicator live={!accounts.isError} />
         <button
           type="button"
           onClick={() => void accounts.refetch()}
           disabled={accounts.isFetching}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-[10px] border border-[var(--projects-border)] bg-[var(--projects-surface)] px-4 text-[13px] font-medium leading-none text-[var(--projects-text)] transition-colors hover:bg-white/[0.04] disabled:opacity-60"
+          className="inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--projects-border)] bg-[#141416] px-3 text-[12.5px] font-medium leading-none text-[var(--projects-text)] transition-colors hover:border-[var(--projects-border-hover)] hover:bg-white/[0.04] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--projects-accent)] disabled:opacity-60"
         >
           <RefreshCw
-            size={15}
+            size={14}
             strokeWidth={1.8}
             aria-hidden="true"
             className={accounts.isFetching ? "animate-spin" : undefined}
           />
           Refresh
         </button>
-      </header>
+      </AdminHeader>
 
-      {/* Toolbar. */}
-      <div className="flex flex-wrap items-center gap-2.5">
-        <ToolbarSearch
-          value={query}
-          onChange={setQuery}
-          placeholder="Search name or email..."
-          label="Search users"
-        />
-        <Mono className="ml-auto text-[11.5px] text-[var(--projects-muted)]">
-          {visible.length} of {items.length} shown
-        </Mono>
-      </div>
+      <AdminReveal>
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+          <StatTile
+            icon={Users}
+            label="Total accounts"
+            value={formatCount(stats.total)}
+          />
+          <StatTile
+            icon={ShieldCheck}
+            label="Admins & owners"
+            value={formatCount(stats.admins)}
+            tone={stats.admins > 0 ? "warning" : "neutral"}
+          />
+          <StatTile
+            icon={BadgeCheck}
+            label="Verified emails"
+            value={formatCount(stats.verifiedCount)}
+            tone="success"
+          />
+          <StatTile
+            icon={Activity}
+            label="Active · 7 days"
+            value={formatCount(stats.active)}
+            tone="success"
+          />
+        </div>
+      </AdminReveal>
 
-      {/* Panel: header row + data rows + pagination footer, exactly like the
-          redesigned Projects list. Horizontal scroll on narrow screens. */}
-      <div className="overflow-hidden rounded-lg border border-[var(--projects-border)] bg-[#141416]">
-        <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="min-w-[640px]">
-            <div
-              className={cn(
-                "grid items-center bg-[var(--projects-control)] px-4 py-3 text-[12px] font-medium text-[var(--projects-muted)] sm:px-5",
-                tableColumns,
-              )}
-            >
-              <ColLabel>User</ColLabel>
-              <ColLabel>Role</ColLabel>
-              <ColLabel>Last login</ColLabel>
-              <ColLabel>Added</ColLabel>
-            </div>
-
-            {accounts.isPending ? (
-              Array.from({ length: 3 }).map((_, index) => (
-                <div
-                  key={index}
-                  className={cn(
-                    "grid items-center border-t border-[var(--projects-divider)] bg-[var(--projects-card-bg)] px-4 py-3.5 sm:px-5",
-                    tableColumns,
-                  )}
-                >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="size-8 animate-pulse rounded-full bg-white/[0.05] motion-reduce:animate-none" />
-                    <div className="space-y-1.5">
-                      <div className="h-3.5 w-28 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
-                      <div className="h-3 w-36 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
-                    </div>
-                  </div>
-                  <div className="h-3.5 w-14 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
-                  <div className="h-3.5 w-16 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
-                  <div className="h-3.5 w-16 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
-                </div>
-              ))
-            ) : accounts.isError ? (
-              <div className="border-t border-[var(--projects-divider)] bg-[var(--projects-card-bg)] px-4 py-14 text-center text-[13px] text-[var(--projects-danger)]">
-                Could not load accounts. Retry in a moment.
-              </div>
-            ) : visible.length === 0 ? (
-              <div className="border-t border-[var(--projects-divider)] bg-[var(--projects-card-bg)] px-4 py-14 text-center text-[13px] text-[var(--projects-muted)]">
-                {items.length === 0
-                  ? "No accounts yet."
-                  : "No accounts match this search."}
-              </div>
-            ) : (
-              visible.map((account) => {
-                const role = roleOf(account.instance_role);
-                const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
-                const name = account.display_name?.trim();
-                return (
-                  <div
-                    key={account.id}
-                    className={cn(
-                      "grid items-center border-t border-[var(--projects-divider)] bg-[var(--projects-card-bg)] px-4 py-3.5 transition-colors hover:bg-[var(--projects-control)] sm:px-5",
-                      tableColumns,
-                    )}
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <GradientAvatar
-                        email={account.email}
-                        url={account.avatar_url}
-                        size={32}
-                      />
-                      <div className="min-w-0">
-                        <p className="m-0 flex items-center gap-1.5 text-[14px] font-semibold leading-5 text-[var(--projects-text)]">
-                          <span className="truncate">
-                            {name || maskEmail(account.email)}
-                          </span>
-                          {account.email_verified ? <VerifiedBadge /> : null}
-                        </p>
-                        <Mono className="m-0 mt-0.5 block truncate text-[12px] leading-4 text-[var(--projects-muted)]">
-                          {name
-                            ? maskEmail(account.email)
-                            : `${account.id.slice(0, 8)}…`}
-                        </Mono>
-                      </div>
-                    </div>
-
-                    <span className="inline-flex min-w-0 items-center gap-2 truncate text-[13px] text-[var(--projects-text)]">
-                      <span
-                        aria-hidden="true"
-                        className="size-1.5 shrink-0 rounded-full bg-[var(--projects-muted)]"
-                      />
-                      <span className="truncate">{roleLabel}</span>
-                    </span>
-
-                    <Mono className="truncate text-[12.5px] text-[var(--projects-muted)]">
-                      {account.last_sign_in_at
-                        ? shortDate(account.last_sign_in_at)
-                        : "Never"}
-                    </Mono>
-
-                    <Mono className="truncate text-[12.5px] text-[var(--projects-muted)]">
-                      {shortDate(account.created_at)}
-                    </Mono>
-                  </div>
-                );
-              })
+      <AdminReveal delay={0.05}>
+        <div className="flex flex-wrap items-center gap-2">
+          <ToolbarSearch
+            value={query}
+            onChange={handleQueryChange}
+            placeholder="Search name or email…"
+            label="Search users"
+          />
+          <AdminSelect
+            label="Filter by role"
+            value={role}
+            onChange={handleRoleChange}
+            options={[
+              { value: "all", label: "All roles" },
+              { value: "owner", label: "Owners" },
+              { value: "admin", label: "Admins" },
+              { value: "member", label: "Members" },
+            ]}
+          />
+          <AdminSelect
+            label="Filter by verification"
+            value={verified}
+            onChange={handleVerifiedChange}
+            options={[
+              { value: "all", label: "All statuses" },
+              { value: "verified", label: "Verified" },
+              { value: "unverified", label: "Unverified" },
+            ]}
+          />
+          <AdminSelect
+            label="Sort users"
+            value={sort}
+            onChange={handleSortChange}
+            align="right"
+            options={[
+              { value: "recent", label: "Recently active" },
+              { value: "newest", label: "Newest first" },
+              { value: "oldest", label: "Oldest first" },
+              { value: "name", label: "Name A–Z" },
+            ]}
+          />
+          <div className="ml-auto flex items-center gap-2">
+            {hasFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="inline-flex h-9 items-center rounded-lg px-2 text-[12.5px] font-medium text-[var(--projects-muted)] transition-colors hover:bg-white/[0.04] hover:text-[var(--projects-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--projects-accent)]"
+              >
+                Clear
+              </button>
             )}
+            <span
+              aria-live="polite"
+              className="text-[11.5px] tabular-nums text-[var(--projects-muted)]"
+            >
+              <Mono className="text-[11.5px] tabular-nums text-[var(--projects-muted)]">
+                {formatCount(sorted.length)} of {formatCount(items.length)}{" "}
+                shown
+              </Mono>
+            </span>
           </div>
         </div>
+      </AdminReveal>
 
-        <footer className="grid grid-cols-3 items-center gap-4 border-t border-[var(--projects-divider)] bg-[var(--projects-card-bg)] px-4 py-3 sm:px-5">
-          <p className="m-0 text-xs text-[var(--projects-muted)]">
-            Showing {visible.length} of {items.length}{" "}
-            {items.length === 1 ? "account" : "accounts"}
-          </p>
-          <div className="flex items-center justify-center gap-1.5">
-            <button
-              type="button"
-              aria-label="Previous page"
-              disabled
-              className="inline-flex size-7 items-center justify-center rounded-md border border-[var(--projects-border)] text-[var(--projects-muted)] opacity-50"
-            >
-              <ChevronLeft size={14} strokeWidth={2} aria-hidden="true" />
-            </button>
-            <Mono className="inline-flex h-7 min-w-7 items-center justify-center rounded-md bg-[var(--projects-control)] px-1.5 text-xs text-[var(--projects-text)]">
-              1
-            </Mono>
-            <button
-              type="button"
-              aria-label="Next page"
-              disabled
-              className="inline-flex size-7 items-center justify-center rounded-md border border-[var(--projects-border)] text-[var(--projects-muted)] opacity-50"
-            >
-              <ChevronRight size={14} strokeWidth={2} aria-hidden="true" />
-            </button>
+      <AdminReveal delay={0.1}>
+        <div className="overflow-hidden rounded-lg border border-[var(--projects-border)] bg-[#141416]">
+          <div
+            aria-hidden="true"
+            className={cn(
+              "hidden border-b border-[var(--projects-divider)] bg-[var(--projects-control)] px-4 py-2.5 sm:px-5",
+              ROW_GRID,
+            )}
+          >
+            <ColumnLabel>User</ColumnLabel>
+            <ColumnLabel>Role</ColumnLabel>
+            <ColumnLabel>Sign-in</ColumnLabel>
+            <ColumnLabel>Last active</ColumnLabel>
+            <ColumnLabel>Added</ColumnLabel>
           </div>
-          <span aria-hidden="true" />
-        </footer>
-      </div>
+
+          {accounts.isPending ? (
+            <div aria-hidden="true">
+              <p className="sr-only">Loading users…</p>
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="border-b border-[var(--projects-divider)] px-4 py-3.5 last:border-b-0 sm:px-5"
+                >
+                  <div className="hidden lg:grid lg:grid-cols-[minmax(0,1.7fr)_120px_minmax(0,1fr)_140px_150px] lg:items-center lg:gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="size-8 shrink-0 animate-pulse rounded-full bg-white/[0.05] motion-reduce:animate-none" />
+                      <div className="min-w-0 flex-1 space-y-1.5">
+                        <div className="h-3.5 w-28 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
+                        <div className="h-3 w-36 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
+                      </div>
+                    </div>
+                    <div className="h-5 w-16 animate-pulse rounded-full bg-white/[0.05] motion-reduce:animate-none" />
+                    <div className="h-3.5 w-20 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
+                    <div className="h-3.5 w-20 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
+                    <div className="h-3.5 w-20 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
+                  </div>
+                  <div className="flex items-center gap-3 lg:hidden">
+                    <div className="size-8 shrink-0 animate-pulse rounded-full bg-white/[0.05] motion-reduce:animate-none" />
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <div className="h-3.5 w-2/3 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
+                      <div className="h-3 w-1/2 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
+                    </div>
+                    <div className="h-5 w-16 shrink-0 animate-pulse rounded-full bg-white/[0.05] motion-reduce:animate-none" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : accounts.isError ? (
+            <div className="flex flex-col items-center px-4 py-14 text-center">
+              <span className="flex size-10 items-center justify-center rounded-lg border border-[color-mix(in_srgb,var(--projects-danger)_40%,var(--projects-border))] bg-[color-mix(in_srgb,var(--projects-danger)_10%,transparent)] text-[var(--projects-danger)]">
+                <TriangleAlert size={18} strokeWidth={1.8} aria-hidden="true" />
+              </span>
+              <h2 className="m-0 mt-3 text-[15px] font-semibold tracking-[-0.01em] text-[var(--projects-text)] [text-wrap:balance]">
+                Could not load accounts
+              </h2>
+              <p className="m-0 mt-1 max-w-[38ch] text-[13px] leading-5 text-[var(--projects-muted)] [text-wrap:pretty]">
+                Check your connection and retry. The directory reloads
+                automatically every 30 seconds.
+              </p>
+              <button
+                type="button"
+                onClick={() => void accounts.refetch()}
+                disabled={accounts.isFetching}
+                className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--projects-border)] bg-[var(--projects-control)] px-4 text-[13px] font-medium text-[var(--projects-text)] transition-colors hover:border-[var(--projects-border-hover)] hover:bg-white/[0.04] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--projects-accent)] disabled:opacity-60"
+              >
+                <RefreshCw
+                  size={14}
+                  strokeWidth={1.8}
+                  aria-hidden="true"
+                  className={accounts.isFetching ? "animate-spin" : undefined}
+                />
+                Try again
+              </button>
+            </div>
+          ) : paged.length === 0 ? (
+            <div className="flex flex-col items-center px-4 py-14 text-center">
+              <span className="flex size-10 items-center justify-center rounded-lg border border-[var(--projects-border)] bg-[var(--projects-control)] text-[var(--projects-muted)]">
+                {items.length === 0 ? (
+                  <Users size={18} strokeWidth={1.8} aria-hidden="true" />
+                ) : (
+                  <SearchX size={18} strokeWidth={1.8} aria-hidden="true" />
+                )}
+              </span>
+              <h2 className="m-0 mt-3 text-[15px] font-semibold tracking-[-0.01em] text-[var(--projects-text)] [text-wrap:balance]">
+                {items.length === 0
+                  ? "No accounts yet"
+                  : "No accounts match these filters"}
+              </h2>
+              <p className="m-0 mt-1 max-w-[42ch] text-[13px] leading-5 text-[var(--projects-muted)] [text-wrap:pretty]">
+                {items.length === 0
+                  ? "Accounts appear here once people sign up or are invited."
+                  : "Try a different search term or clear the role and verification filters."}
+              </p>
+              {items.length > 0 && hasFilters && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="mt-4 inline-flex h-9 items-center rounded-lg border border-[var(--projects-border)] bg-[var(--projects-control)] px-4 text-[13px] font-medium text-[var(--projects-text)] transition-colors hover:border-[var(--projects-border-hover)] hover:bg-white/[0.04] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--projects-accent)]"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          ) : (
+            <ul className="m-0 list-none p-0">
+              {paged.map((account) => {
+                const accountRole = roleOf(account);
+                return (
+                  <li
+                    key={account.id}
+                    className="border-b border-[var(--projects-divider)] last:border-b-0 [content-visibility:auto] [contain-intrinsic-size:auto_76px]"
+                  >
+                    <div className={cn("px-4 py-3.5 sm:px-5", ROW_GRID)}>
+                      {/* Desktop cells. */}
+                      <div className="hidden min-w-0 items-center gap-3 lg:flex">
+                        <GradientAvatar
+                          email={account.email}
+                          url={account.avatar_url}
+                          size={32}
+                        />
+                        <UserIdentity account={account} />
+                      </div>
+                      <div className="hidden lg:block">
+                        <StatusBadge
+                          tone={roleTone(accountRole)}
+                          label={roleLabel(accountRole)}
+                        />
+                      </div>
+                      <div className="hidden min-w-0 lg:block">
+                        <SignInMethods
+                          providers={[...account.providers]}
+                          lastMethod={account.last_sign_in_method}
+                        />
+                      </div>
+                      <LastActiveCell iso={account.last_sign_in_at} />
+                      <AddedCell iso={account.created_at} />
+
+                      {/* Mobile card. */}
+                      <div className="min-w-0 lg:hidden">
+                        <div className="flex items-center gap-3">
+                          <GradientAvatar
+                            email={account.email}
+                            url={account.avatar_url}
+                            size={32}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <UserIdentity account={account} />
+                          </div>
+                          <span className="shrink-0">
+                            <StatusBadge
+                              tone={roleTone(accountRole)}
+                              label={roleLabel(accountRole)}
+                            />
+                          </span>
+                        </div>
+                        <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11.5px] text-[var(--projects-muted)]">
+                          <SignInMethods
+                            providers={[...account.providers]}
+                            lastMethod={account.last_sign_in_method}
+                          />
+                          <MobileMeta
+                            label="Active"
+                            title={
+                              account.last_sign_in_at
+                                ? formatDate(account.last_sign_in_at)
+                                : undefined
+                            }
+                          >
+                            {account.last_sign_in_at
+                              ? formatRelative(account.last_sign_in_at)
+                              : "Never"}
+                          </MobileMeta>
+                          <MobileMeta title={formatDate(account.created_at)}>
+                            {shortDay(account.created_at)}
+                          </MobileMeta>
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          {sorted.length > 0 && (
+            <footer className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--projects-divider)] bg-[var(--projects-card-bg)] px-4 py-3 sm:px-5">
+              <p className="m-0 text-xs tabular-nums text-[var(--projects-muted)]">
+                Showing {formatCount(rangeStart)}–{formatCount(rangeEnd)} of{" "}
+                {formatCount(sorted.length)}{" "}
+                {sorted.length === 1 ? "account" : "accounts"}
+              </p>
+              <div className="ml-auto flex items-center gap-1.5">
+                <button
+                  type="button"
+                  aria-label="Previous page"
+                  disabled={safePage <= 1}
+                  onClick={() => setPage(safePage - 1)}
+                  className="inline-flex size-7 items-center justify-center rounded-md border border-[var(--projects-border)] text-[var(--projects-muted)] transition-colors hover:border-[var(--projects-border-hover)] hover:text-[var(--projects-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--projects-accent)] disabled:opacity-40 disabled:hover:border-[var(--projects-border)] disabled:hover:text-[var(--projects-muted)]"
+                >
+                  <ChevronLeft size={14} strokeWidth={2} aria-hidden="true" />
+                </button>
+                <span
+                  aria-live="polite"
+                  aria-label={`Page ${safePage} of ${totalPages}`}
+                  className="inline-flex h-7 min-w-7 items-center justify-center rounded-md bg-[var(--projects-control)] px-1.5"
+                >
+                  <Mono className="text-xs tabular-nums text-[var(--projects-text)]">
+                    {safePage} / {totalPages}
+                  </Mono>
+                </span>
+                <button
+                  type="button"
+                  aria-label="Next page"
+                  disabled={safePage >= totalPages}
+                  onClick={() => setPage(safePage + 1)}
+                  className="inline-flex size-7 items-center justify-center rounded-md border border-[var(--projects-border)] text-[var(--projects-muted)] transition-colors hover:border-[var(--projects-border-hover)] hover:text-[var(--projects-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--projects-accent)] disabled:opacity-40 disabled:hover:border-[var(--projects-border)] disabled:hover:text-[var(--projects-muted)]"
+                >
+                  <ChevronRight size={14} strokeWidth={2} aria-hidden="true" />
+                </button>
+              </div>
+            </footer>
+          )}
+        </div>
+      </AdminReveal>
     </AdminPageBody>
   );
 }
 
-function ColLabel({ children }: { children: ReactNode }) {
-  return <span className="truncate">{children}</span>;
+function ColumnLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="truncate text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)]">
+      {children}
+    </span>
+  );
+}
+
+function UserIdentity({ account }: { account: AdminAccount }) {
+  return (
+    <div className="min-w-0">
+      <p className="m-0 flex items-center gap-1.5 text-[14px] font-semibold leading-5 text-[var(--projects-text)]">
+        <span className="truncate">{displayNameOf(account)}</span>
+        {account.email_verified ? <VerifiedBadge /> : null}
+      </p>
+      <span title={account.email} className="m-0 mt-0.5 block truncate">
+        <Mono className="block truncate text-[12px] leading-4 text-[var(--projects-muted)]">
+          {maskEmail(account.email)}
+        </Mono>
+      </span>
+    </div>
+  );
+}
+
+function LastActiveCell({ iso }: { iso?: string }) {
+  if (!iso) {
+    return (
+      <Mono className="hidden truncate text-[12.5px] tabular-nums text-[var(--projects-muted)] lg:block">
+        Never
+      </Mono>
+    );
+  }
+  return (
+    <span title={formatDate(iso)} className="hidden truncate lg:block">
+      <Mono className="truncate text-[12.5px] tabular-nums text-[var(--projects-muted)]">
+        {formatRelative(iso)}
+      </Mono>
+    </span>
+  );
+}
+
+function AddedCell({ iso }: { iso: string }) {
+  return (
+    <span title={formatDate(iso)} className="hidden truncate lg:block">
+      <Mono className="truncate text-[12.5px] tabular-nums text-[var(--projects-muted)]">
+        {shortDay(iso)}
+      </Mono>
+    </span>
+  );
+}
+
+function MobileMeta({
+  children,
+  label,
+  title,
+}: {
+  children: React.ReactNode;
+  label?: string;
+  title?: string;
+}) {
+  return (
+    <span title={title} className="tabular-nums">
+      <Mono className="tabular-nums">
+        {label ? `${label} ` : null}
+        {children}
+      </Mono>
+    </span>
+  );
 }
