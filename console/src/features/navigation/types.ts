@@ -25,6 +25,9 @@ export type NavRowProps = {
    * active pill morphs between rows instead of remounting. */
   layoutId?: string;
   onSelect?: () => void;
+  /** Called on pointer hover or focus, before the row is activated. Rows that
+   * load a heavier surface on demand use it to warm that chunk. */
+  onIntent?: () => void;
   /** Desktop rail mode: labels fade out and the row keeps its icon only. */
   collapsed?: boolean;
 };

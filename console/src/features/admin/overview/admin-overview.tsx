@@ -136,20 +136,23 @@ export function AdminOverview() {
   // Deltas for the metric-card change indicators, computed from the retained
   // history so the cards read like the redesign ("+4.2% from previous hour").
   // The first sample is a cold-start with no baseline (CPU/network read 0), so
-  // rate metrics use the first non-zero sample as their baseline.
+  // rate metrics use the first non-zero sample as their baseline. Memoized
+  // because it scans the whole window twice, on every poll and range change.
   const hasDelta = history.length >= 2 && Boolean(current);
-  const firstPositive = (
-    pick: (sample: (typeof history)[number]) => number,
-  ): (typeof history)[number] | undefined =>
-    history.find((sample) => pick(sample) > 0) ?? history[0];
+  const { cpuBaseline, netBaseline } = useMemo(() => {
+    const firstPositive = (
+      pick: (sample: (typeof history)[number]) => number,
+    ): (typeof history)[number] | undefined =>
+      history.find((sample) => pick(sample) > 0) ?? history[0];
+    return {
+      cpuBaseline: firstPositive((sample) => sample.cpu_percent),
+      netBaseline: firstPositive((sample) => sample.network_rx_bytes_per_sec),
+    };
+  }, [history]);
   const signed = (value: number, unit: string) =>
     `${value >= 0 ? "+" : ""}${Math.round(value * 10) / 10}${unit}`;
   const percentDelta = (now: number, before: number) =>
     before !== 0 ? ((now - before) / before) * 100 : 0;
-  const cpuBaseline = firstPositive((sample) => sample.cpu_percent);
-  const netBaseline = firstPositive(
-    (sample) => sample.network_rx_bytes_per_sec,
-  );
   const memoryBaseline = history[0];
   const diskBaseline = history[0];
   const cpuDelta =

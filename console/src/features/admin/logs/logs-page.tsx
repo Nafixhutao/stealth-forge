@@ -198,7 +198,7 @@ function LogRow({ entry, onOpen }: { entry: LogEntry; onOpen: () => void }) {
       type="button"
       onClick={onOpen}
       aria-label={`Inspect log: ${entry.message}`}
-      className="block w-full border-b border-[var(--projects-divider)] px-3.5 py-1.5 text-left transition-colors last:border-b-0 hover:bg-white/[0.03] aria-selected:bg-white/[0.04]"
+      className="stealth-log-line block w-full border-b border-[var(--projects-divider)] px-3.5 py-1.5 text-left transition-colors last:border-b-0 hover:bg-white/[0.03] aria-selected:bg-white/[0.04]"
     >
       {/* desktop layout */}
       <span className="hidden items-baseline gap-3 md:grid md:grid-cols-[92px_58px_84px_minmax(0,1fr)_auto]">

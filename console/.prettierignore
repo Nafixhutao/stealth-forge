@@ -10,5 +10,19 @@ test-results/**
 # formatting and api:generate must remain deterministic.
 src/api/generated/**
 
+# Vendored beUI registry components (charts/status-bar and the motion tooltip
+# it depends on). These are pasted from the registry as-is so they can be
+# re-synced with `npx shadcn add` without producing a formatting diff; Prettier
+# is not the owner of their style.
+src/components/charts/status-bar.tsx
+src/components/charts/status-bar/**
+src/components/motion/tooltip.tsx
+src/components/motion/tooltip/**
+src/components/motion/tooltip-surface.tsx
+src/lib/touch.ts
+src/lib/hooks/use-dismiss.ts
+src/lib/hooks/use-hover-gesture.ts
+src/lib/hooks/use-tap-gesture.ts
+
 # npm owns the dependency lockfile; this milestone adds no dependencies.
 package-lock.json

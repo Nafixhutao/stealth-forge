@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import { Check } from "lucide-react";
 
 /** Deterministic gradient avatar from the identity. When the account has a
     provider avatar it is shown as a background image (no next/image remote
@@ -72,21 +71,31 @@ export function maskEmail(email: string): string {
   return `${head}${"•".repeat(Math.min(local.length - 2, 6))}${tail}${domain}`;
 }
 
-/** Instagram-style verified badge: a filled blue check. */
+/** Verified badge: the blue seal with a white check. The silhouette and the
+    check are inline SVG so the mark stays crisp at any size and no icon
+    package is added. */
+const VERIFIED_SEAL =
+  "M12 0C12.99 0 13.89 1.55 14.98 1.87C16.06 2.19 17.65 1.37 18.49 1.9C19.32 2.44 19.24 4.23 19.98 5.08C20.72 5.94 22.5 6.11 22.92 7.02C23.33 7.92 22.29 9.38 22.45 10.5C22.61 11.61 24.02 12.73 23.88 13.71C23.74 14.69 22.07 15.36 21.61 16.39C21.14 17.41 21.72 19.11 21.07 19.86C20.42 20.61 18.66 20.27 17.71 20.88C16.76 21.49 16.33 23.23 15.38 23.51C14.43 23.79 13.13 22.56 12 22.56C10.87 22.56 9.57 23.79 8.62 23.51C7.67 23.23 7.24 21.49 6.29 20.88C5.34 20.27 3.58 20.61 2.93 19.86C2.28 19.11 2.86 17.41 2.39 16.39C1.93 15.36 0.26 14.69 0.12 13.71C-0.02 12.73 1.39 11.61 1.55 10.5C1.71 9.38 0.67 7.92 1.08 7.02C1.5 6.11 3.28 5.94 4.02 5.08C4.76 4.23 4.68 2.44 5.51 1.9C6.35 1.37 7.94 2.19 9.02 1.87C10.11 1.55 11.01 0 12 0Z";
+
 export function VerifiedBadge() {
   return (
     <span
       role="img"
       aria-label="Email verified"
       title="Email verified"
-      className="inline-flex size-[15px] shrink-0 items-center justify-center rounded-full bg-[#3b82f6]"
+      className="inline-flex size-[15px] shrink-0 items-center justify-center"
     >
-      <Check
-        size={10}
-        strokeWidth={3.4}
-        aria-hidden="true"
-        className="text-white"
-      />
+      <svg viewBox="0 0 24 24" className="size-full" aria-hidden="true">
+        <path d={VERIFIED_SEAL} fill="#1081FA" />
+        <path
+          d="M7.57 12.69L10.42 15.33L16.45 9.46"
+          fill="none"
+          stroke="#ffffff"
+          strokeWidth={2.375}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
     </span>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import {
   AnimatePresence,
   motion,
@@ -38,7 +39,6 @@ import {
   X,
 } from "lucide-react";
 import { BottomProfile } from "./profile-menu";
-import { SearchPalette } from "./search-palette";
 import {
   ActiveRowPill,
   Badge,
@@ -134,6 +134,16 @@ const accountNavItems: NavItem[] = [
   { icon: NavIcon(Headphones), label: "Contact Support" },
 ];
 
+// The command palette is 245 lines plus 14 icons and renders nothing until the
+// user opens it, so it is loaded on intent instead of shipping in every page's
+// bundle. `loadSearchPalette` is exposed separately so hover/focus can warm the
+// chunk before the user commits to opening it.
+const loadSearchPalette = () => import("./search-palette");
+const SearchPalette = dynamic(
+  () => loadSearchPalette().then((module) => module.SearchPalette),
+  { ssr: false },
+);
+
 function NavRow({
   icon,
   label,
@@ -143,6 +153,7 @@ function NavRow({
   isActive = false,
   layoutId,
   onSelect,
+  onIntent,
   collapsed = false,
 }: NavRowProps) {
   const reduce = useReducedMotion() ?? false;
@@ -157,6 +168,8 @@ function NavRow({
         type="button"
         className={rowClass}
         onClick={onSelect}
+        onHoverStart={onIntent}
+        onFocus={onIntent}
         aria-current={isActive ? "page" : undefined}
         whileTap={tap(reduce)}
         transition={SPRING_PRESS}
@@ -550,6 +563,21 @@ export function SidebarContent({
     pathname === "/" ? "Projects" : pathname === "/agent" ? "Agent" : null,
   );
   const [searchOpen, setSearchOpen] = useState(false);
+  // The palette is mounted only once it is first wanted, so its chunk is not
+  // pulled into every page load.
+  const [searchMounted, setSearchMounted] = useState(false);
+
+  const openSearch = useCallback(() => {
+    setSearchMounted(true);
+    setSearchOpen(true);
+  }, []);
+
+  // Warms the chunk on hover/focus so opening the palette is instant even the
+  // first time. Deliberately does not open it.
+  const preloadSearch = useCallback(() => {
+    setSearchMounted(true);
+    void loadSearchPalette();
+  }, []);
   const pillId = useId();
   const reduce = useReducedMotion() ?? false;
 
@@ -560,11 +588,10 @@ export function SidebarContent({
   }, [pathname]);
 
   useEffect(() => {
-    const openSearch = () => setSearchOpen(true);
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setSearchOpen(true);
+        openSearch();
       }
     };
     window.addEventListener("open-command-palette", openSearch);
@@ -573,7 +600,7 @@ export function SidebarContent({
       window.removeEventListener("open-command-palette", openSearch);
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, []);
+  }, [openSearch]);
 
   // Selecting from the rail navigates without unfolding the panel, so the
   // sidebar stays closed when jumping to another page.
@@ -594,9 +621,10 @@ export function SidebarContent({
       isActive={active === item.label}
       layoutId={pillId}
       onSelect={() => {
-        if (item.label === "Search") setSearchOpen(true);
+        if (item.label === "Search") openSearch();
         else selectNavigation(item.label);
       }}
+      onIntent={item.label === "Search" ? preloadSearch : undefined}
       collapsed={collapsed}
     />
   );
@@ -669,15 +697,17 @@ export function SidebarContent({
         collapsed={collapsed}
         onToggleCollapse={onToggleCollapse}
       />
-      <SearchPalette
-        open={searchOpen}
-        onClose={() => setSearchOpen(false)}
-        onSelect={(result) => {
-          setSearchOpen(false);
-          if (result.label.startsWith("Go to "))
-            selectNavigation(result.label.slice(6));
-        }}
-      />
+      {searchMounted ? (
+        <SearchPalette
+          open={searchOpen}
+          onClose={() => setSearchOpen(false)}
+          onSelect={(result) => {
+            setSearchOpen(false);
+            if (result.label.startsWith("Go to "))
+              selectNavigation(result.label.slice(6));
+          }}
+        />
+      ) : null}
     </>
   );
 }

@@ -405,9 +405,36 @@ textarea::placeholder {
   border-radius: 9999px;
 }
 
+/* Log stream rows. `content-visibility: auto` lets the browser skip layout and
+   paint for rows scrolled out of view, but it needs an accurate placeholder
+   height: if `contain-intrinsic-size` disagrees with the real row height, the
+   scrollbar and the scroll position jump as rows enter and leave view.
+   Measured row heights: 51px on the compact layout, 33px from the md
+   breakpoint (48rem) up, where the row becomes a single-line grid. The taller
+   variant (a "staging" second line) is a minority and is not worth a third
+   rule. */
 .stealth-log-line {
   content-visibility: auto;
-  contain-intrinsic-size: 0 1.5rem;
+  contain-intrinsic-size: 0 51px;
+}
+
+@media (min-width: 48rem) {
+  .stealth-log-line {
+    contain-intrinsic-size: 0 33px;
+  }
+}
+
+/* The vendored status-bar chart lays its bars out with `flex-1`, so on a wide
+   desktop the 45 periods stretch to roughly 11px each and the history reads as
+   a row of pills instead of a dense strip. Capping the bar width alone would
+   strand the leftover space at the end of the row, so the leftover is pushed
+   into the gaps instead and the strip keeps running Day 1 to Day 45 edge to
+   edge. Below this breakpoint the bars stay flex-1, which is what keeps all 45
+   periods fitting on a phone. */
+@media (min-width: 64rem) {
+  [data-slot="status-bar-plot"] div[aria-hidden="true"] {
+    justify-content: space-between;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

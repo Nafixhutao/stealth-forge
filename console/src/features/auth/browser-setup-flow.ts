@@ -105,6 +105,7 @@ export function useBrowserSetupFlow() {
   // every render.
   const refetchSetupStatus = setupStatus.refetch;
   const saveConfigMutate = saveConfig.mutateAsync;
+  const verifySetupCode = verifyCode.mutateAsync;
   const watchedConfig = useWatch({ control: configForm.control });
   const networkMode = watchedConfig.network_mode ?? defaultConfig.network_mode;
   const databaseMode =
@@ -130,6 +131,13 @@ export function useBrowserSetupFlow() {
     state.cloudflare.token_valid,
   );
   const preflight = useSetupPreflight(setupAccess);
+  // Bound method, read once, so effects and callbacks can depend on the stable
+  // function instead of the query result object (see the note above).
+  const refetchPreflight = preflight.refetch;
+  // Primitive projections of the server snapshot. The object itself gets a new
+  // identity on every poll and SSE snapshot, so effects depend on these.
+  const statePhase = state?.phase;
+  const statePublicURL = state?.draft?.public_url;
   const accounts = useSetupCloudflareAccounts(
     setupAccess && cloudflareConnected,
   );
@@ -216,26 +224,18 @@ export function useBrowserSetupFlow() {
   }, [activeStep]);
 
   useEffect(() => {
-    if (activeStep !== "install") return;
-    const timer = window.setInterval(() => void refetchSetupStatus(), 2_000);
-    return () => window.clearInterval(timer);
-  }, [activeStep, refetchSetupStatus]);
-
-  useEffect(() => {
     issueHandoffRef.current = issueHandoff.mutateAsync;
   }, [issueHandoff.mutateAsync]);
 
   useEffect(() => {
     if (
       activeStep !== "install" ||
-      !state ||
-      (state.phase !== "complete" && state.phase !== "handoff") ||
+      (statePhase !== "complete" && statePhase !== "handoff") ||
       handoffSubmitted.current
     ) {
       return;
     }
-    const publicURL =
-      state.draft.public_url ?? configForm.getValues("public_url");
+    const publicURL = statePublicURL ?? configForm.getValues("public_url");
     if (!publicURL) return;
     handoffSubmitted.current = true;
     if (handoffToken) {
@@ -258,7 +258,9 @@ export function useBrowserSetupFlow() {
       .catch((error) => {
         setActionError(error);
       });
-  }, [activeStep, configForm, handoffToken, state]);
+    // Depend on the fields the effect reads, not the whole snapshot: the state
+    // object gets a new identity on every poll and SSE snapshot.
+  }, [activeStep, configForm, handoffToken, statePhase, statePublicURL]);
 
   const persistConfig = useCallback(
     async (values: ConfigValues) => {
@@ -284,15 +286,15 @@ export function useBrowserSetupFlow() {
     const parsed = setupCodeSchema.safeParse(readSetupCodeFromURL());
     if (!parsed.success) return;
     try {
-      const result = await verifyCode.mutateAsync({ setup_code: parsed.data });
+      const result = await verifySetupCode({ setup_code: parsed.data });
       if (!result) return;
       setActionError(undefined);
       setSetupVerified(true);
-      await preflight.refetch();
+      await refetchPreflight();
     } catch (error) {
       setActionError(error);
     }
-  }, [preflight, verifyCode]);
+  }, [refetchPreflight, verifySetupCode]);
 
   useEffect(() => {
     if (autoCodeHandled.current) return;

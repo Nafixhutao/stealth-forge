@@ -23,6 +23,34 @@ export default defineConfig([
       "react-hooks/set-state-in-effect": "off",
     },
   },
+  {
+    // The beUI status-bar chart is vendored verbatim from
+    // beui.dev/charts/status-bar. Its tooltip layer positions a floating
+    // element with @floating-ui/dom, so it reads refs during render and
+    // mutates them from effects by design; the React 19 rules flag that shape.
+    // Two mechanical fixes were applied on port (the pointer callback ref was
+    // renamed to end in `Ref`, and TooltipPositioner now passes its props by
+    // name instead of spreading an object that carries refs). What remains is
+    // structural to the vendored positioning code, so the rules are relaxed
+    // here rather than rewritten. Revisit if this is ever forked.
+    files: [
+      "src/components/charts/status-bar.tsx",
+      "src/components/charts/status-bar/**/*.{ts,tsx}",
+      "src/components/motion/tooltip.tsx",
+      "src/components/motion/tooltip/**/*.{ts,tsx}",
+      "src/components/motion/tooltip-surface.tsx",
+      "src/lib/hooks/use-dismiss.ts",
+      "src/lib/hooks/use-hover-gesture.ts",
+      "src/lib/hooks/use-tap-gesture.ts",
+      "src/lib/touch.ts",
+    ],
+    rules: {
+      "react-hooks/refs": "off",
+      "react-hooks/immutability": "off",
+      "react-hooks/exhaustive-deps": "off",
+      "@typescript-eslint/no-unused-vars": "off",
+    },
+  },
   globalIgnores([
     ".next/**",
     "src/api/generated/**",

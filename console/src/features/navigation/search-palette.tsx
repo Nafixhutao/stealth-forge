@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   Bot,
@@ -95,30 +95,29 @@ export function SearchPalette({
     return () => window.clearTimeout(focusTimer);
   }, [open]);
 
+  // Reads the latest index, results and handlers without re-subscribing: the
+  // listener is attached once per open instead of on every keystroke.
+  const onKeyDown = useEffectEvent((event: KeyboardEvent) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      onClose();
+    } else if (event.key === "ArrowDown" && results.length > 0) {
+      event.preventDefault();
+      setActiveIndex((index) => (index + 1) % results.length);
+    } else if (event.key === "ArrowUp" && results.length > 0) {
+      event.preventDefault();
+      setActiveIndex((index) => (index - 1 + results.length) % results.length);
+    } else if (event.key === "Enter" && results[activeIndex]) {
+      event.preventDefault();
+      onSelect(results[activeIndex]);
+    }
+  });
+
   useEffect(() => {
     if (!open) return;
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-      } else if (event.key === "ArrowDown" && results.length > 0) {
-        event.preventDefault();
-        setActiveIndex((index) => (index + 1) % results.length);
-      } else if (event.key === "ArrowUp" && results.length > 0) {
-        event.preventDefault();
-        setActiveIndex(
-          (index) => (index - 1 + results.length) % results.length,
-        );
-      } else if (event.key === "Enter" && results[activeIndex]) {
-        event.preventDefault();
-        onSelect(results[activeIndex]);
-      }
-    };
-
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeIndex, onClose, onSelect, open, results]);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
