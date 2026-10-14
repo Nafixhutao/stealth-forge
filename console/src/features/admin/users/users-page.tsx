@@ -651,9 +651,11 @@ function SortableHeader({
 
 function UserIdentity({ account }: { account: AdminAccount }) {
   return (
-    <div className="min-w-0">
-      <p className="m-0 flex items-center gap-1.5 text-[14px] font-semibold leading-5 text-[var(--projects-text)]">
-        <span className="truncate">{displayNameOf(account)}</span>
+    <div className="min-w-0 flex-1">
+      <p className="m-0 flex min-w-0 items-center gap-1.5 text-[14px] font-semibold leading-5 text-[var(--projects-text)]">
+        <span className="min-w-0 flex-1 truncate">
+          {displayNameOf(account)}
+        </span>
         {account.email_verified ? <VerifiedBadge /> : null}
       </p>
       <span title={account.email} className="m-0 mt-0.5 block truncate">
