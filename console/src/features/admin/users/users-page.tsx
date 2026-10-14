@@ -257,17 +257,19 @@ export function UsersPage() {
       </AdminReveal>
 
       <AdminReveal delay={0.05}>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
           <ToolbarSearch
             value={query}
             onChange={handleQueryChange}
             placeholder="Search name or email…"
             label="Search users"
+            className="col-span-2 sm:col-span-1"
           />
           <AdminSelect
             label="Filter by role"
             value={role}
             onChange={handleRoleChange}
+            className="min-w-0 [&>button]:w-full [&>button]:justify-between"
             options={[
               { value: "all", label: "All roles" },
               { value: "owner", label: "Owners" },
@@ -279,13 +281,14 @@ export function UsersPage() {
             label="Filter by verification"
             value={verified}
             onChange={handleVerifiedChange}
+            className="min-w-0 [&>button]:w-full [&>button]:justify-between"
             options={[
               { value: "all", label: "All statuses" },
               { value: "verified", label: "Verified" },
               { value: "unverified", label: "Unverified" },
             ]}
           />
-          <div className="ml-auto flex items-center gap-2">
+          <div className="col-span-2 ml-auto flex items-center gap-2">
             {hasFilters && (
               <button
                 type="button"
@@ -337,6 +340,7 @@ export function UsersPage() {
                     active={sort === "name"}
                     direction="asc"
                     onSort={() => handleSortChange("name")}
+                    className={`${TH_CLASS} sticky left-0 z-10 bg-[var(--projects-control)] shadow-[1px_0_0_var(--projects-divider)]`}
                   />
                   <StaticHeader label="Role" />
                   <StaticHeader label="Sign-in" />
@@ -474,9 +478,11 @@ export function UsersPage() {
                     return (
                       <tr
                         key={account.id}
-                        className="border-b border-[var(--projects-divider)] transition-colors last:border-b-0 hover:bg-white/[0.02]"
+                        className="group border-b border-[var(--projects-divider)] transition-colors last:border-b-0 hover:bg-white/[0.02]"
                       >
-                        <td className={TD_CLASS}>
+                        <td
+                          className={`${TD_CLASS} sticky left-0 z-10 bg-[#141416] shadow-[1px_0_0_var(--projects-divider)] group-hover:bg-[#19191b]`}
+                        >
                           <div className="flex min-w-0 items-center gap-3">
                             <GradientAvatar
                               email={account.email}
@@ -589,17 +595,19 @@ function SortableHeader({
   active,
   direction,
   onSort,
+  className,
 }: {
   label: string;
   sortLabel: string;
   active: boolean;
   direction: "asc" | "desc";
   onSort: () => void;
+  className?: string;
 }) {
   let ariaSort: "ascending" | "descending" | undefined;
   if (active) ariaSort = direction === "asc" ? "ascending" : "descending";
   return (
-    <th scope="col" aria-sort={ariaSort} className={TH_CLASS}>
+    <th scope="col" aria-sort={ariaSort} className={className ?? TH_CLASS}>
       <button
         type="button"
         onClick={onSort}
