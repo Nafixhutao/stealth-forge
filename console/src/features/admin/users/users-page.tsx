@@ -11,7 +11,6 @@ import {
   ChevronsUpDown,
   RefreshCw,
   SearchX,
-  ShieldCheck,
   TriangleAlert,
   Users,
 } from "lucide-react";
@@ -30,20 +29,21 @@ import { StatTile } from "../components/stat-tile";
 import { ToolbarSearch } from "../components/toolbar-search";
 import {
   GradientAvatar,
-  RoleBadge,
   SignInMethods,
   VerifiedBadge,
   maskEmail,
-  type AccountRole,
 } from "./user-table-pieces";
 
 type AdminAccount = components["schemas"]["AdminAccount"];
 
-type RoleFilter = "all" | AccountRole;
 type VerifiedFilter = "all" | "verified" | "unverified";
 type SortKey = "recent" | "newest" | "oldest" | "name";
 
 const PAGE_SIZE = 12;
+
+/** The directory API carries no subscription or lifecycle field, so both
+    columns fall back to an em dash rather than guessing a plan or a status. */
+const NO_VALUE = "—";
 
 const TH_CLASS =
   "px-3 py-2.5 text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)] first:pl-4 last:pr-4 sm:first:pl-5 sm:last:pr-5";
@@ -55,14 +55,6 @@ const dayFormat = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
   year: "numeric",
 });
-
-function roleOf(account: AdminAccount): AccountRole {
-  const raw = (account.instance_role ?? "")
-    .replace(/^instance_/, "")
-    .toLowerCase();
-  if (raw === "owner" || raw === "admin" || raw === "member") return raw;
-  return "member";
-}
 
 function shortDay(iso: string): string {
   const date = new Date(iso);
@@ -80,12 +72,9 @@ function displayNameOf(account: AdminAccount): string {
 function computeStats(items: AdminAccount[]) {
   const now = Date.now();
   const week = 7 * 24 * 60 * 60 * 1000;
-  let admins = 0;
   let verifiedCount = 0;
   let active = 0;
   for (const account of items) {
-    const accountRole = roleOf(account);
-    if (accountRole === "admin" || accountRole === "owner") admins += 1;
     if (account.email_verified) verifiedCount += 1;
     if (account.last_sign_in_at) {
       const seen = new Date(account.last_sign_in_at).getTime();
@@ -93,7 +82,7 @@ function computeStats(items: AdminAccount[]) {
         active += 1;
     }
   }
-  return { total: items.length, admins, verifiedCount, active };
+  return { total: items.length, verifiedCount, active };
 }
 
 /**
@@ -105,7 +94,6 @@ function computeStats(items: AdminAccount[]) {
  */
 export function UsersPage() {
   const [query, setQuery] = useState("");
-  const [role, setRole] = useState<RoleFilter>("all");
   const [verified, setVerified] = useState<VerifiedFilter>("all");
   const [sort, setSort] = useState<SortKey>("recent");
   const [page, setPage] = useState(1);
@@ -124,7 +112,6 @@ export function UsersPage() {
   const sorted = useMemo(() => {
     const term = deferredQuery.trim().toLowerCase();
     const filtered = items.filter((account) => {
-      if (role !== "all" && roleOf(account) !== role) return false;
       if (verified === "verified" && !account.email_verified) return false;
       if (verified === "unverified" && account.email_verified) return false;
       if (!term) return true;
@@ -160,7 +147,7 @@ export function UsersPage() {
           );
       }
     });
-  }, [items, deferredQuery, role, verified, sort]);
+  }, [items, deferredQuery, verified, sort]);
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -173,10 +160,6 @@ export function UsersPage() {
   // handlers (not an effect) so no cascading render occurs.
   const handleQueryChange = (value: string) => {
     setQuery(value);
-    setPage(1);
-  };
-  const handleRoleChange = (value: RoleFilter) => {
-    setRole(value);
     setPage(1);
   };
   const handleVerifiedChange = (value: VerifiedFilter) => {
@@ -192,15 +175,13 @@ export function UsersPage() {
     setPage(1);
   };
 
-  const hasFilters =
-    deferredQuery.trim() !== "" || role !== "all" || verified !== "all";
+  const hasFilters = deferredQuery.trim() !== "" || verified !== "all";
   const rangeStart = sorted.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
   const rangeEnd = Math.min(safePage * PAGE_SIZE, sorted.length);
   const addedActive = sort === "newest" || sort === "oldest";
 
   const clearFilters = () => {
     setQuery("");
-    setRole("all");
     setVerified("all");
     setPage(1);
   };
@@ -229,17 +210,11 @@ export function UsersPage() {
       </AdminHeader>
 
       <AdminReveal>
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3">
           <StatTile
             icon={Users}
             label="Total accounts"
             value={formatCount(stats.total)}
-          />
-          <StatTile
-            icon={ShieldCheck}
-            label="Admins & owners"
-            value={formatCount(stats.admins)}
-            tone={stats.admins > 0 ? "warning" : "neutral"}
           />
           <StatTile
             icon={BadgeCheck}
@@ -264,18 +239,6 @@ export function UsersPage() {
             placeholder="Search name or email…"
             label="Search users"
             className="col-span-2 sm:col-span-1"
-          />
-          <AdminSelect
-            label="Filter by role"
-            value={role}
-            onChange={handleRoleChange}
-            className="min-w-0 [&>button]:w-full [&>button]:justify-between"
-            options={[
-              { value: "all", label: "All roles" },
-              { value: "owner", label: "Owners" },
-              { value: "admin", label: "Admins" },
-              { value: "member", label: "Members" },
-            ]}
           />
           <AdminSelect
             label="Filter by verification"
@@ -321,19 +284,20 @@ export function UsersPage() {
           <div className="overflow-x-auto admin-scrollbar">
             <table className="w-full min-w-[820px] table-fixed border-collapse text-left">
               <caption className="sr-only">
-                Console accounts with role, sign-in method, last activity, and
-                join date. Sort with the User, Last active, and Added column
-                headers.
+                Console accounts with plan, account status, sign-in method, last
+                activity, and join date. Sort with the User, Last active, and
+                Added column headers.
               </caption>
               <colgroup>
-                <col className="w-[32%]" />
+                <col className="w-[30%]" />
+                <col className="w-[10%]" />
                 <col className="w-[13%]" />
-                <col className="w-[17%]" />
-                <col className="w-[17%]" />
-                <col className="w-[21%]" />
+                <col className="w-[15%]" />
+                <col className="w-[16%]" />
+                <col className="w-[16%]" />
               </colgroup>
               <thead>
-                <tr className="border-b border-[var(--projects-divider)] bg-[var(--projects-control)]">
+                <tr className="divide-x divide-[var(--projects-divider)] border-b border-[var(--projects-divider)] bg-[var(--projects-control)]">
                   <SortableHeader
                     label="User"
                     sortLabel="Sort by name"
@@ -342,7 +306,8 @@ export function UsersPage() {
                     onSort={() => handleSortChange("name")}
                     className={`${TH_CLASS} sticky left-0 z-10 bg-[var(--projects-control)] shadow-[1px_0_0_var(--projects-divider)]`}
                   />
-                  <StaticHeader label="Role" />
+                  <StaticHeader label="Plan" />
+                  <StaticHeader label="Status" />
                   <StaticHeader label="Sign-in" />
                   <SortableHeader
                     label="Last active"
@@ -369,7 +334,7 @@ export function UsersPage() {
                   Array.from({ length: 6 }).map((_, index) => (
                     <tr
                       key={index}
-                      className="border-b border-[var(--projects-divider)] last:border-b-0"
+                      className="divide-x divide-[var(--projects-divider)] border-b border-[var(--projects-divider)] last:border-b-0"
                     >
                       <td className={TD_CLASS}>
                         <div className="flex min-w-0 items-center gap-3">
@@ -381,7 +346,10 @@ export function UsersPage() {
                         </div>
                       </td>
                       <td className={TD_CLASS}>
-                        <div className="h-5 w-16 animate-pulse rounded-full bg-white/[0.05] motion-reduce:animate-none" />
+                        <div className="h-3.5 w-12 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
+                      </td>
+                      <td className={TD_CLASS}>
+                        <div className="h-3.5 w-14 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
                       </td>
                       <td className={TD_CLASS}>
                         <div className="h-3.5 w-20 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
@@ -396,7 +364,7 @@ export function UsersPage() {
                   ))
                 ) : accounts.isError ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-14 text-center sm:px-5">
+                    <td colSpan={6} className="px-4 py-14 text-center sm:px-5">
                       <div className="flex flex-col items-center text-center">
                         <span className="flex size-10 items-center justify-center rounded-lg border border-[color-mix(in_srgb,var(--projects-danger)_40%,var(--projects-border))] bg-[color-mix(in_srgb,var(--projects-danger)_10%,transparent)] text-[var(--projects-danger)]">
                           <TriangleAlert
@@ -433,7 +401,7 @@ export function UsersPage() {
                   </tr>
                 ) : paged.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-14 text-center sm:px-5">
+                    <td colSpan={6} className="px-4 py-14 text-center sm:px-5">
                       <div className="flex flex-col items-center text-center">
                         <span className="flex size-10 items-center justify-center rounded-lg border border-[var(--projects-border)] bg-[var(--projects-control)] text-[var(--projects-muted)]">
                           {items.length === 0 ? (
@@ -474,11 +442,10 @@ export function UsersPage() {
                   </tr>
                 ) : (
                   paged.map((account) => {
-                    const accountRole = roleOf(account);
                     return (
                       <tr
                         key={account.id}
-                        className="group border-b border-[var(--projects-divider)] transition-colors last:border-b-0 hover:bg-white/[0.02]"
+                        className="group divide-x divide-[var(--projects-divider)] border-b border-[var(--projects-divider)] transition-colors last:border-b-0 hover:bg-white/[0.02]"
                       >
                         <td
                           className={`${TD_CLASS} sticky left-0 z-10 bg-[#141416] shadow-[1px_0_0_var(--projects-divider)] group-hover:bg-[#19191b]`}
@@ -493,7 +460,14 @@ export function UsersPage() {
                           </div>
                         </td>
                         <td className={TD_CLASS}>
-                          <RoleBadge role={accountRole} />
+                          <Mono className="truncate text-[12.5px] text-[var(--projects-muted)]">
+                            {NO_VALUE}
+                          </Mono>
+                        </td>
+                        <td className={TD_CLASS}>
+                          <Mono className="truncate text-[12.5px] text-[var(--projects-muted)]">
+                            {NO_VALUE}
+                          </Mono>
                         </td>
                         <td className={TD_CLASS}>
                           <span className="block truncate">
@@ -653,9 +627,7 @@ function UserIdentity({ account }: { account: AdminAccount }) {
   return (
     <div className="min-w-0 flex-1">
       <p className="m-0 flex min-w-0 items-center gap-1.5 text-[14px] font-semibold leading-5 text-[var(--projects-text)]">
-        <span className="min-w-0 flex-1 truncate">
-          {displayNameOf(account)}
-        </span>
+        <span className="min-w-0 truncate">{displayNameOf(account)}</span>
         {account.email_verified ? <VerifiedBadge /> : null}
       </p>
       <span title={account.email} className="m-0 mt-0.5 block truncate">
