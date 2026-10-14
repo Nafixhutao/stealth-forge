@@ -23,7 +23,8 @@ import {
   AdminReveal,
   Mono,
 } from "../components/admin-panel";
-import { AdminSelect } from "../components/admin-select";
+import { AdminSelect, PlanPicker } from "../components/admin-select";
+import { useUpdateAdminAccountPlan } from "@/api/mutations/admin";
 import { LiveIndicator } from "../components/live-indicator";
 import { StatTile } from "../components/stat-tile";
 import { ToolbarSearch } from "../components/toolbar-search";
@@ -40,10 +41,6 @@ type VerifiedFilter = "all" | "verified" | "unverified";
 type SortKey = "recent" | "newest" | "oldest" | "name";
 
 const PAGE_SIZE = 12;
-
-/** The directory API carries no subscription or lifecycle field, so both
-    columns fall back to an em dash rather than guessing a plan or a status. */
-const NO_VALUE = "—";
 
 const TH_CLASS =
   "px-3 py-2.5 text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)] first:pl-4 last:pr-4 sm:first:pl-5 sm:last:pr-5";
@@ -100,6 +97,10 @@ export function UsersPage() {
 
   const accounts = useAdminAccounts();
   const items = useMemo(() => accounts.data?.items ?? [], [accounts.data]);
+  const planMutation = useUpdateAdminAccountPlan();
+  // Row-scoped pending state: only the plan picker being saved spins.
+  const pendingPlanID = planMutation.variables?.accountID;
+  const planPending = planMutation.isPending;
 
   // Defer the filter so typing stays responsive on large directories.
   const deferredQuery = useDeferredValue(query);
@@ -284,17 +285,17 @@ export function UsersPage() {
           <div className="overflow-x-auto admin-scrollbar">
             <table className="w-full min-w-[820px] table-fixed border-collapse text-left">
               <caption className="sr-only">
-                Console accounts with plan, account status, sign-in method, last
+                Console accounts with subscription plan, sign-in method, last
                 activity, and join date. Sort with the User, Last active, and
-                Added column headers.
+                Added column headers. Change a plan with the picker in the Plan
+                column.
               </caption>
               <colgroup>
                 <col className="w-[30%]" />
-                <col className="w-[10%]" />
-                <col className="w-[13%]" />
+                <col className="w-[14%]" />
                 <col className="w-[15%]" />
-                <col className="w-[16%]" />
-                <col className="w-[16%]" />
+                <col className="w-[15%]" />
+                <col className="w-[26%]" />
               </colgroup>
               <thead>
                 <tr className="border-b border-[var(--projects-divider)] bg-[var(--projects-control)]">
@@ -307,7 +308,6 @@ export function UsersPage() {
                     className={`${TH_CLASS} sticky left-0 z-10 bg-[var(--projects-control)] shadow-[1px_0_0_var(--projects-divider)]`}
                   />
                   <StaticHeader label="Plan" />
-                  <StaticHeader label="Status" />
                   <StaticHeader label="Sign-in" />
                   <SortableHeader
                     label="Last active"
@@ -460,14 +460,16 @@ export function UsersPage() {
                           </div>
                         </td>
                         <td className={TD_CLASS}>
-                          <Mono className="truncate text-[12.5px] text-[var(--projects-muted)]">
-                            {NO_VALUE}
-                          </Mono>
-                        </td>
-                        <td className={TD_CLASS}>
-                          <Mono className="truncate text-[12.5px] text-[var(--projects-muted)]">
-                            {NO_VALUE}
-                          </Mono>
+                          <PlanPicker
+                            plan={account.plan}
+                            busy={planPending && pendingPlanID === account.id}
+                            onChange={(plan) =>
+                              planMutation.mutate({
+                                accountID: account.id,
+                                plan: plan as components["schemas"]["UpdateAdminAccountPlanRequest"]["plan"],
+                              })
+                            }
+                          />
                         </td>
                         <td className={TD_CLASS}>
                           <span className="block truncate">

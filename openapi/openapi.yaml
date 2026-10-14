@@ -281,12 +281,32 @@ paths:
   /v1/admin/accounts:
     get:
       operationId: listAdminAccounts
-      description: List every Console account for the Admin Console directory with its identity flags, instance role, linked sign-in providers, and most recent session. Passwords and provider secrets are never returned.
+      description: List every Console account for the Admin Console directory with its identity flags, instance role, subscription plan, linked sign-in providers, and most recent session. Passwords and provider secrets are never returned.
       security: [{ sessionCookie: [] }]
       responses:
         '200': { description: Console accounts, content: { application/json: { schema: { $ref: '#/components/schemas/AdminAccountsResponse' } } } }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /v1/admin/accounts/{accountID}/plan:
+    put:
+      operationId: updateAdminAccountPlan
+      description: Assign one Console account's subscription plan (free, go, plus, pro). The change is recorded in the instance audit trail.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - name: accountID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/UpdateAdminAccountPlanRequest' } } }
+      responses:
+        '200': { description: Updated account, content: { application/json: { schema: { $ref: '#/components/schemas/AdminAccountResponse' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { description: Unsupported plan, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } }
         '500': { $ref: '#/components/responses/InternalError' }
   /v1/admin/telemetry/sources:
     get:
@@ -3157,8 +3177,10 @@ components:
     AdminRedisMetricsSample: { type: object, additionalProperties: false, required: [timestamp, connections, max_clients, ops_per_sec, hit_rate_known, hit_rate_percent, memory_used_bytes, memory_max_bytes, keys, uptime_seconds], properties: { timestamp: { type: string, format: date-time }, connections: { type: integer, minimum: 0 }, max_clients: { type: integer, minimum: 0 }, ops_per_sec: { type: number }, hit_rate_known: { type: boolean }, hit_rate_percent: { type: number }, memory_used_bytes: { type: integer, format: int64, minimum: 0 }, memory_max_bytes: { type: integer, format: int64, minimum: 0 }, keys: { type: integer, minimum: 0 }, uptime_seconds: { type: number, minimum: 0 } } }
     AdminRedisMetricsSnapshot: { type: object, additionalProperties: false, required: [current, history, server_version, reachable], properties: { current: { $ref: '#/components/schemas/AdminRedisMetricsSample' }, history: { type: array, items: { $ref: '#/components/schemas/AdminRedisMetricsSample' } }, server_version: { type: string }, reachable: { type: boolean } } }
     AdminAPIMetrics: { type: object, additionalProperties: false, required: [goroutines, heap_alloc_bytes, heap_objects, stack_bytes, sys_bytes, gc_runs, last_gc_pause_ms, go_version, process_uptime_seconds], properties: { goroutines: { type: integer, minimum: 0 }, heap_alloc_bytes: { type: integer, format: int64, minimum: 0 }, heap_objects: { type: integer, format: int64, minimum: 0 }, stack_bytes: { type: integer, format: int64, minimum: 0 }, sys_bytes: { type: integer, format: int64, minimum: 0 }, gc_runs: { type: integer, minimum: 0 }, last_gc_pause_ms: { type: number, minimum: 0 }, go_version: { type: string }, process_uptime_seconds: { type: number, minimum: 0 } } }
-    AdminAccount: { type: object, additionalProperties: false, required: [id, email, email_verified, created_at, providers], properties: { id: { type: string, format: uuid }, email: { type: string, format: email }, email_verified: { type: boolean }, instance_role: { type: string }, created_at: { type: string, format: date-time }, providers: { type: array, items: { type: string, enum: [github, google] } }, avatar_url: { type: string }, display_name: { type: string }, last_sign_in_at: { type: string, format: date-time }, last_sign_in_method: { type: string, enum: [password, github, google] } } }
+    AdminAccount: { type: object, additionalProperties: false, required: [id, email, email_verified, plan, created_at, providers], properties: { id: { type: string, format: uuid }, email: { type: string, format: email }, email_verified: { type: boolean }, instance_role: { type: string }, plan: { type: string, enum: [free, go, plus, pro] }, created_at: { type: string, format: date-time }, providers: { type: array, items: { type: string, enum: [github, google] } }, avatar_url: { type: string }, display_name: { type: string }, last_sign_in_at: { type: string, format: date-time }, last_sign_in_method: { type: string, enum: [password, github, google] } } }
     AdminAccountsResponse: { type: object, additionalProperties: false, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/AdminAccount' } } } }
+    UpdateAdminAccountPlanRequest: { type: object, additionalProperties: false, required: [plan], properties: { plan: { type: string, enum: [free, go, plus, pro] } } }
+    AdminAccountResponse: { type: object, additionalProperties: false, required: [account], properties: { account: { $ref: '#/components/schemas/AdminAccount' } } }
     AdminTelemetrySource: { type: object, additionalProperties: false, required: [service, signal, last_received, volume], properties: { service: { type: string }, signal: { type: string, enum: [logs, traces, metrics] }, last_received: { type: string, format: date-time }, volume: { type: integer, format: int64, minimum: 0 } } }
     AdminSourcesResponse: { type: object, additionalProperties: false, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/AdminTelemetrySource' } } } }
     AdminMonitor: { type: object, additionalProperties: false, required: [id, name, kind, target, interval_seconds, timeout_ms, enabled, config, status, next_check_at, secret_configured, created_at, updated_at], properties: { id: { type: string, format: uuid }, name: { type: string }, kind: { type: string, enum: [http, tcp, dns, tls, heartbeat] }, target: { type: string }, interval_seconds: { type: integer, minimum: 5, maximum: 86400 }, timeout_ms: { type: integer, minimum: 100, maximum: 120000 }, enabled: { type: boolean }, config: { type: object, additionalProperties: true }, status: { type: string, enum: [unknown, healthy, degraded, failing, paused] }, last_checked_at: { type: [string, 'null'], format: date-time }, last_success_at: { type: [string, 'null'], format: date-time }, last_failure_at: { type: [string, 'null'], format: date-time }, last_latency_ms: { type: [integer, 'null'], minimum: 0 }, last_status_code: { type: [integer, 'null'], minimum: 100, maximum: 599 }, last_error: { type: [string, 'null'], maxLength: 1000 }, last_heartbeat_at: { type: [string, 'null'], format: date-time }, next_check_at: { type: string, format: date-time }, secret_configured: { type: boolean }, created_by_account_id: { type: [string, 'null'], format: uuid }, created_at: { type: string, format: date-time }, updated_at: { type: string, format: date-time } } }

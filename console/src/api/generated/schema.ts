@@ -349,9 +349,26 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description List every Console account for the Admin Console directory with its identity flags, instance role, linked sign-in providers, and most recent session. Passwords and provider secrets are never returned. */
+        /** @description List every Console account for the Admin Console directory with its identity flags, instance role, subscription plan, linked sign-in providers, and most recent session. Passwords and provider secrets are never returned. */
         get: operations["listAdminAccounts"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/accounts/{accountID}/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Assign one Console account's subscription plan (free, go, plus, pro). The change is recorded in the instance audit trail. */
+        put: operations["updateAdminAccountPlan"];
         post?: never;
         delete?: never;
         options?: never;
@@ -3748,6 +3765,8 @@ export interface components {
             email: string;
             email_verified: boolean;
             instance_role?: string;
+            /** @enum {string} */
+            plan: AdminAccountPlan;
             /** Format: date-time */
             created_at: string;
             providers: AdminAccountProviders[];
@@ -3760,6 +3779,13 @@ export interface components {
         };
         AdminAccountsResponse: {
             items: components["schemas"]["AdminAccount"][];
+        };
+        UpdateAdminAccountPlanRequest: {
+            /** @enum {string} */
+            plan: UpdateAdminAccountPlanRequestPlan;
+        };
+        AdminAccountResponse: {
+            account: components["schemas"]["AdminAccount"];
         };
         AdminTelemetrySource: {
             service: string;
@@ -7600,6 +7626,45 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updateAdminAccountPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAdminAccountPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated account */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAccountResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Unsupported plan */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
             500: components["responses"]["InternalError"];
         };
     };
@@ -15835,6 +15900,12 @@ export enum AdminInfrastructureMetricScope {
     redis = "redis",
     services = "services"
 }
+export enum AdminAccountPlan {
+    free = "free",
+    go = "go",
+    plus = "plus",
+    pro = "pro"
+}
 export enum AdminAccountProviders {
     github = "github",
     google = "google"
@@ -15843,6 +15914,12 @@ export enum AdminAccountLast_sign_in_method {
     password = "password",
     github = "github",
     google = "google"
+}
+export enum UpdateAdminAccountPlanRequestPlan {
+    free = "free",
+    go = "go",
+    plus = "plus",
+    pro = "pro"
 }
 export enum AdminTelemetrySourceSignal {
     logs = "logs",
