@@ -297,7 +297,7 @@ export function UsersPage() {
                 <col className="w-[16%]" />
               </colgroup>
               <thead>
-                <tr className="divide-x divide-[var(--projects-divider)] border-b border-[var(--projects-divider)] bg-[var(--projects-control)]">
+                <tr className="border-b border-[var(--projects-divider)] bg-[var(--projects-control)]">
                   <SortableHeader
                     label="User"
                     sortLabel="Sort by name"
@@ -334,7 +334,7 @@ export function UsersPage() {
                   Array.from({ length: 6 }).map((_, index) => (
                     <tr
                       key={index}
-                      className="divide-x divide-[var(--projects-divider)] border-b border-[var(--projects-divider)] last:border-b-0"
+                      className="border-b border-[var(--projects-divider)] last:border-b-0"
                     >
                       <td className={TD_CLASS}>
                         <div className="flex min-w-0 items-center gap-3">
@@ -445,7 +445,7 @@ export function UsersPage() {
                     return (
                       <tr
                         key={account.id}
-                        className="group divide-x divide-[var(--projects-divider)] border-b border-[var(--projects-divider)] transition-colors last:border-b-0 hover:bg-white/[0.02]"
+                        className="group border-b border-[var(--projects-divider)] transition-colors last:border-b-0 hover:bg-white/[0.02]"
                       >
                         <td
                           className={`${TD_CLASS} sticky left-0 z-10 bg-[#141416] shadow-[1px_0_0_var(--projects-divider)] group-hover:bg-[#19191b]`}
