@@ -11,42 +11,11 @@ export interface AdminSelectOption<T extends string> {
   label: string;
 }
 
-/** Account subscription plans, mirroring the accounts_plan_valid constraint. */
 export const ACCOUNT_PLANS = ["free", "go", "plus", "pro"] as const;
 export type AccountPlan = (typeof ACCOUNT_PLANS)[number];
 
 export function planLabel(plan: string): string {
   return plan.charAt(0).toUpperCase() + plan.slice(1);
-}
-
-/** Compact plan picker used inline in the users table. Reuses the AdminSelect
-    trigger and menu styling so no new control look is introduced. */
-export function PlanPicker({
-  plan,
-  busy,
-  onChange,
-}: {
-  plan: string;
-  busy?: boolean;
-  onChange: (plan: AccountPlan) => void;
-}) {
-  const current = (ACCOUNT_PLANS as readonly string[]).includes(plan)
-    ? (plan as AccountPlan)
-    : "free";
-  return (
-    <AdminSelect
-      label={`Change plan, current ${planLabel(plan)}`}
-      value={current}
-      disabled={busy}
-      align="right"
-      className="min-w-0"
-      options={ACCOUNT_PLANS.map((value) => ({
-        value,
-        label: planLabel(value),
-      }))}
-      onChange={onChange}
-    />
-  );
 }
 
 /**

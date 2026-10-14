@@ -6,8 +6,10 @@ import {
   ArrowDown,
   ArrowUp,
   BadgeCheck,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   ChevronsUpDown,
   RefreshCw,
   SearchX,
@@ -23,8 +25,14 @@ import {
   AdminReveal,
   Mono,
 } from "../components/admin-panel";
-import { AdminSelect, PlanPicker } from "../components/admin-select";
+import { AdminSelect } from "../components/admin-select";
+import { StatusBadge } from "../components/status-badge";
 import { useUpdateAdminAccountPlan } from "@/api/mutations/admin";
+import {
+  ACCOUNT_PLANS,
+  planLabel,
+  type AccountPlan,
+} from "../components/admin-select";
 import { LiveIndicator } from "../components/live-indicator";
 import { StatTile } from "../components/stat-tile";
 import { ToolbarSearch } from "../components/toolbar-search";
@@ -41,6 +49,25 @@ type VerifiedFilter = "all" | "verified" | "unverified";
 type SortKey = "recent" | "newest" | "oldest" | "name";
 
 const PAGE_SIZE = 12;
+
+/** Adjacent subscription tier, or null at the ends of the ladder. */
+function stepPlan(plan: AccountPlan, direction: 1 | -1): AccountPlan | null {
+  const next = ACCOUNT_PLANS.indexOf(plan) + direction;
+  return next < 0 || next >= ACCOUNT_PLANS.length ? null : ACCOUNT_PLANS[next];
+}
+
+function planTone(plan: AccountPlan) {
+  if (plan === "pro") return "success" as const;
+  if (plan === "plus") return "warning" as const;
+  if (plan === "go") return "info" as const;
+  return "neutral" as const;
+}
+
+function validPlan(plan: string): AccountPlan | null {
+  return (ACCOUNT_PLANS as readonly string[]).includes(plan)
+    ? (plan as AccountPlan)
+    : null;
+}
 
 const TH_CLASS =
   "px-3 py-2.5 text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)] first:pl-4 last:pr-4 sm:first:pl-5 sm:last:pr-5";
@@ -287,15 +314,16 @@ export function UsersPage() {
               <caption className="sr-only">
                 Console accounts with subscription plan, sign-in method, last
                 activity, and join date. Sort with the User, Last active, and
-                Added column headers. Change a plan with the picker in the Plan
-                column.
+                Added column headers. Change a plan with the promote and demote
+                actions.
               </caption>
               <colgroup>
-                <col className="w-[30%]" />
+                <col className="w-[28%]" />
+                <col className="w-[11%]" />
                 <col className="w-[14%]" />
-                <col className="w-[15%]" />
-                <col className="w-[15%]" />
-                <col className="w-[26%]" />
+                <col className="w-[16%]" />
+                <col className="w-[14%]" />
+                <col className="w-[17%]" />
               </colgroup>
               <thead>
                 <tr className="border-b border-[var(--projects-divider)] bg-[var(--projects-control)]">
@@ -305,7 +333,6 @@ export function UsersPage() {
                     active={sort === "name"}
                     direction="asc"
                     onSort={() => handleSortChange("name")}
-                    className={`${TH_CLASS} sticky left-0 z-10 bg-[var(--projects-control)] shadow-[1px_0_0_var(--projects-divider)]`}
                   />
                   <StaticHeader label="Plan" />
                   <StaticHeader label="Sign-in" />
@@ -327,6 +354,7 @@ export function UsersPage() {
                     direction={sort === "oldest" ? "asc" : "desc"}
                     onSort={toggleAddedSort}
                   />
+                  <StaticHeader label="Actions" />
                 </tr>
               </thead>
               <tbody aria-hidden={accounts.isPending ? true : undefined}>
@@ -359,6 +387,9 @@ export function UsersPage() {
                       </td>
                       <td className={TD_CLASS}>
                         <div className="h-3.5 w-20 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
+                      </td>
+                      <td className={TD_CLASS}>
+                        <div className="h-3.5 w-16 animate-pulse rounded bg-white/[0.05] motion-reduce:animate-none" />
                       </td>
                     </tr>
                   ))
@@ -442,14 +473,21 @@ export function UsersPage() {
                   </tr>
                 ) : (
                   paged.map((account) => {
+                    const plan = validPlan(account.plan);
+                    const promoteTo = plan ? stepPlan(plan, 1) : null;
+                    const demoteTo = plan ? stepPlan(plan, -1) : null;
+                    const busy = planPending && pendingPlanID === account.id;
+                    const setPlan = (target: AccountPlan) =>
+                      planMutation.mutate({
+                        accountID: account.id,
+                        plan: target as components["schemas"]["UpdateAdminAccountPlanRequest"]["plan"],
+                      });
                     return (
                       <tr
                         key={account.id}
-                        className="group border-b border-[var(--projects-divider)] transition-colors last:border-b-0 hover:bg-white/[0.02]"
+                        className="border-b border-[var(--projects-divider)] transition-colors last:border-b-0 hover:bg-white/[0.02]"
                       >
-                        <td
-                          className={`${TD_CLASS} sticky left-0 z-10 bg-[#141416] shadow-[1px_0_0_var(--projects-divider)] group-hover:bg-[#19191b]`}
-                        >
+                        <td className={TD_CLASS}>
                           <div className="flex min-w-0 items-center gap-3">
                             <GradientAvatar
                               email={account.email}
@@ -460,16 +498,16 @@ export function UsersPage() {
                           </div>
                         </td>
                         <td className={TD_CLASS}>
-                          <PlanPicker
-                            plan={account.plan}
-                            busy={planPending && pendingPlanID === account.id}
-                            onChange={(plan) =>
-                              planMutation.mutate({
-                                accountID: account.id,
-                                plan: plan as components["schemas"]["UpdateAdminAccountPlanRequest"]["plan"],
-                              })
-                            }
-                          />
+                          {plan ? (
+                            <StatusBadge
+                              tone={planTone(plan)}
+                              label={planLabel(plan)}
+                            />
+                          ) : (
+                            <Mono className="truncate text-[12.5px] text-[var(--projects-muted)]">
+                              —
+                            </Mono>
+                          )}
                         </td>
                         <td className={TD_CLASS}>
                           <span className="block truncate">
@@ -504,6 +542,54 @@ export function UsersPage() {
                               {shortDay(account.created_at)}
                             </Mono>
                           </span>
+                        </td>
+                        <td className={TD_CLASS}>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              aria-label={
+                                promoteTo
+                                  ? `Promote ${displayNameOf(account)} to ${planLabel(promoteTo)}`
+                                  : `${displayNameOf(account)} is already on the highest plan`
+                              }
+                              title={
+                                promoteTo
+                                  ? `Promote to ${planLabel(promoteTo)}`
+                                  : "Already on the highest plan"
+                              }
+                              disabled={!promoteTo || busy}
+                              onClick={() => promoteTo && setPlan(promoteTo)}
+                              className="inline-flex size-8 items-center justify-center rounded-md border border-[var(--projects-border)] text-[var(--projects-muted)] transition-colors hover:border-[var(--projects-border-hover)] hover:text-[var(--projects-accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--projects-accent)] disabled:opacity-40 disabled:hover:border-[var(--projects-border)] disabled:hover:text-[var(--projects-muted)]"
+                            >
+                              <ChevronUp
+                                size={15}
+                                strokeWidth={2}
+                                aria-hidden="true"
+                              />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={
+                                demoteTo
+                                  ? `Demote ${displayNameOf(account)} to ${planLabel(demoteTo)}`
+                                  : `${displayNameOf(account)} is already on the lowest plan`
+                              }
+                              title={
+                                demoteTo
+                                  ? `Demote to ${planLabel(demoteTo)}`
+                                  : "Already on the lowest plan"
+                              }
+                              disabled={!demoteTo || busy}
+                              onClick={() => demoteTo && setPlan(demoteTo)}
+                              className="inline-flex size-8 items-center justify-center rounded-md border border-[var(--projects-border)] text-[var(--projects-muted)] transition-colors hover:border-[var(--projects-border-hover)] hover:text-[var(--projects-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--projects-accent)] disabled:opacity-40 disabled:hover:border-[var(--projects-border)] disabled:hover:text-[var(--projects-muted)]"
+                            >
+                              <ChevronDown
+                                size={15}
+                                strokeWidth={2}
+                                aria-hidden="true"
+                              />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -571,19 +657,17 @@ function SortableHeader({
   active,
   direction,
   onSort,
-  className,
 }: {
   label: string;
   sortLabel: string;
   active: boolean;
   direction: "asc" | "desc";
   onSort: () => void;
-  className?: string;
 }) {
   let ariaSort: "ascending" | "descending" | undefined;
   if (active) ariaSort = direction === "asc" ? "ascending" : "descending";
   return (
-    <th scope="col" aria-sort={ariaSort} className={className ?? TH_CLASS}>
+    <th scope="col" aria-sort={ariaSort} className={TH_CLASS}>
       <button
         type="button"
         onClick={onSort}
