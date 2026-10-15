@@ -1,0 +1,155 @@
+paths:
+  /v1/admin/telemetry/logs:
+    get:
+      operationId: listAdminTelemetryLogs
+      description: Query structured logs through a bounded, parameterized server-side query. Raw ClickHouse SQL is not accepted.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: service, in: query, schema: { type: string, maxLength: 128 } }
+        - { name: level, in: query, schema: { type: string, maxLength: 64 } }
+        - { name: query, in: query, schema: { type: string, maxLength: 256 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 10000, default: 100 } }
+      responses:
+        '200': { description: Logs, content: { application/json: { schema: { $ref: '../components/admin-telemetry.yaml#/components/schemas/AdminLogsResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+  /v1/admin/telemetry/logs/tail:
+    get:
+      operationId: streamAdminTelemetryLogs
+      description: Stream bounded redacted log records over an authenticated server-sent event connection. The server owns the ClickHouse query and closes idle streams after a bounded lifetime.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: service, in: query, schema: { type: string, maxLength: 128 } }
+        - { name: level, in: query, schema: { type: string, maxLength: 64 } }
+        - { name: query, in: query, schema: { type: string, maxLength: 256 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 250, default: 100 } }
+      responses:
+        '200': { description: Redacted log events, content: { text/event-stream: { schema: { type: string } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+  /v1/admin/telemetry/traces:
+    get:
+      operationId: listAdminTelemetryTraces
+      description: Query distributed spans through a bounded, parameterized server-side query.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: service, in: query, schema: { type: string, maxLength: 128 } }
+        - { name: trace_id, in: query, schema: { type: string, maxLength: 64 } }
+        - { name: min_duration_ms, in: query, schema: { type: number, minimum: 0 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 10000, default: 100 } }
+      responses:
+        '200': { description: Trace spans, content: { application/json: { schema: { $ref: '../components/admin-telemetry.yaml#/components/schemas/AdminTracesResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+  /v1/admin/telemetry/metrics:
+    get:
+      operationId: listAdminTelemetryMetrics
+      description: Query real OTel metric points through a bounded server-side query.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: service, in: query, schema: { type: string, maxLength: 128 } }
+        - { name: name, in: query, schema: { type: string, maxLength: 256 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 10000, default: 100 } }
+      responses:
+        '200': { description: Metric points, content: { application/json: { schema: { $ref: '../components/admin-telemetry.yaml#/components/schemas/AdminMetricsResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+  /v1/admin/telemetry/log-volume:
+    get:
+      operationId: listAdminTelemetryLogVolume
+      description: Return bounded time buckets for log volume using the selected filters.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: service, in: query, schema: { type: string, maxLength: 128 } }
+        - { name: level, in: query, schema: { type: string, maxLength: 64 } }
+        - { name: query, in: query, schema: { type: string, maxLength: 256 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 10000, default: 100 } }
+      responses:
+        '200': { description: Log volume buckets, content: { application/json: { schema: { $ref: '../components/admin-telemetry.yaml#/components/schemas/AdminLogVolumeResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+  /v1/admin/telemetry/errors:
+    get:
+      operationId: listAdminTelemetryErrors
+      description: Return grouped error log occurrences from the bounded telemetry window.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: service, in: query, schema: { type: string, maxLength: 128 } }
+        - { name: query, in: query, schema: { type: string, maxLength: 256 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 10000, default: 100 } }
+      responses:
+        '200': { description: Grouped errors, content: { application/json: { schema: { $ref: '../components/admin-telemetry.yaml#/components/schemas/AdminErrorGroupsResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+  /v1/admin/telemetry/errors/{fingerprint}:
+    patch:
+      operationId: updateAdminTelemetryErrorStatus
+      description: Update the owner-managed lifecycle state of a redacted error fingerprint. Occurrences remain in ClickHouse.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: fingerprint, in: path, required: true, schema: { type: string, pattern: '^[0-9a-fA-F]{64}$' } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../components/admin-telemetry.yaml#/components/schemas/UpdateAdminErrorGroupStatusRequest' }
+      responses:
+        '200': { description: Updated error group state, content: { application/json: { schema: { $ref: '../components/admin-telemetry.yaml#/components/schemas/AdminErrorGroupStatus' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/admin/telemetry/services:
+    get:
+      operationId: listAdminTelemetryServices
+      description: Return service dependencies derived from real trace peer attributes.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 10000, default: 100 } }
+      responses:
+        '200': { description: Trace-derived service map edges, content: { application/json: { schema: { $ref: '../components/admin-telemetry.yaml#/components/schemas/AdminServiceMapResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+  /v1/admin/telemetry/sources:
+    get:
+      operationId: listAdminTelemetrySources
+      description: List services and signal types observed in the bounded telemetry window.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 10000, default: 100 } }
+      responses:
+        '200': { description: Telemetry sources, content: { application/json: { schema: { $ref: '../components/admin-telemetry.yaml#/components/schemas/AdminSourcesResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }

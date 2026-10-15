@@ -1,0 +1,62 @@
+paths:
+  /v1/admin/infrastructure/metrics:
+    get:
+      operationId: listAdminInfrastructureMetrics
+      description: Return bounded host, container, PostgreSQL, Redis, and service metrics collected by the private telemetry pipeline.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: scope, in: query, schema: { type: string, enum: [host, containers, postgres, redis, services] } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 10000, default: 100 } }
+      responses:
+        '200': { description: Infrastructure metric points, content: { application/json: { schema: { $ref: '../components/admin-infrastructure.yaml#/components/schemas/AdminInfrastructureMetricsResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+  /v1/admin/host-metrics:
+    get:
+      operationId: getAdminHostMetrics
+      description: Return the in-process host resource snapshot (CPU, memory, disk, network) and its short in-memory history for the admin Overview. Requires Instance Owner or Instance Admin and does not depend on the telemetry backend.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: window_minutes, in: query, schema: { type: integer, minimum: 1, maximum: 1440 }, description: Return history from the last N minutes; omit for the full retained window. }
+      responses:
+        '200': { description: Host resource snapshot and history, content: { application/json: { schema: { $ref: '../components/admin-infrastructure.yaml#/components/schemas/AdminHostMetricsSnapshot' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+  /v1/admin/db-metrics:
+    get:
+      operationId: getAdminDBMetrics
+      description: Return the in-process PostgreSQL snapshot (connections, active queries, cache hit ratio, transaction rate, replication, size, uptime) and its short in-memory history for the admin Overview. Requires Instance Owner or Instance Admin and does not depend on the telemetry backend.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: window_minutes, in: query, schema: { type: integer, minimum: 1, maximum: 1440 }, description: Return history from the last N minutes; omit for the full retained window. }
+      responses:
+        '200': { description: Database metrics snapshot and history, content: { application/json: { schema: { $ref: '../components/admin-infrastructure.yaml#/components/schemas/AdminDBMetricsSnapshot' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+  /v1/admin/redis-metrics:
+    get:
+      operationId: getAdminRedisMetrics
+      description: Return the in-process Redis snapshot (clients, ops/sec, hit rate, memory, keys, uptime) and its short in-memory history for the admin Overview. Requires Instance Owner or Instance Admin and does not depend on the telemetry backend.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: window_minutes, in: query, schema: { type: integer, minimum: 1, maximum: 1440 }, description: Return history from the last N minutes; omit for the full retained window. }
+      responses:
+        '200': { description: Redis metrics snapshot and history, content: { application/json: { schema: { $ref: '../components/admin-infrastructure.yaml#/components/schemas/AdminRedisMetricsSnapshot' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+  /v1/admin/api-metrics:
+    get:
+      operationId: getAdminAPIMetrics
+      description: Return the API process's own runtime vitals (goroutines, heap, GC pause, uptime) read directly from the Go runtime at request time. Requires Instance Owner or Instance Admin.
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { description: API process vitals, content: { application/json: { schema: { $ref: '../components/admin-infrastructure.yaml#/components/schemas/AdminAPIMetrics' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }

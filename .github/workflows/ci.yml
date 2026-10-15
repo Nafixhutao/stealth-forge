@@ -340,6 +340,13 @@ jobs:
       - name: Verify generated client is committed
         run: git diff --exit-code -- console/src/api/generated
 
+      - name: Lint OpenAPI contract
+        working-directory: console
+        run: npm run openapi:lint
+
+      - name: Verify bundled OpenAPI contract is committed
+        run: git diff --exit-code -- openapi/openapi.bundled.yaml
+
       - name: Check formatting
         working-directory: console
         run: npm run format:check

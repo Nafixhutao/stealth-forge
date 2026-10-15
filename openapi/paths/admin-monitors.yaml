@@ -1,0 +1,82 @@
+paths:
+  /v1/admin/monitors:
+    get:
+      operationId: listAdminMonitors
+      description: List persisted instance monitors. Secrets are never returned.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
+      responses:
+        '200': { description: Instance monitors, content: { application/json: { schema: { $ref: '../components/admin-monitors.yaml#/components/schemas/AdminMonitorsResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    post:
+      operationId: createAdminMonitor
+      description: Create an encrypted instance monitor. Heartbeat tokens are returned once.
+      security: [{ sessionCookie: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/admin-monitors.yaml#/components/schemas/CreateAdminMonitorRequest' } } } }
+      responses:
+        '201': { description: Created monitor, content: { application/json: { schema: { $ref: '../components/admin-monitors.yaml#/components/schemas/AdminMonitorResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/admin/monitors/{monitorID}:
+    get:
+      operationId: getAdminMonitor
+      description: Read one monitor and its bounded recent checks. Secrets are never returned.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/MonitorID' }]
+      responses:
+        '200': { description: Monitor detail, content: { application/json: { schema: { $ref: '../components/admin-monitors.yaml#/components/schemas/AdminMonitorResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+    put:
+      operationId: updateAdminMonitor
+      description: Replace an encrypted instance monitor definition. A heartbeat token is rotated and returned once.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/MonitorID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/admin-monitors.yaml#/components/schemas/UpdateAdminMonitorRequest' } } } }
+      responses:
+        '200': { description: Updated monitor, content: { application/json: { schema: { $ref: '../components/admin-monitors.yaml#/components/schemas/AdminMonitorResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+    delete:
+      operationId: deleteAdminMonitor
+      description: Delete a monitor and its bounded check history. A monitor with alert rules must have those rules deleted first.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/MonitorID' }]
+      responses:
+        '204': { description: Monitor deleted }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+  /v1/monitor-heartbeats/{monitorID}:
+    post:
+      operationId: recordAdminMonitorHeartbeat
+      description: Record a heartbeat with the one-time monitor token. The token is accepted only in the X-Stealth-Heartbeat header and is never logged or returned.
+      security: [{}]
+      parameters:
+        - { $ref: '../components/common.yaml#/components/parameters/MonitorID' }
+        - { name: X-Stealth-Heartbeat, in: header, required: true, schema: { type: string, minLength: 32, maxLength: 256, writeOnly: true } }
+      responses:
+        '204': { description: Heartbeat accepted }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+  /v1/status-page:
+    get:
+      operationId: getPublicAdminStatusPage
+      description: Read the owner-published status page. Private status pages return not found.
+      security: [{}]
+      responses:
+        '200': { description: Published status page, content: { application/json: { schema: { $ref: '../components/admin-monitors.yaml#/components/schemas/AdminPublicStatusPage' } } } }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }

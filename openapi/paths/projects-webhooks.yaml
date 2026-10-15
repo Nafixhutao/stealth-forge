@@ -1,0 +1,91 @@
+paths:
+  /v1/projects/{projectID}/webhooks:
+    get:
+      operationId: listWebhooks
+      description: List webhook delivery configurations without exposing signing secrets. Console owners/admins or project API keys with webhooks.read may read them.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses:
+        '200': { description: Webhook configurations, content: { application/json: { schema: { $ref: '../components/projects-webhooks.yaml#/components/schemas/WebhooksPage' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    post:
+      operationId: createWebhook
+      description: Create an HTTPS webhook. The whsec_ signing secret is returned exactly once; store it in a server-side secret manager.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/CreateWebhookRequest' } } } }
+      responses:
+        '201': { description: Webhook metadata and one-time signing secret, content: { application/json: { schema: { $ref: '../components/projects-webhooks.yaml#/components/schemas/WebhookSecretResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+  /v1/projects/{projectID}/webhooks/{webhookID}:
+    get:
+      operationId: getWebhook
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/WebhookID' }]
+      responses:
+        '200': { description: Webhook metadata, content: { application/json: { schema: { $ref: '../components/projects-webhooks.yaml#/components/schemas/WebhookResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+    patch:
+      operationId: updateWebhook
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/WebhookID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/UpdateWebhookRequest' } } } }
+      responses:
+        '200': { description: Updated webhook metadata, content: { application/json: { schema: { $ref: '../components/projects-webhooks.yaml#/components/schemas/WebhookResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+    delete:
+      operationId: deleteWebhook
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/WebhookID' }]
+      responses:
+        '204': { description: Webhook and its pending deliveries deleted }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+  /v1/projects/{projectID}/webhooks/{webhookID}/rotate-secret:
+    post:
+      operationId: rotateWebhookSecret
+      description: Replace the signing secret and return the new whsec_ value exactly once. Existing deliveries use the new secret when they are sent.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/WebhookID' }]
+      responses:
+        '200': { description: Updated webhook metadata and one-time signing secret, content: { application/json: { schema: { $ref: '../components/projects-webhooks.yaml#/components/schemas/WebhookSecretResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+  /v1/projects/{projectID}/webhooks/{webhookID}/deliveries:
+    get:
+      operationId: listWebhookDeliveries
+      description: Inspect bounded delivery status and retry metadata; response bodies from endpoints are truncated and secrets are never included.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/WebhookID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses:
+        '200': { description: Webhook deliveries, content: { application/json: { schema: { $ref: '../components/projects-webhooks.yaml#/components/schemas/WebhookDeliveriesPage' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }

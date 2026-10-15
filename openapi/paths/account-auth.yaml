@@ -1,0 +1,144 @@
+paths:
+  /v1/account/registrations:
+    post:
+      operationId: registerAccount
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/account-auth.yaml#/components/schemas/RegisterRequest' } } } }
+      responses:
+        '201': { description: Account, personal organization, and HttpOnly session cookie created, content: { application/json: { schema: { $ref: '../components/account-auth.yaml#/components/schemas/RegisterResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+  /v1/account/verification:
+    post:
+      operationId: sendAccountVerification
+      description: Send a one-time verification link to the authenticated Console account. A previous unused link is invalidated.
+      security: [{ sessionCookie: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/account-auth.yaml#/components/schemas/AuthVerificationRequest' } } } }
+      responses:
+        '204': { description: Verification message accepted }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+    put:
+      operationId: confirmAccountVerification
+      description: Consume a one-time Console email verification token.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/account-auth.yaml#/components/schemas/AuthTokenRequest' } } } }
+      responses:
+        '200': { description: Verified account, content: { application/json: { schema: { $ref: '../components/account-auth.yaml#/components/schemas/AccountResponse' } } } }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/account/recovery:
+    post:
+      operationId: createAccountRecovery
+      description: Request a password reset email. The accepted response is identical whether the address exists.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/account-auth.yaml#/components/schemas/PasswordRecoveryRequest' } } } }
+      responses:
+        '202': { description: Recovery request accepted, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/AcceptedResponse' } } } }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    put:
+      operationId: confirmAccountRecovery
+      description: Replace the Console password with a valid one-time recovery token and revoke all existing sessions.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/account-auth.yaml#/components/schemas/PasswordResetRequest' } } } }
+      responses:
+        '204': { description: Password updated and sessions revoked }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/account:
+    get:
+      operationId: getCurrentAccount
+      security: [{ sessionCookie: [] }]
+      responses: { '200': { description: Current account, content: { application/json: { schema: { $ref: '../components/account-auth.yaml#/components/schemas/AccountResponse' } } } }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' } }
+  /v1/account/sessions:
+    get:
+      operationId: listAccountSessions
+      description: List active Console sessions for the authenticated account. Session bearer tokens and hashes are never returned.
+      security: [{ sessionCookie: [] }]
+      responses: { '200': { description: Active Console sessions, content: { application/json: { schema: { $ref: '../components/account-auth.yaml#/components/schemas/AccountSessionsResponse' } } } }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+    delete:
+      operationId: revokeOtherAccountSessions
+      description: Revoke every Console session except the current session and return the number revoked.
+      security: [{ sessionCookie: [] }]
+      responses: { '200': { description: Sessions revoked, content: { application/json: { schema: { $ref: '../components/account-auth.yaml#/components/schemas/RevokedSessionsResponse' } } } }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/account/sessions/{sessionID}:
+    delete:
+      operationId: revokeAccountSession
+      description: Revoke one Console session owned by the authenticated account. Revoking the current session also clears its cookie.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/SessionID' }]
+      responses: { '204': { description: Session revoked }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/account/identities:
+    get:
+      operationId: listAccountIdentities
+      description: List the external sign-in identities linked to the authenticated account, plus the providers this instance can complete a round trip with. Provider secrets and provider user ids are never returned.
+      security: [{ sessionCookie: [] }]
+      responses: { '200': { description: Linked identities and available providers, content: { application/json: { schema: { $ref: '../components/account-auth.yaml#/components/schemas/AccountIdentitiesResponse' } } } }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/account/identities/{provider}/link:
+    get:
+      operationId: startAccountIdentityLink
+      description: Start linking an external sign-in provider to the authenticated account. Returns the provider authorization URL; the browser follows it and the provider callback attaches the identity to the signed-in account.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ name: provider, in: path, required: true, schema: { type: string, enum: [github, google] } }]
+      responses: { '200': { description: Provider authorization URL, content: { application/json: { schema: { $ref: '../components/account-auth.yaml#/components/schemas/OAuthStartResponse' } } } }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' } }
+  /v1/account/identities/{provider}:
+    delete:
+      operationId: unlinkAccountIdentity
+      description: Unlink one external sign-in provider from the authenticated account. The last remaining identity cannot be unlinked.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ name: provider, in: path, required: true, schema: { type: string, enum: [github, google] } }]
+      responses: { '204': { description: Identity unlinked }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/account/password:
+    patch:
+      operationId: updateAccountPassword
+      description: Replace the authenticated Console account password after verifying the current password. All other Console sessions are revoked; the current session remains valid.
+      security: [{ sessionCookie: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/account-auth.yaml#/components/schemas/UpdateAccountPasswordRequest' } } } }
+      responses: { '200': { description: Password updated, content: { application/json: { schema: { $ref: '../components/account-auth.yaml#/components/schemas/PasswordUpdateResponse' } } } }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/sessions/email-password:
+    post:
+      operationId: createEmailPasswordSession
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/account-auth.yaml#/components/schemas/LoginRequest' } } } }
+      responses:
+        '204': { description: Session cookie created }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '401': { $ref: '../components/common.yaml#/components/responses/InvalidCredentials' }
+  /v1/session:
+    delete:
+      operationId: deleteCurrentSession
+      security: [{ sessionCookie: [] }]
+      responses: { '204': { description: Session revoked and cookie cleared }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' } }
+  /v1/oauth/{provider}/start:
+    get:
+      operationId: startOAuthLogin
+      description: Begin browser sign-in with an external identity provider. Returns the provider authorization URL to redirect to. Only providers with operator credentials are available.
+      parameters:
+        - { name: provider, in: path, required: true, schema: { type: string, enum: [github, google] } }
+      responses:
+        '200': { description: Provider authorization URL, content: { application/json: { schema: { $ref: '../components/account-auth.yaml#/components/schemas/OAuthStartResponse' } } } }
+        '422': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+  /v1/oauth/{provider}/callback:
+    get:
+      operationId: completeOAuthLogin
+      description: Provider redirect target that completes external sign-in. Resolves an already-linked identity to its account, opens a Console session, and redirects to the Console. Unlinked identities never create accounts.
+      parameters:
+        - { name: provider, in: path, required: true, schema: { type: string, enum: [github, google] } }
+        - { name: code, in: query, schema: { type: string } }
+        - { name: state, in: query, schema: { type: string } }
+        - { name: error, in: query, schema: { type: string } }
+      responses:
+        '302': { description: Redirect to the Console sign-in result }

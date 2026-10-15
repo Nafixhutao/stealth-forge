@@ -1,0 +1,18 @@
+paths:
+  /healthz:
+    get:
+      operationId: health
+      responses:
+        '200': { description: Process is running, content: { application/json: { schema: { $ref: '../components/common.yaml#/components/schemas/Status' } } } }
+  /readyz:
+    get:
+      operationId: readiness
+      responses:
+        '200': { description: Dependencies are ready, content: { application/json: { schema: { $ref: '../components/common.yaml#/components/schemas/Status' } } } }
+        '503': { $ref: '../components/common.yaml#/components/responses/NotReady' }
+  /version:
+    get:
+      operationId: version
+      description: Safe build metadata for release and operator checks. No configuration or secrets are returned.
+      responses:
+        '200': { description: Build metadata, content: { application/json: { schema: { $ref: '../components/common.yaml#/components/schemas/BuildInfo' } } } }

@@ -1,0 +1,56 @@
+paths:
+  /v1/admin/overview:
+    get:
+      operationId: getAdminOverview
+      description: Return live instance component and telemetry-backend health. Requires an instance owner or instance admin role; organization membership is not sufficient.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200': { description: Live instance overview, content: { application/json: { schema: { $ref: '../components/admin-core.yaml#/components/schemas/AdminOverviewResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/admin/operations:
+    get:
+      operationId: listAdminOperations
+      description: List durable deployments, executions, Agent runs, artifact cleanup jobs, and database backups through one safe instance-owner projection.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        '200': { description: Durable operations, content: { application/json: { schema: { $ref: '../components/admin-core.yaml#/components/schemas/AdminOperationsResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/admin/audit-events:
+    get:
+      operationId: listAdminAuditEvents
+      description: List instance-level audit records. Organization-scoped audit data remains on the organization audit endpoint.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: before, in: query, schema: { type: string, format: uuid } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        '200': { description: Instance audit records, content: { application/json: { schema: { $ref: '../components/admin-core.yaml#/components/schemas/AdminAuditResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/admin/realtime:
+    get:
+      operationId: streamAdminRealtime
+      description: Stream bounded invalidation notifications for authenticated instance-owner/admin Console sessions. Events contain no resource snapshots; clients refetch canonical Admin API state.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: Last-Event-ID, in: header, description: Opaque UUIDv7 cursor sent by the browser on SSE reconnect, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Admin invalidation events, content: { text/event-stream: { schema: { type: string } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }

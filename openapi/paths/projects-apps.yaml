@@ -1,0 +1,122 @@
+paths:
+  /v1/projects/{projectID}/apps/{appID}:
+    get:
+      operationId: getApp
+      description: Return durable App desired and observed runtime state. runtime_status=not_deployed means no image is selected and no runtime is desired; platform_hostname is reserved metadata and does not imply an active route. API-key callers require apps.read.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/AppID' }]
+      responses: { '200': { description: App metadata and normalized WorkloadSpec, content: { application/json: { schema: { $ref: '../components/projects-apps.yaml#/components/schemas/AppResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+    patch:
+      operationId: updateApp
+      description: Update mutable App desired state. Only enabled and semantically changed WorkloadSpec fields increment desired_generation. Rename preserves platform hostname. Runtime-owned observed state cannot be changed by clients. API-key callers require apps.write.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/AppID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-apps.yaml#/components/schemas/UpdateAppRequest' } } } }
+      responses: { '200': { description: Updated App desired state, content: { application/json: { schema: { $ref: '../components/projects-apps.yaml#/components/schemas/AppResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+    delete:
+      operationId: deleteApp
+      description: Delete App metadata and its reserved platform hostname claim, then queue durable cleanup for source and OCI artifacts. Deletion returns a conflict while an App source upload or OCI artifact publication is reserved. No workload runtime exists in this API version. API-key callers require apps.write.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/AppID' }]
+      responses: { '204': { description: App metadata deleted and private artifacts queued for cleanup }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/projects/{projectID}/apps/{appID}/diagnostics:
+    get:
+      operationId: getAppDiagnostics
+      description: >-
+        Return bounded diagnostics from PostgreSQL only. Desired is the App release selected now; Applied is the release last confirmed by the trusted worker. Runtime/container identity, worker lease data, artifact paths, environment values, and secrets are never returned. API-key callers require apps.read.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/AppID' }]
+      responses: { '200': { description: Safe persisted App convergence state, content: { application/json: { schema: { $ref: '../components/projects-apps.yaml#/components/schemas/AppDiagnostics' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/projects/{projectID}/apps/{appID}/logs:
+    get:
+      operationId: listAppRuntimeLogs
+      description: >-
+        List bounded, redacted stdout/stderr from verified containers for this App. This runtime stream is separate from deployment build logs. A cursor is opaque and must be passed back unchanged to resume from its retained position. Without a cursor, history defaults to the most recent hour. With a cursor and no from value, the query starts at the cursor position; an explicit from after that position is rejected. Cursor requests remain bounded by the configured maximum telemetry query range. Cursors outside that window fail with a validation error instead of silently skipping retained logs. PostgreSQL supplies the trusted container mapping; callers cannot select container IDs. API-key callers require apps.read. If telemetry is unavailable, the endpoint returns 503 while App runtime continues.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters:
+        - { $ref: '../components/common.yaml#/components/parameters/ProjectID' }
+        - { $ref: '../components/common.yaml#/components/parameters/AppID' }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 250, default: 100 } }
+        - { name: cursor, in: query, required: false, schema: { type: string, maxLength: 2048 }, description: Opaque cursor returned by a previous response; pass it back unchanged to resume from its retained position. }
+        - { name: from, in: query, required: false, schema: { type: string, format: date-time }, description: "Start of the bounded history window. Defaults to the recent one-hour window without a cursor and to the cursor position with a cursor. When a cursor is supplied, a value after its position is rejected." }
+        - { name: to, in: query, required: false, schema: { type: string, format: date-time }, description: End of the bounded history window. Defaults to now and must be after the cursor position when resuming. }
+        - { name: level, in: query, required: false, schema: { type: string, maxLength: 64 } }
+        - { name: query, in: query, required: false, schema: { type: string, maxLength: 256 }, description: Case-insensitive message search. }
+      responses: { '200': { description: Redacted App runtime logs with an opaque incremental cursor, content: { application/json: { schema: { $ref: '../components/projects-apps.yaml#/components/schemas/AppRuntimeLogsResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' } }
+  /v1/projects/{projectID}/apps/{appID}/variables:
+    get:
+      operationId: listAppEnvironmentVariables
+      description: List bounded App environment variable metadata. Values are write-only and never returned. API-key callers require apps.read.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/AppID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses: { '200': { description: Safe App environment metadata, content: { application/json: { schema: { $ref: '../components/projects-apps.yaml#/components/schemas/AppEnvironmentVariablesPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+    post:
+      operationId: createAppEnvironmentVariable
+      description: Create an App environment variable or secret. Plaintext value is write-only, encrypted before PostgreSQL persistence, and never returned. Setting a value advances desired_generation; metadata-only creation does not restart the App. API-key callers require apps.write.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/AppID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-apps.yaml#/components/schemas/CreateAppEnvironmentVariableRequest' } } } }
+      responses: { '201': { description: Safe App environment variable metadata, content: { application/json: { schema: { $ref: '../components/projects-apps.yaml#/components/schemas/AppEnvironmentVariableResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' } }
+  /v1/projects/{projectID}/apps/{appID}/variables/{variableID}:
+    patch:
+      operationId: updateAppEnvironmentVariable
+      description: Replace write-only App environment value or edit safe metadata. A runtime-affecting change advances desired_generation and causes container replacement; metadata-only edits do not. API-key callers require apps.write.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/AppID' }, { name: variableID, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-apps.yaml#/components/schemas/UpdateAppEnvironmentVariableRequest' } } } }
+      responses: { '200': { description: Updated safe App environment metadata, content: { application/json: { schema: { $ref: '../components/projects-apps.yaml#/components/schemas/AppEnvironmentVariableResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' } }
+    delete:
+      operationId: deleteAppEnvironmentVariable
+      description: Delete App environment metadata and its encrypted value. Removing a configured value advances desired_generation and replaces the runtime. API-key callers require apps.write.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/AppID' }, { name: variableID, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '204': { description: App environment variable deleted }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+  /v1/projects/{projectID}/apps/{appID}/deployments:
+    get:
+      operationId: listAppDeployments
+      description: List immutable source builds and OCI artifacts for an App. API-key callers require apps.read.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/AppID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { name: cursor, in: query, required: false, schema: { type: string, pattern: '^[1-9][0-9]*$', description: Return versions lower than this value. } }]
+      responses: { '200': { description: App deployments page, content: { application/json: { schema: { $ref: '../components/projects-apps.yaml#/components/schemas/AppDeploymentsPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+    post:
+      operationId: createAppDeployment
+      description: Upload one bounded source archive and queue a BuildKit build. A successful build persists a verified OCI image artifact; this operation never starts an App container. select=true requests desired-image selection only after verified build success. API-key callers require apps.write.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/AppID' }]
+      requestBody: { required: true, content: { multipart/form-data: { schema: { $ref: '../components/projects-apps.yaml#/components/schemas/AppDeploymentUploadRequest' } } } }
+      responses: { '202': { description: Source archive durably stored and build queued, content: { application/json: { schema: { $ref: '../components/projects-apps.yaml#/components/schemas/AppDeploymentResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }, '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' } }
+  /v1/projects/{projectID}/apps/{appID}/deployments/{deploymentID}:
+    get:
+      operationId: getAppDeployment
+      description: Return immutable source, build definition, WorkloadSpec snapshot, and verified output metadata. Private storage locators and worker lease data are excluded. API-key callers require apps.read.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/AppID' }, { $ref: '../components/common.yaml#/components/parameters/DeploymentID' }]
+      responses: { '200': { description: App deployment metadata, content: { application/json: { schema: { $ref: '../components/projects-apps.yaml#/components/schemas/AppDeploymentResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+    delete:
+      operationId: deleteAppDeployment
+      description: Delete an unselected deployment that has no active build and queue durable cleanup for its source and OCI artifacts. API-key callers require apps.write.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/AppID' }, { $ref: '../components/common.yaml#/components/parameters/DeploymentID' }]
+      responses: { '204': { description: Deployment metadata deleted and private artifacts queued for cleanup }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' } }
+  /v1/projects/{projectID}/apps/{appID}/deployments/{deploymentID}/select:
+    post:
+      operationId: selectAppDeployment
+      description: Select a ready verified immutable image as desired state. This advances desired_generation only when selection changes; the trusted runtime reconciler then creates or replaces the persistent App container. The response does not wait for that reconciliation; observed_generation and runtime_status report its progress. API-key callers require apps.write.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/AppID' }, { $ref: '../components/common.yaml#/components/parameters/DeploymentID' }]
+      responses: { '200': { description: Desired image selection, content: { application/json: { schema: { $ref: '../components/projects-apps.yaml#/components/schemas/AppDeploymentResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' } }
+  /v1/projects/{projectID}/apps/{appID}/deployments/{deploymentID}/rollback:
+    post:
+      operationId: rollbackAppDeployment
+      description: >-
+        Roll back to an older ready deployment with verified immutable OCI metadata. This atomically selects its image and restores its captured WorkloadSpec as current desired runtime configuration, then advances desired_generation once for asynchronous worker convergence. Current App environment variables and secrets, name, enabled state, artifact quota, and hostname are kept as-is. Routing remains unavailable until the rolled-back generation passes fresh health checks. API-key callers require apps.write.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/AppID' }, { $ref: '../components/common.yaml#/components/parameters/DeploymentID' }]
+      responses: { '200': { description: Desired release and App configuration accepted for rollback convergence, content: { application/json: { schema: { $ref: '../components/projects-apps.yaml#/components/schemas/AppRollbackResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/projects/{projectID}/apps/{appID}/deployments/{deploymentID}/logs:
+    get:
+      operationId: listAppBuildLogs
+      description: List bounded, normalized build-worker output only. The after cursor is the last returned sequence. App stdout/stderr runtime logs are available from the separate App runtime logs endpoint. API-key callers require apps.read.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/AppID' }, { $ref: '../components/common.yaml#/components/parameters/DeploymentID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { name: after, in: query, required: false, schema: { type: integer, format: int64, minimum: 0 } }]
+      responses: { '200': { description: App build logs, content: { application/json: { schema: { $ref: '../components/projects-apps.yaml#/components/schemas/AppBuildLogsPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }

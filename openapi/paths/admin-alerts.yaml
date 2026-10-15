@@ -1,0 +1,89 @@
+paths:
+  /v1/admin/alerts:
+    get:
+      operationId: listAdminAlertRules
+      description: List bounded instance alert rules.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }]
+      responses: { '200': { description: Alert rules, content: { application/json: { schema: { $ref: '../components/admin-alerts.yaml#/components/schemas/AdminAlertRulesResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+    post:
+      operationId: createAdminAlertRule
+      description: Create a constrained alert rule; arbitrary SQL is not accepted.
+      security: [{ sessionCookie: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/admin-alerts.yaml#/components/schemas/CreateAdminAlertRuleRequest' } } } }
+      responses: { '201': { description: Alert rule created, content: { application/json: { schema: { $ref: '../components/admin-alerts.yaml#/components/schemas/AdminAlertRuleResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/admin/alert-events:
+    get:
+      operationId: listAdminAlertEvents
+      description: List bounded recent alert history, including events whose live rule was deleted.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
+        - { name: cursor, in: query, description: Opaque cursor returned by the previous page. It is valid only with the same filters., schema: { type: string } }
+        - { name: from, in: query, description: Inclusive RFC3339 lower bound for occurred_at., schema: { type: string, format: date-time } }
+        - { name: to, in: query, description: Inclusive RFC3339 upper bound for occurred_at., schema: { type: string, format: date-time } }
+      responses: { '200': { description: Recent alert history, content: { application/json: { schema: { $ref: '../components/admin-alerts.yaml#/components/schemas/AdminAlertEventsResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/admin/alerts/{alertRuleID}/events:
+    get:
+      operationId: listAdminAlertRuleEvents
+      description: List bounded alert history by immutable rule snapshot ID. The live rule need not exist.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { $ref: '../components/common.yaml#/components/parameters/AlertRuleID' }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
+        - { name: cursor, in: query, description: Opaque cursor returned by the previous page. It is valid only with the same filters., schema: { type: string } }
+        - { name: from, in: query, description: Inclusive RFC3339 lower bound for occurred_at., schema: { type: string, format: date-time } }
+        - { name: to, in: query, description: Inclusive RFC3339 upper bound for occurred_at., schema: { type: string, format: date-time } }
+      responses: { '200': { description: Alert history, content: { application/json: { schema: { $ref: '../components/admin-alerts.yaml#/components/schemas/AdminAlertEventsResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/admin/alerts/{alertRuleID}:
+    get:
+      operationId: getAdminAlertRule
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/AlertRuleID' }]
+      responses: { '200': { description: Alert rule and recent events, content: { application/json: { schema: { $ref: '../components/admin-alerts.yaml#/components/schemas/AdminAlertRuleResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+    put:
+      operationId: updateAdminAlertRule
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/AlertRuleID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/admin-alerts.yaml#/components/schemas/CreateAdminAlertRuleRequest' } } } }
+      responses: { '200': { description: Alert rule updated, content: { application/json: { schema: { $ref: '../components/admin-alerts.yaml#/components/schemas/AdminAlertRuleResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+    delete:
+      operationId: deleteAdminAlertRule
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/AlertRuleID' }]
+      responses: { '204': { description: Alert rule deleted }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+  /v1/admin/notifications:
+    get:
+      operationId: listAdminNotificationChannels
+      security: [{ sessionCookie: [] }]
+      parameters: [{ name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }]
+      responses: { '200': { description: Notification channels, content: { application/json: { schema: { $ref: '../components/admin-alerts.yaml#/components/schemas/AdminNotificationChannelsResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' } }
+    post:
+      operationId: createAdminNotificationChannel
+      security: [{ sessionCookie: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/admin-alerts.yaml#/components/schemas/CreateAdminNotificationChannelRequest' } } } }
+      responses: { '201': { description: Notification channel created, content: { application/json: { schema: { $ref: '../components/admin-alerts.yaml#/components/schemas/AdminNotificationChannel' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' } }
+  /v1/admin/notifications/{channelID}:
+    get:
+      operationId: getAdminNotificationChannel
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/NotificationChannelID' }]
+      responses: { '200': { description: Notification channel, content: { application/json: { schema: { $ref: '../components/admin-alerts.yaml#/components/schemas/AdminNotificationChannel' } } } }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+    put:
+      operationId: updateAdminNotificationChannel
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/NotificationChannelID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/admin-alerts.yaml#/components/schemas/CreateAdminNotificationChannelRequest' } } } }
+      responses: { '200': { description: Notification channel updated, content: { application/json: { schema: { $ref: '../components/admin-alerts.yaml#/components/schemas/AdminNotificationChannel' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+    delete:
+      operationId: deleteAdminNotificationChannel
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/NotificationChannelID' }]
+      responses: { '204': { description: Notification channel deleted }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+  /v1/admin/notifications/{channelID}/test:
+    post:
+      operationId: testAdminNotificationChannel
+      description: Queue a redacted test notification for an enabled, configured channel. The trusted worker performs delivery.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/NotificationChannelID' }]
+      responses: { '202': { description: Test delivery queued, content: { application/json: { schema: { $ref: '../components/admin-alerts.yaml#/components/schemas/AdminNotificationTestResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }

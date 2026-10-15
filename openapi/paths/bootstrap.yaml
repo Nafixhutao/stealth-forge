@@ -1,0 +1,55 @@
+paths:
+  /v1/bootstrap/status:
+    get:
+      operationId: getBootstrapStatus
+      description: Return whether first-run Instance Owner setup is still required. No setup secret is returned.
+      security: [{}]
+      responses:
+        '200': { description: Bootstrap state, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/BootstrapStatusResponse' } } } }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/bootstrap/sessions:
+    post:
+      operationId: createBootstrapSession
+      description: Mint a single-use, 15-minute setup code for the installed CLI. The request requires a derived proof from the private installation key; the plaintext code is returned once and is never persisted.
+      security: [{ bootstrapCLIProof: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/BootstrapCLIProof' }]
+      responses:
+        '201': { description: One-time bootstrap session, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/BootstrapSessionResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '410': { $ref: '../components/common.yaml#/components/responses/BootstrapComplete' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/bootstrap/verify:
+    post:
+      operationId: verifyBootstrapCode
+      description: Verify the one-time code from the local Stealth CLI and issue an opaque authorization-session identifier. This does not create an owner.
+      security: [{}]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/VerifyBootstrapCodeRequest' } } } }
+      responses:
+        '200': { description: Setup code accepted for the next bootstrap step, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/BootstrapVerificationResponse' } } } }
+        '401': { description: Setup code is invalid, expired, or already used, content: { application/json: { schema: { $ref: '../components/common.yaml#/components/schemas/ErrorEnvelope' } } } }
+        '410': { $ref: '../components/common.yaml#/components/responses/BootstrapComplete' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+  /v1/bootstrap/adoption/accounts:
+    get:
+      operationId: listBootstrapAdoptionAccounts
+      description: List existing accounts eligible for explicit local operator adoption. This endpoint is authenticated only by the dedicated local CLI proof and is never used by the public setup page.
+      security: [{ bootstrapCLIProof: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/BootstrapCLIProof' }]
+      responses:
+        '200': { description: Existing accounts, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/BootstrapAdoptionAccountsResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+  /v1/bootstrap/adoption/owner:
+    post:
+      operationId: adoptBootstrapOwner
+      description: Assign the instance_owner role to a specifically selected existing account. This is a local operator migration path for upgraded installations, not public first-run setup.
+      security: [{ bootstrapCLIProof: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/BootstrapCLIProof' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/AdoptInstanceOwnerRequest' } } } }
+      responses:
+        '200': { description: Existing account adopted as Instance Owner, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/AdoptInstanceOwnerResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }

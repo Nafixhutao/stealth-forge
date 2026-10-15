@@ -1,0 +1,31 @@
+paths:
+  /v1/admin/accounts:
+    get:
+      operationId: listAdminAccounts
+      description: List every Console account for the Admin Console directory with its identity flags, instance role, subscription plan, linked sign-in providers, and most recent session. Passwords and provider secrets are never returned.
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { description: Console accounts, content: { application/json: { schema: { $ref: '../components/admin-accounts.yaml#/components/schemas/AdminAccountsResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/admin/accounts/{accountID}/plan:
+    put:
+      operationId: updateAdminAccountPlan
+      description: Assign one Console account's subscription plan (free, go, plus, pro). The change is recorded in the instance audit trail.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - name: accountID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '../components/admin-accounts.yaml#/components/schemas/UpdateAdminAccountPlanRequest' } } }
+      responses:
+        '200': { description: Updated account, content: { application/json: { schema: { $ref: '../components/admin-accounts.yaml#/components/schemas/AdminAccountResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '422': { description: Unsupported plan, content: { application/json: { schema: { $ref: '../components/common.yaml#/components/schemas/ErrorEnvelope' } } } }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
