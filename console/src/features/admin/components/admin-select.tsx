@@ -11,6 +11,13 @@ export interface AdminSelectOption<T extends string> {
   label: string;
 }
 
+export const ACCOUNT_PLANS = ["free", "go", "plus", "pro"] as const;
+export type AccountPlan = (typeof ACCOUNT_PLANS)[number];
+
+export function planLabel(plan: string): string {
+  return plan.charAt(0).toUpperCase() + plan.slice(1);
+}
+
 /**
  * Compact dropdown used across admin toolbars (time range, level, status...).
  * Same interaction contract as the customer toolbar dropdown: pointer-outside
@@ -25,6 +32,7 @@ export function AdminSelect<T extends string>({
   search = false,
   align = "left",
   className,
+  disabled = false,
 }: {
   value: T;
   options: ReadonlyArray<AdminSelectOption<T>>;
@@ -36,6 +44,7 @@ export function AdminSelect<T extends string>({
   search?: boolean;
   align?: "left" | "right";
   className?: string;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -78,9 +87,10 @@ export function AdminSelect<T extends string>({
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         aria-label={label}
+        disabled={disabled}
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--projects-border)] bg-[#141416] px-3 text-[12.5px] font-medium leading-none text-[var(--projects-text)] transition-colors hover:border-[var(--projects-border-hover)]",
+          "inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--projects-border)] bg-[#141416] px-3 text-[12.5px] font-medium leading-none text-[var(--projects-text)] transition-colors hover:border-[var(--projects-border-hover)] disabled:opacity-60",
           open && "border-[var(--projects-border-hover)]",
         )}
       >

@@ -21,6 +21,7 @@ func (s *Server) registerAdminRoutes(r chi.Router) {
 	r.With(s.requireInstanceAdmin).Get("/admin/redis-metrics", s.adminRedisMetrics)
 	r.With(s.requireInstanceAdmin).Get("/admin/api-metrics", s.adminAPIMetrics)
 	r.With(s.requireInstanceAdmin).Get("/admin/accounts", s.listAdminAccounts)
+	r.With(s.requireInstanceAdmin).Put("/admin/accounts/{accountID}/plan", s.updateAdminAccountPlan)
 	r.With(s.requireInstanceAdmin).Get("/admin/telemetry/sources", s.adminTelemetrySources)
 	r.With(s.requireInstanceAdmin).Get("/admin/monitors", s.listAdminMonitors)
 	r.With(s.requireInstanceAdmin).Post("/admin/monitors", s.createAdminMonitor)

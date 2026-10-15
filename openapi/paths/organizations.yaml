@@ -1,0 +1,135 @@
+paths:
+  /v1/organizations:
+    get:
+      operationId: listOrganizations
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses: { '200': { description: Organizations visible to the current account, content: { application/json: { schema: { $ref: '../components/organizations.yaml#/components/schemas/OrganizationsPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' } }
+    post:
+      operationId: createOrganization
+      security: [{ sessionCookie: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/CreateOrganizationRequest' } } } }
+      responses: { '201': { description: Organization created; caller is owner, content: { application/json: { schema: { $ref: '../components/organizations.yaml#/components/schemas/OrganizationResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' } }
+  /v1/organizations/{organizationID}:
+    patch:
+      operationId: updateOrganization
+      description: Update an organization's display name and unique slug. Owners and admins may edit identity metadata; the organization ID is immutable.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/OrganizationID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/UpdateOrganizationRequest' } } } }
+      responses: { '200': { description: Updated organization, content: { application/json: { schema: { $ref: '../components/organizations.yaml#/components/schemas/OrganizationResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/organizations/{organizationID}/plan:
+    get:
+      operationId: getOrganizationPlan
+      description: Return the effective organization plan, current period, server-owned resource limits, and bounded resource counts. Payment-provider identifiers are never returned.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/OrganizationID' }]
+      responses: { '200': { description: Organization plan and usage, content: { application/json: { schema: { $ref: '../components/organizations.yaml#/components/schemas/OrganizationPlanResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/organizations/{organizationID}/memberships:
+    get:
+      operationId: listOrganizationMemberships
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/OrganizationID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses: { '200': { description: Organization memberships and caller capabilities, content: { application/json: { schema: { $ref: '../components/organizations.yaml#/components/schemas/MembershipsPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' } }
+    post:
+      operationId: createOrganizationMembership
+      description: Add an existing Console account to an organization. The account must already exist; this endpoint does not create identities or send invitations.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/OrganizationID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/CreateOrganizationMembershipRequest' } } } }
+      responses: { '201': { description: Organization membership created, content: { application/json: { schema: { $ref: '../components/organizations.yaml#/components/schemas/MembershipResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/organizations/{organizationID}/memberships/{accountID}:
+    patch:
+      operationId: updateOrganizationMembership
+      description: Change a non-owner organization membership role. Owners may manage all non-owner roles; admins may manage regular members but cannot grant or revoke admin.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/OrganizationID' }, { name: accountID, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/UpdateOrganizationMembershipRequest' } } } }
+      responses: { '200': { description: Updated organization membership, content: { application/json: { schema: { $ref: '../components/organizations.yaml#/components/schemas/MembershipResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+    delete:
+      operationId: deleteOrganizationMembership
+      description: Remove a non-owner organization membership. The owner membership is protected until an ownership-transfer workflow exists.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/OrganizationID' }, { name: accountID, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '204': { description: Membership removed }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/organizations/{organizationID}/invitations:
+    get:
+      operationId: listOrganizationInvitations
+      description: List pending organization invitations. Owners and admins may read invitations; expired invitations remain visible until revoked or replaced.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/OrganizationID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses: { '200': { description: Organization invitations and caller capabilities, content: { application/json: { schema: { $ref: '../components/organizations.yaml#/components/schemas/OrganizationInvitationsPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+    post:
+      operationId: createOrganizationInvitation
+      description: Create an email-bound, one-time invitation. The plaintext token is delivered only through the configured mailer and is never returned by the API.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/OrganizationID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/account-auth.yaml#/components/schemas/CreateOrganizationInvitationRequest' } } } }
+      responses: { '201': { description: Invitation persisted; delivery is reported as sent or failed, content: { application/json: { schema: { $ref: '../components/organizations.yaml#/components/schemas/OrganizationInvitationResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/organizations/{organizationID}/invitations/{invitationID}:
+    delete:
+      operationId: revokeOrganizationInvitation
+      description: Revoke an unaccepted organization invitation. Repeating a revoke is idempotent; accepted invitations are immutable.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/OrganizationID' }, { name: invitationID, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '204': { description: Invitation revoked, or already revoked }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/organizations/{organizationID}/incidents:
+    get:
+      operationId: listOrganizationIncidents
+      description: List durable operational incidents visible to organization members. Owners and admins may create or update incidents.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/OrganizationID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses: { '200': { description: Organization incidents and caller capabilities, content: { application/json: { schema: { $ref: '../components/organizations.yaml#/components/schemas/OrganizationIncidentsPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+    post:
+      operationId: createOrganizationIncident
+      description: Create a durable investigating incident and its initial timeline update. Only organization owners and admins may create incidents.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/OrganizationID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/CreateOrganizationIncidentRequest' } } } }
+      responses: { '201': { description: Incident created, content: { application/json: { schema: { $ref: '../components/organizations.yaml#/components/schemas/OrganizationIncidentResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/organizations/{organizationID}/incidents/{incidentID}:
+    get:
+      operationId: getOrganizationIncident
+      description: Get one durable organization incident and its timeline.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/OrganizationID' }, { $ref: '../components/common.yaml#/components/parameters/IncidentID' }]
+      responses: { '200': { description: Organization incident and caller capabilities, content: { application/json: { schema: { $ref: '../components/organizations.yaml#/components/schemas/OrganizationIncidentDetailResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+    patch:
+      operationId: updateOrganizationIncident
+      description: Update incident metadata or status. Owners and admins may update incidents; every update is appended to the timeline and audit log.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/OrganizationID' }, { $ref: '../components/common.yaml#/components/parameters/IncidentID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/UpdateOrganizationIncidentRequest' } } } }
+      responses: { '200': { description: Updated organization incident, content: { application/json: { schema: { $ref: '../components/organizations.yaml#/components/schemas/OrganizationIncidentResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/organizations/{organizationID}/traces:
+    get:
+      operationId: listOrganizationTraces
+      description: List the bounded durable root-request trace index visible to organization members. Nested spans and full OpenTelemetry attributes remain in the private telemetry backend.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/OrganizationID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses: { '200': { description: Durable organization request traces, content: { application/json: { schema: { $ref: '../components/organizations.yaml#/components/schemas/OrganizationTracesPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/organization-invitations/accept:
+    post:
+      operationId: acceptOrganizationInvitation
+      description: Consume an email-bound invitation for the signed-in Console account whose email matches the invitation.
+      security: [{ sessionCookie: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/account-auth.yaml#/components/schemas/AcceptOrganizationInvitationRequest' } } } }
+      responses: { '200': { description: Invitation accepted and membership created, content: { application/json: { schema: { $ref: '../components/organizations.yaml#/components/schemas/MembershipResponse' } } } }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { description: Signed-in account email does not match the invitation, content: { application/json: { schema: { $ref: '../components/common.yaml#/components/schemas/ErrorEnvelope' } } } }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { description: Token is malformed, expired, revoked, or already used, content: { application/json: { schema: { $ref: '../components/common.yaml#/components/schemas/ErrorEnvelope' } } } }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/organizations/{organizationID}/audit-events:
+    get:
+      operationId: listOrganizationAuditEvents
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/OrganizationID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses: { '200': { description: Durable organization audit events, content: { application/json: { schema: { $ref: '../components/organizations.yaml#/components/schemas/AuditEventsPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' } }
+  /v1/organizations/{organizationID}/projects:
+    get:
+      operationId: listProjects
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/OrganizationID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses: { '200': { description: Projects scoped to an organization, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/ProjectsPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' } }
+    post:
+      operationId: createProject
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/OrganizationID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/CreateProjectRequest' } } } }
+      responses: { '201': { description: Project created, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/ProjectResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' } }

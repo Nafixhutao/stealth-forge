@@ -35,6 +35,7 @@ type AdminAccount struct {
 	Email            string    `json:"email"`
 	EmailVerified    bool      `json:"email_verified"`
 	InstanceRole     string    `json:"instance_role,omitempty"`
+	Plan             string    `json:"plan"`
 	CreatedAt        time.Time `json:"created_at"`
 	Providers        []string  `json:"providers"`
 	AvatarURL        string    `json:"avatar_url,omitempty"`

@@ -1,0 +1,258 @@
+paths:
+  /v1/setup/status:
+    get:
+      operationId: getSetupStatus
+      description: Return the public, secret-free state of the short-lived browser installer. Provider credentials and infrastructure connection strings are never serialized.
+      security: [{}]
+      responses:
+        '200': { description: Setup state, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupStatusResponse' } } } }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/setup/quick-tunnel:
+    post:
+      operationId: registerSetupQuickTunnel
+      description: Register the exact temporary TryCloudflare hostname started by the local CLI. The endpoint accepts only the derived local CLI proof and never accepts a browser credential.
+      security: [{ bootstrapCLIProof: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/BootstrapCLIProof' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupQuickTunnelRequest' } } } }
+      responses:
+        '200': { description: Registered temporary tunnel, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupState' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+  /v1/setup/recovery:
+    post:
+      operationId: createSetupRecoverySession
+      description: Mint a fresh short-lived setup code after a setup restart. This endpoint requires the local CLI proof and is available only while an incomplete setup needs recovery.
+      security: [{ bootstrapCLIProof: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/BootstrapCLIProof' }]
+      responses:
+        '201': { description: Recovery setup session, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/BootstrapSessionResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/setup/github/authorize/callback:
+    get:
+      operationId: completeSetupGitHubAuthorization
+      description: Consume the one-time GitHub web authorization callback. State and PKCE verification are server-side; the short-lived user token is used only for the server-side identity lookup.
+      security: [{}]
+      parameters:
+        - { name: code, in: query, required: false, schema: { type: string, minLength: 1, maxLength: 4096, writeOnly: true } }
+        - { name: state, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 512, writeOnly: true } }
+        - { name: error, in: query, required: false, schema: { type: string, maxLength: 120 } }
+      responses:
+        '302': { description: Redirect back to the setup Console with a non-sensitive result marker }
+  /v1/setup/cloudflare/oauth/callback:
+    get:
+      operationId: completeSetupCloudflareOAuth
+      description: Experimental and inactive compatibility callback. Cloudflare OAuth is not a browser setup path in this release; the callback never exchanges a code or stores credentials.
+      security: [{}]
+      parameters:
+        - { name: code, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 4096, writeOnly: true } }
+        - { name: state, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 512, writeOnly: true } }
+      responses:
+        '302': { description: Redirect back to the setup Console with a non-sensitive result marker }
+  /v1/setup/preflight:
+    get:
+      operationId: getSetupPreflight
+      description: Return host-published CPU, memory, free disk, Docker, and Docker Compose checks plus setup-service dependency and Cloudflare connectivity checks. Docker and resource probes are never run inside the temporary setup container.
+      security: [{ setupCookie: [] }]
+      responses:
+        '200': { description: Prerequisite checks, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupPreflightResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+  /v1/setup/config:
+    put:
+      operationId: saveSetupConfig
+      description: Save the reviewed instance, networking, database, Redis, and storage choices. Secret values are write-only and are encrypted in the setup state.
+      security: [{ setupCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/SetupCSRF' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupConfigRequest' } } } }
+      responses:
+        '200': { description: Saved public setup state, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupState' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+  /v1/setup/github/authorize/start:
+    post:
+      operationId: startSetupGitHubAuthorization
+      description: Create a short-lived GitHub web authorization URL for the connected App. The setup service stores state and the PKCE verifier encrypted server-side.
+      security: [{ setupCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/SetupCSRF' }]
+      responses:
+        '200': { description: GitHub browser authorization URL, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupGitHubAuthorizationResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+  /v1/setup/github/manual:
+    post:
+      operationId: saveSetupGitHubManual
+      description: Save manually created GitHub App credentials. All credential fields are write-only and are encrypted in the setup state.
+      security: [{ setupCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/SetupCSRF' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupGitHubManualRequest' } } } }
+      responses:
+        '200': { description: Saved public setup state, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupState' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+  /v1/setup/cloudflare/oauth/start:
+    post:
+      operationId: startSetupCloudflareOAuth
+      deprecated: true
+      description: Experimental and inactive. This endpoint never creates an OAuth redirect; use a scoped Cloudflare API token through the token endpoint.
+      security: [{ setupCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/SetupCSRF' }]
+      responses:
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '410': { description: Cloudflare OAuth is experimental and inactive, content: { application/json: { schema: { $ref: '../components/common.yaml#/components/schemas/ErrorEnvelope' } } } }
+  /v1/setup/cloudflare/accounts:
+    get:
+      operationId: listSetupCloudflareAccounts
+      security: [{ setupCookie: [] }]
+      responses:
+        '200': { description: Cloudflare accounts, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupCloudflareAccountsResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '502': { $ref: '../components/common.yaml#/components/responses/BadGateway' }
+  /v1/setup/cloudflare/zones:
+    get:
+      operationId: listSetupCloudflareZones
+      security: [{ setupCookie: [] }]
+      parameters: [{ name: account_id, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 128 } }]
+      responses:
+        '200': { description: Cloudflare zones, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupCloudflareZonesResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '502': { $ref: '../components/common.yaml#/components/responses/BadGateway' }
+  /v1/setup/cloudflare/token:
+    post:
+      operationId: saveSetupCloudflareToken
+      description: "Validate and save the recommended scoped Cloudflare API token. The token is write-only and encrypted in setup state. It requires Account: Cloudflare Tunnel Edit and Account Settings Read, plus Zone: Zone Read and DNS Edit for Console and workload zones when separate. Zone: SSL and Certificates Read is required on the workload zone for workload edge TLS readiness inspection."
+      security: [{ setupCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/SetupCSRF' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupCloudflareTokenRequest' } } } }
+      responses:
+        '200': { description: Saved public setup state, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupState' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '502': { $ref: '../components/common.yaml#/components/responses/BadGateway' }
+  /v1/setup/cloudflare/tunnel:
+    post:
+      operationId: createSetupCloudflareTunnel
+      description: Create or resume a named Cloudflare Tunnel, configure ingress to the internal proxy, and create the proxied DNS CNAME.
+      security: [{ setupCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/SetupCSRF' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupCloudflareTunnelRequest' } } } }
+      responses:
+        '200': { description: Saved public setup state, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupState' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '502': { $ref: '../components/common.yaml#/components/responses/BadGateway' }
+  /v1/setup/cloudflare/status:
+    get:
+      operationId: getSetupCloudflareStatus
+      security: [{ setupCookie: [] }]
+      responses:
+        '200': { description: Named tunnel status, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupCloudflareStatusResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '502': { $ref: '../components/common.yaml#/components/responses/BadGateway' }
+  /v1/setup/infrastructure/database/test:
+    post:
+      operationId: testSetupDatabase
+      security: [{ setupCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/SetupCSRF' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupDatabaseTestRequest' } } } }
+      responses:
+        '200': { description: Database is reachable, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupTestResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '502': { $ref: '../components/common.yaml#/components/responses/BadGateway' }
+  /v1/setup/infrastructure/redis/test:
+    post:
+      operationId: testSetupRedis
+      security: [{ setupCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/SetupCSRF' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupRedisTestRequest' } } } }
+      responses:
+        '200': { description: Redis is reachable, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupTestResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '502': { $ref: '../components/common.yaml#/components/responses/BadGateway' }
+  /v1/setup/infrastructure/storage/test:
+    post:
+      operationId: testSetupStorage
+      security: [{ setupCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/SetupCSRF' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupStorageTestRequest' } } } }
+      responses:
+        '200': { description: Storage is reachable, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupTestResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '502': { $ref: '../components/common.yaml#/components/responses/BadGateway' }
+  /v1/setup/handoff-token:
+    get:
+      operationId: issueSetupHandoffToken
+      security: [{ setupCookie: [] }]
+      responses:
+        '200': { description: Rotated single-use production handoff token, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupHandoffTokenResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+  /v1/setup/handoff/status:
+    get:
+      operationId: getSetupHandoffStatus
+      description: Return whether the one-time production handoff is still pending. This host-CLI coordination endpoint accepts only the derived private CLI proof and never returns the handoff token or production session.
+      security: [{ bootstrapCLIProof: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/BootstrapCLIProof' }]
+      responses:
+        '200': { description: Safe handoff state for the host CLI, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupHandoffStatusResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+  /v1/setup/install:
+    post:
+      operationId: startSetupInstall
+      description: Validate and durably request the idempotent production installation. This setup API endpoint only persists install_requested and returns the current state; the host-side Stealth CLI claims the run, invokes installengine, reports progress, performs health checks, and completes handoff.
+      security: [{ setupCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/SetupCSRF' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false } } } }
+      responses:
+        '202': { description: Production handoff accepted or already running, content: { application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupInstallResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+  /v1/setup/install/events:
+    get:
+      operationId: streamSetupInstallEvents
+      description: Stream a setup snapshot and install progress as Server-Sent Events. Reconnecting clients can use the latest snapshot to recover after a dropped connection.
+      security: [{ setupCookie: [] }]
+      responses:
+        '200': { description: Server-Sent setup progress, content: { text/event-stream: { schema: { type: string } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+  /v1/setup/handoff:
+    post:
+      operationId: completeSetupHandoff
+      description: Consume the short-lived setup handoff in a POST body, set the production HttpOnly session cookie, and redirect to the production dashboard. The handoff is never accepted in a query string.
+      security: [{}]
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupHandoffRequest' } }
+          application/x-www-form-urlencoded: { schema: { $ref: '../components/bootstrap-setup.yaml#/components/schemas/SetupHandoffForm' } }
+      responses:
+        '303': { description: Production session cookie set and browser redirected to the dashboard }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }

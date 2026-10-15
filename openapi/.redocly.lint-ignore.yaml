@@ -1,0 +1,107 @@
+# Pre-existing `struct` findings: unquoted colons inside single-quoted
+# description strings. Waived by exact location so the rule stays on
+# for genuinely new structural problems. Do not extend lightly.
+../openapi/components/admin-monitors.yaml:
+  struct:
+    - '#/components/schemas/AdminCloudflareRoutingStatus/properties/console_origin_status/independent of workload edge TLS.'
+    - '#/components/schemas/AdminCloudflareRoutingStatus/properties/edge_tls_error/without provider response bodies or credentials.'
+    - '#/components/schemas/AdminCloudflareRoutingStatus/properties/status/Tunnel ingress'
+    - '#/components/schemas/AdminCloudflareRoutingStatus/properties/status/and required public edge TLS coverage have converged.'
+    - '#/components/schemas/AdminCloudflareRoutingStatus/properties/workload_hostname/never an individual Site record.'
+    - '#/components/schemas/InstanceDomainSettings/properties/workload_base_domain/or null when unset. A public suffix alone is not accepted.'
+    - '#/components/schemas/UpdateAdminCloudflareConnectionRequest/account_id and tunnel_id must identify the existing tunnel; no new tunnel is created.'
+../openapi/components/organizations.yaml:
+  struct:
+    - '#/components/schemas/MembershipsPage/properties/can_manage/or remove regular members.'
+    - '#/components/schemas/MembershipsPage/properties/can_manage/update'
+    - '#/components/schemas/OrganizationPlanLimits/properties/apps/Pro includes 25'
+    - '#/components/schemas/OrganizationPlanLimits/properties/apps/and Enterprise is unlimited (-1).'
+../openapi/components/projects-apps.yaml:
+  struct:
+    - '#/components/schemas/AppDeploymentUploadRequest/properties/select/select this image as desired state only after a successful verified build.'
+    - '#/components/schemas/AppDeploymentUploadRequest/properties/source/.tar'
+    - '#/components/schemas/AppDeploymentUploadRequest/properties/source/.tar.gz'
+    - '#/components/schemas/AppDeploymentUploadRequest/properties/source/or .tgz source archive.'
+    - '#/components/schemas/AppDiagnostics/and secret key material are omitted.'
+    - '#/components/schemas/AppDiagnostics/artifact paths'
+    - '#/components/schemas/AppDiagnostics/ciphertext'
+    - '#/components/schemas/AppDiagnostics/environment values'
+    - '#/components/schemas/AppDiagnostics/image IDs~1tags'
+    - '#/components/schemas/AppDiagnostics/routing identities'
+    - '#/components/schemas/AppDiagnostics/worker leases'
+    - '#/components/schemas/AppEnvironmentVariable/and encryption keys are never returned.'
+    - '#/components/schemas/AppEnvironmentVariable/ciphertext'
+    - '#/components/schemas/AppEnvironmentVariable/nonce'
+../openapi/components/projects-core.yaml:
+  struct:
+    - '#/components/schemas/AgentResponse/properties/can_manage/delete'
+    - '#/components/schemas/AgentResponse/properties/can_manage/or cancel Agent work.'
+    - '#/components/schemas/AgentResponse/properties/can_manage/run'
+    - '#/components/schemas/AgentResponse/properties/can_manage/update'
+    - '#/components/schemas/CreateProjectAPIKeyRequest/properties/expires_at/at most 365 days from creation.'
+    - '#/components/schemas/CreateWebhookRequest/properties/url/and link-local destinations are blocked during delivery.'
+    - '#/components/schemas/CreateWebhookRequest/properties/url/loopback'
+../openapi/components/projects-databases.yaml:
+  struct:
+    - '#/components/schemas/DatabaseBackupsPage/properties/can_manage/or delete database backups.'
+    - '#/components/schemas/DatabaseBackupsPage/properties/can_manage/restore'
+    - '#/components/schemas/DatabasePermission/and user:<project-user-uuid> are supported.'
+    - '#/components/schemas/DatabasePermission/users'
+    - '#/components/schemas/DatabaseRowsPagination/properties/next_cursor/so it is not a UUID.'
+../openapi/components/projects-functions.yaml:
+  struct:
+    - '#/components/schemas/FunctionDeploymentUploadRequest/properties/source/.tar.gz'
+    - '#/components/schemas/FunctionDeploymentUploadRequest/properties/source/or .tgz source archive.'
+    - '#/components/schemas/FunctionVariable/and ciphertext are never serialized.'
+    - '#/components/schemas/FunctionVariable/nonce'
+../openapi/components/projects-messaging.yaml:
+  struct:
+    - '#/components/schemas/MessagingMessage/and data are encrypted and never serialized.'
+    - '#/components/schemas/MessagingMessage/body'
+../openapi/components/projects-sites.yaml:
+  struct:
+    - '#/components/schemas/GitSiteDeploymentRequest/properties/ref/or commit ref.'
+    - '#/components/schemas/GitSiteDeploymentRequest/properties/ref/tag'
+    - '#/components/schemas/SiteDeployment/properties/checksum_sha256/or of the uploaded archive for a pre-built deployment.'
+    - '#/components/schemas/SiteDeploymentUploadRequest/properties/output_directory/default ''.''; must contain index.html after the build.'
+    - '#/components/schemas/SiteDeploymentUploadRequest/properties/source/.tar'
+    - '#/components/schemas/SiteDeploymentUploadRequest/properties/source/.tar.gz'
+    - '#/components/schemas/SiteDeploymentUploadRequest/properties/source/or .tgz archive. Pre-built archives must contain root index.html; source builds may produce it in output_directory.'
+    - '#/components/schemas/WorkloadSpec/build configuration'
+    - '#/components/schemas/WorkloadSpec/environment'
+    - '#/components/schemas/WorkloadSpec/normalized runtime intent only. It contains no image identity'
+    - '#/components/schemas/WorkloadSpec/or tenant-controlled Docker~1security options.'
+    - '#/components/schemas/WorkloadSpec/properties/command/4096 bytes per argument'
+    - '#/components/schemas/WorkloadSpec/properties/command/and 32768 aggregate bytes. Empty means use the OCI image default command and entrypoint.'
+    - '#/components/schemas/WorkloadSpec/secrets'
+../openapi/components/projects-storage.yaml:
+  struct:
+    - '#/components/schemas/StorageFile/properties/name/and header injection are rejected.'
+    - '#/components/schemas/StorageFile/properties/name/controls'
+    - '#/components/schemas/StorageFile/properties/name/dot segments'
+../openapi/openapi.yaml:
+  struct:
+    - '#/components/securitySchemes/projectApiKey/and messaging read~1write pairs; never send this header through the Console browser bridge.'
+    - '#/components/securitySchemes/projectApiKey/databases'
+    - '#/components/securitySchemes/projectApiKey/functions'
+    - '#/components/securitySchemes/projectApiKey/realtime.read'
+    - '#/components/securitySchemes/projectApiKey/sites'
+    - '#/components/securitySchemes/projectApiKey/storage'
+    - '#/components/securitySchemes/projectApiKey/webhooks'
+../openapi/paths/account-auth.yaml:
+  struct:
+    - '#/paths/~1v1~1account~1registrations/post/responses/201/and HttpOnly session cookie created'
+    - '#/paths/~1v1~1account~1registrations/post/responses/201/personal organization'
+../openapi/paths/bootstrap.yaml:
+  struct:
+    - '#/paths/~1v1~1bootstrap~1verify/post/responses/401/expired'
+    - '#/paths/~1v1~1bootstrap~1verify/post/responses/401/or already used'
+../openapi/paths/organizations.yaml:
+  struct:
+    - '#/paths/~1v1~1organization-invitations~1accept/post/responses/422/expired'
+    - '#/paths/~1v1~1organization-invitations~1accept/post/responses/422/or already used'
+    - '#/paths/~1v1~1organization-invitations~1accept/post/responses/422/revoked'
+    - '#/paths/~1v1~1organizations~1{organizationID}~1invitations~1{invitationID}/delete/responses/204/or already revoked'
+../openapi/paths/projects-core.yaml:
+  struct:
+    - '#/paths/~1v1~1projects~1{projectID}~1api-keys~1{keyID}/delete/responses/204/or already revoked'

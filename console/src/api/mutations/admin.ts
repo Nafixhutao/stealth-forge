@@ -270,3 +270,24 @@ export function useUpdateAdminStatusPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.adminStatusPage }),
   });
 }
+
+export function useUpdateAdminAccountPlan() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      accountID,
+      plan,
+    }: {
+      accountID: string;
+      plan: components["schemas"]["UpdateAdminAccountPlanRequest"]["plan"];
+    }) =>
+      unwrap(
+        await api.PUT("/v1/admin/accounts/{accountID}/plan", {
+          params: { path: { accountID } },
+          body: { plan },
+        }),
+      ),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminAccounts }),
+  });
+}

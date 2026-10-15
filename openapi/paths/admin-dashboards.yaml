@@ -1,0 +1,29 @@
+paths:
+  /v1/admin/dashboards:
+    get:
+      operationId: listAdminDashboards
+      security: [{ sessionCookie: [] }]
+      parameters: [{ name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }]
+      responses: { '200': { description: Saved dashboards, content: { application/json: { schema: { $ref: '../components/admin-dashboards.yaml#/components/schemas/AdminDashboardsResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+    post:
+      operationId: createAdminDashboard
+      security: [{ sessionCookie: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/admin-dashboards.yaml#/components/schemas/CreateAdminDashboardRequest' } } } }
+      responses: { '201': { description: Dashboard created, content: { application/json: { schema: { $ref: '../components/admin-dashboards.yaml#/components/schemas/AdminDashboardResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/admin/dashboards/{dashboardID}:
+    get:
+      operationId: getAdminDashboard
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/DashboardID' }]
+      responses: { '200': { description: Saved dashboard, content: { application/json: { schema: { $ref: '../components/admin-dashboards.yaml#/components/schemas/AdminDashboardResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+    put:
+      operationId: updateAdminDashboard
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/DashboardID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/admin-dashboards.yaml#/components/schemas/CreateAdminDashboardRequest' } } } }
+      responses: { '200': { description: Dashboard updated, content: { application/json: { schema: { $ref: '../components/admin-dashboards.yaml#/components/schemas/AdminDashboardResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+    delete:
+      operationId: deleteAdminDashboard
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/DashboardID' }]
+      responses: { '204': { description: Dashboard deleted }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }

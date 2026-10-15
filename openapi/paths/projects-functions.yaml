@@ -1,0 +1,118 @@
+paths:
+  /v1/projects/{projectID}/functions/{functionID}:
+    get:
+      operationId: getFunction
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/FunctionID' }]
+      responses: { '200': { description: Function metadata, content: { application/json: { schema: { $ref: '../components/projects-functions.yaml#/components/schemas/FunctionResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+    patch:
+      operationId: updateFunction
+      description: Update function configuration. API-key callers require functions.write; changes apply to subsequent deployments.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/FunctionID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-functions.yaml#/components/schemas/UpdateFunctionRequest' } } } }
+      responses: { '200': { description: Updated function, content: { application/json: { schema: { $ref: '../components/projects-functions.yaml#/components/schemas/FunctionResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' } }
+    delete:
+      operationId: deleteFunction
+      description: Delete a function, its metadata, and stored source artifacts. API-key callers require functions.write.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/FunctionID' }]
+      responses: { '204': { description: Function deleted }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+  /v1/projects/{projectID}/functions/{functionID}/variables:
+    get:
+      operationId: listFunctionVariables
+      description: List variable metadata. Values and ciphertext are never returned.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/FunctionID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses: { '200': { description: Variable metadata page, content: { application/json: { schema: { $ref: '../components/projects-functions.yaml#/components/schemas/FunctionVariablesPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+    post:
+      operationId: createFunctionVariable
+      description: Encrypt and store a write-only variable. API-key callers require functions.write.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/FunctionID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-functions.yaml#/components/schemas/CreateFunctionVariableRequest' } } } }
+      responses: { '201': { description: Safe variable metadata, content: { application/json: { schema: { $ref: '../components/projects-functions.yaml#/components/schemas/FunctionVariableResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' } }
+  /v1/projects/{projectID}/functions/{functionID}/variables/{variableID}:
+    get:
+      operationId: getFunctionVariable
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/FunctionID' }, { $ref: '../components/common.yaml#/components/parameters/VariableID' }]
+      responses: { '200': { description: Safe variable metadata, content: { application/json: { schema: { $ref: '../components/projects-functions.yaml#/components/schemas/FunctionVariableResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+    patch:
+      operationId: updateFunctionVariable
+      description: Replace variable metadata or value. Existing values remain unreadable; secret variables cannot be downgraded.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/FunctionID' }, { $ref: '../components/common.yaml#/components/parameters/VariableID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-functions.yaml#/components/schemas/UpdateFunctionVariableRequest' } } } }
+      responses: { '200': { description: Updated safe variable metadata, content: { application/json: { schema: { $ref: '../components/projects-functions.yaml#/components/schemas/FunctionVariableResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' } }
+    delete:
+      operationId: deleteFunctionVariable
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/FunctionID' }, { $ref: '../components/common.yaml#/components/parameters/VariableID' }]
+      responses: { '204': { description: Variable deleted }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+  /v1/projects/{projectID}/functions/{functionID}/deployments:
+    get:
+      operationId: listFunctionDeployments
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/FunctionID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses: { '200': { description: Deployments page, content: { application/json: { schema: { $ref: '../components/projects-functions.yaml#/components/schemas/FunctionDeploymentsPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+    post:
+      operationId: uploadFunctionDeployment
+      description: Stream an opaque source archive into the private function artifact store. The control plane does not extract or execute it; the trusted worker asynchronously builds an immutable artifact and reports build_status.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/FunctionID' }]
+      requestBody: { required: true, content: { multipart/form-data: { schema: { $ref: '../components/projects-functions.yaml#/components/schemas/FunctionDeploymentUploadRequest' } } } }
+      responses: { '201': { description: Deployment source stored and build queued; poll the deployment until build_status is succeeded before expecting execution, content: { application/json: { schema: { $ref: '../components/projects-functions.yaml#/components/schemas/FunctionDeploymentResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' } , '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' } }
+  /v1/projects/{projectID}/functions/{functionID}/deployments/{deploymentID}:
+    get:
+      operationId: getFunctionDeployment
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/FunctionID' }, { $ref: '../components/common.yaml#/components/parameters/DeploymentID' }]
+      responses: { '200': { description: Deployment metadata, content: { application/json: { schema: { $ref: '../components/projects-functions.yaml#/components/schemas/FunctionDeploymentResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+    delete:
+      operationId: deleteFunctionDeployment
+      description: Delete an inactive deployment and its source artifact.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/FunctionID' }, { $ref: '../components/common.yaml#/components/parameters/DeploymentID' }]
+      responses: { '204': { description: Deployment deleted }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' } }
+  /v1/projects/{projectID}/functions/{functionID}/deployments/{deploymentID}/activate:
+    post:
+      operationId: activateFunctionDeployment
+      description: Atomically make one ready deployment active and supersede the previous active deployment.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/FunctionID' }, { $ref: '../components/common.yaml#/components/parameters/DeploymentID' }]
+      responses: { '200': { description: Activated deployment and updated function, content: { application/json: { schema: { $ref: '../components/projects-functions.yaml#/components/schemas/ActivateFunctionDeploymentResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' } }
+  /v1/projects/{projectID}/functions/{functionID}/deployments/{deploymentID}/logs:
+    get:
+      operationId: listFunctionBuildLogs
+      description: Read bounded, secret-redacted build logs emitted by the trusted Function build worker. API-key callers require functions.read.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/FunctionID' }, { $ref: '../components/common.yaml#/components/parameters/DeploymentID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { name: after, in: query, schema: { type: integer, format: int64, minimum: 0, default: 0 } }]
+      responses: { '200': { description: Redacted build logs, content: { application/json: { schema: { $ref: '../components/projects-functions.yaml#/components/schemas/FunctionBuildLogsPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+  /v1/projects/{projectID}/functions/{functionID}/executions:
+    post:
+      operationId: createFunctionExecution
+      description: Enqueue an execution against the active deployment. Console/API-key callers require functions.write; source code runs asynchronously in the isolated worker and waits behind a queued deployment build when necessary.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }, { projectAppCookie: [] }, {}]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/FunctionID' }]
+      requestBody: { required: false, content: { application/json: { schema: { $ref: '../components/projects-functions.yaml#/components/schemas/CreateFunctionExecutionRequest' } } } }
+      responses: { '202': { description: Execution accepted, content: { application/json: { schema: { $ref: '../components/projects-functions.yaml#/components/schemas/FunctionExecutionResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' } , '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' } }
+    get:
+      operationId: listFunctionExecutions
+      description: List execution metadata produced by the trusted runtime worker.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/FunctionID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses: { '200': { description: Executions page, content: { application/json: { schema: { $ref: '../components/projects-functions.yaml#/components/schemas/FunctionExecutionsPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+  /v1/projects/{projectID}/functions/{functionID}/executions/{executionID}:
+    get:
+      operationId: getFunctionExecution
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/FunctionID' }, { $ref: '../components/common.yaml#/components/parameters/ExecutionID' }]
+      responses: { '200': { description: Execution metadata, content: { application/json: { schema: { $ref: '../components/projects-functions.yaml#/components/schemas/FunctionExecutionResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+  /v1/projects/{projectID}/functions/{functionID}/executions/{executionID}/logs:
+    get:
+      operationId: listFunctionExecutionLogs
+      description: Read bounded, secret-redacted runtime logs for an execution. API-key callers require functions.read.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/FunctionID' }, { $ref: '../components/common.yaml#/components/parameters/ExecutionID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { name: after, in: query, schema: { type: integer, format: int64, minimum: 0, default: 0 } }]
+      responses: { '200': { description: Redacted execution logs, content: { application/json: { schema: { $ref: '../components/projects-functions.yaml#/components/schemas/FunctionExecutionLogsPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
