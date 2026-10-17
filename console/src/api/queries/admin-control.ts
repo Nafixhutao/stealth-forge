@@ -5,6 +5,7 @@ import {
   useQuery,
 } from "@tanstack/react-query";
 import { api, cancellableQuery, unwrap } from "@/api/client";
+import { polledQuery } from "@/api/polling";
 import { queryKeys } from "@/api/query-keys";
 
 export function usePublicStatusPage() {
@@ -26,7 +27,7 @@ export function useAdminMonitors(
       api.GET("/v1/admin/monitors", { params: { query }, signal }),
     ),
     placeholderData: keepPreviousData,
-    refetchInterval: options?.refetchInterval,
+    ...polledQuery(options?.refetchInterval),
   });
 }
 
@@ -43,7 +44,7 @@ export function useAdminMonitor(
         signal,
       }),
     ),
-    refetchInterval: options?.refetchInterval,
+    ...polledQuery(options?.refetchInterval),
   });
 }
 
@@ -57,7 +58,7 @@ export function useAdminAlerts(
       api.GET("/v1/admin/alerts", { params: { query }, signal }),
     ),
     placeholderData: keepPreviousData,
-    refetchInterval: options?.refetchInterval,
+    ...polledQuery(options?.refetchInterval),
   });
 }
 
@@ -77,7 +78,7 @@ export function useAdminAlertEvents(
       return unwrap(result);
     },
     getNextPageParam: (lastPage) => lastPage?.next_cursor ?? undefined,
-    refetchInterval: options?.refetchInterval,
+    ...polledQuery(options?.refetchInterval),
   });
 }
 
@@ -91,7 +92,7 @@ export function useAdminNotificationChannels(
       api.GET("/v1/admin/notifications", { params: { query }, signal }),
     ),
     placeholderData: keepPreviousData,
-    refetchInterval: options?.refetchInterval,
+    ...polledQuery(options?.refetchInterval),
   });
 }
 
@@ -108,7 +109,7 @@ export function useAdminAlert(
         signal,
       }),
     ),
-    refetchInterval: options?.refetchInterval,
+    ...polledQuery(options?.refetchInterval),
   });
 }
 
@@ -122,7 +123,7 @@ export function useAdminIncidents(
       api.GET("/v1/admin/incidents", { params: { query }, signal }),
     ),
     placeholderData: keepPreviousData,
-    refetchInterval: options?.refetchInterval,
+    ...polledQuery(options?.refetchInterval),
   });
 }
 
@@ -139,7 +140,7 @@ export function useAdminIncident(
         signal,
       }),
     ),
-    refetchInterval: options?.refetchInterval,
+    ...polledQuery(options?.refetchInterval),
   });
 }
 
@@ -153,7 +154,7 @@ export function useAdminDashboards(
       api.GET("/v1/admin/dashboards", { params: { query }, signal }),
     ),
     placeholderData: keepPreviousData,
-    refetchInterval: options?.refetchInterval,
+    ...polledQuery(options?.refetchInterval),
   });
 }
 
@@ -170,7 +171,7 @@ export function useAdminDashboard(
         signal,
       }),
     ),
-    refetchInterval: options?.refetchInterval,
+    ...polledQuery(options?.refetchInterval),
   });
 }
 
@@ -182,6 +183,6 @@ export function useAdminStatusPage(options?: {
     queryFn: cancellableQuery((signal) =>
       api.GET("/v1/admin/status-page", { signal }),
     ),
-    refetchInterval: options?.refetchInterval,
+    ...polledQuery(options?.refetchInterval),
   });
 }

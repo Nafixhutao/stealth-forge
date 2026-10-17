@@ -1,3 +1,35 @@
+import type { PathsV1AdminInfrastructureMetricsGetParametersQueryScope } from "@/api/generated/schema";
+
+/**
+ * Parameter shapes accepted by the Admin key factories. A query key embeds its
+ * parameters, so the factory and its parameter type stay together here rather
+ * than in the query hooks that call them. `admin-telemetry.ts` re-exports
+ * `AdminTelemetryQuery` as an alias of {@link AdminTelemetryQueryParams}.
+ */
+export type AdminTelemetryQueryParams = {
+  from?: string;
+  to?: string;
+  service?: string;
+  level?: string;
+  query?: string;
+  trace_id?: string;
+  min_duration_ms?: number;
+  name?: string;
+  limit?: number;
+};
+
+export type AdminAuditEventsQueryParams = {
+  before?: string;
+  limit?: number;
+};
+
+export type AdminInfrastructureQueryParams = Pick<
+  AdminTelemetryQueryParams,
+  "from" | "to" | "limit"
+> & {
+  scope?: PathsV1AdminInfrastructureMetricsGetParametersQueryScope;
+};
+
 export const queryKeys = {
   bootstrapStatus: ["bootstrap-status"] as const,
   setupStatus: ["setup-status"] as const,
@@ -27,6 +59,10 @@ export const queryKeys = {
     ["function", projectId, functionId] as const,
   functionDeployments: (projectId: string, functionId: string) =>
     ["function-deployments", projectId, functionId] as const,
+  // Prefix form: invalidates every deployment list in a project when the
+  // parent function id is not known.
+  functionDeploymentsScope: (projectId: string) =>
+    ["function-deployments", projectId] as const,
   functionExecutions: (projectId: string, functionId: string) =>
     ["function-executions", projectId, functionId] as const,
   functionExecution: (
@@ -56,6 +92,10 @@ export const queryKeys = {
     ["app-deployment", projectId, appId, deploymentId] as const,
   siteDeployments: (projectId: string, siteId: string) =>
     ["site-deployments", projectId, siteId] as const,
+  // Prefix form: invalidates every deployment list in a project when the
+  // parent site id is not known.
+  siteDeploymentsScope: (projectId: string) =>
+    ["site-deployments", projectId] as const,
   siteDeployment: (projectId: string, siteId: string, deploymentId: string) =>
     ["site-deployment", projectId, siteId, deploymentId] as const,
   siteDeploymentScope: (projectId: string, siteId: string) =>
@@ -130,7 +170,8 @@ export const queryKeys = {
   adminOverview: ["admin", "overview"] as const,
   adminOperations: ["admin", "operations"] as const,
   adminOAuthProviders: ["admin", "oauth-providers"] as const,
-  adminAuditEvents: (query: unknown) =>
+  adminAuditEventsScope: ["admin", "audit-events"] as const,
+  adminAuditEvents: (query: AdminAuditEventsQueryParams) =>
     ["admin", "audit-events", query] as const,
   adminMonitors: ["admin", "monitors"] as const,
   adminMonitor: (monitorId: string) => ["admin", "monitor", monitorId] as const,
@@ -151,8 +192,10 @@ export const queryKeys = {
   adminAPIMetrics: ["admin", "api-metrics"] as const,
   adminAccounts: ["admin", "accounts"] as const,
   publicStatusPage: ["public", "status-page"] as const,
-  adminTelemetry: (signal: string, query: unknown) =>
+  adminTelemetrySignal: (signal: string) =>
+    ["admin", "telemetry", signal] as const,
+  adminTelemetry: (signal: string, query: AdminTelemetryQueryParams) =>
     ["admin", "telemetry", signal, query] as const,
-  adminInfrastructure: (query: unknown) =>
+  adminInfrastructure: (query: AdminInfrastructureQueryParams) =>
     ["admin", "infrastructure", query] as const,
 } as const;

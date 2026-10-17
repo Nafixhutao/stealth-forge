@@ -1,4 +1,5 @@
 export * from "./queries/account";
+export * from "./queries/organizations";
 export * from "./queries/bootstrap";
 export * from "./queries/setup";
 export * from "./queries/admin-telemetry";

@@ -25,6 +25,7 @@ export function Sidebar({
   open,
   onClose,
   hasTopBar = false,
+  desktopHasTopBar = hasTopBar,
   desktop = true,
 }: SidebarProps) {
   const isMobile = useMediaQuery("(max-width: 1023px)");
@@ -33,7 +34,7 @@ export function Sidebar({
   return isMobile || !desktop ? (
     <MobileSheet open={open} onClose={onClose} hasTopBar={hasTopBar} />
   ) : (
-    <DesktopSidebar hasTopBar={hasTopBar} />
+    <DesktopSidebar hasTopBar={desktopHasTopBar} />
   );
 }
 

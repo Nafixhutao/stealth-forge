@@ -59,6 +59,11 @@ The API contract is the detailed reference for each product surface. Operational
 
 - [Setup authorization 403](investigations/2026-09-15-setup-authorization-403.md): first-run browser setup fails after code entry because setup-mode CORS rejects the temporary origin.
 
+## Audits
+
+- [Console caching and data-layer audit](console-caching-audit-2026-10-15.md): TanStack Query key registry, invalidation coherence, staleness policy, realtime integration, and unused Next.js 16 server caching.
+- [Console server-side caching: design proposal](console-server-caching-design-2026-10-15.md): why Next.js 16 Cache Components is blocked by cookie-authorized reads, and what to do instead.
+
 ## Project Direction
 
 - [Roadmap and implementation status](../README.md#roadmap)

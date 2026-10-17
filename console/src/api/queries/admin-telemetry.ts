@@ -2,20 +2,19 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api, apiUrl, cancellableQuery } from "@/api/client";
 import type { PathsV1AdminInfrastructureMetricsGetParametersQueryScope } from "@/api/generated/schema";
-import { queryKeys } from "@/api/query-keys";
+import { queryKeys, type AdminTelemetryQueryParams } from "@/api/query-keys";
+import {
+  POLL_FAST_MS,
+  POLL_MEDIUM_MS,
+  POLL_SLOW_MS,
+  polledQuery,
+} from "@/api/polling";
 import { useEffect, useMemo, useState } from "react";
 
-export type AdminTelemetryQuery = {
-  from?: string;
-  to?: string;
-  service?: string;
-  level?: string;
-  query?: string;
-  trace_id?: string;
-  min_duration_ms?: number;
-  name?: string;
-  limit?: number;
-};
+// The parameter shape lives with the key factory in `query-keys.ts`, so a key
+// and its parameters cannot drift apart. Re-exported under the name callers in
+// this module already import.
+export type AdminTelemetryQuery = AdminTelemetryQueryParams;
 
 export type AdminTailLog = {
   timestamp: string;
@@ -181,7 +180,7 @@ export function useAdminOverview(options?: {
         signal,
       }),
     ),
-    refetchInterval: options?.refetchInterval ?? 30_000,
+    ...polledQuery(options?.refetchInterval, POLL_SLOW_MS),
   });
 }
 export function useAdminOperations(
@@ -194,7 +193,7 @@ export function useAdminOperations(
       api.GET("/v1/admin/operations", { params: { query }, signal }),
     ),
     placeholderData: keepPreviousData,
-    refetchInterval: options?.refetchInterval,
+    ...polledQuery(options?.refetchInterval),
   });
 }
 
@@ -216,7 +215,7 @@ export function useAdminHostMetrics(
         signal,
       }),
     ),
-    refetchInterval: options?.refetchInterval ?? 5_000,
+    ...polledQuery(options?.refetchInterval, POLL_FAST_MS),
   });
 }
 
@@ -238,7 +237,7 @@ export function useAdminDBMetrics(
         signal,
       }),
     ),
-    refetchInterval: options?.refetchInterval ?? 5_000,
+    ...polledQuery(options?.refetchInterval, POLL_FAST_MS),
   });
 }
 
@@ -258,7 +257,7 @@ export function useAdminRedisMetrics(
         signal,
       }),
     ),
-    refetchInterval: options?.refetchInterval ?? 5_000,
+    ...polledQuery(options?.refetchInterval, POLL_FAST_MS),
   });
 }
 
@@ -272,7 +271,7 @@ export function useAdminAPIMetrics(options?: {
     queryFn: cancellableQuery((signal) =>
       api.GET("/v1/admin/api-metrics", { signal }),
     ),
-    refetchInterval: options?.refetchInterval ?? 15_000,
+    ...polledQuery(options?.refetchInterval, POLL_MEDIUM_MS),
   });
 }
 
@@ -286,7 +285,7 @@ export function useAdminAccounts(options?: {
     queryFn: cancellableQuery((signal) =>
       api.GET("/v1/admin/accounts", { signal }),
     ),
-    refetchInterval: options?.refetchInterval ?? 30_000,
+    ...polledQuery(options?.refetchInterval, POLL_SLOW_MS),
   });
 }
 
@@ -300,7 +299,7 @@ export function useAdminAuditEvents(
       api.GET("/v1/admin/audit-events", { params: { query }, signal }),
     ),
     placeholderData: keepPreviousData,
-    refetchInterval: options?.refetchInterval,
+    ...polledQuery(options?.refetchInterval),
   });
 }
 
@@ -318,7 +317,7 @@ export function useAdminLogs(
     ),
     placeholderData: keepPreviousData,
     enabled: options?.enabled ?? true,
-    refetchInterval: options?.refetchInterval,
+    ...polledQuery(options?.refetchInterval),
   });
 }
 
@@ -332,7 +331,7 @@ export function useAdminLogVolume(
       api.GET("/v1/admin/telemetry/log-volume", { params: { query }, signal }),
     ),
     placeholderData: keepPreviousData,
-    refetchInterval: options?.refetchInterval,
+    ...polledQuery(options?.refetchInterval),
   });
 }
 
@@ -349,7 +348,7 @@ export function useAdminTraces(
       }),
     ),
     placeholderData: keepPreviousData,
-    refetchInterval: options?.refetchInterval,
+    ...polledQuery(options?.refetchInterval),
   });
 }
 
@@ -366,7 +365,7 @@ export function useAdminErrors(
       api.GET("/v1/admin/telemetry/errors", { params: { query }, signal }),
     ),
     placeholderData: keepPreviousData,
-    refetchInterval: options?.refetchInterval,
+    ...polledQuery(options?.refetchInterval),
   });
 }
 
@@ -380,7 +379,7 @@ export function useAdminServiceMap(
       api.GET("/v1/admin/telemetry/services", { params: { query }, signal }),
     ),
     placeholderData: keepPreviousData,
-    refetchInterval: options?.refetchInterval,
+    ...polledQuery(options?.refetchInterval),
   });
 }
 
@@ -399,7 +398,7 @@ export function useAdminInfrastructure(
       }),
     ),
     placeholderData: keepPreviousData,
-    refetchInterval: options?.refetchInterval,
+    ...polledQuery(options?.refetchInterval),
   });
 }
 
@@ -416,7 +415,7 @@ export function useAdminMetrics(
       }),
     ),
     placeholderData: keepPreviousData,
-    refetchInterval: options?.refetchInterval,
+    ...polledQuery(options?.refetchInterval),
   });
 }
 
@@ -433,6 +432,6 @@ export function useAdminSources(
       }),
     ),
     placeholderData: keepPreviousData,
-    refetchInterval: options?.refetchInterval,
+    ...polledQuery(options?.refetchInterval),
   });
 }
