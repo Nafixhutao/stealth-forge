@@ -140,14 +140,23 @@ function UserFooter({
               role === "instance_owner" ? "Instance owner" : "Instance admin"
             } — open the admin console`}
             className={cn(
-              "rounded-md text-[14px] leading-5 text-[var(--projects-muted)] transition-colors hover:text-[var(--projects-text)]",
+              "rounded-md text-[13px] leading-5 text-[var(--projects-muted)] transition-colors hover:text-[var(--projects-text)]",
               FOCUS,
             )}
           >
             Admin
           </Link>
         ) : null}
-        <p className="m-0 ml-auto text-[14px] leading-5 text-[var(--projects-muted)]">
+        <Link
+          href="/admin/status"
+          className={cn(
+            "rounded-md text-[13px] leading-5 text-[var(--projects-muted)] transition-colors hover:text-[var(--projects-text)]",
+            FOCUS,
+          )}
+        >
+          Status
+        </Link>
+        <p className="m-0 ml-auto text-[13px] leading-5 text-[var(--projects-muted)]">
           © {new Date().getFullYear()} Stealth
         </p>
       </div>
