@@ -31,12 +31,16 @@ export function ApplicationShell({
   children,
   desktopSidebar = true,
   hasTopBar = false,
+  desktopHasTopBar = hasTopBar,
 }: {
   children: ReactNode;
   /** Pages with their own chrome can opt out of the desktop rail. */
   desktopSidebar?: boolean;
-  /** Shifts the mobile drawer below the 48px top bar those pages render. */
+  /** Shifts the mobile drawer below the 59px top bar those pages render. */
   hasTopBar?: boolean;
+  /** Whether the desktop rail clears the same bar. Defaults to `hasTopBar`;
+   * a bar that is `lg:hidden` passes false so the rail keeps full height. */
+  desktopHasTopBar?: boolean;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Stable identity: consumers (pages with heavy tables) must not re-render
@@ -47,7 +51,7 @@ export function ApplicationShell({
 
   return (
     <ApplicationContext.Provider value={shellValue}>
-      <div data-user className="min-h-dvh bg-[var(--projects-bg)]">
+      <div data-user className="min-h-dvh w-full max-w-full overflow-x-hidden bg-[var(--projects-bg)]">
         {/* Mobile-only nav opener, pinned top-left like the CodeRabbit reference.
             Pages that render their own top bar provide the opener inside it
             instead, so this stays hidden there. Sits under the sheet overlay
@@ -68,9 +72,10 @@ export function ApplicationShell({
             open={sidebarOpen}
             onClose={closeSidebar}
             hasTopBar={hasTopBar}
+            desktopHasTopBar={desktopHasTopBar}
             desktop={desktopSidebar}
           />
-          <main className="relative min-h-dvh min-w-0 flex-1">{children}</main>
+          <main className="relative min-h-dvh min-w-0 w-full max-w-full overflow-x-hidden flex-1">{children}</main>
         </div>
       </div>
     </ApplicationContext.Provider>

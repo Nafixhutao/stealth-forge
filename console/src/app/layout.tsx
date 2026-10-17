@@ -16,6 +16,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
   colorScheme: "dark",
   themeColor: "#171718",
   // Let the app paint under the notch/home indicator; the shell pads content
