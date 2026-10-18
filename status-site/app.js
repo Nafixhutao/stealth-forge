@@ -92,10 +92,15 @@ function renderComponents(components) {
 
     name.textContent = component.name;
     if (typeof component.url === "string" && /^https?:\/\//.test(component.url)) {
-      name.href = component.url;
-      name.rel = "noreferrer";
-    } else {
-      name.replaceWith(document.createTextNode(component.name));
+      // Upgrade the label to a link in place, keeping the span's classes so
+      // linked and unlinked components stay typographically identical.
+      const link = document.createElement("a");
+      link.className = name.className;
+      link.setAttribute("data-name", "");
+      link.textContent = component.name;
+      link.href = component.url;
+      link.rel = "noreferrer";
+      name.replaceWith(link);
     }
 
     if (component.description) {
