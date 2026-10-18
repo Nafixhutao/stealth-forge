@@ -147,8 +147,10 @@ function UserFooter({
             Admin
           </Link>
         ) : null}
+        {/* The public status site, not the admin console's operator view: the
+            footer is visible to every signed-in member. */}
         <Link
-          href="/admin/status"
+          href="/status"
           className={cn(
             "rounded-md text-[13px] leading-5 text-[var(--projects-muted)] transition-colors hover:text-[var(--projects-text)]",
             FOCUS,
