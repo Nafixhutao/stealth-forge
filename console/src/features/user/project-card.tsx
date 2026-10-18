@@ -133,40 +133,40 @@ export function ProjectCard({
   const created = formatUtcDate(project.created_at);
 
   return (
-    <article className="mx-4 flex flex-col overflow-hidden rounded-2xl border border-[var(--projects-border)] bg-[var(--projects-card-bg)] divide-y divide-[var(--projects-divider)] transition-colors hover:border-[var(--projects-border-hover)] sm:mx-0">
-      <div className="flex min-h-[72px] flex-col justify-center py-[13px] !px-[18px]">
+    <article className="mx-4 flex flex-col overflow-hidden rounded-[13px] border border-[var(--projects-border)] bg-[var(--projects-card-bg)] divide-y divide-[var(--projects-divider)] transition-colors hover:border-[var(--projects-border-hover)] sm:mx-0">
+      <div className="flex min-h-[65px] flex-col justify-center py-[12.5px] !px-4">
         <h3
           title={project.name}
-          className="m-0 truncate !text-[15px] font-semibold leading-5 tracking-[-0.01em] text-[var(--projects-text)]"
+          className="m-0 truncate !text-[14px] font-semibold leading-5 tracking-[-0.01em] text-[var(--projects-text)]"
         >
           {project.name}
         </h3>
-        <p className="m-0 truncate !text-[13px] leading-5 text-[var(--projects-muted)]">
+        <p className="m-0 truncate !text-[12px] leading-5 text-[var(--projects-muted)]">
           {created ? `Created ${created}` : "Creation date unavailable"}
         </p>
       </div>
 
-      <div className="flex !h-[102px] box-border flex-col justify-between !px-[18px] pt-3 pb-[6px]">
-        <div className="flex items-baseline gap-3">
-          <span className="text-[13px] leading-5 text-[var(--projects-muted)]">
+      <div className="flex !h-[92px] box-border flex-col justify-between !px-4 pt-3 pb-2">
+        <div className="flex items-baseline gap-2">
+          <span className="text-[12px] leading-5 text-[var(--projects-muted)]">
             Requests
           </span>
-          <span className="text-[13px] font-medium leading-5 text-[var(--projects-text)]">
+          <span className="text-[12px] font-medium leading-5 text-[var(--projects-muted)]">
             N/A
           </span>
         </div>
-        {/* The accent line sits at the bottom, exactly against the divider with pb-[6px] */}
-        <div className="h-[2px] bg-[var(--user-accent)]" aria-hidden="true" />
+        {/* The accent line sits at the bottom, exactly against the divider with pb-2 */}
+        <div className="h-px bg-[var(--user-accent)]/70" aria-hidden="true" />
       </div>
 
-      <div className="flex items-center justify-between gap-2 !px-[18px] py-3">
+      <div className="flex items-center justify-between gap-2 !px-4 py-[13px]">
         <button
           type="button"
           onClick={onCreateProject}
           aria-label="Create project"
           title="Create project"
           className={cn(
-            "inline-flex !size-[30px] shrink-0 items-center justify-center rounded-lg border border-dashed border-[var(--projects-border-hover)] text-[var(--projects-muted)] transition-colors hover:text-[var(--projects-text)]",
+            "inline-flex !size-7 shrink-0 items-center justify-center rounded-lg border border-dashed border-[var(--projects-border-hover)] text-[var(--projects-muted)] transition-colors hover:text-[var(--projects-text)]",
             FOCUS,
           )}
         >
@@ -177,7 +177,7 @@ export function ProjectCard({
           projectId={project.id}
           canOpenAdmin={canOpenAdmin}
           iconSize={16}
-          triggerClassName="inline-flex size-[30px] shrink-0 items-center justify-center rounded-lg text-[var(--projects-muted)] transition-colors hover:bg-[var(--projects-control)] hover:text-[var(--projects-text)]"
+          triggerClassName="inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-[var(--projects-muted)] transition-colors hover:bg-[var(--projects-control)] hover:text-[var(--projects-text)]"
         />
       </div>
     </article>
@@ -261,7 +261,7 @@ export function ProjectCardsSkeleton({ count }: { count: number }) {
       {Array.from({ length: count }).map((_, index) => (
         <div
           key={index}
-          className="mx-4 h-[229px] animate-pulse rounded-2xl border border-[var(--projects-border)] bg-[var(--projects-card-bg)] motion-reduce:animate-none sm:mx-0"
+          className="mx-4 h-[215px] animate-pulse rounded-[13px] border border-[var(--projects-border)] bg-[var(--projects-card-bg)] motion-reduce:animate-none sm:mx-0"
         />
       ))}
     </div>

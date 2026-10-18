@@ -121,9 +121,10 @@ export function PageHeader({
 export function PageBody({ children }: { children: ReactNode }) {
   return (
     // The user console's mobile top bar is a fixed 59px strip, so content
-    // needs 72px of clearance until the desktop rail replaces it at `lg`; from
-    // there the page returns to its normal top padding.
-    <div className="mx-auto flex w-full max-w-full flex-col gap-[13px] pb-12 pt-[72px] sm:max-w-[1440px] sm:gap-4 sm:px-6 lg:px-7 lg:pt-5">
+    // needs 67px of clearance (8px of air under the bar) until the desktop
+    // rail replaces it at `lg`; from there the page returns to its normal top
+    // padding. The 16px rhythm is the reference's.
+    <div className="mx-auto flex w-full max-w-full flex-col gap-4 pb-12 pt-[67px] sm:max-w-[1440px] sm:px-6 lg:px-7 lg:pt-5">
       {children}
     </div>
   );

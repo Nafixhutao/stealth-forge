@@ -97,7 +97,7 @@ function OrgAvatar({ label }: { label: string }) {
   return (
     <span
       aria-hidden="true"
-      className="flex !size-[26px] shrink-0 items-center justify-center rounded-full bg-[var(--projects-control)] text-[10px] font-semibold text-[var(--projects-text)] sm:size-10 sm:rounded-[10px] sm:text-[13px]"
+      className="flex !size-6 shrink-0 items-center justify-center rounded-full bg-[var(--projects-chip)] text-[10px] font-semibold text-[var(--projects-text)] sm:size-10 sm:rounded-[10px] sm:text-[13px]"
     >
       {label.slice(0, 2).toUpperCase()}
     </span>
@@ -109,7 +109,7 @@ function PlanBadge({ planKey, title }: { planKey: string; title?: string }) {
   return (
     <span
       title={title}
-      className="inline-flex !h-[15px] shrink-0 items-center rounded-md bg-[var(--projects-control)] !px-1.5 leading-[15px] !text-[11px] font-medium text-[var(--projects-muted)] sm:h-auto sm:px-[7px] sm:py-[2px] sm:leading-4 sm:text-[11.5px]"
+      className="inline-flex !h-[15px] shrink-0 items-center rounded-md bg-[var(--projects-chip)] !px-1.5 leading-[15px] text-[9.5px]! font-medium text-[var(--projects-muted)] sm:h-auto sm:px-[7px] sm:py-[2px] sm:leading-4 sm:text-[11.5px]!"
     >
       {PLAN_LABEL[planKey] ?? planKey}
     </span>
@@ -215,14 +215,14 @@ export function UserHome() {
         <PageBody>
           {/* Organization context: who the projects below belong to, and its
               plan. The plan chip's tooltip carries the real usage numbers. */}
-          <header className="flex items-center gap-3 px-4 sm:px-0">
+          <header className="flex items-center gap-2 px-4 sm:gap-3 sm:px-0">
             {orgsLoading ? (
-              <span className="!size-[26px] shrink-0 animate-pulse rounded-full bg-[var(--projects-control)] motion-reduce:animate-none sm:size-10 sm:rounded-[10px]" />
+              <span className="!size-[26px] shrink-0 animate-pulse rounded-full bg-[var(--projects-chip)] motion-reduce:animate-none sm:size-10 sm:rounded-[10px]" />
             ) : (
               <OrgAvatar label={selected?.name ?? "?"} />
             )}
             <div className="flex min-w-0 items-center gap-2">
-              <h1 className="m-0 truncate !text-[14px] font-semibold leading-6 tracking-[-0.02em] text-[var(--projects-text)] sm:text-[18px]">
+              <h1 className="m-0 truncate !text-[13px] font-semibold leading-6 tracking-[-0.02em] text-[var(--projects-text)] sm:text-[18px]">
                 {orgsLoading
                   ? "Loading organizations"
                   : (selected?.name ?? "No organization")}
@@ -243,12 +243,17 @@ export function UserHome() {
                   <DropdownMenuTrigger
                     title="Switch organization"
                     className={cn(
-                      "inline-flex min-h-10 shrink-0 items-center rounded-md px-1.5 text-[var(--projects-muted)] transition-colors hover:text-[var(--projects-text)] sm:min-h-9",
+                      "-ml-1.5 inline-flex min-h-10 shrink-0 items-center rounded-md px-1.5 text-[var(--projects-muted)] transition-colors hover:text-[var(--projects-text)] sm:ml-0 sm:min-h-9",
                       FOCUS,
                     )}
                     aria-label="Switch organization"
                   >
-                    <ChevronDown size={16} strokeWidth={2} aria-hidden="true" />
+                    <ChevronDown
+                      size={16}
+                      strokeWidth={2}
+                      className="!size-3.5 sm:!size-4"
+                      aria-hidden="true"
+                    />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" data-user-surface="">
                     <DropdownMenuLabel>Switch organization</DropdownMenuLabel>
@@ -278,7 +283,7 @@ export function UserHome() {
                 aria-label="Create project"
                 title="Create project"
                 className={cn(
-                  "ml-[18px] inline-flex size-6 shrink-0 items-center justify-center text-[var(--projects-muted)] transition-colors hover:text-[var(--projects-text)] disabled:pointer-events-none disabled:opacity-40",
+                  "ml-[5px] sm:ml-[18px] inline-flex size-6 shrink-0 items-center justify-center text-[var(--projects-muted)] transition-colors hover:text-[var(--projects-text)] disabled:pointer-events-none disabled:opacity-40",
                   FOCUS,
                 )}
               >
@@ -292,11 +297,11 @@ export function UserHome() {
               not built. */}
           <nav
             aria-label="Organization sections"
-            className="flex w-full min-w-0 items-center overflow-x-auto border-b border-[var(--projects-border)] px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:px-0"
+            className="-mt-1 flex w-full min-w-0 items-center overflow-x-auto border-b border-[var(--projects-border)] px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mt-0 sm:px-0"
           >
             <span
               aria-current="page"
-              className="relative -mb-px inline-flex h-[44px] shrink-0 items-center whitespace-nowrap px-[13px] !text-[13px] font-medium text-[var(--projects-text)] !border-b-2 !border-white sm:h-[52px]"
+              className="relative inline-flex h-[44px] shrink-0 items-center whitespace-nowrap px-3 !text-[13px] font-medium text-[var(--projects-text)] !border-b-2 !border-white sm:h-[52px]"
             >
               Projects
             </span>
@@ -305,7 +310,7 @@ export function UserHome() {
                 key={label}
                 aria-disabled="true"
                 title="Coming soon"
-                className="inline-flex h-[44px] shrink-0 items-center whitespace-nowrap px-[13px] !text-[13px] font-medium text-[var(--projects-muted)] !border-b-2 !border-transparent sm:h-[52px]"
+                className="inline-flex h-[44px] shrink-0 items-center whitespace-nowrap px-3 !text-[13px] font-medium text-[var(--projects-muted)] !border-b-2 !border-transparent sm:h-[52px]"
               >
                 {label}
               </span>
@@ -329,10 +334,11 @@ export function UserHome() {
             <>
               {/* Toolbar: filter, view mode, and the one primary action on a
                   single line at every width — matching the Appwrite reference
-                  at exact sizes: a 118px search field, the 68px view toggle,
-                  and the 146px primary action. Every control shares one height. */}
+                  at exact sizes: the field takes the room left over from the
+                  62px view toggle, the 12px gaps, and the primary action. Every
+                  control shares one 36px height. */}
               {showToolbar ? (
-                <div className="flex w-full items-center gap-[13px] px-4 sm:px-0">
+                <div className="flex w-full items-center gap-3 px-4 sm:px-0">
                   <div className="relative min-w-0 flex-1 sm:max-w-[380px]">
                     <Search
                       size={16}
@@ -349,14 +355,14 @@ export function UserHome() {
                       // This surface ships a light theme and its own accent, so the
                       // field is re-themed with the `--projects-*` and `--user-*`
                       // tokens; twMerge drops the dark utilities.
-                      className="!h-10 !min-h-0 rounded-[10px] border-[var(--projects-border)] bg-[var(--projects-card-bg)] pl-9 !text-[14px] text-ellipsis text-[var(--projects-text)] placeholder:text-[var(--projects-muted)] focus-visible:border-[var(--user-accent)]/70 focus-visible:ring-[var(--user-accent)]/15 sm:!h-9 sm:!min-h-9 sm:!text-[15px]"
+                      className="!h-9 !min-h-0 rounded-lg border-[var(--projects-border)] bg-[var(--projects-control)] pl-10 pr-2.5 !text-[13px] text-[var(--projects-text)] placeholder:text-[var(--projects-muted)] focus-visible:border-[var(--user-accent)]/70 focus-visible:ring-[var(--user-accent)]/15 sm:!text-[15px]"
                     />
                   </div>
 
                   <div
                     role="group"
                     aria-label="Project view"
-                    className="flex !h-10 w-[68px] shrink-0 items-center gap-0.5 rounded-[10px] border border-[var(--projects-border)] p-0.5 sm:!h-9 sm:w-auto sm:ml-auto"
+                    className="flex !h-[34px] w-[62px] shrink-0 items-center rounded-lg bg-[var(--projects-control)] p-[3px] sm:!h-9 sm:ml-auto sm:w-auto"
                   >
                     {[
                       {
@@ -377,10 +383,12 @@ export function UserHome() {
                         aria-label={label}
                         onClick={() => setView(mode)}
                         className={cn(
-                          "inline-flex size-[30px] items-center justify-center rounded-lg transition-colors",
+                          "inline-flex size-7 items-center justify-center rounded-lg text-[var(--projects-muted)] transition-colors",
+                          // The reference marks the selected segment by cutting
+                          // it back to the page colour rather than lifting it.
                           view === mode
-                            ? "bg-[var(--projects-control)] text-[var(--projects-text)]"
-                            : "text-[var(--projects-muted)] hover:text-[var(--projects-text)]",
+                            ? "bg-[var(--projects-bg)]"
+                            : "hover:text-[var(--projects-text)]",
                           FOCUS,
                         )}
                       >
@@ -395,7 +403,7 @@ export function UserHome() {
                     onClick={() => setCreateOpen(true)}
                     className={PRIMARY_ACTION}
                   >
-                    <Plus className="size-[14px] shrink-0" strokeWidth={2.2} aria-hidden="true" />
+                    <Plus className="size-4 shrink-0" strokeWidth={2.2} aria-hidden="true" />
                     Create project
                   </Button>
                 </div>

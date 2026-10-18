@@ -61,7 +61,7 @@ export function UserTopBar({ canOpenAdmin }: { canOpenAdmin: boolean }) {
         aria-label="Open navigation"
         title="Open navigation"
         className={cn(
-          "inline-flex shrink-0 items-center justify-center -ml-[6px] rounded-lg transition-colors hover:bg-[var(--projects-control)]",
+          "inline-flex shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-[var(--projects-control)]",
           FOCUS,
         )}
       >
@@ -69,11 +69,11 @@ export function UserTopBar({ canOpenAdmin }: { canOpenAdmin: boolean }) {
         <img
           src="/stealth-cat.png"
           alt=""
-          className="size-7 shrink-0 object-contain"
+          className="size-6 shrink-0 object-contain"
         />
       </button>
 
-      <div className="ml-auto flex items-center gap-0.5">
+      <div className="ml-auto flex items-center gap-1.5">
         <button
           type="button"
           onClick={() =>
@@ -86,7 +86,7 @@ export function UserTopBar({ canOpenAdmin }: { canOpenAdmin: boolean }) {
             FOCUS,
           )}
         >
-          <Search className="size-[18px]" strokeWidth={1.8} aria-hidden="true" />
+          <Search className="size-4" strokeWidth={1.8} aria-hidden="true" />
         </button>
 
         <DropdownMenu>
@@ -94,7 +94,7 @@ export function UserTopBar({ canOpenAdmin }: { canOpenAdmin: boolean }) {
             aria-label="Account menu"
             title="Account menu"
             className={cn(
-              "inline-flex size-9 items-center justify-center rounded-full transition-colors hover:bg-[var(--projects-control)]",
+              "inline-flex size-9 -mr-1.5 items-center justify-center rounded-full transition-colors hover:bg-[var(--projects-control)]",
               FOCUS,
             )}
           >
@@ -103,10 +103,10 @@ export function UserTopBar({ canOpenAdmin }: { canOpenAdmin: boolean }) {
               <img
                 src={avatar}
                 alt=""
-                className="!size-[27px] rounded-full object-cover"
+                className="!size-6 rounded-full object-cover"
               />
             ) : (
-              <span className="flex !size-[27px] items-center justify-center rounded-full bg-[var(--user-accent-strong)] text-xs font-semibold text-white">
+              <span className="flex !size-6 items-center justify-center rounded-full bg-[var(--user-accent-strong)] text-xs font-semibold text-white">
                 {name.slice(0, 1).toUpperCase()}
               </span>
             )}

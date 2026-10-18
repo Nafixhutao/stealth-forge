@@ -182,6 +182,7 @@ html[data-theme="light"] [data-user-surface] {
   --projects-border-hover: #c5cac7;
   --projects-divider: #dfe3e0;
   --projects-ring: #aeb5b0;
+  --projects-chip: #ecefed;
   --projects-text: #151816;
   --projects-muted: #68706b;
   --projects-progress-track: #d8ddd9;
@@ -192,6 +193,33 @@ html[data-theme="light"] [data-user-surface] {
   --projects-warning: #a86e00;
   --projects-danger: #bd3f49;
   color-scheme: light;
+}
+
+/* The user console's own dark palette, matched to the reference: the page sits
+   on #19191b, cards lift to #1a191e, the controls (search field, view toggle)
+   hold a #1f1e23 surface, and the organization mark and plan badge a lighter
+   #2d2c31. Borders and dividers share one quiet #232326 hairline.
+   Scoped to the user console's own surface — `data-console` is set by the
+   shell only for `/user` — plus its portaled surfaces, so the admin console
+   keeps the palette it was designed with. The light theme above still wins on
+   specificity. */
+[data-user][data-console="user"],
+html [data-user-surface] {
+  --projects-bg: #19191b;
+  --projects-surface: #19191b;
+  --projects-card-bg: #1a191e;
+  --projects-control: #1f1e23;
+  --projects-chip: #2d2c31;
+  --projects-border: #232326;
+  --projects-border-hover: #34333a;
+  --projects-divider: #232326;
+  --projects-ring: #55555b;
+  font-family:
+    "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans:
+    "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 /* The user console accent: the pink from the reference design.
