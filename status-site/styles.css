@@ -47,6 +47,13 @@
     --info: #1d4ed8;
     --info-bg: rgba(29, 78, 216, 0.1);
   }
+
+  /* The mark is white ink. Strip its luminance so it stays legible on the
+     light header; `brightness(0)` leaves the alpha shape untouched. */
+  .brand__mark {
+    filter: brightness(0);
+    opacity: 0.88;
+  }
 }
 
 *,
@@ -180,18 +187,21 @@ main {
 
 .summary {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   padding: 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--panel);
 }
+
 .summary__dot {
   position: relative;
   flex: none;
   width: 10px;
   height: 10px;
+  /* Optical centre of the headline's first line box, not of the whole block. */
+  margin-top: 6px;
   border-radius: 999px;
   background: var(--muted);
 }
@@ -293,10 +303,10 @@ main {
 }
 
 .component {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 6px 12px;
+  gap: 4px 14px;
   padding: 14px 16px;
   border-bottom: 1px solid var(--border);
 }
@@ -307,7 +317,6 @@ main {
 
 .component__text {
   min-width: 0;
-  flex: 1 1 auto;
 }
 
 .component__name {
@@ -330,6 +339,7 @@ a.component__name:hover {
 .status {
   display: inline-flex;
   align-items: center;
+  justify-self: end;
   gap: 7px;
   flex: none;
   padding: 4px 10px;
