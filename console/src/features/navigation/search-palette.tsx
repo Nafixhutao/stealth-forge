@@ -1,52 +1,50 @@
 "use client";
 
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
-  BookOpen,
-  Bot,
-  Building2,
-  CircleDollarSign,
-  Database,
-  FileText,
   FolderKanban,
-  Headphones,
-  LayoutDashboard,
   LogOut,
   Search,
   ShieldCheck,
-  UserRound,
   type LucideIcon,
 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { useLogout } from "@/api/mutations/auth";
 import { EASE_OUT } from "@/lib/ease";
 import { cn } from "@/lib/utils";
 
+/**
+ * One palette entry.
+ *
+ * Every entry does something: either it names a route the navigation knows how
+ * to open (`navigateTo`), or the palette performs it itself (`run`). The list
+ * used to carry fifteen destinations — Repositories, Agents, Dashboard,
+ * Organization Settings, Billing, Documentation, Support, Release Notes — that
+ * had no route behind them, so choosing one closed the palette and changed
+ * nothing. They come back when their surfaces do.
+ */
 type SearchResult = {
   label: string;
   section: string;
   Icon: LucideIcon;
+  /** A destination the sidebar can open. */
+  navigateTo?: string;
+  /** An action the palette carries out itself. */
+  run?: "logout" | "status";
 };
 
 const SEARCH_RESULTS: SearchResult[] = [
-  { section: "Navigation", label: "Go to Repositories", Icon: Database },
-  { section: "Navigation", label: "Go to Projects", Icon: FolderKanban },
-  { section: "Navigation", label: "Go to Agents", Icon: Bot },
-  { section: "Navigation", label: "Go to Dashboard", Icon: LayoutDashboard },
   {
-    section: "Settings",
-    label: "Go to Organization Settings",
-    Icon: Building2,
+    section: "Navigation",
+    label: "Go to Projects",
+    Icon: FolderKanban,
+    navigateTo: "Projects",
   },
-  { section: "Settings", label: "Go to Billing", Icon: CircleDollarSign },
-  { section: "Account", label: "Go to Profile", Icon: UserRound },
-  { section: "Account", label: "Logout", Icon: LogOut },
-  { section: "Help Center", label: "Go to Documentation", Icon: BookOpen },
-  { section: "Help Center", label: "Contact Support", Icon: Headphones },
-  { section: "Help Center", label: "Keyboard Shortcuts", Icon: FileText },
-  { section: "Help Center", label: "Release Notes", Icon: FileText },
-  { section: "Help Center", label: "Status", Icon: ShieldCheck },
-  { section: "Help Center", label: "API Reference", Icon: BookOpen },
-  { section: "Help Center", label: "Report a Problem", Icon: Headphones },
+  { section: "Help Center", label: "Status page", Icon: ShieldCheck, run: "status" },
+  { section: "Account", label: "Log out", Icon: LogOut, run: "logout" },
 ];
 
 export function SearchPalette({
@@ -62,6 +60,37 @@ export function SearchPalette({
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const reduce = useReducedMotion() ?? false;
+  const router = useRouter();
+  const logout = useLogout();
+  const [mounted, setMounted] = useState(false);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setMounted(true), []);
+
+  // Entries that carry their own action never reach the sidebar, so a palette
+  // result cannot be a dead end by construction.
+  const select = (result: SearchResult) => {
+    if (result.run === "status") {
+      onClose();
+      // The status site is a separate static document served by the ingress at
+      // /status/, not a route in this Next.js app, so the router cannot reach
+      // it: a full navigation is the correct one here.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.assign("/status/");
+      return;
+    }
+    if (result.run === "logout") {
+      onClose();
+      logout.mutate(undefined, {
+        onSuccess: () => {
+          toast.success("Signed out");
+          router.replace("/login");
+        },
+      });
+      return;
+    }
+    onSelect(result);
+  };
 
   const groups = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -109,7 +138,7 @@ export function SearchPalette({
       setActiveIndex((index) => (index - 1 + results.length) % results.length);
     } else if (event.key === "Enter" && results[activeIndex]) {
       event.preventDefault();
-      onSelect(results[activeIndex]);
+      select(results[activeIndex]);
     }
   });
 
@@ -122,36 +151,35 @@ export function SearchPalette({
   useEffect(() => {
     if (!open) return;
 
-    // Lock the page scroll without losing the position: setting overflow on
-    // <html> resets scrollY to 0, so pin the body and restore on close
-    // (same pattern as the mobile sheet).
-    const scrollY = window.scrollY;
-    const body = document.body;
-    const previousStyles = {
-      position: body.style.position,
-      top: body.style.top,
-      left: body.style.left,
-      right: body.style.right,
-      overflow: body.style.overflow,
+    // Lock the page scroll by clipping the root, the same way the mobile sheet
+    // does. Pinning the body to a negative offset re-lays-out the whole
+    // document, which is a long task on a large page.
+    const root = document.documentElement;
+    const previous = {
+      overflow: root.style.overflow,
+      overscrollBehavior: root.style.overscrollBehavior,
+      scrollbarGutter: root.style.scrollbarGutter,
     };
 
-    body.style.position = "fixed";
-    body.style.top = `-${scrollY}px`;
-    body.style.left = "0";
-    body.style.right = "0";
-    body.style.overflow = "hidden";
+    root.style.overflow = "hidden";
+    root.style.overscrollBehavior = "none";
+    root.style.scrollbarGutter = "stable";
 
     return () => {
-      body.style.position = previousStyles.position;
-      body.style.top = previousStyles.top;
-      body.style.left = previousStyles.left;
-      body.style.right = previousStyles.right;
-      body.style.overflow = previousStyles.overflow;
-      window.scrollTo(0, scrollY);
+      root.style.overflow = previous.overflow;
+      root.style.overscrollBehavior = previous.overscrollBehavior;
+      root.style.scrollbarGutter = previous.scrollbarGutter;
     };
   }, [open]);
 
-  return (
+  // Portalled to the document body. The palette is rendered inside the
+  // sidebar, and the sidebar is animated with a transform; a transformed
+  // ancestor becomes the containing block for `position: fixed` descendants, so
+  // the palette was laid out relative to the off-screen drawer and opened
+  // outside the viewport.
+  if (!mounted) return null;
+
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -212,7 +240,7 @@ export function SearchPalette({
                         <button
                           type="button"
                           key={result.label}
-                          onClick={() => onSelect(result)}
+                          onClick={() => select(result)}
                           onMouseEnter={() => setActiveIndex(index)}
                           className={cn(
                             "flex h-8 w-full items-center gap-3 rounded-[5px] px-2.5 text-left text-[14px] font-normal leading-[20px] text-[oklch(0.949_0.0035_305)] transition-colors",
@@ -240,6 +268,7 @@ export function SearchPalette({
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }

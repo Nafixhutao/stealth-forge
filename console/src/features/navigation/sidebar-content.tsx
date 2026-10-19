@@ -411,8 +411,8 @@ function SidebarContentImpl({
           onClose={() => setSearchOpen(false)}
           onSelect={(result) => {
             setSearchOpen(false);
-            if (result.label.startsWith("Go to "))
-              selectNavigation(result.label.slice(6));
+            // The palette only emits entries that name a real destination.
+            if (result.navigateTo) selectNavigation(result.navigateTo);
           }}
         />
       ) : null}
