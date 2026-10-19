@@ -52,6 +52,10 @@ export const queryKeys = {
   projects: (organizationId: string) => ["projects", organizationId] as const,
   project: (projectId: string) => ["project", projectId] as const,
   usage: (projectId: string) => ["usage", projectId] as const,
+  // Nested under `usage` on purpose: invalidating the snapshot must also
+  // refresh the chart, which is derived from the same metering data.
+  usageMetering: (projectId: string) =>
+    ["usage", projectId, "metering"] as const,
   audit: (scope: string, id: string) => [scope, id, "audit"] as const,
   traces: (scope: string, id: string) => [scope, id, "traces"] as const,
   functions: (projectId: string) => ["functions", projectId] as const,

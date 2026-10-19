@@ -8,12 +8,32 @@ const compactCountFormat = new Intl.NumberFormat("en-US", {
 const standardCountFormat = new Intl.NumberFormat("en-US", {
   notation: "standard",
 });
+// Daily metering buckets are UTC days, so this one formatter is pinned to UTC.
+const utcDayFormat = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
 
 export function formatDate(value: string | null | undefined) {
   if (!value) return "Not available";
   const date = new Date(value);
   if (Number.isNaN(date.valueOf())) return "Not available";
   return format(date, "MMM d, yyyy · HH:mm");
+}
+
+/**
+ * A calendar day (`YYYY-MM-DD`) as the API reports its daily buckets. Parsing a
+ * date-only string yields UTC midnight, so the value is also read in UTC:
+ * formatting it in the viewer's zone would show the previous day west of
+ * Greenwich.
+ */
+export function formatUtcDay(value: string | null | undefined) {
+  if (!value) return "Not available";
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) return "Not available";
+  return utcDayFormat.format(date);
 }
 
 export function formatRelative(value: string | null | undefined) {

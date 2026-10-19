@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   Building2,
   ChevronDown,
@@ -10,7 +9,7 @@ import {
   Plus,
   Search,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCurrentAccount } from "@/api/queries/account";
 import {
   useOrganizationPlan,
@@ -40,7 +39,10 @@ import {
   ProjectListSkeleton,
   ProjectRow,
 } from "@/features/user/project-card";
+import { UserFooter } from "@/features/user/user-footer";
 import { UserTopBar } from "@/features/user/user-top-bar";
+import { setCurrentOrganizationId } from "@/features/user/organization-scope";
+import { planLabel, planUsageText } from "@/lib/plans";
 import { cn } from "@/lib/utils";
 
 /**
@@ -75,23 +77,6 @@ import { cn } from "@/lib/utils";
 const FOCUS =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--user-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--projects-bg)]";
 
-const PLAN_LABEL: Record<string, string> = {
-  free: "Free",
-  pro: "Pro",
-  enterprise: "Enterprise",
-};
-
-/**
- * Real usage against the plan limit, as one sentence. It rides on the plan
- * chip's tooltip so the organization row keeps the reference's compact shape
- * without dropping the number.
- */
-function usageText(used: number, limit: number): string {
-  if (limit < 0)
-    return `${used} ${used === 1 ? "project" : "projects"}, unlimited`;
-  return `${used} of ${limit} ${limit === 1 ? "project" : "projects"} used`;
-}
-
 /** Initials mark. The Console ships no avatar asset, so none is invented. */
 function OrgAvatar({ label }: { label: string }) {
   return (
@@ -111,58 +96,8 @@ function PlanBadge({ planKey, title }: { planKey: string; title?: string }) {
       title={title}
       className="inline-flex !h-[15px] shrink-0 items-center rounded-md bg-[var(--projects-chip)] !px-1.5 leading-[15px] text-[9.5px]! font-medium text-[var(--projects-muted)] sm:h-auto sm:px-[7px] sm:py-[2px] sm:leading-4 sm:text-[11.5px]!"
     >
-      {PLAN_LABEL[planKey] ?? planKey}
+      {planLabel(planKey)}
     </span>
-  );
-}
-
-/** Closing footer: the brand mark and the operator-only console link. */
-function UserFooter({
-  canOpenAdmin,
-  role,
-}: {
-  canOpenAdmin: boolean;
-  role: string | null;
-}) {
-  return (
-    <footer className="border-t border-[var(--projects-divider)]">
-      <div className="mx-auto flex h-12 w-full max-w-[1440px] items-center gap-6 px-4 sm:h-14 sm:px-6 lg:px-7">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/stealth-cat.png"
-          alt=""
-          className="size-5 shrink-0 object-contain opacity-80"
-        />
-        {canOpenAdmin ? (
-          <Link
-            href="/admin"
-            aria-label={`${
-              role === "instance_owner" ? "Instance owner" : "Instance admin"
-            } — open the admin console`}
-            className={cn(
-              "rounded-md text-[13px] leading-5 text-[var(--projects-muted)] transition-colors hover:text-[var(--projects-text)]",
-              FOCUS,
-            )}
-          >
-            Admin
-          </Link>
-        ) : null}
-        {/* The public status site, not the admin console's operator view: the
-            footer is visible to every signed-in member. */}
-        <Link
-          href="/status"
-          className={cn(
-            "rounded-md text-[13px] leading-5 text-[var(--projects-muted)] transition-colors hover:text-[var(--projects-text)]",
-            FOCUS,
-          )}
-        >
-          Status
-        </Link>
-        <p className="m-0 ml-auto text-[13px] leading-5 text-[var(--projects-muted)]">
-          © {new Date().getFullYear()} Stealth
-        </p>
-      </div>
-    </footer>
   );
 }
 
@@ -186,6 +121,13 @@ export function UserHome() {
 
   const plan = useOrganizationPlan(selected?.id);
   const projects = useOrganizationProjects(selected?.id);
+
+  // The navigation panel shows this organization's plan, and it is a sibling of
+  // this page rather than a child, so the selection is published to a small
+  // shared store instead of staying page-local state.
+  useEffect(() => {
+    setCurrentOrganizationId(selected?.id ?? null);
+  }, [selected?.id]);
 
   const projectItems = useMemo(
     () => projects.data?.projects ?? [],
@@ -224,7 +166,7 @@ export function UserHome() {
               <OrgAvatar label={selected?.name ?? "?"} />
             )}
             <div className="flex min-w-0 items-center gap-2">
-              <h1 className="m-0 truncate !text-[13px] font-semibold leading-6 tracking-[-0.02em] text-[var(--projects-text)] sm:text-[18px]">
+              <h1 className="m-0 truncate !text-[13px] font-semibold leading-6 tracking-[-0.02em] text-[var(--projects-text)] sm:!text-[18px]">
                 {orgsLoading
                   ? "Loading organizations"
                   : (selected?.name ?? "No organization")}
@@ -232,7 +174,7 @@ export function UserHome() {
               {orgPlan ? (
                 <PlanBadge
                   planKey={orgPlan.plan_key}
-                  title={usageText(
+                  title={planUsageText(
                     orgPlan.usage.projects,
                     orgPlan.limits.projects,
                   )}
@@ -303,7 +245,7 @@ export function UserHome() {
           >
             <span
               aria-current="page"
-              className="relative inline-flex h-[44px] shrink-0 items-center whitespace-nowrap px-3 !text-[13px] font-medium text-[var(--projects-text)] !border-b-2 !border-white sm:h-[52px]"
+              className="relative inline-flex h-[44px] shrink-0 items-center whitespace-nowrap px-3 !text-[13px] font-medium text-[var(--projects-text)] !border-b-2 !border-[var(--projects-text)] sm:h-[52px]"
             >
               Projects
             </span>

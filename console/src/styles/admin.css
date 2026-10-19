@@ -163,6 +163,15 @@
   border-color: color-mix(in srgb, var(--user-accent) 70%, transparent);
 }
 
+/* The brand mark is white ink drawn for dark surfaces. On the light palette it
+   would disappear next to the wordmark, so it is inverted to the same ink the
+   palette uses for its text. Targeted by source rather than by a new class so
+   every place the user console draws the mark is covered. */
+html[data-theme="light"] [data-user] img[src="/stealth-cat.png"],
+html[data-theme="light"] [data-user-surface] img[src="/stealth-cat.png"] {
+  filter: invert(1) brightness(0.55);
+}
+
 /* Light theme for the user console, ported from the redesigned sidebar's
    theme sheet. The profile menu's theme toggle flips html[data-theme]; rules
    stay scoped to [data-user] and its portaled surfaces (see
@@ -193,6 +202,21 @@ html[data-theme="light"] [data-user-surface] {
   --projects-warning: #a86e00;
   --projects-danger: #bd3f49;
   color-scheme: light;
+  /* The shell's base ink is the admin palette's near-white, so anything in the
+     light palette without a text colour of its own would inherit near-white
+     ink on a near-white page. */
+  color: var(--projects-text);
+}
+
+/* The shared console controls — the error card and its retry button — are
+   written against the admin palette, whose `text-mist` ink is a mid grey for a
+   dark surface. On the light palette that ink lands at #b7b7bd, which is
+   unreadable on a white card, so inside the user console it is swapped for the
+   ink the portaled user surfaces already use. Everything the user console
+   actually designs re-skins its controls (`action-styles.ts`), so this only
+   reaches the shared components that are dropped in as they are. */
+html[data-theme="light"] [data-user] [class~="text-mist"] {
+  color: #3f4540;
 }
 
 /* The user console's own dark palette, matched to the reference: the page sits

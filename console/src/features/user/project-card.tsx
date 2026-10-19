@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FolderKanban, MoreHorizontal, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -10,6 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { projectPath } from "@/features/project/paths";
 import { cn } from "@/lib/utils";
 
 /**
@@ -55,14 +57,18 @@ function formatUtcDate(value: string): string | null {
 }
 
 /**
- * The box row's identity mark: a tinted square with the project glyph, so a
- * row starts with the same kind of mark the reference table uses.
+ * The project's identity mark: a tinted square with the project glyph. Shared
+ * by the box row and the project header, so a project looks the same wherever
+ * it is named.
  */
-function ProjectMark() {
+export function ProjectMark({ className }: { className?: string }) {
   return (
     <span
       aria-hidden="true"
-      className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--user-accent)_12%,transparent)] sm:size-9"
+      className={cn(
+        "flex size-8 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--user-accent)_12%,transparent)] sm:size-9",
+        className,
+      )}
     >
       <FolderKanban
         size={16}
@@ -109,6 +115,9 @@ function ProjectActionsMenu({
       {/* Portaled to the body, so it opts into the console's light palette and
           accent with `data-user-surface`. */}
       <DropdownMenuContent align="end" data-user-surface="">
+        <DropdownMenuItem onSelect={() => router.push(projectPath(projectId))}>
+          Open project
+        </DropdownMenuItem>
         <DropdownMenuItem onSelect={copyId}>Copy project ID</DropdownMenuItem>
         {canOpenAdmin ? (
           <DropdownMenuItem onSelect={() => router.push("/admin")}>
@@ -131,15 +140,26 @@ export function ProjectCard({
   onCreateProject: () => void;
 }) {
   const created = formatUtcDate(project.created_at);
+  const href = projectPath(project.id);
 
   return (
-    <article className="mx-4 flex flex-col overflow-hidden rounded-[13px] border border-[var(--projects-border)] bg-[var(--projects-card-bg)] divide-y divide-[var(--projects-divider)] transition-colors hover:border-[var(--projects-border-hover)] sm:mx-0">
+    <article className="relative mx-4 flex flex-col overflow-hidden rounded-[13px] border border-[var(--projects-border)] bg-[var(--projects-card-bg)] divide-y divide-[var(--projects-divider)] transition-colors hover:border-[var(--projects-border-hover)] sm:mx-0">
       <div className="flex min-h-[65px] flex-col justify-center py-[12.5px] !px-4">
         <h3
           title={project.name}
           className="m-0 truncate !text-[14px] font-semibold leading-5 tracking-[-0.01em] text-[var(--projects-text)]"
         >
-          {project.name}
+          {/* The link's `after` overlay makes the whole card a target for the
+              pointer; the action row below paints above it. */}
+          <Link
+            href={href}
+            className={cn(
+              "block truncate no-underline after:absolute after:inset-0 after:content-['']",
+              FOCUS,
+            )}
+          >
+            {project.name}
+          </Link>
         </h3>
         <p className="m-0 truncate !text-[12px] leading-5 text-[var(--projects-muted)]">
           {created ? `Created ${created}` : "Creation date unavailable"}
@@ -159,7 +179,7 @@ export function ProjectCard({
         <div className="h-px bg-[var(--user-accent)]/70" aria-hidden="true" />
       </div>
 
-      <div className="flex items-center justify-between gap-2 !px-4 py-[13px]">
+      <div className="relative flex items-center justify-between gap-2 !px-4 py-[13px]">
         <button
           type="button"
           onClick={onCreateProject}
@@ -203,12 +223,16 @@ export function ProjectRow({
         <div className="flex min-w-0 items-center gap-3">
           <ProjectMark />
           <span className="min-w-0">
-            <span
+            <Link
+              href={projectPath(project.id)}
               title={project.name}
-              className="block truncate text-[14px] font-semibold leading-5 text-[var(--projects-text)] sm:text-[15px]"
+              className={cn(
+                "block truncate text-[14px] font-semibold leading-5 text-[var(--projects-text)] no-underline sm:text-[15px]",
+                FOCUS,
+              )}
             >
               {project.name}
-            </span>
+            </Link>
             <span className="block truncate text-[12.5px] leading-5 text-[var(--projects-muted)] sm:text-[13px]">
               {created ? `Created ${created}` : "Creation date unavailable"}
             </span>
