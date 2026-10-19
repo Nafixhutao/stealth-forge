@@ -104,6 +104,18 @@ export const queryKeys = {
     ["site-deployment", projectId, siteId, deploymentId] as const,
   siteDeploymentScope: (projectId: string, siteId: string) =>
     ["site-deployment", projectId, siteId] as const,
+  // The build log and the file listing belong to one release, so they hang off
+  // the deployment key: refreshing the release refreshes both.
+  siteDeploymentLogs: (
+    projectId: string,
+    siteId: string,
+    deploymentId: string,
+  ) => ["site-deployment", projectId, siteId, deploymentId, "logs"] as const,
+  siteDeploymentFiles: (
+    projectId: string,
+    siteId: string,
+    deploymentId: string,
+  ) => ["site-deployment", projectId, siteId, deploymentId, "files"] as const,
   databases: (projectId: string) => ["databases", projectId] as const,
   database: (projectId: string, databaseId: string) =>
     ["database", projectId, databaseId] as const,

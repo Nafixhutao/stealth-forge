@@ -82,3 +82,124 @@ export function useDeploySite(projectId: string | undefined) {
     },
   });
 }
+
+/**
+ * Queues a build from a public Git repository.
+ *
+ * The API downloads the archive and builds it in the isolated worker, so this
+ * returns as soon as the release is queued, not when it is live. The caller
+ * watches the release's build status and logs; `activate` is requested so a
+ * successful build becomes the live release.
+ */
+export function useCreateGitDeployment(projectId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      siteId,
+      body,
+    }: {
+      siteId: string;
+      body: components["schemas"]["GitSiteDeploymentRequest"];
+    }) =>
+      unwrap(
+        await api.POST(
+          "/v1/projects/{projectID}/sites/{siteID}/deployments/git",
+          {
+            params: {
+              path: { projectID: projectId as string, siteID: siteId },
+            },
+            body,
+          },
+        ),
+      ),
+    onSuccess: async (_deployment, { siteId }) => {
+      await applyCacheChanges(queryClient, [
+        { kind: "site-deployment", projectId: projectId as string, siteId },
+      ]);
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.usage(projectId as string),
+      });
+    },
+  });
+}
+
+/** Makes a ready release the live one. */
+export function useActivateSiteDeployment(projectId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      siteId,
+      deploymentId,
+    }: {
+      siteId: string;
+      deploymentId: string;
+    }) =>
+      unwrap(
+        await api.POST(
+          "/v1/projects/{projectID}/sites/{siteID}/deployments/{deploymentID}/activate",
+          {
+            params: {
+              path: {
+                projectID: projectId as string,
+                siteID: siteId,
+                deploymentID: deploymentId,
+              },
+            },
+          },
+        ),
+      ),
+    onSuccess: async (_result, { siteId, deploymentId }) => {
+      await applyCacheChanges(queryClient, [
+        // The site row carries the active deployment, so it moves too.
+        { kind: "site", projectId: projectId as string, siteId },
+        { kind: "site-deployment", projectId: projectId as string, siteId },
+      ]);
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.siteDeployment(
+          projectId as string,
+          siteId,
+          deploymentId,
+        ),
+      });
+    },
+  });
+}
+
+/**
+ * Deletes one release. The API refuses to delete the live one, so the caller
+ * only offers this for releases that are not active.
+ */
+export function useDeleteSiteDeployment(projectId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      siteId,
+      deploymentId,
+    }: {
+      siteId: string;
+      deploymentId: string;
+    }) =>
+      unwrap(
+        await api.DELETE(
+          "/v1/projects/{projectID}/sites/{siteID}/deployments/{deploymentID}",
+          {
+            params: {
+              path: {
+                projectID: projectId as string,
+                siteID: siteId,
+                deploymentID: deploymentId,
+              },
+            },
+          },
+        ),
+      ),
+    onSuccess: async (_result, { siteId }) => {
+      await applyCacheChanges(queryClient, [
+        { kind: "site-deployment", projectId: projectId as string, siteId },
+      ]);
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.usage(projectId as string),
+      });
+    },
+  });
+}

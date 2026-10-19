@@ -3147,6 +3147,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/projects/{projectID}/sites/{siteID}/deployments/{deploymentID}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description List the regular files of one published immutable Site release. Contents are served by the deployment's public preview route; this only returns paths and sizes. */
+        get: operations["listSiteDeploymentFiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sites/{siteID}": {
         parameters: {
             query?: never;
@@ -6867,6 +6884,17 @@ export interface components {
             rows: components["schemas"]["DatabaseRow"][];
             deleted_ids: string[];
             count: number;
+        };
+        SiteDeploymentFile: {
+            /** @description Path relative to the release root */
+            path: string;
+            /** Format: int64 */
+            size: number;
+        };
+        SiteDeploymentFilesResponse: {
+            files: components["schemas"]["SiteDeploymentFile"][];
+            /** @description True when the listing hit its bound and does not describe the whole release. */
+            truncated: boolean;
         };
     };
     responses: {
@@ -15104,6 +15132,35 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listSiteDeploymentFiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                siteID: components["parameters"]["SiteID"];
+                deploymentID: components["parameters"]["DeploymentID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Published release files */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteDeploymentFilesResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
         };
     };
     serveSiteIndex: {

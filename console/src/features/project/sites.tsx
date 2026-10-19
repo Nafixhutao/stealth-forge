@@ -136,6 +136,7 @@ export function ProjectSites({ projectId }: { projectId: string }) {
                   <td className={RESOURCE_CELL}>
                     <ResourceIdentity
                       name={site.name}
+                      href={`/projects/${projectId}/sites/${site.id}`}
                       meta={
                         <>
                           <SiteState site={site} />

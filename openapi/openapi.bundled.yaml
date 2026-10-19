@@ -8086,6 +8086,34 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /v1/projects/{projectID}/sites/{siteID}/deployments/{deploymentID}/files:
+    get:
+      operationId: listSiteDeploymentFiles
+      description: List the regular files of one published immutable Site release. Contents are served by the deployment's public preview route; this only returns paths and sizes.
+      security:
+        - sessionCookie: []
+        - projectApiKey: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectID'
+        - $ref: '#/components/parameters/SiteID'
+        - $ref: '#/components/parameters/DeploymentID'
+      responses:
+        '200':
+          description: Published release files
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteDeploymentFilesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /v1/sites/{siteID}:
     get:
       operationId: serveSiteIndex
@@ -18725,3 +18753,32 @@ components:
           type: integer
           minimum: 1
           maximum: 100
+    SiteDeploymentFile:
+      type: object
+      additionalProperties: false
+      required:
+        - path
+        - size
+      properties:
+        path:
+          type: string
+          description: Path relative to the release root
+          using forward slashes; the public preview route accepts it verbatim.: null
+        size:
+          type: integer
+          format: int64
+          minimum: 0
+    SiteDeploymentFilesResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - files
+        - truncated
+      properties:
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/SiteDeploymentFile'
+        truncated:
+          type: boolean
+          description: True when the listing hit its bound and does not describe the whole release.

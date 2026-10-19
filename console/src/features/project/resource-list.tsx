@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { pluralize } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -115,23 +116,36 @@ export function ResourceIdentity({
   name,
   meta,
   mark,
+  href,
 }: {
   name: string;
   /** The line under the name. A node rather than a string so a row can put a
    * state chip on it instead of spending a whole column on one short word. */
   meta: ReactNode;
   mark?: ReactNode;
+  /** Makes the name the way into the resource's own surface. */
+  href?: string;
 }) {
   return (
     <div className="flex min-w-0 items-center gap-3">
       {mark}
       <span className="flex min-w-0 flex-col">
-        <span
-          title={name}
-          className="block truncate text-[14px] font-semibold leading-5 text-[var(--projects-text)] sm:text-[15px]"
-        >
-          {name}
-        </span>
+        {href ? (
+          <Link
+            href={href}
+            title={name}
+            className="block truncate text-[14px] font-semibold leading-5 text-[var(--projects-text)] no-underline underline-offset-2 hover:underline sm:text-[15px]"
+          >
+            {name}
+          </Link>
+        ) : (
+          <span
+            title={name}
+            className="block truncate text-[14px] font-semibold leading-5 text-[var(--projects-text)] sm:text-[15px]"
+          >
+            {name}
+          </span>
+        )}
         <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-[12.5px] leading-5 text-[var(--projects-muted)] sm:flex-nowrap sm:text-[13px]">
           {meta}
         </span>

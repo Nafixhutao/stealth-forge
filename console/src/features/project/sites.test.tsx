@@ -223,11 +223,12 @@ describe("ProjectSites", () => {
   it("says there is no address when the instance has no workload domain", () => {
     renderSites();
 
-    // Only the site that has a hostname gets a link; the null one says so in
-    // words instead of rendering an empty cell or a dead anchor.
+    // Only the site that has a hostname gets an address link; the null one says
+    // so in words instead of rendering an empty cell or a dead anchor.
     expect(screen.getByText("No address yet")).toBeInTheDocument();
-    expect(screen.getAllByRole("link")).toHaveLength(1);
-    expect(screen.queryByRole("link", { name: /blog/ })).toBeNull();
+    expect(
+      screen.getAllByRole("link", { name: /example\.com/ }),
+    ).toHaveLength(1);
   });
 
   it("offers the empty state when the project has no sites", () => {

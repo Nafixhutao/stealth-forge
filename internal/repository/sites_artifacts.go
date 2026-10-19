@@ -10,6 +10,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -184,4 +185,26 @@ func validSiteOutputDirectory(value string) bool {
 		}
 	}
 	return true
+}
+
+// GetSiteDeploymentArtifactPath returns a deployment together with the immutable
+// artifact path it was published at, after checking that the actor may read the
+// project's Sites. The path is for server-side use only: it is a storage
+// locator, never something a response exposes.
+func (r *Repository) GetSiteDeploymentArtifactPath(
+	ctx context.Context,
+	projectID, siteID, deploymentID uuid.UUID,
+	actor SiteActor,
+) (domain.SiteDeployment, string, error) {
+	if _, err := r.requireSiteRead(ctx, projectID, actor); err != nil {
+		return domain.SiteDeployment{}, "", err
+	}
+	if _, err := r.siteByID(ctx, r.pool, projectID, siteID, false); err != nil {
+		return domain.SiteDeployment{}, "", err
+	}
+	item, artifactPath, err := r.siteDeploymentByID(ctx, r.pool, projectID, siteID, deploymentID, false, true)
+	if err != nil {
+		return domain.SiteDeployment{}, "", err
+	}
+	return item, artifactPath, nil
 }
