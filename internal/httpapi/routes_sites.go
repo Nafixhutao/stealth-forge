@@ -33,6 +33,8 @@ func (s *Server) registerSiteRoutes(r chi.Router) {
 		Get("/projects/{projectID}/sites/{siteID}/deployments/{deploymentID}/logs", s.listSiteBuildLogs)
 	r.With(s.requireProjectManagement).
 		Get("/projects/{projectID}/sites/{siteID}/deployments/{deploymentID}/files", s.listSiteDeploymentFiles)
+	r.With(s.requireProjectManagement, s.rateLimitProjectOperation("site_deployment")).
+		Post("/projects/{projectID}/sites/{siteID}/deployments/{deploymentID}/files", s.editSiteDeploymentFile)
 	r.Get("/sites/{siteID}/deployments/{deploymentID}", s.serveSiteDeploymentFile)
 	r.Get("/sites/{siteID}/deployments/{deploymentID}/*", s.serveSiteDeploymentFile)
 	r.Get("/sites/{siteID}", s.serveSiteFile)

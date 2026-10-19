@@ -113,6 +113,13 @@ paths:
       security: [{ sessionCookie: [] }, { projectApiKey: [] }]
       parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/SiteID' }, { $ref: '../components/common.yaml#/components/parameters/DeploymentID' }]
       responses: { '200': { description: Published release files, content: { application/json: { schema: { $ref: '../components/projects-sites.yaml#/components/schemas/SiteDeploymentFilesResponse' } } } }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+    post:
+      operationId: editSiteDeploymentFile
+      description: Publish a new release from an existing one with one file's contents replaced. A release is immutable, so this copies the source release, rewrites the file, and creates a new deployment; the previous release is untouched. Only files that already exist in the release can be edited, symlinks are skipped rather than followed, and the artifact quota applies.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/SiteID' }, { $ref: '../components/common.yaml#/components/parameters/DeploymentID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-sites.yaml#/components/schemas/EditSiteDeploymentFileRequest' } } } }
+      responses: { '201': { description: New release published, content: { application/json: { schema: { $ref: '../components/projects-sites.yaml#/components/schemas/SiteDeploymentResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
   /v1/sites/{siteID}/deployments/{deploymentID}:
     get:
       operationId: serveSiteDeploymentIndex

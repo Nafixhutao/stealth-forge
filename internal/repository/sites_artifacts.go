@@ -208,3 +208,33 @@ func (r *Repository) GetSiteDeploymentArtifactPath(
 	}
 	return item, artifactPath, nil
 }
+
+// GetSiteDeploymentArtifactPathForWrite is the edit path's lookup: it returns a
+// deployment and its immutable artifact path, but requires write permission on
+// the project's Sites rather than read. Editing publishes a new release, so it
+// must not be reachable by a read-only key.
+func (r *Repository) GetSiteDeploymentArtifactPathForWrite(
+	ctx context.Context,
+	projectID, siteID, deploymentID uuid.UUID,
+	actor SiteActor,
+) (domain.SiteDeployment, string, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.SiteDeployment{}, "", err
+	}
+	defer tx.Rollback(ctx)
+	if err := r.requireSiteWriteTx(ctx, tx, projectID, actor); err != nil {
+		return domain.SiteDeployment{}, "", err
+	}
+	if _, err := r.siteByID(ctx, tx, projectID, siteID, false); err != nil {
+		return domain.SiteDeployment{}, "", err
+	}
+	item, artifactPath, err := r.siteDeploymentByID(ctx, tx, projectID, siteID, deploymentID, false, true)
+	if err != nil {
+		return domain.SiteDeployment{}, "", err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.SiteDeployment{}, "", err
+	}
+	return item, artifactPath, nil
+}

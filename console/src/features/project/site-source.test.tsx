@@ -7,6 +7,14 @@ import { SiteSource } from "@/features/project/site-source";
 // so the panel must not pretend to save. It lists a release's files, opens the
 // entry point first, and renders text while refusing to guess at binaries.
 const useSiteDeploymentFiles = vi.fn();
+const editFile = { mutate: vi.fn(), isPending: false };
+const toastSuccess = vi.hoisted(() => vi.fn());
+
+vi.mock("@/api/mutations/sites", () => ({
+  useEditSiteDeploymentFile: () => editFile,
+}));
+
+vi.mock("sonner", () => ({ toast: { success: toastSuccess, error: vi.fn() } }));
 
 vi.mock("@/api/queries/site-detail", () => ({
   useSiteDeploymentFiles: (
@@ -22,19 +30,41 @@ vi.mock("@/api/queries/site-detail", () => ({
 vi.mock("@/features/project/code-viewer", () => ({
   languageForPath: (path: string) =>
     path.endsWith(".html") ? "html" : path.endsWith(".css") ? "css" : "text",
-  CodeViewer: ({ value, language }: { value: string; language: string }) => (
+  CodeViewer: ({
+    initialValue,
+    language,
+  }: {
+    initialValue: string;
+    language: string;
+  }) => (
     <pre data-testid="code-viewer" data-language={language}>
-      {value}
+      {initialValue}
     </pre>
   ),
 }));
 
 vi.mock("next/dynamic", () => ({
   default: () =>
-    function DynamicStub(props: { value: string; language: string }) {
+    function DynamicStub(props: {
+      initialValue: string;
+      language: string;
+      readOnly?: boolean;
+      onChange?: (value: string) => void;
+    }) {
+      // Editable mode is a textarea so a test can type into it; read-only mode
+      // stays a pre so its text is easy to assert.
+      if (props.readOnly === false) {
+        return (
+          <textarea
+            data-testid="code-editor"
+            defaultValue={props.initialValue}
+            onChange={(event) => props.onChange?.(event.target.value)}
+          />
+        );
+      }
       return (
         <pre data-testid="code-viewer" data-language={props.language}>
-          {props.value}
+          {props.initialValue}
         </pre>
       );
     },
@@ -54,9 +84,9 @@ function query(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function renderSource() {
+function renderSource(props: { canEdit?: boolean; onPublished?: (d: unknown) => void } = {}) {
   const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
@@ -64,6 +94,8 @@ function renderSource() {
         projectId="33333333-3333-3333-3333-333333333331"
         siteId={SITE_ID}
         deploymentId={DEPLOYMENT_ID}
+        canEdit={props.canEdit}
+        onPublished={props.onPublished as never}
       />
     </QueryClientProvider>,
   );
@@ -72,6 +104,7 @@ function renderSource() {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.unstubAllGlobals();
+  editFile.mutate.mockReset();
   useSiteDeploymentFiles.mockReturnValue(
     query({
       data: {
@@ -169,6 +202,105 @@ describe("SiteSource", () => {
     expect(
       await screen.findByText("This file answered 404."),
     ).toBeInTheDocument();
+  });
+
+  it("offers no edit control to a reader", () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, text: async () => "<html>" }),
+    );
+
+    renderSource();
+
+    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
+  });
+
+  it("warns that saving publishes a new release before it is used", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, text: async () => "<html>" }),
+    );
+
+    renderSource({ canEdit: true });
+    // The control is disabled until the file has been read.
+    await screen.findByTestId("code-viewer");
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+
+    expect(
+      screen.getByText(/Saving publishes a/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/counts against the site's artifact quota/),
+    ).toBeInTheDocument();
+  });
+
+  it("publishes the edited file and reports the new release", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, text: async () => "<html>old</html>" }),
+    );
+    const onPublished = vi.fn();
+    editFile.mutate.mockImplementation(
+      (_body: unknown, options: { onSuccess: (result: unknown) => void }) => {
+        options.onSuccess({ deployment: { id: "dep-new", version: 3 } });
+      },
+    );
+
+    renderSource({ canEdit: true, onPublished });
+    await screen.findByTestId("code-viewer");
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByTestId("code-editor"), {
+      target: { value: "<html>new</html>" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Publish changes" }));
+
+    expect(editFile.mutate).toHaveBeenCalledWith(
+      {
+        siteId: SITE_ID,
+        deploymentId: DEPLOYMENT_ID,
+        path: "index.html",
+        content: "<html>new</html>",
+      },
+      expect.anything(),
+    );
+    expect(onPublished).toHaveBeenCalledWith({ id: "dep-new", version: 3 });
+    expect(toastSuccess).toHaveBeenCalled();
+  });
+
+  it("keeps Publish disabled until something changed", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, text: async () => "<html>" }),
+    );
+
+    renderSource({ canEdit: true });
+    await screen.findByTestId("code-viewer");
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+
+    expect(screen.getByRole("button", { name: "Publish changes" })).toBeDisabled();
+    fireEvent.change(screen.getByTestId("code-editor"), {
+      target: { value: "<html>changed</html>" },
+    });
+    expect(screen.getByRole("button", { name: "Publish changes" })).toBeEnabled();
+  });
+
+  it("drops the draft when the edit is cancelled", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, text: async () => "<html>old</html>" }),
+    );
+
+    renderSource({ canEdit: true });
+    await screen.findByTestId("code-viewer");
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByTestId("code-editor"), {
+      target: { value: "<html>scratch</html>" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByTestId("code-editor")).toBeNull();
+    expect(screen.getByTestId("code-viewer")).toHaveTextContent("<html>old</html>");
+    expect(editFile.mutate).not.toHaveBeenCalled();
   });
 
   it("says the release has no files instead of showing an empty tree", () => {

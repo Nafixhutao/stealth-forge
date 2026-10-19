@@ -297,6 +297,15 @@ export function SiteDetail({
               projectId={projectId}
               siteId={siteId}
               deploymentId={sourceDeploymentId}
+              canEdit={canManage}
+              onPublished={(published) => {
+                // Follow the release the save created, and reload the preview
+                // because it is now the live one.
+                setSelectedDeploymentId(published.id);
+                setPreviewNonce((value) => value + 1);
+                void deployments.refetch();
+                void site.refetch();
+              }}
             />
           </div>
         ) : (

@@ -3157,7 +3157,8 @@ export interface paths {
         /** @description List the regular files of one published immutable Site release. Contents are served by the deployment's public preview route; this only returns paths and sizes. */
         get: operations["listSiteDeploymentFiles"];
         put?: never;
-        post?: never;
+        /** @description Publish a new release from an existing one with one file's contents replaced. A release is immutable, so this copies the source release, rewrites the file, and creates a new deployment; the previous release is untouched. Only files that already exist in the release can be edited, symlinks are skipped rather than followed, and the artifact quota applies. */
+        post: operations["editSiteDeploymentFile"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6895,6 +6896,14 @@ export interface components {
             files: components["schemas"]["SiteDeploymentFile"][];
             /** @description True when the listing hit its bound and does not describe the whole release. */
             truncated: boolean;
+        };
+        EditSiteDeploymentFileRequest: {
+            /** @description Path of a file that already exists in the source release */
+            path: string;
+            /** @description Text contents to write. The API bounds this by the configured artifact size. */
+            content: string;
+            /** @default true */
+            activate: boolean;
         };
     };
     responses: {
@@ -15160,6 +15169,42 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    editSiteDeploymentFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                siteID: components["parameters"]["SiteID"];
+                deploymentID: components["parameters"]["DeploymentID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditSiteDeploymentFileRequest"];
+            };
+        };
+        responses: {
+            /** @description New release published */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteDeploymentResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["ValidationError"];
             500: components["responses"]["InternalError"];
         };
     };

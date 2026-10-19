@@ -203,3 +203,61 @@ export function useDeleteSiteDeployment(projectId: string | undefined) {
     },
   });
 }
+
+/**
+ * Publishes an edited copy of a release.
+ *
+ * A release is immutable, so this does not modify one: the API copies the source
+ * release, rewrites the file, and returns a new deployment. The previous release
+ * stays deployable, and each save therefore consumes artifact quota until older
+ * releases are deleted — which is why the caller warns before saving.
+ */
+export function useEditSiteDeploymentFile(projectId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      siteId,
+      deploymentId,
+      path,
+      content,
+    }: {
+      siteId: string;
+      deploymentId: string;
+      path: string;
+      content: string;
+    }) =>
+      unwrap(
+        await api.POST(
+          "/v1/projects/{projectID}/sites/{siteID}/deployments/{deploymentID}/files",
+          {
+            params: {
+              path: {
+                projectID: projectId as string,
+                siteID: siteId,
+                deploymentID: deploymentId,
+              },
+            },
+            body: { path, content, activate: true },
+          },
+        ),
+      ),
+    onSuccess: async (_result, { siteId, deploymentId }) => {
+      await applyCacheChanges(queryClient, [
+        // The new release becomes live, so the site row moves with it.
+        { kind: "site", projectId: projectId as string, siteId },
+        { kind: "site-deployment", projectId: projectId as string, siteId },
+      ]);
+      // The edited file belongs to a release that no longer exists as such.
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.siteDeploymentFiles(
+          projectId as string,
+          siteId,
+          deploymentId,
+        ),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.usage(projectId as string),
+      });
+    },
+  });
+}

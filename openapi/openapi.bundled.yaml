@@ -8114,6 +8114,45 @@ paths:
           $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+    post:
+      operationId: editSiteDeploymentFile
+      description: Publish a new release from an existing one with one file's contents replaced. A release is immutable, so this copies the source release, rewrites the file, and creates a new deployment; the previous release is untouched. Only files that already exist in the release can be edited, symlinks are skipped rather than followed, and the artifact quota applies.
+      security:
+        - sessionCookie: []
+        - projectApiKey: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectID'
+        - $ref: '#/components/parameters/SiteID'
+        - $ref: '#/components/parameters/DeploymentID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditSiteDeploymentFileRequest'
+      responses:
+        '201':
+          description: New release published
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteDeploymentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /v1/sites/{siteID}:
     get:
       operationId: serveSiteIndex
@@ -18782,3 +18821,22 @@ components:
         truncated:
           type: boolean
           description: True when the listing hit its bound and does not describe the whole release.
+    EditSiteDeploymentFileRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - path
+        - content
+      properties:
+        path:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          description: Path of a file that already exists in the source release
+          relative to its root.: null
+        content:
+          type: string
+          description: Text contents to write. The API bounds this by the configured artifact size.
+        activate:
+          type: boolean
+          default: true
