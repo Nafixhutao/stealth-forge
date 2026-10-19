@@ -32,6 +32,19 @@ export const PANEL_CLOSE_TRANSITION = {
 export const REDUCED_TRANSITION = { duration: 0.16, ease: EASE_OUT } as const;
 export const SUBMENU_TRANSITION = { duration: 0.22, ease: EASE_OUT } as const;
 
+// The mobile bottom sheet rises on a spring rather than a tween: it carries a
+// physical object's weight, so it decelerates into place instead of stopping
+// dead. Damping is above critical for the mass, which settles in roughly 320ms
+// with no overshoot — a sheet that bounces past the top edge reads as broken.
+export const SHEET_SPRING = {
+  type: "spring",
+  stiffness: 520,
+  damping: 44,
+  mass: 0.85,
+  restDelta: 0.4,
+  restSpeed: 4,
+} as const;
+
 // The desktop rail has a hard width boundary. Direction-aware tweens avoid
 // the spring's last-frame wobble while keeping expansion a little more open.
 export const SIDEBAR_COLLAPSE_TRANSITION = {

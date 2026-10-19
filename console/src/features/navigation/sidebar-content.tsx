@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { usePathname, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
@@ -9,7 +16,6 @@ import {
   useReducedMotion,
   type Variants,
 } from "motion/react";
-import { PixelSkeleton } from "@/components/ui/pixel-skeleton";
 import {
   EASE_OUT,
   LABEL_ENTER_TRANSITION,
@@ -23,6 +29,9 @@ import {
 } from "@/lib/ease";
 import { cn } from "@/lib/utils";
 import { useCurrentAccount } from "@/api/queries/account";
+import { useOrganizationPlan } from "@/api/queries/organizations";
+import { planLabel, planUsageText } from "@/lib/plans";
+import { useCurrentOrganizationId } from "./use-current-organization";
 import {
   BookOpen,
   Bot,
@@ -144,6 +153,11 @@ const SearchPalette = dynamic(
   { ssr: false },
 );
 
+/** The user console's project surfaces: its home and any single project. */
+function isProjectsPath(pathname: string) {
+  return pathname === "/user" || pathname.startsWith("/projects/");
+}
+
 function NavRow({
   icon,
   label,
@@ -230,7 +244,8 @@ function Header({
 }) {
   const reduce = useReducedMotion() ?? false;
   const account = useCurrentAccount();
-  const [planLoading, setPlanLoading] = useState(true);
+  const organizationId = useCurrentOrganizationId();
+  const plan = useOrganizationPlan(organizationId ?? undefined);
   const identity = account.data?.account;
   const name =
     identity?.display_name?.trim() ||
@@ -238,22 +253,28 @@ function Header({
     "Account";
   const avatar = identity?.avatar_url ?? "";
 
-  // The redesigned header shows a pixel skeleton for the plan chip, then the
-  // plan name. Mirror that so the badge settles in the same way.
-  useEffect(() => {
-    const timer = setTimeout(() => setPlanLoading(false), 1500);
-    return () => clearTimeout(timer);
-  }, []);
+  // The chip reads the plan endpoint for whichever organization this surface
+  // belongs to. It renders nothing until that answer exists: an empty slot is
+  // honest, a placeholder that always says the same word is not.
+  const orgPlan = plan.data?.plan;
+  const label = planLabel(orgPlan?.plan_key);
+  const planTitle = orgPlan
+    ? planUsageText(orgPlan.usage.projects, orgPlan.limits.projects)
+    : undefined;
 
   return (
-    <header className="flex h-[44px] shrink-0 items-center px-4 lg:h-[48px]">
-      {/* the identity slot folds away entirely in the rail — it must not
-       * reserve space, or it pushes the collapse toggle out of the rail */}
+    <header className="flex h-[44px] shrink-0 items-center gap-2 px-4 lg:h-[48px]">
+      {/* The identity slot folds away entirely in the rail — it must not
+       * reserve space, or it pushes the collapse toggle out of the rail.
+       *
+       * The ceiling is the widest panel this header can appear in, not a
+       * design width: at 220px the name was cut short ("Aulia Rahma…") while
+       * the row still had empty space beside it. */}
       <motion.div
         initial={false}
-        animate={{ maxWidth: collapsed ? 0 : 220 }}
+        animate={{ maxWidth: collapsed ? 0 : 560 }}
         transition={collapsed ? LABEL_EXIT_TRANSITION : LABEL_ENTER_TRANSITION}
-        className="flex min-w-0 items-center overflow-hidden"
+        className="flex min-w-0 flex-1 items-center overflow-hidden"
       >
         {avatar ? (
           <motion.img
@@ -271,139 +292,82 @@ function Header({
             {name.slice(0, 1).toUpperCase()}
           </span>
         )}
-        <RailLabel collapsed={collapsed} className="flex items-center">
-          <span className="ml-2 min-w-0 flex-1 truncate text-[14px] font-medium tracking-[-0.01em] leading-[20px] text-[oklch(0.949_0.0035_305)]">
+        <RailLabel
+          collapsed={collapsed}
+          className="flex min-w-0 flex-1 items-center"
+        >
+          <span
+            title={name}
+            className="ml-2 min-w-0 flex-1 truncate text-[13.5px] font-medium leading-[20px] tracking-[-0.01em] text-[oklch(0.949_0.0035_305)]"
+          >
             {name}
           </span>
-          {planLoading ? (
-            <PixelSkeleton className="ml-2 h-5 w-14" />
-          ) : (
-            <span className="ml-2 shrink-0 whitespace-nowrap rounded-[5px] bg-[#201E22] px-[6px] py-[2px] text-[12px] font-medium leading-[16px] text-[oklch(0.767_0.0105_305)]">
-              Pro Plus
+          {label ? (
+            <span
+              title={planTitle}
+              className="ml-2 shrink-0 whitespace-nowrap rounded-[5px] bg-[#201E22] px-[6px] py-[2px] text-[12px] font-medium leading-[16px] text-[oklch(0.767_0.0105_305)]"
+            >
+              {label}
             </span>
-          )}
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2.2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="ml-2 size-[13px] shrink-0 text-[#737078]"
-            aria-hidden="true"
-          >
-            <path d="m7 8 5-5 5 5" />
-            <path d="m7 16 5 5 5-5" />
-          </svg>
+          ) : null}
         </RailLabel>
       </motion.div>
-      <motion.button
-        type="button"
-        onClick={onClose}
-        whileTap={tap(reduce)}
-        transition={SPRING_PRESS}
-        className="ml-auto inline-flex h-6 w-6 items-center justify-center text-[#AAA6AE] transition-colors hover:text-[#EEEAF0] lg:hidden"
-        aria-label="Close sidebar"
-      >
-        <X size={14} strokeWidth={1.8} />
-      </motion.button>
-      <motion.button
-        type="button"
-        onClick={onToggleCollapse}
-        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        aria-expanded={!collapsed}
-        whileTap={tap(reduce)}
-        transition={SPRING_PRESS}
-        className={cn(
-          "group/btn hidden shrink-0 text-[#AAA6AE] transition-colors hover:text-[#EEEAF0] lg:block",
-          // in the rail the toggle belongs to the icon column (reference
-          // center 23.5); only the expanded panel pins it to the right edge
-          collapsed ? "mr-auto" : "ml-auto",
-        )}
-      >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 16 16"
-          fill="none"
-          className="size-4"
-          aria-hidden="true"
+      {onClose ? (
+        <motion.button
+          type="button"
+          onClick={onClose}
+          whileTap={tap(reduce)}
+          transition={SPRING_PRESS}
+          className="-mr-2 inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-[#AAA6AE] transition-colors hover:bg-white/[0.06] hover:text-[#EEEAF0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 lg:hidden"
+          aria-label="Close sidebar"
         >
-          <rect
-            x="2"
-            y="3"
-            width="12"
-            height="10"
-            rx="2"
-            stroke="currentColor"
-            strokeWidth="2"
-          />
-          <rect
-            x="4"
-            y="5"
-            width="2"
-            height="6"
-            rx="1"
-            fill="currentColor"
-            className="transition-[width] duration-300 ease-out [width:2px] group-hover/btn:[width:1px]"
-          />
-        </svg>
-      </motion.button>
-    </header>
-  );
-}
-
-function CompactSidebarHeader({
-  collapsed,
-  onToggleCollapse,
-}: {
-  collapsed: boolean;
-  onToggleCollapse?: () => void;
-}) {
-  const reduce = useReducedMotion() ?? false;
-
-  return (
-    <header className="flex h-[38px] shrink-0 items-center px-4">
-      <motion.button
-        type="button"
-        onClick={onToggleCollapse}
-        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        aria-expanded={!collapsed}
-        whileTap={tap(reduce)}
-        transition={SPRING_PRESS}
-        className={cn(
-          "group/btn shrink-0 text-[#AAA6AE] transition-colors hover:text-[#EEEAF0]",
-          collapsed ? "mr-auto" : "ml-auto",
-        )}
-      >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 16 16"
-          fill="none"
-          className="size-4"
-          aria-hidden="true"
+          <X size={16} strokeWidth={1.8} />
+        </motion.button>
+      ) : null}
+      {onToggleCollapse ? (
+        <motion.button
+          type="button"
+          onClick={onToggleCollapse}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-expanded={!collapsed}
+          whileTap={tap(reduce)}
+          transition={SPRING_PRESS}
+          className={cn(
+            "group/btn hidden size-7 shrink-0 items-center justify-center rounded-md text-[#AAA6AE] transition-colors hover:bg-white/[0.06] hover:text-[#EEEAF0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 lg:inline-flex",
+            // in the rail the toggle belongs to the icon column (reference
+            // center 23.5); only the expanded panel pins it to the right edge
+            collapsed ? "mr-auto" : "ml-auto",
+          )}
         >
-          <rect
-            x="2"
-            y="3"
-            width="12"
-            height="10"
-            rx="2"
-            stroke="currentColor"
-            strokeWidth="2"
-          />
-          <rect
-            x="4"
-            y="5"
-            width="2"
-            height="6"
-            rx="1"
-            fill="currentColor"
-            className="transition-[width] duration-300 ease-out [width:2px] group-hover/btn:[width:1px]"
-          />
-        </svg>
-      </motion.button>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            className="size-4"
+            aria-hidden="true"
+          >
+            <rect
+              x="2"
+              y="3"
+              width="12"
+              height="10"
+              rx="2"
+              stroke="currentColor"
+              strokeWidth="2"
+            />
+            <rect
+              x="4"
+              y="5"
+              width="2"
+              height="6"
+              rx="1"
+              fill="currentColor"
+              className="transition-[width] duration-300 ease-out [width:2px] group-hover/btn:[width:1px]"
+            />
+          </svg>
+        </motion.button>
+      ) : null}
     </header>
   );
 }
@@ -527,7 +491,7 @@ function ReviewSection({
                 aria-current={activeItem === item ? "page" : undefined}
                 whileTap={tap(reduce)}
                 transition={SPRING_PRESS}
-                className={`flex h-[30px] w-full items-center text-left text-[12px] font-normal transition-colors lg:h-[34px] lg:text-[14px] ${
+                className={`flex h-11 w-full items-center text-left text-[12.5px] font-normal transition-colors lg:h-[34px] lg:text-[14px] ${
                   activeItem === item
                     ? "bg-white/[0.03] text-[#EEEAF0]"
                     : "text-[#C5C1C9] hover:text-[#EEEAF0]"
@@ -545,22 +509,32 @@ function ReviewSection({
 }
 
 /** Everything inside the panel, shared by the desktop rail and mobile sheet. */
-export function SidebarContent({
+function SidebarContentImpl({
   onMobileClose,
   collapsed = false,
-  showHeader = true,
   onToggleCollapse,
+  entrance = true,
 }: {
   onMobileClose?: () => void;
   collapsed?: boolean;
-  showHeader?: boolean;
   onToggleCollapse?: () => void;
+  /**
+   * Whether the nav rows play their staggered entrance. The desktop rail
+   * mounts once per page load and earns the flourish; the mobile sheet is
+   * opened repeatedly and is already the thing that just animated, so it opts
+   * out and paints its rows in the first frame.
+   */
+  entrance?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const [reviewOpen, setReviewOpen] = useState(true);
   const [active, setActive] = useState<string | null>(() =>
-    pathname === "/" ? "Projects" : pathname === "/agent" ? "Agent" : null,
+    isProjectsPath(pathname)
+      ? "Projects"
+      : pathname === "/agent"
+        ? "Agent"
+        : null,
   );
   const [searchOpen, setSearchOpen] = useState(false);
   // The palette is mounted only once it is first wanted, so its chunk is not
@@ -583,7 +557,7 @@ export function SidebarContent({
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (pathname === "/") setActive("Projects");
+    if (isProjectsPath(pathname)) setActive("Projects");
     else if (pathname === "/agent") setActive("Agent");
   }, [pathname]);
 
@@ -610,8 +584,14 @@ export function SidebarContent({
 
   const selectNavigation = (label: string) => {
     select(label);
-    if (label === "Projects" && pathname !== "/") router.push("/");
+    // "Projects" is the user console's front page. It used to be the root path,
+    // which now belongs to the admin console, so a user tapping it landed in
+    // the wrong product entirely.
+    if (label === "Projects" && pathname !== "/user") router.push("/user");
     if (label === "Agent" && pathname !== "/agent") router.push("/agent");
+    // The mobile sheet covers most of the screen, so choosing a destination
+    // dismisses it; on the desktop rail this prop is undefined.
+    onMobileClose?.();
   };
 
   const renderNavItem = (item: NavItem) => (
@@ -631,23 +611,16 @@ export function SidebarContent({
 
   return (
     <>
-      {showHeader ? (
-        <Header
-          onClose={onMobileClose}
-          collapsed={collapsed}
-          onToggleCollapse={onToggleCollapse}
-        />
-      ) : (
-        <CompactSidebarHeader
-          collapsed={collapsed}
-          onToggleCollapse={onToggleCollapse}
-        />
-      )}
+      <Header
+        onClose={onMobileClose}
+        collapsed={collapsed}
+        onToggleCollapse={onToggleCollapse}
+      />
       <motion.nav
-        className="sidebar-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto pb-1"
+        className="sidebar-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto pb-1 [overscroll-behavior:contain]"
         aria-label="Sidebar links"
         variants={NAV_VARIANTS}
-        initial={reduce ? false : "hidden"}
+        initial={reduce || !entrance ? false : "hidden"}
         animate="visible"
       >
         {primaryNavItems.map(renderNavItem)}
@@ -685,7 +658,7 @@ export function SidebarContent({
               type="button"
               whileTap={tap(reduce)}
               transition={SPRING_PRESS}
-              className="relative z-10 inline-flex h-[26px] shrink-0 items-center gap-1.5 rounded-full border border-[#322F37] bg-[#121014] px-[10px] text-[12px] font-medium leading-[16px] text-[oklch(0.949_0.0035_305)] transition-colors hover:border-[#4a4650] hover:bg-[#121014]"
+              className="relative z-10 inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-[#322F37] bg-[#121014] px-3 text-[12px] font-medium leading-[16px] text-[oklch(0.949_0.0035_305)] transition-colors hover:border-[#4a4650] hover:bg-[#121014] lg:h-[26px] lg:px-[10px]"
             >
               <ChevronDown size={12} strokeWidth={2} className="shrink-0" />
               View more
@@ -711,3 +684,11 @@ export function SidebarContent({
     </>
   );
 }
+
+/**
+ * Memoised on purpose: opening the mobile sheet re-renders its parent, and
+ * without this the whole nav tree (176 nodes, 25 icons) re-rendered in the same
+ * commit that starts the animation — a 183ms frame on a throttled CPU, right
+ * where the motion needed to begin. Its props are stable, so nothing is lost.
+ */
+export const SidebarContent = memo(SidebarContentImpl);
