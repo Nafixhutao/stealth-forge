@@ -9,10 +9,17 @@ import { ProjectFunctions } from "@/features/project/functions";
 // network.
 const useProjectFunctions = vi.fn();
 const useProjectUsage = vi.fn();
+const createFunction = { mutateAsync: vi.fn(), isPending: false };
+const deleteFunction = { mutateAsync: vi.fn(), isPending: false };
 
 vi.mock("@/api/queries/projects", () => ({
   useProjectFunctions: (id: string | undefined) => useProjectFunctions(id),
   useProjectUsage: (id: string | undefined) => useProjectUsage(id),
+}));
+
+vi.mock("@/api/mutations/functions", () => ({
+  useCreateFunction: () => createFunction,
+  useDeleteFunction: () => deleteFunction,
 }));
 
 const PROJECT_ID = "33333333-3333-3333-3333-333333333331";
@@ -171,7 +178,7 @@ describe("ProjectFunctions", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "A function runs on demand. Create one from the API to see it listed here.",
+        "A function runs on demand. Create one, then upload a deployment to give it code.",
       ),
     ).toBeInTheDocument();
   });
@@ -195,6 +202,55 @@ describe("ProjectFunctions", () => {
       screen.getByText("Resizes uploads before they are stored"),
     ).toBeInTheDocument();
     expect(screen.queryByText("Created Oct 15, 2026 · 09:12")).toBeNull();
+  });
+
+  it("offers create and delete to a caller who may manage functions", () => {
+    useProjectFunctions.mockReturnValue(
+      listQuery({ data: page([resize]) }),
+    );
+
+    renderFunctions();
+
+    expect(
+      screen.getByRole("button", { name: "Create function" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^Delete function / }),
+    ).toBeInTheDocument();
+  });
+
+  it("hides the write controls from a caller who may only read", () => {
+    useProjectFunctions.mockReturnValue(
+      listQuery({
+        data: {
+          pages: [
+            { functions: [resize], pagination: {}, can_manage: false },
+          ],
+        },
+      }),
+    );
+
+    renderFunctions();
+
+    expect(
+      screen.queryByRole("button", { name: "Create function" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /^Delete function / }),
+    ).toBeNull();
+    expect(screen.getByText("resize-image")).toBeInTheDocument();
+  });
+
+  it("opens the create dialog from the header action", () => {
+    useProjectFunctions.mockReturnValue(
+      listQuery({ data: page([resize]) }),
+    );
+
+    renderFunctions();
+
+    fireEvent.click(screen.getByRole("button", { name: "Create function" }));
+
+    expect(screen.getByLabelText("Function name")).toBeInTheDocument();
   });
 
   it("surfaces a failed read with a working retry", () => {

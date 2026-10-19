@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 import { pluralize } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -161,5 +162,43 @@ export function ResourceStatusChip({
     >
       {label}
     </span>
+  );
+}
+
+/**
+ * A compact action at the end of a row.
+ *
+ * Icon-only, so the row keeps the width its content columns need at 360px; the
+ * label still exists for assistive technology and for a pointer resting on it.
+ * The target is 36px square, which is the smallest that stays comfortable next
+ * to a 44px row and is what the Sites section already used for Deploy.
+ */
+export function ResourceRowAction({
+  label,
+  icon: Icon,
+  onClick,
+  tone = "neutral",
+}: {
+  /** What the action does, naming its row: "Delete database app". */
+  label: string;
+  icon: LucideIcon;
+  onClick: () => void;
+  tone?: "neutral" | "danger";
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={cn(
+        "inline-flex size-9 items-center justify-center rounded-md border transition-colors focus-visible:outline-none focus-visible:ring-2",
+        tone === "danger"
+          ? "border-[var(--projects-border)] text-[var(--projects-muted)] hover:border-[var(--projects-danger)]/50 hover:bg-[var(--projects-danger)]/10 hover:text-[var(--projects-danger)] focus-visible:ring-[var(--projects-danger)]/40"
+          : "border-[var(--projects-border)] text-[var(--projects-text)] hover:border-[var(--projects-border-hover)] hover:bg-[var(--projects-control)] focus-visible:ring-[var(--user-accent)]/40",
+      )}
+    >
+      <Icon className="size-3.5 shrink-0" strokeWidth={2} aria-hidden="true" />
+    </button>
   );
 }

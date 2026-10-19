@@ -9,10 +9,17 @@ import { ProjectStorage } from "@/features/project/storage";
 // so the assertions are about this component, not about the network.
 const useProjectBuckets = vi.fn();
 const useProjectUsage = vi.fn();
+const createBucket = { mutateAsync: vi.fn(), isPending: false };
+const deleteBucket = { mutateAsync: vi.fn(), isPending: false };
 
 vi.mock("@/api/queries/projects", () => ({
   useProjectBuckets: (id: string | undefined) => useProjectBuckets(id),
   useProjectUsage: (id: string | undefined) => useProjectUsage(id),
+}));
+
+vi.mock("@/api/mutations/storage", () => ({
+  useCreateBucket: () => createBucket,
+  useDeleteBucket: () => deleteBucket,
 }));
 
 const PROJECT_ID = "33333333-3333-3333-3333-333333333331";
@@ -26,7 +33,9 @@ type UsageStub = {
 };
 
 type BucketsStub = {
-  data?: { pages: Array<{ buckets: StorageBucket[] }> };
+  data?: {
+    pages: Array<{ buckets: StorageBucket[]; can_manage?: boolean }>;
+  };
   isPending: boolean;
   isError: boolean;
   error: unknown;
@@ -176,7 +185,7 @@ describe("ProjectStorage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "A bucket holds the project's files. Create one from the API to see it listed here.",
+        "A bucket holds the project's files. Create one, then upload files to it.",
       ),
     ).toBeInTheDocument();
   });
@@ -191,6 +200,82 @@ describe("ProjectStorage", () => {
     expect(screen.queryByRole("table")).toBeNull();
     expect(screen.queryByText("uploads")).toBeNull();
     expect(screen.queryByText("No buckets in this project yet")).toBeNull();
+  });
+
+  it("offers create and delete to a caller who may manage buckets", () => {
+    useProjectBuckets.mockReturnValue(
+      bucketsQuery({
+        data: {
+          pages: [{ buckets: [bucket()], can_manage: true }],
+        },
+      }),
+    );
+
+    renderStorage();
+
+    expect(
+      screen.getByRole("button", { name: "Create bucket" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Delete bucket uploads" }),
+    ).toBeInTheDocument();
+  });
+
+  it("hides the write controls from a caller who may only read", () => {
+    useProjectBuckets.mockReturnValue(
+      bucketsQuery({
+        data: {
+          pages: [{ buckets: [bucket()], can_manage: false }],
+        },
+      }),
+    );
+
+    renderStorage();
+
+    expect(
+      screen.queryByRole("button", { name: "Create bucket" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Delete bucket uploads" }),
+    ).toBeNull();
+    expect(screen.getByText("uploads")).toBeInTheDocument();
+  });
+
+  it("opens the create dialog from the header action", () => {
+    useProjectBuckets.mockReturnValue(
+      bucketsQuery({
+        data: {
+          pages: [{ buckets: [bucket()], can_manage: true }],
+        },
+      }),
+    );
+
+    renderStorage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Create bucket" }));
+
+    expect(screen.getByLabelText("Bucket name")).toBeInTheDocument();
+  });
+
+  it("asks for the bucket's name before deleting it", () => {
+    useProjectBuckets.mockReturnValue(
+      bucketsQuery({
+        data: {
+          pages: [{ buckets: [bucket()], can_manage: true }],
+        },
+      }),
+    );
+
+    renderStorage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete bucket uploads" }));
+
+    expect(
+      screen.getByRole("heading", { name: "Delete bucket" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/This deletes uploads and every file stored in it/),
+    ).toBeInTheDocument();
   });
 
   it("surfaces a failed read with a working retry", () => {
