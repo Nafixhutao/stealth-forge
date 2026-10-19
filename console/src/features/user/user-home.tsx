@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useCurrentAccount } from "@/api/queries/account";
+import { useProjectRequestCounts } from "@/api/queries/projects";
 import {
   useOrganizationPlan,
   useOrganizationProjects,
@@ -140,6 +141,14 @@ export function UserHome() {
       project.name.toLowerCase().includes(query),
     );
   }, [projectItems, search]);
+
+  // The card's Requests figure comes from each project's own snapshot: the
+  // project list carries no usage, so this is the only honest source.
+  const visibleIds = useMemo(
+    () => visible.map((project) => project.id),
+    [visible],
+  );
+  const requestCounts = useProjectRequestCounts(visibleIds);
 
   const role = account.data?.account.instance_role ?? null;
   const canOpenAdmin = role === "instance_owner" || role === "instance_admin";
@@ -414,6 +423,7 @@ export function UserHome() {
                     <ProjectCard
                       key={project.id}
                       project={project}
+                      requests={requestCounts.get(project.id)}
                       canOpenAdmin={canOpenAdmin}
                       onCreateProject={() => setCreateOpen(true)}
                     />

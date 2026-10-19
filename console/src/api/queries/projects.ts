@@ -1,6 +1,7 @@
 "use client";
 
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { api, cancellableQuery } from "@/api/client";
 import { queryKeys } from "@/api/query-keys";
 
@@ -44,6 +45,38 @@ export function useProjectUsage(projectId: string | undefined) {
       }),
     ),
   });
+}
+
+/**
+ * The 30-day request count for each project on screen, keyed by project id.
+ *
+ * The organization home lists projects but the list itself carries no usage, so
+ * the number has to come from each project's snapshot. One query per project is
+ * the only shape the API offers; they share the `usage` key with the project
+ * page, so opening a project reuses what the card already fetched instead of
+ * asking again. A project whose read fails is reported as `undefined` rather
+ * than as zero, because "no data" and "no traffic" are different claims.
+ */
+export function useProjectRequestCounts(projectIds: readonly string[]) {
+  const results = useQueries({
+    queries: projectIds.map((projectId) => ({
+      queryKey: queryKeys.usage(projectId),
+      queryFn: cancellableQuery((signal) =>
+        api.GET("/v1/projects/{projectID}/usage", {
+          params: { path: { projectID: projectId }, signal },
+        }),
+      ),
+    })),
+  });
+
+  return useMemo(() => {
+    const counts = new Map<string, number | undefined>();
+    projectIds.forEach((projectId, index) => {
+      const usage = results[index]?.data?.usage;
+      counts.set(projectId, usage?.api_request_count_30d);
+    });
+    return counts;
+  }, [projectIds, results]);
 }
 
 /**

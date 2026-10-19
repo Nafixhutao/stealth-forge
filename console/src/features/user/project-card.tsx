@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { projectPath } from "@/features/project/paths";
+import { formatCount } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
@@ -132,10 +133,17 @@ function ProjectActionsMenu({
 /** One project, rendered as a card: identity, metric, usage line, actions. */
 export function ProjectCard({
   project,
+  requests,
   canOpenAdmin,
   onCreateProject,
 }: {
   project: { id: string; name: string; created_at: string };
+  /**
+   * Requests in the last 30 days, from the project's usage snapshot.
+   * `undefined` while that read is in flight or if it failed; the card says so
+   * rather than printing a zero it did not measure.
+   */
+  requests: number | undefined;
   canOpenAdmin: boolean;
   onCreateProject: () => void;
 }) {
@@ -171,9 +179,21 @@ export function ProjectCard({
           <span className="text-[12px] leading-5 text-[var(--projects-muted)]">
             Requests
           </span>
-          <span className="text-[12px] font-medium leading-5 text-[var(--projects-muted)]">
-            N/A
-          </span>
+          {requests === undefined ? (
+            // A placeholder keeps the row's height while the snapshot loads, and
+            // is never mistaken for a count.
+            <span
+              aria-hidden="true"
+              className="h-3 w-8 animate-pulse rounded bg-[var(--projects-control)] motion-reduce:animate-none"
+            />
+          ) : (
+            <span className="text-[12px] font-medium leading-5 text-[var(--projects-muted)]">
+              {formatCount(requests)}
+            </span>
+          )}
+          {requests === undefined ? (
+            <span className="sr-only">Requests in the last 30 days loading</span>
+          ) : null}
         </div>
         {/* The accent line sits at the bottom, exactly against the divider with pb-2 */}
         <div className="h-px bg-[var(--user-accent)]/70" aria-hidden="true" />

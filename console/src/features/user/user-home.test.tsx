@@ -10,6 +10,7 @@ const useOrganizations = vi.fn();
 const useOrganizationProjects = vi.fn();
 const useOrganizationPlan = vi.fn();
 const useCurrentAccount = vi.fn();
+const useProjectRequestCounts = vi.fn();
 
 vi.mock("@/api/queries/organizations", () => ({
   useOrganizations: () => useOrganizations(),
@@ -20,6 +21,13 @@ vi.mock("@/api/queries/organizations", () => ({
 
 vi.mock("@/api/queries/account", () => ({
   useCurrentAccount: () => useCurrentAccount(),
+}));
+
+// The card's Requests figure comes from each project's own snapshot; the stub
+// keeps this file about the page, not about N parallel reads.
+vi.mock("@/api/queries/projects", () => ({
+  useProjectRequestCounts: (ids: readonly string[]) =>
+    useProjectRequestCounts(ids),
 }));
 
 vi.mock("@/api/mutations/projects", () => ({
@@ -136,6 +144,12 @@ function renderHome() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  useProjectRequestCounts.mockReturnValue(
+    new Map<string, number | undefined>([
+      ["p-1", 12_400],
+      ["p-2", 0],
+    ]),
+  );
   useCurrentAccount.mockReturnValue(
     query({
       data: {
@@ -186,6 +200,27 @@ describe("UserHome", () => {
     ).toBeInTheDocument();
   });
 
+  it("does not claim zero requests before the snapshot lands", () => {
+    useOrganizations.mockReturnValue(
+      query({ data: organizationsPage([acme]) }),
+    );
+    useOrganizationProjects.mockReturnValue(
+      query({ data: projectsPage([checkout]) }),
+    );
+    useProjectRequestCounts.mockReturnValue(
+      new Map<string, number | undefined>([["p-1", undefined]]),
+    );
+
+    renderHome();
+
+    // A missing measurement is not a zero: the card shows a placeholder and
+    // says what it is waiting for.
+    expect(screen.queryByText("0")).toBeNull();
+    expect(
+      screen.getByText("Requests in the last 30 days loading"),
+    ).toBeInTheDocument();
+  });
+
   it("renders real usage against the plan limit", () => {
     useOrganizations.mockReturnValue(
       query({ data: organizationsPage([acme]) }),
@@ -221,14 +256,14 @@ describe("UserHome", () => {
     renderHome();
 
     // The default presentation is the card grid, matching the Appwrite
-    // reference. The grid keeps the reference's metric row: metering is not
-    // wired into this surface yet, so the value reads N/A rather than a
-    // fabricated zero.
+    // reference, and its Requests row carries the project's real 30-day count.
     expect(
       screen.getByRole("heading", { name: "checkout-api" }),
     ).toBeInTheDocument();
     expect(screen.getAllByText("Requests")).toHaveLength(2);
-    expect(screen.getAllByText("N/A")).toHaveLength(2);
+    expect(screen.getByText("12K")).toBeInTheDocument();
+    expect(screen.getByText("0")).toBeInTheDocument();
+    expect(screen.queryByText("N/A")).toBeNull();
     expect(screen.queryByRole("table")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "List view" }));

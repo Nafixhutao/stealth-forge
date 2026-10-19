@@ -1,97 +1,33 @@
 "use client";
 
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-} from "react";
+import { memo, useCallback, useEffect, useId, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import { motion, useReducedMotion, type Variants } from "motion/react";
 import {
-  AnimatePresence,
-  motion,
-  useReducedMotion,
-  type Variants,
-} from "motion/react";
-import {
-  EASE_OUT,
   LABEL_ENTER_TRANSITION,
   LABEL_EXIT_TRANSITION,
-  POWER2_INOUT,
   POWER2_OUT,
-  REDUCED_TRANSITION,
   SPRING_LAYOUT,
   SPRING_PRESS,
-  SUBMENU_TRANSITION,
 } from "@/lib/ease";
 import { cn } from "@/lib/utils";
 import { useCurrentAccount } from "@/api/queries/account";
 import { useOrganizationPlan } from "@/api/queries/organizations";
 import { planLabel, planUsageText } from "@/lib/plans";
 import { useCurrentOrganizationId } from "./use-current-organization";
-import {
-  BookOpen,
-  Bot,
-  ChevronDown,
-  FileText,
-  FolderKanban,
-  Headphones,
-  House,
-  PieChart,
-  ReceiptText,
-  Search,
-  ShieldCheck,
-  Users,
-  X,
-} from "lucide-react";
+import { FolderKanban, Search, X } from "lucide-react";
 import { BottomProfile } from "./profile-menu";
 import {
   ActiveRowPill,
   Badge,
-  BrandIcon,
   ChevronToggle,
   NavIcon,
-  RailDivider,
   RailLabel,
   rowClass,
   tap,
 } from "./sidebar-shared";
 import type { NavItem, NavRowProps } from "./types";
-
-// Open keeps the original morph: clip-path reveal with a staggered blur-up.
-// The close is GSAP-style — the measured height tweens to 0 while fading, so
-// the rows below ride up with the collapsing box instead of waiting out an
-// empty reserved gap. The object-form exit matters: the label-exit path
-// never visibly rendered the container's own values in this setup.
-const SUBMENU_VARIANTS: Variants = {
-  closed: {
-    opacity: 0,
-    clipPath: "inset(0px 0px 100% 0)",
-  },
-  open: {
-    opacity: 1,
-    clipPath: "inset(0px 0px 0% 0)",
-    transition: {
-      duration: 0.2,
-      delayChildren: 0.05,
-      ease: EASE_OUT,
-      staggerChildren: 0.035,
-    },
-  },
-};
-
-const SUBMENU_ITEM_VARIANTS: Variants = {
-  closed: { opacity: 0, y: 4, filter: "blur(3px)" },
-  open: {
-    opacity: 1,
-    y: 0,
-    filter: "blur(0px)",
-    transition: SUBMENU_TRANSITION,
-  },
-};
 
 // Original entrance: nav rows stagger in from y:8.
 const NAV_VARIANTS: Variants = {
@@ -108,39 +44,22 @@ const NAV_ITEM_VARIANTS: Variants = {
   },
 };
 
+/**
+ * The rows the user console can actually open.
+ *
+ * Everything else that used to sit here — Explore, Agent, Analytics, Slack,
+ * Discord, Security, Plan, Account, Documentation, Contact Support — had no
+ * destination: the console has no route for any of them, so a click either did
+ * nothing or (for Agent) answered 404. They come back one at a time, in the
+ * commit that ships the surface behind them.
+ */
 const primaryNavItems: NavItem[] = [
   {
     icon: NavIcon(Search),
     label: "Search",
     labelClassName: "text-[14px] leading-[20px] text-[oklch(0.949_0.0035_305)]",
   },
-  { icon: NavIcon(House), label: "Explore" },
   { icon: NavIcon(FolderKanban), label: "Projects" },
-  { icon: NavIcon(Bot), label: "Agent" },
-  { icon: NavIcon(PieChart), label: "Analytics", expandable: true },
-];
-
-const integrationNavItems: NavItem[] = [
-  {
-    icon: <BrandIcon brand="slack" />,
-    label: "Slack",
-    badge: "New",
-    expandable: true,
-  },
-  { icon: <BrandIcon brand="discord" />, label: "Discord", expandable: true },
-  {
-    icon: NavIcon(ShieldCheck),
-    label: "Security",
-    badge: "New",
-    expandable: true,
-  },
-  { icon: NavIcon(ReceiptText), label: "Plan", expandable: true },
-];
-
-const accountNavItems: NavItem[] = [
-  { icon: NavIcon(Users), label: "Account", expandable: true },
-  { icon: NavIcon(BookOpen), label: "Documentation" },
-  { icon: NavIcon(Headphones), label: "Contact Support" },
 ];
 
 // The command palette is 245 lines plus 14 icons and renders nothing until the
@@ -372,142 +291,6 @@ function Header({
   );
 }
 
-function ReviewSection({
-  open,
-  onToggle,
-  isActive = false,
-  layoutId,
-  onActivate,
-  collapsed = false,
-}: {
-  open: boolean;
-  onToggle: () => void;
-  isActive?: boolean;
-  layoutId?: string;
-  onActivate?: () => void;
-  collapsed?: boolean;
-}) {
-  const reduce = useReducedMotion() ?? false;
-  const submenuRef = useRef<HTMLDivElement>(null);
-  // beui pattern: choosing a child highlights it statically and moves the
-  // shared pill onto the parent group row.
-  const [activeItem, setActiveItem] = useState<string | null>(null);
-  const submenu = [
-    "Triage",
-    "Repositories",
-    "Integrations",
-    "Learnings",
-    "Caches",
-    "Organization Settings",
-  ];
-
-  // A resting filter forces a compositing layer and flips the submenu text
-  // from subpixel to grayscale antialiasing. The clip-path stays: the exit
-  // reveal needs an interpolable origin, and inset(0 0 0% 0) does not composite.
-  const clearSubmenuArtifacts = () => {
-    submenuRef.current
-      ?.querySelectorAll("button")
-      .forEach((b) => b.style.removeProperty("filter"));
-  };
-
-  return (
-    // joins the nav entrance stagger like every other row; layout keeps the
-    // rows below gliding when the submenu opens/closes
-    <motion.section
-      layout="position"
-      transition={SPRING_LAYOUT}
-      variants={NAV_ITEM_VARIANTS}
-    >
-      <motion.button
-        type="button"
-        className={rowClass}
-        onClick={onToggle}
-        aria-expanded={open}
-        aria-current={isActive ? "page" : undefined}
-        whileTap={tap(reduce)}
-        transition={SPRING_PRESS}
-      >
-        {isActive && <ActiveRowPill layoutId={layoutId} reduce={reduce} />}
-        <FileText
-          size={15}
-          strokeWidth={1.8}
-          className="shrink-0 text-[#AAA6AE]"
-        />
-        <RailLabel collapsed={collapsed} className="flex-1">
-          Review
-        </RailLabel>
-        <motion.span
-          initial={false}
-          aria-hidden={collapsed}
-          animate={{ opacity: collapsed ? 0 : 1, maxWidth: collapsed ? 0 : 20 }}
-          transition={
-            collapsed ? LABEL_EXIT_TRANSITION : LABEL_ENTER_TRANSITION
-          }
-          className="overflow-hidden"
-        >
-          <ChevronToggle
-            className="size-[13px] shrink-0 text-[#737078]"
-            open={open}
-            reduce={reduce}
-          />
-        </motion.span>
-      </motion.button>
-      {/* a submenu cannot render inside the icon rail (beui: !panel.collapsed) */}
-      <AnimatePresence>
-        {open && !collapsed && (
-          <motion.div
-            key="review-submenu"
-            ref={submenuRef}
-            className="ml-[22px] overflow-hidden border-l border-[#3A373F] pl-[20px]"
-            variants={reduce ? undefined : SUBMENU_VARIANTS}
-            initial={reduce ? false : "closed"}
-            animate={reduce ? { opacity: 1 } : "open"}
-            exit={
-              reduce
-                ? { opacity: 0, transition: { duration: 0.12 } }
-                : {
-                    opacity: 0,
-                    height: 0,
-                    transition: { duration: 0.28, ease: POWER2_INOUT },
-                  }
-            }
-            onAnimationComplete={() => {
-              if (!open) return;
-              clearSubmenuArtifacts();
-              // the item stagger settles after the container's own tween —
-              // strip the filters again once it has finished writing them
-              setTimeout(clearSubmenuArtifacts, 500);
-            }}
-          >
-            {submenu.map((item) => (
-              <motion.button
-                type="button"
-                key={item}
-                variants={reduce ? undefined : SUBMENU_ITEM_VARIANTS}
-                onClick={() => {
-                  setActiveItem(item);
-                  onActivate?.();
-                }}
-                aria-current={activeItem === item ? "page" : undefined}
-                whileTap={tap(reduce)}
-                transition={SPRING_PRESS}
-                className={`flex h-11 w-full items-center text-left text-[12.5px] font-normal transition-colors lg:h-[34px] lg:text-[14px] ${
-                  activeItem === item
-                    ? "bg-white/[0.03] text-[#EEEAF0]"
-                    : "text-[#C5C1C9] hover:text-[#EEEAF0]"
-                }`}
-              >
-                <span>{item}</span>
-                {item === "Triage" && <Badge kind="Beta" />}
-              </motion.button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.section>
-  );
-}
-
 /** Everything inside the panel, shared by the desktop rail and mobile sheet. */
 function SidebarContentImpl({
   onMobileClose,
@@ -528,13 +311,8 @@ function SidebarContentImpl({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [reviewOpen, setReviewOpen] = useState(true);
   const [active, setActive] = useState<string | null>(() =>
-    isProjectsPath(pathname)
-      ? "Projects"
-      : pathname === "/agent"
-        ? "Agent"
-        : null,
+    isProjectsPath(pathname) ? "Projects" : null,
   );
   const [searchOpen, setSearchOpen] = useState(false);
   // The palette is mounted only once it is first wanted, so its chunk is not
@@ -558,7 +336,6 @@ function SidebarContentImpl({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (isProjectsPath(pathname)) setActive("Projects");
-    else if (pathname === "/agent") setActive("Agent");
   }, [pathname]);
 
   useEffect(() => {
@@ -588,7 +365,6 @@ function SidebarContentImpl({
     // which now belongs to the admin console, so a user tapping it landed in
     // the wrong product entirely.
     if (label === "Projects" && pathname !== "/user") router.push("/user");
-    if (label === "Agent" && pathname !== "/agent") router.push("/agent");
     // The mobile sheet covers most of the screen, so choosing a destination
     // dismisses it; on the desktop rail this prop is undefined.
     onMobileClose?.();
@@ -624,48 +400,7 @@ function SidebarContentImpl({
         animate="visible"
       >
         {primaryNavItems.map(renderNavItem)}
-        <RailDivider collapsed={collapsed} />
-        <ReviewSection
-          open={reviewOpen}
-          onToggle={() => setReviewOpen((value) => !value)}
-          isActive={active === "Review"}
-          layoutId={pillId}
-          onActivate={() => select("Review")}
-          collapsed={collapsed}
-        />
-        {integrationNavItems.map(renderNavItem)}
-        <RailDivider collapsed={collapsed} />
-        {accountNavItems.map(renderNavItem)}
       </motion.nav>
-      <AnimatePresence>
-        {reviewOpen && !collapsed && (
-          <motion.div
-            key="view-more"
-            initial={reduce ? false : { opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{
-              opacity: 0,
-              y: 6,
-              transition: { duration: 0.18, ease: EASE_OUT },
-            }}
-            transition={
-              reduce ? REDUCED_TRANSITION : { duration: 0.25, ease: EASE_OUT }
-            }
-            className="relative flex shrink-0 items-center justify-center px-2 py-3"
-          >
-            <div className="absolute inset-x-2 h-px bg-[#322F37]" />
-            <motion.button
-              type="button"
-              whileTap={tap(reduce)}
-              transition={SPRING_PRESS}
-              className="relative z-10 inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-[#322F37] bg-[#121014] px-3 text-[12px] font-medium leading-[16px] text-[oklch(0.949_0.0035_305)] transition-colors hover:border-[#4a4650] hover:bg-[#121014] lg:h-[26px] lg:px-[10px]"
-            >
-              <ChevronDown size={12} strokeWidth={2} className="shrink-0" />
-              View more
-            </motion.button>
-          </motion.div>
-        )}
-      </AnimatePresence>
       <BottomProfile
         collapsed={collapsed}
         onToggleCollapse={onToggleCollapse}

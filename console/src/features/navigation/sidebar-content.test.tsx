@@ -170,6 +170,37 @@ describe("SidebarContent header", () => {
     ).toBeNull();
   });
 
+  it("offers only rows the console can actually open", () => {
+    render(<SidebarContent />);
+
+    // Search opens the command palette and Projects is the project surface.
+    // Everything else that used to be listed had no route behind it, so a click
+    // either did nothing or answered 404.
+    const labels = screen
+      .getAllByRole("button")
+      .map((button) => button.textContent?.trim())
+      .filter(Boolean);
+    expect(labels).toContain("Search");
+    expect(labels).toContain("Projects");
+
+    for (const dead of [
+      "Explore",
+      "Agent",
+      "Analytics",
+      "Slack",
+      "Discord",
+      "Security",
+      "Plan",
+      "Account",
+      "Documentation",
+      "Contact Support",
+      "Review",
+      "View more",
+    ]) {
+      expect(screen.queryByRole("button", { name: dead })).toBeNull();
+    }
+  });
+
   it("gives the name the room the row actually has", () => {
     render(<SidebarContent />);
 
