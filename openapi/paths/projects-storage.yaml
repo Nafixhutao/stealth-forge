@@ -1,0 +1,155 @@
+paths:
+  /v1/projects/{projectID}/storage/buckets:
+    get:
+      operationId: listStorageBuckets
+      description: List bucket metadata for Console members or project API keys with storage.read. Application cookies and anonymous callers use file data endpoints instead; bucket metadata is never public.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses:
+        '200': { description: Storage buckets, content: { application/json: { schema: { $ref: '../components/projects-storage.yaml#/components/schemas/StorageBucketsPage' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    post:
+      operationId: createStorageBucket
+      description: Create a local-storage bucket. Console owners/admins or project API keys with storage.write may create it. Empty application permission arrays deny by default.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/CreateStorageBucketRequest' } } } }
+      responses:
+        '201': { description: Bucket created, content: { application/json: { schema: { $ref: '../components/projects-storage.yaml#/components/schemas/StorageBucketResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/storage/buckets/{bucketID}:
+    get:
+      operationId: getStorageBucket
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/BucketID' }]
+      responses:
+        '200': { description: Storage bucket, content: { application/json: { schema: { $ref: '../components/projects-storage.yaml#/components/schemas/StorageBucketResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    patch:
+      operationId: updateStorageBucket
+      description: Update bucket settings, per-file security, quota, maximum file size, or permission arrays. The per-bucket max cannot exceed STORAGE_MAX_FILE_SIZE.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/BucketID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/UpdateStorageBucketRequest' } } } }
+      responses:
+        '200': { description: Updated storage bucket, content: { application/json: { schema: { $ref: '../components/projects-storage.yaml#/components/schemas/StorageBucketResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    delete:
+      operationId: deleteStorageBucket
+      description: Delete a bucket, its metadata, quota accounting, and local blobs. This is irreversible.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/BucketID' }]
+      responses:
+        '204': { description: Bucket and its files deleted }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/storage/buckets/{bucketID}/files:
+    get:
+      operationId: listStorageFiles
+      description: List permission-filtered file metadata. With file_security enabled, a bucket read grant or an individual file read grant is sufficient; when disabled, bucket grants are the only file permissions. Results are cursor-paginated and bounded.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }, { projectAppCookie: [] }, {}]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/BucketID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses:
+        '200': { description: Permission-filtered file metadata, content: { application/json: { schema: { $ref: '../components/projects-storage.yaml#/components/schemas/StorageFilesPage' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    post:
+      operationId: uploadStorageFile
+      description: Stream a multipart upload into local STORAGE_ROOT. The server verifies SHA-256, MIME metadata, filename safety, global and bucket max-file limits, and quota transactionally. Anonymous callers must explicitly send all three permission arrays; no blob is stored in PostgreSQL.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }, { projectAppCookie: [] }, {}]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/BucketID' }]
+      requestBody: { required: true, content: { multipart/form-data: { schema: { $ref: '../components/projects-storage.yaml#/components/schemas/StorageUploadRequest' } } } }
+      responses:
+        '201': { description: File metadata created after atomic blob publication, content: { application/json: { schema: { $ref: '../components/projects-storage.yaml#/components/schemas/StorageFileResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/storage/buckets/{bucketID}/files/{fileID}:
+    get:
+      operationId: getStorageFile
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }, { projectAppCookie: [] }, {}]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/BucketID' }, { $ref: '../components/common.yaml#/components/parameters/FileID' }]
+      responses:
+        '200': { description: Permission-checked file metadata, content: { application/json: { schema: { $ref: '../components/projects-storage.yaml#/components/schemas/StorageFileResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    patch:
+      operationId: updateStorageFile
+      description: Update file display name or grants. Console owners/admins and server keys with storage.write may edit grants; application callers may rename only when the effective bucket/file update grant allows it and cannot change grants.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }, { projectAppCookie: [] }, {}]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/BucketID' }, { $ref: '../components/common.yaml#/components/parameters/FileID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/UpdateStorageFileRequest' } } } }
+      responses:
+        '200': { description: Updated file metadata, content: { application/json: { schema: { $ref: '../components/projects-storage.yaml#/components/schemas/StorageFileResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    delete:
+      operationId: deleteStorageFile
+      description: Delete file metadata and its local blob. With file_security enabled, a bucket delete grant or individual file delete grant is sufficient; when disabled, bucket grants are the only file permissions.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }, { projectAppCookie: [] }, {}]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/BucketID' }, { $ref: '../components/common.yaml#/components/parameters/FileID' }]
+      responses:
+        '204': { description: File deleted }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/storage/buckets/{bucketID}/files/{fileID}/download:
+    get:
+      operationId: downloadStorageFile
+      description: Stream the verified local blob with a safe attachment Content-Disposition, nosniff, and private no-store caching headers.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }, { projectAppCookie: [] }, {}]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/BucketID' }, { $ref: '../components/common.yaml#/components/parameters/FileID' }]
+      responses:
+        '200': { description: Binary file bytes, headers: { Content-Disposition: { description: Safe attachment filename, schema: { type: string } }, X-Content-Type-Options: { description: MIME sniffing disabled, schema: { type: string, const: nosniff } }, Cache-Control: { description: Private non-cacheable response, schema: { type: string } } }, content: { application/octet-stream: { schema: { type: string, format: binary } } } }
+        '206': { description: Partial binary response, content: { application/octet-stream: { schema: { type: string, format: binary } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }

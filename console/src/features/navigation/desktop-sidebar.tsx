@@ -59,7 +59,7 @@ export function DesktopSidebar({ hasTopBar = false }: { hasTopBar?: boolean }) {
       <div
         className={cn(
           "sticky flex w-full flex-col overflow-hidden border-r border-[#322F37] bg-[#121014]",
-          hasTopBar ? "top-12 h-[calc(100dvh-48px)]" : "top-0 h-dvh",
+          hasTopBar ? "top-20 h-[calc(100dvh-80px)]" : "top-0 h-dvh",
         )}
       >
         <SidebarContent

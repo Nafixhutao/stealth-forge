@@ -1,0 +1,31 @@
+paths:
+  /v1/admin/incidents:
+    get:
+      operationId: listAdminIncidents
+      security: [{ sessionCookie: [] }]
+      parameters: [{ name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }]
+      responses: { '200': { description: Instance incidents, content: { application/json: { schema: { $ref: '../components/admin-incidents.yaml#/components/schemas/AdminIncidentsResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+    post:
+      operationId: createAdminIncident
+      security: [{ sessionCookie: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/admin-incidents.yaml#/components/schemas/CreateAdminIncidentRequest' } } } }
+      responses: { '201': { description: Incident created, content: { application/json: { schema: { $ref: '../components/admin-incidents.yaml#/components/schemas/AdminIncidentResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/admin/incidents/{incidentID}:
+    get:
+      operationId: getAdminIncident
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/AdminIncidentID' }]
+      responses: { '200': { description: Instance incident, content: { application/json: { schema: { $ref: '../components/admin-incidents.yaml#/components/schemas/AdminIncidentResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+    patch:
+      operationId: updateAdminIncident
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/AdminIncidentID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/admin-incidents.yaml#/components/schemas/UpdateAdminIncidentRequest' } } } }
+      responses: { '200': { description: Incident updated, content: { application/json: { schema: { $ref: '../components/admin-incidents.yaml#/components/schemas/AdminIncidentResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+  /v1/admin/incidents/{incidentID}/events:
+    post:
+      operationId: addAdminIncidentEvent
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/AdminIncidentID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/admin-incidents.yaml#/components/schemas/AddAdminIncidentEventRequest' } } } }
+      responses: { '201': { description: Timeline event, content: { application/json: { schema: { $ref: '../components/admin-incidents.yaml#/components/schemas/AdminIncidentEvent' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }

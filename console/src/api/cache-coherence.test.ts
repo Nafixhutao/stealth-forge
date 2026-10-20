@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { applyCacheChanges, invalidationKeysFor } from "@/api/cache-coherence";
+import {
+  adminInvalidationKeysFor,
+  applyCacheChanges,
+  invalidationKeysFor,
+} from "@/api/cache-coherence";
+import { queryKeys } from "@/api/query-keys";
 
 describe("cache coherence", () => {
   it("maps an Agent run change to its list and detail keys", () => {
@@ -186,5 +191,51 @@ describe("cache coherence", () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ["databases", "project-1"],
     });
+  });
+
+  it("invalidates the project key alone, since it already covers its audit key", () => {
+    // `["project", id]` is a prefix of `["project", id, "audit"]`, so TanStack
+    // Query's prefix matching refreshes the audit list from one key.
+    expect(
+      invalidationKeysFor({ kind: "project", projectId: "project-1" }),
+    ).toEqual([["project", "project-1"]]);
+  });
+
+  it("maps an Admin monitor change to the audit scope and monitor keys", () => {
+    expect(
+      adminInvalidationKeysFor({
+        kind: "admin-monitor",
+        resourceId: "monitor-1",
+      }),
+    ).toEqual([
+      ["admin", "audit-events"],
+      ["admin", "monitors"],
+      ["admin", "monitor", "monitor-1"],
+    ]);
+  });
+
+  it("maps an Admin error-group change to the telemetry error prefix", () => {
+    expect(adminInvalidationKeysFor({ kind: "admin-error-group" })).toEqual([
+      ["admin", "audit-events"],
+      ["admin", "telemetry", "errors"],
+    ]);
+  });
+
+  it("keeps Admin scope keys aligned with the full key they prefix", () => {
+    expect(queryKeys.adminAuditEventsScope).toEqual(
+      queryKeys.adminAuditEvents({}).slice(0, 2),
+    );
+    expect(queryKeys.adminTelemetrySignal("errors")).toEqual(
+      queryKeys.adminTelemetry("errors", {}).slice(0, 3),
+    );
+  });
+
+  it("keeps deployment scope keys aligned with the full key they prefix", () => {
+    expect(queryKeys.functionDeploymentsScope("project-1")).toEqual(
+      queryKeys.functionDeployments("project-1", "function-1").slice(0, 2),
+    );
+    expect(queryKeys.siteDeploymentsScope("project-1")).toEqual(
+      queryKeys.siteDeployments("project-1", "site-1").slice(0, 2),
+    );
   });
 });

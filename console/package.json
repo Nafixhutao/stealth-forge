@@ -19,7 +19,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "api:generate": "node scripts/generate-api.mjs"
+    "api:generate": "npm run openapi:bundle && OPENAPI_INPUT=../openapi/openapi.bundled.yaml node scripts/generate-api.mjs",
+    "openapi:bundle": "redocly bundle ../openapi/openapi.yaml --output ../openapi/openapi.bundled.yaml",
+    "openapi:lint": "redocly lint --config ../openapi/redocly.yaml ../openapi/openapi.yaml"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
@@ -59,6 +61,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",
+    "@redocly/cli": "^2.63.0",
     "@tailwindcss/postcss": "^4.1.16",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.0",

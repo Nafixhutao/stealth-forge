@@ -1,0 +1,6 @@
+components:
+  schemas:
+    AdminDashboard: { type: object, additionalProperties: false, required: [id, name, description, definition, created_at, updated_at], properties: { id: { type: string, format: uuid }, name: { type: string }, description: { type: string }, definition: { type: object, additionalProperties: true }, created_by_account_id: { type: [string, 'null'], format: uuid }, created_at: { type: string, format: date-time }, updated_at: { type: string, format: date-time } } }
+    AdminDashboardsResponse: { type: object, additionalProperties: false, required: [items], properties: { items: { type: array, items: { $ref: './admin-dashboards.yaml#/components/schemas/AdminDashboard' } } } }
+    AdminDashboardResponse: { type: object, additionalProperties: false, required: [dashboard], properties: { dashboard: { $ref: './admin-dashboards.yaml#/components/schemas/AdminDashboard' } } }
+    CreateAdminDashboardRequest: { type: object, additionalProperties: false, required: [name, definition], properties: { name: { type: string, minLength: 1, maxLength: 120 }, description: { type: string, maxLength: 2000 }, definition: { type: object, additionalProperties: true, description: 'Saved panel definition using typed panel and query fields; arbitrary SQL is rejected by the API.' } } }

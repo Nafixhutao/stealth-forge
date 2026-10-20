@@ -1,0 +1,247 @@
+paths:
+  /v1/projects/{projectID}/messaging/providers:
+    get:
+      operationId: listMessagingProviders
+      description: List safe email, SMS, and push provider metadata. Credentials are never returned. Console owners/admins or messaging.read API keys may read.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses:
+        '200': { description: Messaging provider metadata, content: { application/json: { schema: { $ref: '../components/projects-messaging.yaml#/components/schemas/MessagingProvidersPage' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    post:
+      operationId: createMessagingProvider
+      description: Create a project messaging provider. Credential values are encrypted at rest and are accepted only in this request; delivery requires a separately deployed trusted worker adapter.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/CreateMessagingProviderRequest' } } } }
+      responses:
+        '201': { description: Provider metadata, content: { application/json: { schema: { $ref: '../components/projects-messaging.yaml#/components/schemas/MessagingProviderResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+  /v1/projects/{projectID}/messaging/providers/{providerID}:
+    get:
+      operationId: getMessagingProvider
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/ProviderID' }]
+      responses:
+        '200': { description: Provider metadata, content: { application/json: { schema: { $ref: '../components/projects-messaging.yaml#/components/schemas/MessagingProviderResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+    patch:
+      operationId: updateMessagingProvider
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/ProviderID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/UpdateMessagingProviderRequest' } } } }
+      responses:
+        '200': { description: Updated provider metadata, content: { application/json: { schema: { $ref: '../components/projects-messaging.yaml#/components/schemas/MessagingProviderResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+    delete:
+      operationId: deleteMessagingProvider
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/ProviderID' }]
+      responses:
+        '204': { description: Provider deleted }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+  /v1/projects/{projectID}/messaging/topics:
+    get:
+      operationId: listMessagingTopics
+      description: List durable messaging topics with enabled state and subscriber counts.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses:
+        '200': { description: Messaging topics, content: { application/json: { schema: { $ref: '../components/projects-messaging.yaml#/components/schemas/MessagingTopicsPage' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+    post:
+      operationId: createMessagingTopic
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/CreateMessagingTopicRequest' } } } }
+      responses:
+        '201': { description: Topic created, content: { application/json: { schema: { $ref: '../components/projects-messaging.yaml#/components/schemas/MessagingTopicResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+  /v1/projects/{projectID}/messaging/topics/{topicID}:
+    get:
+      operationId: getMessagingTopic
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/TopicID' }]
+      responses:
+        '200': { description: Topic metadata, content: { application/json: { schema: { $ref: '../components/projects-messaging.yaml#/components/schemas/MessagingTopicResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+    patch:
+      operationId: updateMessagingTopic
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/TopicID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/UpdateMessagingTopicRequest' } } } }
+      responses:
+        '200': { description: Updated topic, content: { application/json: { schema: { $ref: '../components/projects-messaging.yaml#/components/schemas/MessagingTopicResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+    delete:
+      operationId: deleteMessagingTopic
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/TopicID' }]
+      responses:
+        '204': { description: Topic and its subscribers deleted }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+  /v1/projects/{projectID}/messaging/topics/{topicID}/subscribers:
+    get:
+      operationId: listMessagingSubscribers
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/TopicID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses:
+        '200': { description: Masked topic subscribers, content: { application/json: { schema: { $ref: '../components/projects-messaging.yaml#/components/schemas/MessagingSubscribersPage' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+    post:
+      operationId: createMessagingSubscriber
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/TopicID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/CreateMessagingSubscriberRequest' } } } }
+      responses:
+        '201': { description: Masked subscriber, content: { application/json: { schema: { $ref: '../components/projects-messaging.yaml#/components/schemas/MessagingSubscriberResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+  /v1/projects/{projectID}/messaging/topics/{topicID}/subscribers/{subscriberID}:
+    get:
+      operationId: getMessagingSubscriber
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/TopicID' }, { $ref: '../components/common.yaml#/components/parameters/SubscriberID' }]
+      responses:
+        '200': { description: Masked subscriber, content: { application/json: { schema: { $ref: '../components/projects-messaging.yaml#/components/schemas/MessagingSubscriberResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+    delete:
+      operationId: deleteMessagingSubscriber
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/TopicID' }, { $ref: '../components/common.yaml#/components/parameters/SubscriberID' }]
+      responses:
+        '204': { description: Subscriber deleted }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+  /v1/projects/{projectID}/messaging/messages:
+    get:
+      operationId: listMessagingMessages
+      description: List safe asynchronous message delivery metadata. Message content is encrypted and never returned.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses:
+        '200': { description: Message metadata, content: { application/json: { schema: { $ref: '../components/projects-messaging.yaml#/components/schemas/MessagingMessagesPage' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+    post:
+      operationId: createMessagingMessage
+      description: Enqueue one encrypted message to the active subscribers of a topic. The 202 response means delivery work is queued, not that a provider accepted it. Idempotency-Key safely replays the same request.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters:
+        - { $ref: '../components/common.yaml#/components/parameters/ProjectID' }
+        - { name: Idempotency-Key, in: header, required: false, schema: { type: string, minLength: 1, maxLength: 128 }, description: Optional caller-generated key. Reusing it with a different request returns a conflict. }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/CreateMessagingMessageRequest' } } } }
+      responses:
+        '202': { description: Message accepted for asynchronous delivery, content: { application/json: { schema: { $ref: '../components/projects-messaging.yaml#/components/schemas/MessagingMessageResponse' } } } }
+        '200': { description: Idempotent replay of an already accepted message, content: { application/json: { schema: { $ref: '../components/projects-messaging.yaml#/components/schemas/MessagingMessageResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+  /v1/projects/{projectID}/messaging/messages/{messageID}:
+    get:
+      operationId: getMessagingMessage
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/MessageID' }]
+      responses:
+        '200': { description: Message metadata, content: { application/json: { schema: { $ref: '../components/projects-messaging.yaml#/components/schemas/MessagingMessageResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+  /v1/projects/{projectID}/messaging/messages/{messageID}/cancel:
+    post:
+      operationId: cancelMessagingMessage
+      description: Cancel queued recipients. A provider call already running may finish; its result remains recorded.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/MessageID' }]
+      responses:
+        '200': { description: Updated cancelled message, content: { application/json: { schema: { $ref: '../components/projects-messaging.yaml#/components/schemas/MessagingMessageResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+  /v1/projects/{projectID}/messaging/messages/{messageID}/deliveries:
+    get:
+      operationId: listMessagingDeliveries
+      description: List per-recipient delivery status and masked address previews. Message content and full addresses are never returned.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/MessageID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses:
+        '200': { description: Delivery history, content: { application/json: { schema: { $ref: '../components/projects-messaging.yaml#/components/schemas/MessagingDeliveriesPage' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }

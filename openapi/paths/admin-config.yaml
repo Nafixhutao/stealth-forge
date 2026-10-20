@@ -1,0 +1,57 @@
+paths:
+  /v1/admin/status-page:
+    get:
+      operationId: getAdminStatusPage
+      security: [{ sessionCookie: [] }]
+      responses: { '200': { description: Status page configuration, content: { application/json: { schema: { $ref: '../components/admin-monitors.yaml#/components/schemas/AdminStatusPage' } } } }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+    put:
+      operationId: updateAdminStatusPage
+      security: [{ sessionCookie: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/UpdateAdminStatusPageRequest' } } } }
+      responses: { '200': { description: Status page updated, content: { application/json: { schema: { $ref: '../components/admin-monitors.yaml#/components/schemas/AdminStatusPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' } }
+  /v1/admin/domain-settings:
+    get:
+      operationId: getInstanceDomainSettings
+      description: Return the canonical Console hostname derived from PUBLIC_APP_URL and the optional instance workload base domain. Requires an instance owner or instance admin role; organization membership is not sufficient.
+      security: [{ sessionCookie: [] }]
+      responses: { '200': { description: Instance domain settings, content: { application/json: { schema: { $ref: '../components/admin-monitors.yaml#/components/schemas/InstanceDomainSettings' } } } }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+    patch:
+      operationId: updateInstanceDomainSettings
+      description: Replace the optional workload base domain. Only the Instance Owner may update it. Send null explicitly to clear the PostgreSQL setting; omitting the field is rejected.
+      security: [{ sessionCookie: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/admin-monitors.yaml#/components/schemas/UpdateInstanceDomainSettingsRequest' } } } }
+      responses: { '200': { description: Canonical instance domain settings, content: { application/json: { schema: { $ref: '../components/admin-monitors.yaml#/components/schemas/InstanceDomainSettings' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/admin/cloudflare:
+    get:
+      operationId: getAdminCloudflareRouting
+      description: Return safe Cloudflare connection and workload routing status. Requires Instance Owner or Instance Admin. The API token and ciphertext are never returned.
+      security: [{ sessionCookie: [] }]
+      responses: { '200': { description: Cloudflare connection and routing status, content: { application/json: { schema: { $ref: '../components/admin-monitors.yaml#/components/schemas/AdminCloudflareRoutingStatus' } } } }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+    put:
+      operationId: updateAdminCloudflareConnection
+      description: "Validate a candidate scoped Cloudflare API token against the saved or explicitly supplied existing account and named tunnel, then encrypt and persist it. Only the Instance Owner may update it. When validation fails, the previous credential remains in place. Stealth never creates a new tunnel here. The token is write-only. Required permissions are Account: Cloudflare Tunnel Edit and Account Settings Read; Zone: Zone Read and DNS Edit for Console and workload zones when separate, plus SSL and Certificates Read for the workload zone to inspect workload edge TLS readiness."
+      security: [{ sessionCookie: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/admin-monitors.yaml#/components/schemas/UpdateAdminCloudflareConnectionRequest' } } } }
+      responses: { '200': { description: Connection saved and routing queued for asynchronous reconciliation, content: { application/json: { schema: { $ref: '../components/admin-monitors.yaml#/components/schemas/AdminCloudflareRoutingStatus' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '502': { $ref: '../components/common.yaml#/components/responses/BadGateway' }, '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/admin/oauth-providers:
+    get:
+      operationId: listAdminOAuthProviders
+      description: List the instance external sign-in providers with their Console callback URL. Requires Instance Owner or Instance Admin. Client secrets are never returned.
+      security: [{ sessionCookie: [] }]
+      responses: { '200': { description: Sign-in provider status, content: { application/json: { schema: { $ref: '../components/admin-monitors.yaml#/components/schemas/AdminOAuthProvidersResponse' } } } }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/admin/oauth-providers/{provider}:
+    put:
+      operationId: updateAdminOAuthProvider
+      description: Encrypt and store one external sign-in provider's client credentials. Only the Instance Owner may change them. The client secret is write-only and is never returned.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: provider, in: path, required: true, schema: { type: string, enum: [github, google] } }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/admin-monitors.yaml#/components/schemas/UpdateAdminOAuthProviderRequest' } } } }
+      responses: { '200': { description: Provider saved, content: { application/json: { schema: { $ref: '../components/admin-monitors.yaml#/components/schemas/AdminOAuthProvider' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+    delete:
+      operationId: deleteAdminOAuthProvider
+      description: Remove one external sign-in provider's stored credentials. Only the Instance Owner may change them. The Console then falls back to the deployment environment, if configured.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: provider, in: path, required: true, schema: { type: string, enum: [github, google] } }
+      responses: { '204': { description: Provider credentials removed }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }

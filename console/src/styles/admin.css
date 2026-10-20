@@ -115,12 +115,62 @@
   cursor: pointer;
 }
 
+/* The Console's unlayered `* { border-color: var(--border) }` (globals.css)
+   outranks Tailwind's layered border utilities, so a `border-[var(--…)]` class
+   never painted what it named. Re-state the surface default the way the setup
+   and auth surfaces do, then the handful of borders that name a different
+   token, so the user console's palette is what actually renders. */
+[data-user],
+[data-user] *,
+[data-user] *::before,
+[data-user] *::after,
+[data-user-surface],
+[data-user-surface] *,
+[data-user-surface] *::before,
+[data-user-surface] *::after {
+  border-color: var(--projects-border);
+}
+
+[data-user] [class~="border-[var(--projects-divider)]"],
+[data-user-surface] [class~="border-[var(--projects-divider)]"] {
+  border-color: var(--projects-divider);
+}
+[data-user] [class~="border-[var(--projects-border-hover)]"],
+[data-user-surface] [class~="border-[var(--projects-border-hover)]"] {
+  border-color: var(--projects-border-hover);
+}
+[data-user] [class~="border-[var(--projects-text)]"],
+[data-user-surface] [class~="border-[var(--projects-text)]"] {
+  border-color: var(--projects-text);
+}
+[data-user] [class~="border-white"],
+[data-user-surface] [class~="border-white"] {
+  border-color: #ffffff;
+}
+[data-user] [class~="border-transparent"],
+[data-user-surface] [class~="border-transparent"] {
+  border-color: transparent;
+}
+[data-user] [class~="hover:border-[var(--projects-border-hover)]"]:hover,
+[data-user-surface]
+  [class~="hover:border-[var(--projects-border-hover)]"]:hover {
+  border-color: var(--projects-border-hover);
+}
+[data-user]
+  [class~="focus-visible:border-[var(--user-accent)]/70"]:focus-visible,
+[data-user-surface]
+  [class~="focus-visible:border-[var(--user-accent)]/70"]:focus-visible {
+  border-color: color-mix(in srgb, var(--user-accent) 70%, transparent);
+}
+
 /* Light theme for the user console, ported from the redesigned sidebar's
    theme sheet. The profile menu's theme toggle flips html[data-theme]; rules
-   stay scoped to [data-user] so the admin console keeps its own dark palette.
+   stay scoped to [data-user] and its portaled surfaces (see
+   `data-user-surface` below) so the admin console keeps its own dark palette.
    The redesigned sidebar hard-codes several hex classes, so the palette swap
    covers both the semantic tokens and those literal classes. */
-html[data-theme="light"] [data-user] {
+html[data-theme="light"] [data-user],
+html[data-theme="light"] [data-user-surface] {
   --skeleton-background: #e7e7eb;
   --skeleton-gradient-start: #a855d4;
   --skeleton-gradient-end: #7e3fb2;
@@ -132,6 +182,7 @@ html[data-theme="light"] [data-user] {
   --projects-border-hover: #c5cac7;
   --projects-divider: #dfe3e0;
   --projects-ring: #aeb5b0;
+  --projects-chip: #ecefed;
   --projects-text: #151816;
   --projects-muted: #68706b;
   --projects-progress-track: #d8ddd9;
@@ -142,6 +193,113 @@ html[data-theme="light"] [data-user] {
   --projects-warning: #a86e00;
   --projects-danger: #bd3f49;
   color-scheme: light;
+}
+
+/* The user console's own dark palette, matched to the reference: the page sits
+   on #19191b, cards lift to #1a191e, the controls (search field, view toggle)
+   hold a #1f1e23 surface, and the organization mark and plan badge a lighter
+   #2d2c31. Borders and dividers share one quiet #232326 hairline.
+   Scoped to the user console's own surface — `data-console` is set by the
+   shell only for `/user` — plus its portaled surfaces, so the admin console
+   keeps the palette it was designed with. The light theme above still wins on
+   specificity. */
+[data-user][data-console="user"],
+html [data-user-surface] {
+  --projects-bg: #19191b;
+  --projects-surface: #19191b;
+  --projects-card-bg: #1a191e;
+  --projects-control: #1f1e23;
+  --projects-chip: #2d2c31;
+  --projects-border: #232326;
+  --projects-border-hover: #34333a;
+  --projects-divider: #232326;
+  --projects-ring: #55555b;
+  font-family:
+    "Inter Variable",
+    "Inter",
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  --font-sans:
+    "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* The user console accent: the pink from the reference design.
+   A separate token set rather than a change to `--projects-accent`, because
+   the admin console paints its own surfaces with that green and the two areas
+   ship different product accents on purpose. Declared at the root so portaled
+   dialogs inherit the same value. */
+:root {
+  --user-accent: #fd366e;
+  --user-accent-strong: #e0245b;
+  --user-accent-hover: #c81e4f;
+}
+
+html[data-theme="light"] {
+  --user-accent: #c9184a;
+  --user-accent-strong: #c9184a;
+  --user-accent-hover: #b01543;
+}
+
+/* The user console portals a few surfaces — the create-project dialog and the
+   organization menu — to the body, where the [data-user] shell no longer
+   applies. They opt back in with `data-user-surface`, which hands them the
+   light palette above plus light equivalents for the Inlark token classes they
+   carry (`bg-obsidian`, `border-graphite`, `text-paper`, `text-fog`,
+   `text-mist`). */
+html[data-theme="light"] [data-user-surface][class~="bg-obsidian"],
+html[data-theme="light"] [data-user-surface] [class~="bg-obsidian"] {
+  background-color: #ffffff;
+}
+html[data-theme="light"] [data-user-surface][class~="border-graphite"],
+html[data-theme="light"] [data-user-surface] [class~="border-graphite"] {
+  border-color: #d9ddda;
+}
+html[data-theme="light"] [data-user-surface][class~="bg-graphite"],
+html[data-theme="light"] [data-user-surface] [class~="bg-graphite"] {
+  background-color: #dfe3e0;
+}
+html[data-theme="light"] [data-user-surface][class~="text-paper"],
+html[data-theme="light"] [data-user-surface] [class~="text-paper"],
+html[data-theme="light"] [data-user-surface] [class~="hover:text-paper"]:hover,
+html[data-theme="light"]
+  [data-user-surface]
+  [class~="data-[highlighted]:text-paper"][data-highlighted] {
+  color: #151816;
+}
+html[data-theme="light"] [data-user-surface][class~="text-mist"],
+html[data-theme="light"] [data-user-surface] [class~="text-mist"] {
+  color: #3f4540;
+}
+html[data-theme="light"] [data-user-surface][class~="text-fog"],
+html[data-theme="light"] [data-user-surface] [class~="text-fog"] {
+  color: #68706b;
+}
+html[data-theme="light"]
+  [data-user-surface]
+  [class~="hover:bg-white/[0.07]"]:hover,
+html[data-theme="light"]
+  [data-user-surface]
+  [class~="hover:bg-white/[0.06]"]:hover {
+  background-color: rgb(0 0 0 / 0.05);
+}
+
+/* Inlark's accent is the lavender `acid-lime`; the user console's is pink.
+   These are the three places the portaled surfaces still reach for it. */
+[data-user-surface]
+  [class~="data-[highlighted]:bg-acid-lime/10"][data-highlighted] {
+  background-color: color-mix(in srgb, var(--user-accent) 12%, transparent);
+}
+[data-user-surface]
+  [class~="data-[highlighted]:ring-acid-lime/40"][data-highlighted] {
+  --tw-ring-color: color-mix(in srgb, var(--user-accent) 45%, transparent);
+}
+[data-user-surface] [class~="focus-visible:ring-acid-lime/50"]:focus-visible {
+  --tw-ring-color: color-mix(in srgb, var(--user-accent) 50%, transparent);
 }
 
 html[data-theme="light"] [data-user] [class~="bg-[#121014]"],
@@ -176,9 +334,13 @@ html[data-theme="light"] [data-user] [class~="text-[#8a8791]"] {
 }
 
 /* The sidebar's primary labels and the palette use oklch text colors. The
-   redesigned sheet does not remap these, so they keep the dark-mode value in
-   light mode; we mirror that exactly to match the reference (the header
-   identity and Search label stay light, as in the source). */
+   redesigned sheet does not remap these, so they would keep the dark-mode
+   value in light mode and sit at roughly 1.1:1 on the light surface. Map all
+   three steps onto the light palette: near-white labels become body text,
+   the mid step the secondary tone. */
+html[data-theme="light"] [data-user] [class~="text-[oklch(0.949_0.0035_305)]"] {
+  color: #1a181d;
+}
 html[data-theme="light"] [data-user] [class~="text-[oklch(0.767_0.0105_305)]"] {
   color: #3f3d44;
 }

@@ -1,0 +1,529 @@
+paths:
+  /v1/projects/{projectID}:
+    get:
+      operationId: getProject
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      responses: { '200': { description: Project, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/ProjectResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+    patch:
+      operationId: updateProject
+      description: Update mutable project metadata. Only project owners and admins may change the project name.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/UpdateProjectRequest' } } } }
+      responses: { '200': { description: Updated project, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/ProjectResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+    delete:
+      operationId: deleteProject
+      description: Permanently delete a project and all of its tenant-owned resources. Only the organization owner may perform this operation; confirm_name must exactly match the current project name. Deletion returns a conflict while an App source upload or OCI artifact publication is reserved.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/DeleteProjectRequest' } } } }
+      responses: { '204': { description: Project and all child resources deleted; App source and OCI artifacts are queued for durable cleanup }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/projects/{projectID}/audit-events:
+    get:
+      operationId: listProjectAuditEvents
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses: { '200': { description: Durable audit events scoped to a project, content: { application/json: { schema: { $ref: '../components/organizations.yaml#/components/schemas/AuditEventsPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+  /v1/projects/{projectID}/traces:
+    get:
+      operationId: listProjectTraces
+      description: List the bounded durable root-request trace index for project members. Nested spans and full OpenTelemetry attributes remain in the private telemetry backend.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses: { '200': { description: Durable project request traces, content: { application/json: { schema: { $ref: '../components/organizations.yaml#/components/schemas/OrganizationTracesPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/projects/{projectID}/service-layout:
+    get:
+      operationId: listProjectServiceLayout
+      description: List durable Services canvas positions visible to project members. Rows for resources that no longer exist are omitted.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      responses: { '200': { description: Services canvas layout, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/ProjectServiceLayoutResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+    put:
+      operationId: replaceProjectServiceLayout
+      description: Atomically replace the durable Services canvas positions. Only project owners and admins may save positions; every resource must belong to the project.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/ReplaceProjectServiceLayoutRequest' } } } }
+      responses: { '200': { description: Saved Services canvas layout, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/ProjectServiceLayoutResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/agent-catalog:
+    get:
+      operationId: getAgentCatalog
+      description: Return the server-backed Agent provider, model, role, and tool catalog. This response contains no provider credentials; execution is explicitly reported as queue-only until a trusted provider worker is installed.
+      security: [{ sessionCookie: [] }]
+      responses: { '200': { description: Agent configuration catalog, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/AgentCatalogResponse' } } } }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/agents:
+    get:
+      operationId: listAgents
+      description: List persisted coding-agent configurations across projects visible to the current Console account. Provider credentials and run output are never returned.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { $ref: '../components/common.yaml#/components/parameters/Limit' }
+        - { $ref: '../components/common.yaml#/components/parameters/Cursor' }
+        - { name: project_id, in: query, schema: { type: string, format: uuid }, description: Optional project filter. }
+      responses: { '200': { description: Agent configurations, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/AgentsPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+    post:
+      operationId: createAgent
+      description: Create a persisted coding-agent configuration. Only project owners and admins may create agents; provider credentials are configured separately.
+      security: [{ sessionCookie: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/CreateAgentRequest' } } } }
+      responses: { '201': { description: Agent configuration created, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/AgentResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/agents/{agentID}:
+    get:
+      operationId: getAgent
+      description: Get one persisted coding-agent configuration when the current Console account can access its project.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/AgentID' }]
+      responses: { '200': { description: Agent configuration, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/AgentResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+    patch:
+      operationId: updateAgent
+      description: Update mutable agent configuration. Only project owners and admins may change it; status and activity timestamps are worker-owned.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/AgentID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/UpdateAgentRequest' } } } }
+      responses: { '200': { description: Updated agent configuration, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/AgentResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+    delete:
+      operationId: deleteAgent
+      description: Delete an agent configuration. Run history and provider connections are separate resources and are not implicitly exposed by this operation.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/AgentID' }]
+      responses: { '204': { description: Agent configuration deleted }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/agents/{agentID}/runs:
+    get:
+      operationId: listAgentRuns
+      description: List durable Agent runs visible to the current Console account. Queued runs remain pending until a trusted execution worker is available.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/AgentID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses: { '200': { description: Agent run history, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/AgentRunsPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+    post:
+      operationId: createAgentRun
+      description: Accept an Agent prompt into the durable run queue. The request does not call a provider or execute repository code inline.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/AgentID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/CreateAgentRunRequest' } } } }
+      responses: { '202': { description: Run accepted, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/AgentRunResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } , '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' } }
+  /v1/agents/{agentID}/runs/{runID}:
+    get:
+      operationId: getAgentRun
+      description: Get one durable Agent run and any worker-produced steps, output, or changes.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/AgentID' }, { $ref: '../components/common.yaml#/components/parameters/RunID' }]
+      responses: { '200': { description: Agent run, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/AgentRunResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/agents/{agentID}/runs/{runID}/cancel:
+    post:
+      operationId: cancelAgentRun
+      description: Cancel a queued or running Agent run. Only project owners and admins may cancel work.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/AgentID' }, { $ref: '../components/common.yaml#/components/parameters/RunID' }]
+      responses: { '200': { description: Cancelled Agent run, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/AgentRunResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/agents/{agentID}/runs/{runID}/logs:
+    get:
+      operationId: listAgentRunLogs
+      description: Read bounded execution logs emitted by the trusted Agent worker. Use after with the returned sequence number for incremental polling.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/AgentID' }, { $ref: '../components/common.yaml#/components/parameters/RunID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { name: after, in: query, schema: { type: integer, format: int64, minimum: 0, default: 0 } }]
+      responses: { '200': { description: Agent run logs, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/AgentRunLogsPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/projects/{projectID}/users:
+    get:
+      operationId: listProjectUsers
+      description: Members may read project application identities with a Console session. Server-side callers may use an X-Stealth-Key with users.read.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses:
+        '200': { description: Application users visible to a project member, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/ProjectUsersPage' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    post:
+      operationId: createProjectUser
+      description: Owners/admins may create identities with a Console session. Server-side callers require an X-Stealth-Key with users.write.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/CreateProjectUserRequest' } } } }
+      responses:
+        '201': { description: Application user created, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/ProjectUserResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/users/{userID}:
+    get:
+      operationId: getProjectUser
+      description: Members may read a project application identity with a Console session. Server-side callers may use an X-Stealth-Key with users.read.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/UserID' }]
+      responses:
+        '200': { description: Application user, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/ProjectUserResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    delete:
+      operationId: deleteProjectUser
+      description: Permanently delete a project application identity. Its sessions and recovery tokens are revoked atomically; server-side callers require an X-Stealth-Key with users.write.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/UserID' }]
+      responses:
+        '204': { description: Application user deleted }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/users/{userID}/status:
+    patch:
+      operationId: updateProjectUserStatus
+      description: Owners/admins may change status with a Console session. Server-side callers require an X-Stealth-Key with users.write.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/UserID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/UpdateProjectUserStatusRequest' } } } }
+      responses:
+        '200': { description: Application user with the requested status, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/ProjectUserResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/api-keys:
+    get:
+      operationId: listProjectAPIKeys
+      description: List safe metadata for project-bound server-to-server API keys. The full secret and SHA-256 hash are never returned.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses:
+        '200': { description: Safe API key metadata, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/ProjectAPIKeysPage' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    post:
+      operationId: createProjectAPIKey
+      description: Owners/admins create a project-bound key. The high-entropy stl_key_ secret is returned exactly once; store it in a server-side secret manager.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/CreateProjectAPIKeyRequest' } } } }
+      responses:
+        '201': { description: Safe metadata plus the one-time secret, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/CreateProjectAPIKeyResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/api-keys/{keyID}:
+    get:
+      operationId: getProjectAPIKey
+      description: Get safe metadata for one project API key. The full secret and SHA-256 hash are never returned.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/KeyID' }]
+      responses:
+        '200': { description: Safe API key metadata, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/ProjectAPIKeyResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    delete:
+      operationId: revokeProjectAPIKey
+      description: Owners/admins revoke a key irreversibly. Repeating the operation is idempotent and returns 204.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/KeyID' }]
+      responses:
+        '204': { description: API key revoked, or already revoked }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/realtime:
+    get:
+      operationId: streamProjectRealtime
+      description: Stream short-lived project change notifications as Server-Sent Events. The Go API and PostgreSQL remain canonical; Console clients must refetch affected resources after a notification. Console members and realtime.read API keys receive the project stream; project application sessions receive only database row events allowed by their read grants. An initial connection without Last-Event-ID or cursor starts at the current project tail and does not replay retained history. On resume, Last-Event-ID takes precedence over cursor and retained events strictly newer than a valid cursor may be replayed; an expired or unknown cursor resets to the current tail. Events are retained for approximately seven days and are periodically pruned in bounded batches.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }, { projectAppCookie: [] }]
+      parameters:
+        - { $ref: '../components/common.yaml#/components/parameters/ProjectID' }
+        - { $ref: '../components/common.yaml#/components/parameters/Cursor' }
+        - { name: events, in: query, style: form, explode: false, description: Optional comma-separated event names, schema: { type: string, maxLength: 10240 } }
+      responses:
+        '200': { description: Server-Sent Events stream, content: { text/event-stream: { schema: { type: string } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/auth/settings:
+    get:
+      operationId: getProjectAuthSettings
+      description: Read Auth registration and credentialed browser CORS settings for a project. Origins are explicit HTTP(S) origins; wildcard and path values are not accepted.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      responses:
+        '200': { description: Project Auth settings and the caller's management capability, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/ProjectAuthSettingsResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+    patch:
+      operationId: updateProjectAuthSettings
+      description: Update one or both project Auth settings. CORS origins enable browser SDK requests from deployed application origins.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/UpdateProjectAuthSettingsRequest' } } } }
+      responses:
+        '200': { description: Updated Project Auth settings, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/ProjectAuthSettingsResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/usage:
+    get:
+      operationId: getProjectUsage
+      description: Return a live aggregate snapshot of tenant-owned project resources plus rolling 30-day API and Functions metering counters.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      responses:
+        '200': { description: Project usage snapshot, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/ProjectUsageResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/usage/metering:
+    get:
+      operationId: getProjectUsageMetering
+      description: Return durable daily API request, egress, Function invocation, failure, and compute-time buckets for a bounded inclusive calendar window. Empty days are omitted; totals cover the returned buckets.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { $ref: '../components/common.yaml#/components/parameters/ProjectID' }
+        - { name: from, in: query, required: false, description: Inclusive UTC start date. Defaults to 29 days before today., schema: { type: string, format: date } }
+        - { name: to, in: query, required: false, description: Inclusive UTC end date. Defaults to today., schema: { type: string, format: date } }
+        - { name: format, in: query, required: false, description: Response format. CSV exports include the exact daily buckets followed by a TOTAL row., schema: { type: string, enum: [json, csv], default: json } }
+      responses:
+        '200': { description: Daily project usage metering, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/ProjectUsageMeteringResponse' } }, text/csv: { schema: { type: string, format: binary } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/account/registrations:
+    post:
+      operationId: registerProjectApplicationUser
+      description: Public application registration. It is available only when the project Auth setting is enabled.
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/CreateProjectUserRequest' } } } }
+      responses:
+        '201': { description: Application identity created and an opaque project-scoped HttpOnly cookie set, content: { application/json: { schema: { $ref: '../components/projects-apps.yaml#/components/schemas/ApplicationAccountResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '403': { description: Registration is disabled, content: { application/json: { schema: { $ref: '../components/common.yaml#/components/schemas/ErrorEnvelope' } } } }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/sessions/email-password:
+    post:
+      operationId: createProjectEmailPasswordSession
+      description: Public application login. Invalid, unknown, and blocked credentials use the same response.
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/account-auth.yaml#/components/schemas/LoginRequest' } } } }
+      responses:
+        '204': { description: Opaque project-scoped HttpOnly session cookie set }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/InvalidCredentials' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/account:
+    get:
+      operationId: getProjectApplicationAccount
+      security: [{ projectAppCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      responses:
+        '200': { description: Current project application identity, content: { application/json: { schema: { $ref: '../components/projects-apps.yaml#/components/schemas/ApplicationAccountResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/account/verification:
+    post:
+      operationId: sendProjectApplicationVerification
+      description: Send a one-time verification link to the authenticated project application user.
+      security: [{ projectAppCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/account-auth.yaml#/components/schemas/AuthVerificationRequest' } } } }
+      responses:
+        '204': { description: Verification message accepted }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+    put:
+      operationId: confirmProjectApplicationVerification
+      description: Consume a one-time project application email verification token.
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/account-auth.yaml#/components/schemas/AuthTokenRequest' } } } }
+      responses:
+        '200': { description: Verified project application identity, content: { application/json: { schema: { $ref: '../components/projects-apps.yaml#/components/schemas/ApplicationAccountResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/account/recovery:
+    post:
+      operationId: createProjectApplicationRecovery
+      description: Request a project application password reset. The accepted response is identical whether the address exists.
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/account-auth.yaml#/components/schemas/PasswordRecoveryRequest' } } } }
+      responses:
+        '202': { description: Recovery request accepted, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/AcceptedResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    put:
+      operationId: confirmProjectApplicationRecovery
+      description: Replace a project application password with a valid one-time token and revoke all existing application sessions.
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/account-auth.yaml#/components/schemas/PasswordResetRequest' } } } }
+      responses:
+        '204': { description: Password updated and sessions revoked }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/session:
+    delete:
+      operationId: deleteProjectApplicationSession
+      security: [{ projectAppCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      responses:
+        '204': { description: Project application session revoked and cookie cleared }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/databases:
+    get:
+      operationId: listProjectDatabases
+      description: Console members and server keys with databases.read may list project databases. API keys are project-bound and the Console bridge never forwards X-Stealth-Key.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses:
+        '200': { description: Project databases, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/ProjectDatabasesPage' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    post:
+      operationId: createProjectDatabase
+      description: Console owners/admins and server keys with databases.write may create a database. databases.write does not imply databases.read.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/CreateDatabaseRequest' } } } }
+      responses:
+        '201': { description: Database created, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/ProjectDatabaseResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/sites:
+    get:
+      operationId: listSites
+      description: List immutable static Site metadata. API-key callers require sites.read.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses: { '200': { description: Sites page, content: { application/json: { schema: { $ref: '../components/projects-sites.yaml#/components/schemas/SitesPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+    post:
+      operationId: createSite
+      description: Create a static Site. Deployments may be pre-built archives or source archives built by the isolated worker.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-sites.yaml#/components/schemas/CreateSiteRequest' } } } }
+      responses: { '201': { description: Site created, content: { application/json: { schema: { $ref: '../components/projects-sites.yaml#/components/schemas/SiteResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' } }
+  /v1/projects/{projectID}/apps:
+    get:
+      operationId: listApps
+      description: List persistent App desired and observed runtime state. runtime_status=not_deployed means no image is selected and no runtime is desired. platform_hostname is reserved metadata and does not imply that an App route is active. API-key callers require apps.read.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses: { '200': { description: Apps page, content: { application/json: { schema: { $ref: '../components/projects-apps.yaml#/components/schemas/AppsPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+    post:
+      operationId: createApp
+      description: Create a durable App desired-state resource. Workload fields are normalized to WorkloadSpec v1. No image is built and no workload is started. The reserved platform_hostname does not imply an active route. API-key callers require apps.write.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-apps.yaml#/components/schemas/CreateAppRequest' } } } }
+      responses: { '201': { description: App created with normalized desired WorkloadSpec and runtime_status=not_deployed because no image is selected, content: { application/json: { schema: { $ref: '../components/projects-apps.yaml#/components/schemas/AppResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/projects/{projectID}/functions:
+    get:
+      operationId: listFunctions
+      description: List function control-plane metadata. API-key callers require functions.read.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses:
+        '200': { description: Functions page, content: { application/json: { schema: { $ref: '../components/projects-functions.yaml#/components/schemas/FunctionsPage' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    post:
+      operationId: createFunction
+      description: Create function metadata. API-key callers require functions.write.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-functions.yaml#/components/schemas/CreateFunctionRequest' } } } }
+      responses:
+        '201': { description: Function created, content: { application/json: { schema: { $ref: '../components/projects-functions.yaml#/components/schemas/FunctionResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }

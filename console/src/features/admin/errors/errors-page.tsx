@@ -5,7 +5,7 @@ import { ERROR_GROUPS } from "../data/admin-mock-data";
 import { AdminHeader, AdminPageBody, Mono } from "../components/admin-panel";
 import { StatTile } from "../components/stat-tile";
 import { DetailDrawer, DetailField } from "../components/detail-drawer";
-import { CopyButton } from "../components/copy-button";
+import { CopyButton } from "@/components/copy-button";
 import { Sparkline } from "../components/sparkline";
 import { StatusBadge } from "../components/status-badge";
 import { AdminSelect } from "../components/admin-select";

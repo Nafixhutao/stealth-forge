@@ -7,7 +7,7 @@ import { AdminSelect } from "../components/admin-select";
 import { TimeRangeSelect } from "../components/time-range-select";
 import { LiveToggle, ToolbarSearch } from "../components/toolbar-search";
 import { DetailDrawer, DetailField } from "../components/detail-drawer";
-import { CopyButton } from "../components/copy-button";
+import { CopyButton } from "@/components/copy-button";
 import { StatusBadge } from "../components/status-badge";
 import { useLiveTick } from "../hooks/use-live-updates";
 import { cn } from "@/lib/utils";

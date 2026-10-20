@@ -4,8 +4,11 @@ export interface SidebarProps {
   /** Controls the slide-in mobile drawer. Desktop is always visible. */
   open: boolean;
   onClose: () => void;
-  /** Keeps the sidebar below the 48px application top bar when present. */
+  /** Keeps the sidebar below the 59px application top bar when present. */
   hasTopBar?: boolean;
+  /** Whether the desktop rail also clears a 59px top bar. Defaults to
+   * `hasTopBar`; pass false for a bar that only exists below lg. */
+  desktopHasTopBar?: boolean;
   /** When false the desktop rail is never rendered — pages that manage their
    * own chrome still get the mobile drawer without changing desktop layout. */
   desktop?: boolean;

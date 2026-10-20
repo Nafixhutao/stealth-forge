@@ -1,0 +1,502 @@
+paths:
+  /v1/projects/{projectID}/databases/{databaseID}:
+    get:
+      operationId: getProjectDatabase
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }]
+      responses:
+        '200': { description: Database, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/ProjectDatabaseResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    delete:
+      operationId: deleteProjectDatabase
+      description: Console owners/admins and server keys with databases.write may delete a database and its tables, indexes, and rows. This is irreversible.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }]
+      responses:
+        '204': { description: Database deleted }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/databases/{databaseID}/tables:
+    get:
+      operationId: listDatabaseTables
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses:
+        '200': { description: Database tables, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/DatabaseTablesPage' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    post:
+      operationId: createDatabaseTable
+      description: Console owners/admins and server keys with databases.write may create a table. Permissions default deny; supported application roles are any, users, and user:<project-user-uuid>.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/CreateDatabaseTableRequest' } } } }
+      responses:
+        '201': { description: Table created, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/DatabaseTableResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/databases/{databaseID}/tables/{tableID}:
+    get:
+      operationId: getDatabaseTable
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/TableID' }]
+      responses:
+        '200': { description: Database table, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/DatabaseTableResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    patch:
+      operationId: updateDatabaseTable
+      description: Replace row security and all four table permission arrays. Console owners/admins and server keys with databases.write only.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/TableID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/UpdateDatabaseTableRequest' } } } }
+      responses:
+        '200': { description: Updated table, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/DatabaseTableResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    delete:
+      operationId: deleteDatabaseTable
+      description: Delete a table and its schema, indexes, and rows. Console owners/admins and server keys with databases.write only.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/TableID' }]
+      responses:
+        '204': { description: Table deleted }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/databases/{databaseID}/tables/{tableID}/columns:
+    get:
+      operationId: listDatabaseColumns
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/TableID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses:
+        '200': { description: Typed columns, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/DatabaseColumnsPage' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    post:
+      operationId: createDatabaseColumn
+      description: Create one typed column. Supported types are varchar, text, integer, double, boolean, datetime, and json. Required columns need a default when existing rows are present; varchar_size is required for varchar only.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/TableID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/CreateDatabaseColumnRequest' } } } }
+      responses:
+        '201': { description: Typed column created, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/DatabaseColumnResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/databases/{databaseID}/tables/{tableID}/columns/{columnID}:
+    delete:
+      operationId: deleteDatabaseColumn
+      description: Delete a column after dependent indexes are explicitly removed. Existing row data for the key is removed transactionally.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/TableID' }, { $ref: '../components/common.yaml#/components/parameters/ColumnID' }]
+      responses:
+        '204': { description: Column deleted }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/databases/{databaseID}/tables/{tableID}/indexes:
+    get:
+      operationId: listDatabaseIndexes
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/TableID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses:
+        '200': { description: Real database row indexes, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/DatabaseIndexesPage' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    post:
+      operationId: createDatabaseIndex
+      description: Create a real key, unique, or PostgreSQL GIN full-text index for declared columns. Unique conflicts return 409; full-text indexes require exactly one varchar/text column.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/TableID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/CreateDatabaseIndexRequest' } } } }
+      responses:
+        '201': { description: Real index created, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/DatabaseIndexResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/databases/{databaseID}/tables/{tableID}/indexes/{indexID}:
+    delete:
+      operationId: deleteDatabaseIndex
+      description: Remove the physical PostgreSQL index and its metadata transactionally.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/TableID' }, { $ref: '../components/common.yaml#/components/parameters/IndexID' }]
+      responses:
+        '204': { description: Index deleted }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/databases/{databaseID}/relationships:
+    get:
+      operationId: listDatabaseRelationships
+      description: List database relationship metadata. A relationship is a many-to-one reference from a text/varchar source column to a row id in another table.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses:
+        '200': { description: Database relationships, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/DatabaseRelationshipsPage' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    post:
+      operationId: createDatabaseRelationship
+      description: Create an enforced many-to-one relationship. Existing non-null source values must already point at rows in the target table; future source writes are checked transactionally and target deletion is restricted while referenced.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/CreateDatabaseRelationshipRequest' } } } }
+      responses:
+        '201': { description: Relationship created, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/DatabaseRelationshipResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/databases/{databaseID}/relationships/{relationshipID}:
+    get:
+      operationId: getDatabaseRelationship
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/RelationshipID' }]
+      responses:
+        '200': { description: Database relationship, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/DatabaseRelationshipResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    delete:
+      operationId: deleteDatabaseRelationship
+      description: Remove relationship metadata. Existing rows are not modified; after removal the source column is no longer referentially enforced.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/RelationshipID' }]
+      responses:
+        '204': { description: Relationship deleted }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/databases/{databaseID}/backups:
+    get:
+      operationId: listDatabaseBackups
+      description: List immutable logical database backup metadata. Backup blobs remain in the configured local or S3-compatible BlobStore and are never exposed as storage paths.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses:
+        '200': { description: Database backups, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/DatabaseBackupsPage' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    post:
+      operationId: createDatabaseBackup
+      description: Create a bounded logical JSON snapshot containing database schema, indexes, relationships, and rows. max_rows is an optional query parameter capped at 10000; the blob is committed before metadata is made visible.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { name: max_rows, in: query, schema: { type: integer, minimum: 1, maximum: 10000, default: 10000 } }]
+      responses:
+        '201': { description: Database backup created, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/DatabaseBackupResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/databases/{databaseID}/backups/{backupID}:
+    get:
+      operationId: getDatabaseBackup
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/BackupID' }]
+      responses:
+        '200': { description: Database backup metadata, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/DatabaseBackupResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    delete:
+      operationId: deleteDatabaseBackup
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/BackupID' }]
+      responses:
+        '204': { description: Database backup deleted }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/databases/{databaseID}/backups/{backupID}/download:
+    get:
+      operationId: downloadDatabaseBackup
+      description: Download the verified logical backup JSON from the configured BlobStore.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/BackupID' }]
+      responses:
+        '200': { description: Logical backup JSON, content: { application/json: { schema: { type: string, format: binary } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/databases/{databaseID}/backups/{backupID}/restore:
+    post:
+      operationId: restoreDatabaseBackup
+      description: Atomically replace the database schema, rows, indexes, and relationships from a verified logical backup. Any validation or referential-integrity failure rolls back the complete restore.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/BackupID' }]
+      responses:
+        '200': { description: Database backup restored, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/DatabaseBackupRestoreResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/databases/{databaseID}/tables/{tableID}/export:
+    get:
+      operationId: exportDatabaseRows
+      description: Stream a permission-filtered table snapshot as JSON or CSV. JSON preserves the DatabaseRow shape; CSV uses JSON literals for declared data columns. Exports are bounded by the limit query parameter.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }, { projectAppCookie: [] }, {}]
+      parameters:
+        - { $ref: '../components/common.yaml#/components/parameters/ProjectID' }
+        - { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }
+        - { $ref: '../components/common.yaml#/components/parameters/TableID' }
+        - { name: format, in: query, schema: { type: string, enum: [json, csv], default: json } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 10000, default: 1000 } }
+      responses:
+        '200': { description: Permission-filtered table export, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/DatabaseRowsExport' } }, text/csv: { schema: { type: string, format: binary } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/databases/{databaseID}/tables/{tableID}/rows:
+    get:
+      operationId: listDatabaseRows
+      description: List rows for a Console member, server key with databases.read, active project application user, or anonymous caller. Application callers are allowed only by table/row grants; row filters and ordering on declared columns require a real key index. The request actor precedence is X-Stealth-Key, project app cookie, Console cookie, then anonymous.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }, { projectAppCookie: [] }, {}]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/TableID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/RowCursor' }, { $ref: '../components/common.yaml#/components/parameters/FilterJSON' }, { $ref: '../components/common.yaml#/components/parameters/OrderBy' }, { $ref: '../components/common.yaml#/components/parameters/OrderDirection' }, { $ref: '../components/common.yaml#/components/parameters/Search' }, { $ref: '../components/common.yaml#/components/parameters/SearchColumn' }]
+      responses:
+        '200': { description: Permission-filtered rows, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/DatabaseRowsPage' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    post:
+      operationId: createDatabaseRow
+      description: Create a typed row. Console/API-key callers need management write authorization; application callers need table create permission. Anonymous callers must provide explicit row permissions and cannot grant users.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }, { projectAppCookie: [] }, {}]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/TableID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/CreateDatabaseRowRequest' } } } }
+      responses:
+        '201': { description: Typed row created, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/DatabaseRowResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/databases/{databaseID}/tables/{tableID}/rows/import:
+    post:
+      operationId: importDatabaseRows
+      description: Atomically create up to 1000 typed rows. If any row fails schema, permission, or index validation, the transaction rolls back and no imported row remains.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }, { projectAppCookie: [] }, {}]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/TableID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/ImportDatabaseRowsRequest' } } } }
+      responses:
+        '201': { description: Imported rows, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/DatabaseRowsImportResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/databases/{databaseID}/tables/{tableID}/rows/transaction:
+    post:
+      operationId: transactDatabaseRows
+      description: Atomically apply up to 100 creates, updates, and deletes to one table. Every operation is permission-checked and relationship-checked; any failure rolls the entire batch back.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }, { projectAppCookie: [] }, {}]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/TableID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/DatabaseRowsTransactionRequest' } } } }
+      responses:
+        '200': { description: Atomic row transaction result, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/DatabaseRowsTransactionResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/databases/{databaseID}/tables/{tableID}/rows/{rowID}:
+    get:
+      operationId: getDatabaseRow
+      description: Get one row using the same management or application grant semantics as row listing.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }, { projectAppCookie: [] }, {}]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/TableID' }, { $ref: '../components/common.yaml#/components/parameters/RowID' }]
+      responses:
+        '200': { description: Permission-checked row, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/DatabaseRowResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    patch:
+      operationId: updateDatabaseRow
+      description: Update a typed row. Console/API-key callers need databases.write; application callers need update grants and cannot mutate row permissions.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }, { projectAppCookie: [] }, {}]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/TableID' }, { $ref: '../components/common.yaml#/components/parameters/RowID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/UpdateDatabaseRowRequest' } } } }
+      responses:
+        '200': { description: Updated row, content: { application/json: { schema: { $ref: '../components/projects-databases.yaml#/components/schemas/DatabaseRowResponse' } } } }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    delete:
+      operationId: deleteDatabaseRow
+      description: Delete a typed row. Console/API-key callers need databases.write; application callers need delete grants.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }, { projectAppCookie: [] }, {}]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }, { $ref: '../components/common.yaml#/components/parameters/TableID' }, { $ref: '../components/common.yaml#/components/parameters/RowID' }]
+      responses:
+        '204': { description: Row deleted }
+        '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }

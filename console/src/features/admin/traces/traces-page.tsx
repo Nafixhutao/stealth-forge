@@ -5,7 +5,7 @@ import { TRACES } from "../data/admin-mock-data";
 import { AdminHeader, AdminPageBody, Mono } from "../components/admin-panel";
 import { StatTile } from "../components/stat-tile";
 import { DetailDrawer, DetailField } from "../components/detail-drawer";
-import { CopyButton } from "../components/copy-button";
+import { CopyButton } from "@/components/copy-button";
 import { ToolbarSearch } from "../components/toolbar-search";
 import { AdminSelect } from "../components/admin-select";
 import { StatusBadge } from "../components/status-badge";

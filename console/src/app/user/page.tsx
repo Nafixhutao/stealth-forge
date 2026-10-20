@@ -1,17 +1,22 @@
+import "@fontsource-variable/inter";
+
 import { ApplicationShell } from "@/components/application-shell";
+import { UserHome } from "@/features/user/user-home";
 
 /**
- * The first user console page: a blank black surface with the redesigned
- * sidebar. Real user content is built on top of this shell.
+ * The user console home: the signed-in account's organizations, and the
+ * projects inside the selected one. All content is read from the API.
+ *
+ * The surface ships the reference's Inter, declared here because the shell's
+ * other routes keep the admin console's Geist. `userConsole` opts the shell
+ * into the same palette the stylesheet scopes to `/user`.
  */
 export default function UserHomePage() {
   return (
-    <ApplicationShell>
-      <div className="flex min-h-dvh items-center justify-center bg-[var(--projects-bg)]">
-        <p className="text-2xl font-medium text-[var(--projects-text)]">
-          hi user
-        </p>
-      </div>
+    // The page renders its own mobile top bar (lg:hidden), so the drawer
+    // clears it while the desktop rail keeps full height.
+    <ApplicationShell hasTopBar desktopHasTopBar={false} userConsole>
+      <UserHome />
     </ApplicationShell>
   );
 }

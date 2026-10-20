@@ -303,6 +303,8 @@ html {
   background: var(--background);
   color-scheme: dark;
   scroll-behavior: smooth;
+  overflow-x: hidden;
+  max-width: 100%;
   /* Mobile platform layer: no tap flash, no font inflation in landscape. */
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
@@ -313,6 +315,8 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   overflow-x: hidden;
+  max-width: 100%;
+  width: 100%;
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-inter-variable);

@@ -1,0 +1,21 @@
+# Redocly config for the split OpenAPI contract.
+# Each disabled rule would require a spec change to satisfy; the split must
+# not alter the contract, so they stay off with the reason recorded here:
+# - operation-summary: no operation carries a `summary` field.
+# - security-defined: public endpoints (health, login, registration, OAuth
+#   callbacks) intentionally declare no security scheme.
+# - operation-4xx-response: some operations document fewer error responses.
+# - info-license: the info block carries no license field.
+# Pre-existing `struct` findings (unquoted colons inside single-quoted
+# description strings) are waived by exact location in
+# .redocly.lint-ignore.yaml; the rule stays on for new problems.
+extends:
+  - recommended
+apis:
+  console@main:
+    root: ./openapi.yaml
+rules:
+  operation-summary: off
+  security-defined: off
+  operation-4xx-response: off
+  info-license: off

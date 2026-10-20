@@ -1,7 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/api/query-keys";
-
-export type CacheQueryKey = readonly unknown[];
+import { addCacheKey, dedupeCacheKeys, type CacheQueryKey } from "./keys";
 
 /**
  * A domain change that can be translated into the queries whose source of
@@ -11,6 +10,7 @@ export type CacheQueryKey = readonly unknown[];
 export type CacheChange =
   | { kind: "organizations" }
   | { kind: "organization-projects"; organizationId: string }
+  | { kind: "organization-plan"; organizationId: string }
   | { kind: "organization-memberships"; organizationId: string }
   | { kind: "organization-invitations"; organizationId: string }
   | {
@@ -114,35 +114,6 @@ export type CacheChange =
   | { kind: "api-key"; projectId: string; keyId?: string }
   | { kind: "project"; projectId: string };
 
-/**
- * Appends a query key unless an equivalent key is already present. Query keys
- * are compared structurally so different arrays with the same content collapse
- * into a single invalidation target.
- */
-export function addCacheKey(keys: CacheQueryKey[], key: CacheQueryKey) {
-  const serialized = JSON.stringify(key);
-  if (!keys.some((candidate) => JSON.stringify(candidate) === serialized)) {
-    keys.push(key);
-  }
-}
-
-/** Removes duplicate query keys while preserving first-seen order. */
-export function dedupeCacheKeys(
-  keys: readonly CacheQueryKey[],
-): CacheQueryKey[] {
-  // Serialize each key once and dedupe through a Set, so this stays linear
-  // rather than re-stringifying every candidate per insert.
-  const seen = new Set<string>();
-  const unique: CacheQueryKey[] = [];
-  for (const key of keys) {
-    const serialized = JSON.stringify(key);
-    if (seen.has(serialized)) continue;
-    seen.add(serialized);
-    unique.push(key);
-  }
-  return unique;
-}
-
 export function invalidationKeysFor(change: CacheChange): CacheQueryKey[] {
   const keys: CacheQueryKey[] = [];
 
@@ -153,6 +124,12 @@ export function invalidationKeysFor(change: CacheChange): CacheQueryKey[] {
 
     case "organization-projects":
       addCacheKey(keys, queryKeys.projects(change.organizationId));
+      return keys;
+
+    case "organization-plan":
+      // Creating or deleting a project moves the plan's project usage, so the
+      // plan is invalidated alongside the list rather than by the caller.
+      addCacheKey(keys, queryKeys.organizationPlan(change.organizationId));
       return keys;
 
     case "organization-memberships":
@@ -242,7 +219,7 @@ export function invalidationKeysFor(change: CacheChange): CacheQueryKey[] {
       } else {
         // Without the parent function id we cannot target one list, so
         // invalidate every deployment list in the project via key prefix.
-        addCacheKey(keys, ["function-deployments", change.projectId]);
+        addCacheKey(keys, queryKeys.functionDeploymentsScope(change.projectId));
       }
       return keys;
 
@@ -344,7 +321,7 @@ export function invalidationKeysFor(change: CacheChange): CacheQueryKey[] {
       } else {
         // Without the parent site id we cannot target one list, so invalidate
         // every deployment list in the project via key prefix.
-        addCacheKey(keys, ["site-deployments", change.projectId]);
+        addCacheKey(keys, queryKeys.siteDeploymentsScope(change.projectId));
       }
       return keys;
 
@@ -501,8 +478,9 @@ export function invalidationKeysFor(change: CacheChange): CacheQueryKey[] {
       return keys;
 
     case "project":
+      // `queryKeys.project` is a prefix of the project audit key, so a single
+      // invalidation already covers `["project", id, "audit"]`.
       addCacheKey(keys, queryKeys.project(change.projectId));
-      addCacheKey(keys, queryKeys.audit("project", change.projectId));
       return keys;
   }
 }
@@ -516,70 +494,4 @@ export async function applyCacheChanges(
   await Promise.all(
     uniqueKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
   );
-}
-
-/**
- * An Admin control-room change. Admin events share this module with project
- * changes so both realtime adapters resolve to one invalidation policy instead
- * of growing separate key lists.
- */
-export type AdminCacheChange =
-  | { kind: "admin-monitor"; resourceId?: string }
-  | { kind: "admin-alert"; resourceId?: string }
-  | { kind: "admin-notification" }
-  | { kind: "admin-incident"; resourceId?: string }
-  | { kind: "admin-dashboard"; resourceId?: string }
-  | { kind: "admin-status-page" }
-  | { kind: "admin-error-group" }
-  | { kind: "admin-overview" };
-
-export function adminInvalidationKeysFor(
-  change: AdminCacheChange,
-): CacheQueryKey[] {
-  const keys: CacheQueryKey[] = [["admin", "audit-events"]];
-
-  switch (change.kind) {
-    case "admin-monitor":
-      addCacheKey(keys, queryKeys.adminMonitors);
-      if (change.resourceId)
-        addCacheKey(keys, queryKeys.adminMonitor(change.resourceId));
-      return keys;
-
-    case "admin-alert":
-      addCacheKey(keys, queryKeys.adminAlerts);
-      addCacheKey(keys, queryKeys.adminAlertEvents);
-      if (change.resourceId)
-        addCacheKey(keys, queryKeys.adminAlert(change.resourceId));
-      return keys;
-
-    case "admin-notification":
-      addCacheKey(keys, queryKeys.adminNotifications);
-      return keys;
-
-    case "admin-incident":
-      addCacheKey(keys, queryKeys.adminIncidents);
-      if (change.resourceId)
-        addCacheKey(keys, queryKeys.adminIncident(change.resourceId));
-      return keys;
-
-    case "admin-dashboard":
-      addCacheKey(keys, queryKeys.adminDashboards);
-      if (change.resourceId)
-        addCacheKey(keys, queryKeys.adminDashboard(change.resourceId));
-      return keys;
-
-    case "admin-status-page":
-      addCacheKey(keys, queryKeys.adminStatusPage);
-      return keys;
-
-    case "admin-error-group":
-      addCacheKey(keys, ["admin", "telemetry", "errors"]);
-      return keys;
-
-    case "admin-overview":
-      // Unknown Admin events still invalidate the bounded control-room overview
-      // without forcing every telemetry query to refetch.
-      addCacheKey(keys, queryKeys.adminOverview);
-      return keys;
-  }
 }

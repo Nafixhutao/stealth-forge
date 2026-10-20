@@ -11,7 +11,7 @@ import {
 import { errorMessage } from "@/components/feedback/error-state";
 import { AdminPanel, AdminPanelHeader } from "../components/admin-panel";
 import { ProviderCardsSkeleton } from "../components/admin-skeletons";
-import { CopyButton } from "../components/copy-button";
+import { CopyButton } from "@/components/copy-button";
 import { StatusBadge } from "../components/status-badge";
 
 const fieldClass =

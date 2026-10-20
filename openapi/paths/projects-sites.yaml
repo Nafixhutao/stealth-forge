@@ -1,0 +1,120 @@
+paths:
+  /v1/projects/{projectID}/sites/{siteID}:
+    get:
+      operationId: getSite
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/SiteID' }]
+      responses: { '200': { description: Site metadata, content: { application/json: { schema: { $ref: '../components/projects-sites.yaml#/components/schemas/SiteResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+    patch:
+      operationId: updateSite
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/SiteID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-sites.yaml#/components/schemas/UpdateSiteRequest' } } } }
+      responses: { '200': { description: Updated Site metadata, content: { application/json: { schema: { $ref: '../components/projects-sites.yaml#/components/schemas/SiteResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' } }
+    delete:
+      operationId: deleteSite
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/SiteID' }]
+      responses: { '204': { description: Site and all deployments deleted }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+  /v1/projects/{projectID}/sites/{siteID}/domains:
+    get:
+      operationId: listSiteDomains
+      description: List custom hostnames bound to a Site. API-key callers require sites.read.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/SiteID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses: { '200': { description: Site domains, content: { application/json: { schema: { $ref: '../components/projects-sites.yaml#/components/schemas/SiteDomainsPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+    post:
+      operationId: createSiteDomain
+      description: Bind a DNS hostname to a Site and return the TXT challenge record. The hostname serves only after verification.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/SiteID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-sites.yaml#/components/schemas/CreateSiteDomainRequest' } } } }
+      responses: { '201': { description: Domain binding created, content: { application/json: { schema: { $ref: '../components/projects-sites.yaml#/components/schemas/SiteDomainResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' } }
+  /v1/projects/{projectID}/sites/{siteID}/domains/{domainID}:
+    get:
+      operationId: getSiteDomain
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/SiteID' }, { $ref: '../components/common.yaml#/components/parameters/DomainID' }]
+      responses: { '200': { description: Site domain, content: { application/json: { schema: { $ref: '../components/projects-sites.yaml#/components/schemas/SiteDomainResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+    delete:
+      operationId: deleteSiteDomain
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/SiteID' }, { $ref: '../components/common.yaml#/components/parameters/DomainID' }]
+      responses: { '204': { description: Domain binding deleted }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+  /v1/projects/{projectID}/sites/{siteID}/domains/{domainID}/verify:
+    post:
+      operationId: verifySiteDomain
+      description: Verify the required TXT record at _stealth-verification.hostname. Verified hosts may use the optional in-process ACME manager or an external TLS terminator.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/SiteID' }, { $ref: '../components/common.yaml#/components/parameters/DomainID' }]
+      responses: { '200': { description: Verified domain, content: { application/json: { schema: { $ref: '../components/projects-sites.yaml#/components/schemas/SiteDomainResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' } }
+  /v1/projects/{projectID}/sites/{siteID}/deployments:
+    get:
+      operationId: listSiteDeployments
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/SiteID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses: { '200': { description: Site deployment history, content: { application/json: { schema: { $ref: '../components/projects-sites.yaml#/components/schemas/SiteDeploymentsPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+    post:
+      operationId: uploadSiteDeployment
+      description: Stream a pre-built static archive or queue a source build. Pre-built archives are validated immediately; source builds run in the isolated worker and must produce a root index.html in output_directory.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/SiteID' }]
+      requestBody: { required: true, content: { multipart/form-data: { schema: { $ref: '../components/projects-sites.yaml#/components/schemas/SiteDeploymentUploadRequest' } } } }
+      responses: { '201': { description: Immutable deployment stored and optionally activated, content: { application/json: { schema: { $ref: '../components/projects-sites.yaml#/components/schemas/SiteDeploymentResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '415': { $ref: '../components/common.yaml#/components/responses/UnsupportedMediaType' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' } , '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' } }
+  /v1/projects/{projectID}/sites/{siteID}/deployments/git:
+    post:
+      operationId: createGitSiteDeployment
+      description: Download a public GitHub or GitLab repository archive, store it immutably, and queue an isolated Site build. Only HTTPS github.com and gitlab.com repositories are accepted; provider credentials and arbitrary upstream URLs are not supported.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/SiteID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-sites.yaml#/components/schemas/GitSiteDeploymentRequest' } } } }
+      responses: { '201': { description: Git source stored and build queued, content: { application/json: { schema: { $ref: '../components/projects-sites.yaml#/components/schemas/SiteDeploymentResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }, '413': { $ref: '../components/common.yaml#/components/responses/PayloadTooLarge' }, '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }, '429': { $ref: '../components/common.yaml#/components/responses/RateLimited' }, '502': { description: Git provider archive unavailable, content: { application/json: { schema: { $ref: '../components/common.yaml#/components/schemas/ErrorEnvelope' } } } }, '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' } }
+  /v1/projects/{projectID}/sites/{siteID}/deployments/{deploymentID}:
+    get:
+      operationId: getSiteDeployment
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/SiteID' }, { $ref: '../components/common.yaml#/components/parameters/DeploymentID' }]
+      responses: { '200': { description: Site deployment metadata, content: { application/json: { schema: { $ref: '../components/projects-sites.yaml#/components/schemas/SiteDeploymentResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+    delete:
+      operationId: deleteSiteDeployment
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/SiteID' }, { $ref: '../components/common.yaml#/components/parameters/DeploymentID' }]
+      responses: { '204': { description: Inactive deployment and its immutable artifact deleted }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' } }
+  /v1/projects/{projectID}/sites/{siteID}/deployments/{deploymentID}/activate:
+    post:
+      operationId: activateSiteDeployment
+      description: Atomically make a ready deployment active and supersede the previous release.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/SiteID' }, { $ref: '../components/common.yaml#/components/parameters/DeploymentID' }]
+      responses: { '200': { description: Activated Site and deployment, content: { application/json: { schema: { $ref: '../components/projects-sites.yaml#/components/schemas/ActivateSiteDeploymentResponse' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '409': { $ref: '../components/common.yaml#/components/responses/Conflict' } }
+  /v1/projects/{projectID}/sites/{siteID}/deployments/{deploymentID}/logs:
+    get:
+      operationId: listSiteBuildLogs
+      description: List bounded, secret-redacted lifecycle messages emitted by the trusted Site build worker. The after cursor is the last returned sequence.
+      security: [{ sessionCookie: [] }, { projectApiKey: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/SiteID' }, { $ref: '../components/common.yaml#/components/parameters/DeploymentID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { name: after, in: query, required: false, schema: { type: integer, format: int64, minimum: 0 } }]
+      responses: { '200': { description: Site build logs, content: { application/json: { schema: { $ref: '../components/projects-sites.yaml#/components/schemas/SiteBuildLogsPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+  /v1/sites/{siteID}:
+    get:
+      operationId: serveSiteIndex
+      description: Public index.html for the active Site deployment. Use the wildcard path form below for assets.
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/SiteID' }]
+      responses: { '200': { description: Published static file, content: { text/html: { schema: { type: string } } } }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+  /v1/sites/{siteID}/{path}:
+    get:
+      operationId: serveSiteFile
+      description: Public static file from the active Site deployment. Path traversal and links are rejected.
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/SiteID' }, { name: path, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: Published static file }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+  /v1/sites/{siteID}/deployments/{deploymentID}:
+    get:
+      operationId: serveSiteDeploymentIndex
+      description: Public index.html preview for a ready or active immutable Site deployment. The Site must remain enabled.
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/SiteID' }, { $ref: '../components/common.yaml#/components/parameters/DeploymentID' }]
+      responses: { '200': { description: Preview static file, content: { text/html: { schema: { type: string } } } }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
+  /v1/sites/{siteID}/deployments/{deploymentID}/{path}:
+    get:
+      operationId: serveSiteDeploymentFile
+      description: Public static preview file from a ready or active immutable Site deployment. Path traversal and links are rejected.
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/SiteID' }, { $ref: '../components/common.yaml#/components/parameters/DeploymentID' }, { name: path, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: Preview static file }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' } }
