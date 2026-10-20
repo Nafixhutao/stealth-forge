@@ -492,6 +492,8 @@ services:
         condition: service_healthy
     volumes:
       - ./console/deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # The public status site served at status.nazxf.my.id and at /status/.
+      - ./status-site:/usr/share/nginx/html/status:ro
     mem_limit: "${PROXY_MEMORY_LIMIT:-256m}"
     cpus: "${PROXY_CPUS:-1}"
     ports:

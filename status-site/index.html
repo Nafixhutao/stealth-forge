@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Status · Stealth</title>
+    <meta
+      name="description"
+      content="Live availability of the Stealth platform: components, current incidents and their history."
+    />
+    <meta name="robots" content="index, follow" />
+    <meta name="color-scheme" content="dark light" />
+    <link rel="icon" href="./favicon.png" sizes="any" />
+    <link rel="apple-touch-icon" href="./favicon.png" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <div class="shell site-header__inner">
+        <a class="brand" href="./">
+          <img
+            class="brand__mark"
+            src="./stealth-mark.png"
+            alt=""
+            width="26"
+            height="26"
+          />
+          <span class="brand__name" data-site-name>Status</span>
+        </a>
+        <a class="brand__link" href="https://console.nazxf.my.id">Console</a>
+      </div>
+    </header>
+
+    <main class="shell" id="main">
+      <h1 class="page-title">Platform status</h1>
+      <p class="page-lead" id="page-description" hidden></p>
+
+      <section
+        class="summary"
+        id="summary"
+        data-state="loading"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <span class="summary__dot" aria-hidden="true"></span>
+        <div class="summary__text">
+          <p class="summary__headline" id="summary-headline">Loading status…</p>
+          <p class="summary__meta" id="summary-meta"></p>
+        </div>
+      </section>
+
+      <section class="panel" id="components-panel" aria-labelledby="components-heading">
+        <div class="panel__head">
+          <h2 class="panel__title" id="components-heading">Components</h2>
+          <p class="panel__hint" id="components-hint"></p>
+        </div>
+        <ul class="components" id="components" aria-busy="true"></ul>
+      </section>
+
+      <section
+        class="panel"
+        id="incidents-panel"
+        aria-labelledby="incidents-heading"
+        hidden
+      >
+        <div class="panel__head">
+          <h2 class="panel__title" id="incidents-heading">Incidents</h2>
+          <p class="panel__hint" id="incidents-hint"></p>
+        </div>
+        <ol class="incidents" id="incidents"></ol>
+      </section>
+
+      <p class="error" id="error" role="alert" hidden></p>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell site-footer__inner">
+        <p class="site-footer__note" id="footer-note">Powered by Stealth</p>
+        <p class="site-footer__note" id="footer-updated"></p>
+      </div>
+    </footer>
+
+    <template id="component-template">
+      <li class="component">
+        <div class="component__text">
+          <span class="component__name" data-name></span>
+          <p class="component__description" data-description></p>
+        </div>
+        <span class="status" data-status>
+          <span class="status__dot" aria-hidden="true"></span>
+          <span class="status__label" data-status-label></span>
+        </span>
+      </li>
+    </template>
+
+    <template id="incident-template">
+      <li class="incident">
+        <div class="incident__head">
+          <span class="badge" data-severity></span>
+          <span class="badge badge--muted" data-status></span>
+          <time class="incident__time" data-started></time>
+        </div>
+        <p class="incident__title" data-title></p>
+        <p class="incident__services" data-services></p>
+        <p class="incident__resolved" data-resolved hidden></p>
+      </li>
+    </template>
+  </body>
+</html>
