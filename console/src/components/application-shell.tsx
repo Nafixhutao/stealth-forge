@@ -83,7 +83,9 @@ export function ApplicationShell({
             desktopHasTopBar={desktopHasTopBar}
             desktop={desktopSidebar}
           />
-          <main className="relative min-h-dvh min-w-0 w-full max-w-full overflow-x-hidden flex-1">{children}</main>
+          <main className="relative min-h-dvh min-w-0 w-full max-w-full overflow-x-hidden flex-1">
+            {children}
+          </main>
         </div>
       </div>
     </ApplicationContext.Provider>
