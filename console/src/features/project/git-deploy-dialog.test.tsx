@@ -46,7 +46,9 @@ describe("GitDeployDialog", () => {
     renderDialog();
 
     expect(
-      screen.getByText(/private repositories and push-triggered rebuilds are not supported yet/i),
+      screen.getByText(
+        /private repositories and push-triggered rebuilds are not supported yet/i,
+      ),
     ).toBeInTheDocument();
   });
 
@@ -56,20 +58,24 @@ describe("GitDeployDialog", () => {
     const field = screen.getByLabelText("Repository");
 
     fireEvent.change(field, { target: { value: "http://github.com/o/r" } });
-    expect(screen.getByText("The repository URL must use HTTPS.")).toBeInTheDocument();
+    expect(
+      screen.getByText("The repository URL must use HTTPS."),
+    ).toBeInTheDocument();
     expect(submitButton()).toBeDisabled();
 
     fireEvent.change(field, { target: { value: "https://example.com/o/r" } });
     expect(
-      screen.getByText("Only github.com and gitlab.com repositories are supported."),
+      screen.getByText(
+        "Only github.com and gitlab.com repositories are supported.",
+      ),
     ).toBeInTheDocument();
 
     fireEvent.change(field, { target: { value: "https://github.com/owner" } });
-    expect(
-      screen.getByText(/must name a repository/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/must name a repository/)).toBeInTheDocument();
 
-    fireEvent.change(field, { target: { value: "https://github.com/owner/repo" } });
+    fireEvent.change(field, {
+      target: { value: "https://github.com/owner/repo" },
+    });
     expect(submitButton()).toBeEnabled();
   });
 

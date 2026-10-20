@@ -6887,7 +6887,7 @@ export interface components {
             count: number;
         };
         SiteDeploymentFile: {
-            /** @description Path relative to the release root */
+            /** @description Path relative to the release root using forward slashes. The public preview route accepts it verbatim. */
             path: string;
             /** Format: int64 */
             size: number;
@@ -6898,7 +6898,7 @@ export interface components {
             truncated: boolean;
         };
         EditSiteDeploymentFileRequest: {
-            /** @description Path of a file that already exists in the source release */
+            /** @description Path of a file that already exists in the source release relative to its root. */
             path: string;
             /** @description Text contents to write. The API bounds this by the configured artifact size. */
             content: string;

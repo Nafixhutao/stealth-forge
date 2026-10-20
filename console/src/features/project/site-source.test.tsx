@@ -84,7 +84,9 @@ function query(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function renderSource(props: { canEdit?: boolean; onPublished?: (d: unknown) => void } = {}) {
+function renderSource(
+  props: { canEdit?: boolean; onPublished?: (d: unknown) => void } = {},
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -226,9 +228,7 @@ describe("SiteSource", () => {
     await screen.findByTestId("code-viewer");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
 
-    expect(
-      screen.getByText(/Saving publishes a/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Saving publishes a/)).toBeInTheDocument();
     expect(
       screen.getByText(/counts against the site's artifact quota/),
     ).toBeInTheDocument();
@@ -237,7 +237,9 @@ describe("SiteSource", () => {
   it("publishes the edited file and reports the new release", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: true, text: async () => "<html>old</html>" }),
+      vi
+        .fn()
+        .mockResolvedValue({ ok: true, text: async () => "<html>old</html>" }),
     );
     const onPublished = vi.fn();
     editFile.mutate.mockImplementation(
@@ -277,17 +279,23 @@ describe("SiteSource", () => {
     await screen.findByTestId("code-viewer");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
 
-    expect(screen.getByRole("button", { name: "Publish changes" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Publish changes" }),
+    ).toBeDisabled();
     fireEvent.change(screen.getByTestId("code-editor"), {
       target: { value: "<html>changed</html>" },
     });
-    expect(screen.getByRole("button", { name: "Publish changes" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Publish changes" }),
+    ).toBeEnabled();
   });
 
   it("drops the draft when the edit is cancelled", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: true, text: async () => "<html>old</html>" }),
+      vi
+        .fn()
+        .mockResolvedValue({ ok: true, text: async () => "<html>old</html>" }),
     );
 
     renderSource({ canEdit: true });
@@ -299,7 +307,9 @@ describe("SiteSource", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(screen.queryByTestId("code-editor")).toBeNull();
-    expect(screen.getByTestId("code-viewer")).toHaveTextContent("<html>old</html>");
+    expect(screen.getByTestId("code-viewer")).toHaveTextContent(
+      "<html>old</html>",
+    );
     expect(editFile.mutate).not.toHaveBeenCalled();
   });
 

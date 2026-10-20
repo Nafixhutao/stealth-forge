@@ -10,7 +10,10 @@ import { apiUrl } from "@/api/client";
 import { useEditSiteDeploymentFile } from "@/api/mutations/sites";
 import { useSiteDeploymentFiles } from "@/api/queries/site-detail";
 import { languageForPath } from "@/features/project/code-viewer";
-import { PRIMARY_ACTION, SECONDARY_ACTION } from "@/features/user/action-styles";
+import {
+  PRIMARY_ACTION,
+  SECONDARY_ACTION,
+} from "@/features/user/action-styles";
 import { Button } from "@/components/ui/button";
 import { formatBytes } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -33,10 +36,29 @@ const CodeViewer = dynamic(
 
 /** Extensions the viewer will not try to render as text. */
 const BINARY = new Set([
-  "png", "jpg", "jpeg", "gif", "webp", "avif", "ico", "bmp",
-  "woff", "woff2", "ttf", "otf", "eot",
-  "mp4", "webm", "mp3", "wav", "ogg",
-  "pdf", "zip", "gz", "br", "wasm",
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "webp",
+  "avif",
+  "ico",
+  "bmp",
+  "woff",
+  "woff2",
+  "ttf",
+  "otf",
+  "eot",
+  "mp4",
+  "webm",
+  "mp3",
+  "wav",
+  "ogg",
+  "pdf",
+  "zip",
+  "gz",
+  "br",
+  "wasm",
 ]);
 
 function isBinary(path: string) {
@@ -133,7 +155,9 @@ export function SiteSource({
         },
         onError: (cause) =>
           toast.error(
-            cause instanceof Error ? cause.message : "Could not publish the edit",
+            cause instanceof Error
+              ? cause.message
+              : "Could not publish the edit",
           ),
       },
     );
@@ -146,9 +170,12 @@ export function SiteSource({
           {editing ? (
             <>
               <p className="m-0 text-[12px] leading-4 text-[var(--projects-muted)]">
-                Saving publishes a <strong className="text-[var(--projects-text)]">new release</strong>;
-                this one stays as it is. Each save counts against the site&apos;s
-                artifact quota.
+                Saving publishes a{" "}
+                <strong className="text-[var(--projects-text)]">
+                  new release
+                </strong>
+                ; this one stays as it is. Each save counts against the
+                site&apos;s artifact quota.
               </p>
               <div className="flex items-center gap-1.5">
                 <Button
@@ -182,7 +209,11 @@ export function SiteSource({
                 disabled={content.data === undefined}
                 className={cn(SECONDARY_ACTION, "!h-8 !text-[12px]")}
               >
-                <Pencil className="size-3.5" strokeWidth={2} aria-hidden="true" />
+                <Pencil
+                  className="size-3.5"
+                  strokeWidth={2}
+                  aria-hidden="true"
+                />
                 Edit
               </Button>
             </>

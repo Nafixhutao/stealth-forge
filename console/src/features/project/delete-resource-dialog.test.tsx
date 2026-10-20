@@ -49,7 +49,9 @@ describe("DeleteResourceDialog", () => {
       target: { value: "ap" },
     });
     expect(confirmButton()).toBeDisabled();
-    expect(screen.getByText("The name does not match yet.")).toBeInTheDocument();
+    expect(
+      screen.getByText("The name does not match yet."),
+    ).toBeInTheDocument();
 
     fireEvent.change(screen.getByRole("textbox"), {
       target: { value: "app" },

@@ -24,6 +24,7 @@ export function planLabel(planKey: string | null | undefined) {
  * number.
  */
 export function planUsageText(used: number, limit: number): string {
-  if (limit < 0) return `${used} ${used === 1 ? "project" : "projects"}, unlimited`;
+  if (limit < 0)
+    return `${used} ${used === 1 ? "project" : "projects"}, unlimited`;
   return `${used} of ${limit} ${limit === 1 ? "project" : "projects"} used`;
 }

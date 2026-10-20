@@ -123,7 +123,9 @@ describe("ProjectDatabases", () => {
     renderDatabases();
 
     expect(screen.getByText("Databases")).toBeInTheDocument();
-    expect(screen.getByText("2 databases · 14 tables · 4,820 rows")).toBeInTheDocument();
+    expect(
+      screen.getByText("2 databases · 14 tables · 4,820 rows"),
+    ).toBeInTheDocument();
   });
 
   it("keeps a plain description until the snapshot lands", () => {
@@ -256,14 +258,18 @@ describe("ProjectDatabases", () => {
   it("opens the delete confirmation for the row it was clicked on", () => {
     renderDatabases();
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete database analytics" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete database analytics" }),
+    );
 
     expect(
       screen.getByRole("heading", { name: "Delete database" }),
     ).toBeInTheDocument();
     // The consequence names the row, so the operator confirms the right one.
     expect(
-      screen.getByText(/This deletes analytics and every table, index, and row/),
+      screen.getByText(
+        /This deletes analytics and every table, index, and row/,
+      ),
     ).toBeInTheDocument();
   });
 });

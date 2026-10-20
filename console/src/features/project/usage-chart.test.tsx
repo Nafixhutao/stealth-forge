@@ -69,7 +69,9 @@ describe("UsageChart", () => {
   it("states the total and the window the API reported", () => {
     render(
       <UsageChart
-        metering={metering({ days: [day("2026-09-19", 300), day("2026-09-20", 120)] })}
+        metering={metering({
+          days: [day("2026-09-19", 300), day("2026-09-20", 120)],
+        })}
       />,
     );
 
@@ -85,7 +87,9 @@ describe("UsageChart", () => {
   it("draws one bar per reported day, each naming its own date", () => {
     render(
       <UsageChart
-        metering={metering({ days: [day("2026-09-19", 300), day("2026-09-20", 1)] })}
+        metering={metering({
+          days: [day("2026-09-19", 300), day("2026-09-20", 1)],
+        })}
       />,
     );
 

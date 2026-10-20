@@ -18801,8 +18801,7 @@ components:
       properties:
         path:
           type: string
-          description: Path relative to the release root
-          using forward slashes; the public preview route accepts it verbatim.: null
+          description: Path relative to the release root using forward slashes. The public preview route accepts it verbatim.
         size:
           type: integer
           format: int64
@@ -18832,8 +18831,7 @@ components:
           type: string
           minLength: 1
           maxLength: 1024
-          description: Path of a file that already exists in the source release
-          relative to its root.: null
+          description: Path of a file that already exists in the source release relative to its root.
         content:
           type: string
           description: Text contents to write. The API bounds this by the configured artifact size.

@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  Database,
-  Globe,
-  HardDrive,
-  Users,
-  Zap,
-} from "lucide-react";
+import { Database, Globe, HardDrive, Users, Zap } from "lucide-react";
 import {
   useProject,
   useProjectUsage,
@@ -51,10 +45,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
 
   return (
     <div className="flex flex-col gap-4 px-4 sm:px-0">
-      <section
-        aria-label="Project usage"
-        className={TILE_GRID}
-      >
+      <section aria-label="Project usage" className={TILE_GRID}>
         <OverviewTile
           label="Databases"
           icon={Database}
@@ -125,7 +116,10 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
         ) : metering.data ? (
           <UsageChart metering={metering.data} />
         ) : (
-          <div className="flex h-[104px] items-end gap-[2px]" aria-hidden="true">
+          <div
+            className="flex h-[104px] items-end gap-[2px]"
+            aria-hidden="true"
+          >
             {Array.from({ length: 30 }).map((_, index) => (
               <span
                 key={index}
@@ -145,7 +139,8 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
         {snapshot ? (
           <>
             <span>
-              {formatCount(snapshot.api_request_count_30d)} API requests in 30 days
+              {formatCount(snapshot.api_request_count_30d)} API requests in 30
+              days
             </span>
             <span>{formatBytes(snapshot.api_egress_bytes_30d)} egress</span>
           </>

@@ -12,10 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  DANGER_ACTION,
-  SECONDARY_ACTION,
-} from "@/features/user/action-styles";
+import { DANGER_ACTION, SECONDARY_ACTION } from "@/features/user/action-styles";
 
 /**
  * The confirmation for deleting a resource that cannot be restored.
@@ -96,7 +93,9 @@ export function DeleteResourceDialog({
         >
           <Label htmlFor={fieldId}>
             Type{" "}
-            <span className="font-mono text-[var(--projects-text)]">{name}</span>{" "}
+            <span className="font-mono text-[var(--projects-text)]">
+              {name}
+            </span>{" "}
             to confirm
           </Label>
           <Input

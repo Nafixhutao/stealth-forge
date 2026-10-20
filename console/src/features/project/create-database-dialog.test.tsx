@@ -43,7 +43,9 @@ describe("CreateDatabaseDialog", () => {
     expect(screen.getByLabelText("Database name")).toHaveValue(
       "Customer Orders",
     );
-    expect(screen.getByRole("button", { name: "Create database" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Create database" }),
+    ).toBeEnabled();
   });
 
   it("refuses a name shorter than two characters", () => {
@@ -54,7 +56,9 @@ describe("CreateDatabaseDialog", () => {
     });
 
     expect(screen.getByText("Use 2 to 120 characters.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create database" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Create database" }),
+    ).toBeDisabled();
   });
 
   it("trims the name it sends", async () => {

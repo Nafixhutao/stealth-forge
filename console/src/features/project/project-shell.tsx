@@ -170,7 +170,8 @@ export function ProjectShell({
   const role = account.data?.account.instance_role ?? null;
   const canOpenAdmin = role === "instance_owner" || role === "instance_admin";
 
-  const missing = project.error instanceof ApiError && project.error.status === 404;
+  const missing =
+    project.error instanceof ApiError && project.error.status === 404;
 
   return (
     <div className="flex min-h-dvh w-full max-w-full flex-col overflow-x-hidden">
@@ -184,7 +185,9 @@ export function ProjectShell({
             <ErrorState
               error={project.error}
               retry={missing ? undefined : () => void project.refetch()}
-              title={missing ? "Project not found" : "Unable to load this project"}
+              title={
+                missing ? "Project not found" : "Unable to load this project"
+              }
             />
           ) : (
             <>

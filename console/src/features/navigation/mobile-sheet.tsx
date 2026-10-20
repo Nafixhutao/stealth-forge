@@ -142,7 +142,9 @@ export function MobileSheet({ open, onClose }: SidebarProps) {
         animate={{
           y: reduce ? 0 : open ? "0%" : "100%",
         }}
-        transition={reduce ? REDUCED_TRANSITION : open ? SHEET_SPRING : SHEET_CLOSE}
+        transition={
+          reduce ? REDUCED_TRANSITION : open ? SHEET_SPRING : SHEET_CLOSE
+        }
         drag={reduce ? false : "y"}
         dragListener={false}
         dragControls={dragControls}
@@ -211,7 +213,10 @@ export function MobileSheet({ open, onClose }: SidebarProps) {
           onPointerDown={(event) => dragControls.start(event)}
           className="flex shrink-0 cursor-grab touch-none justify-center pb-1 pt-2.5 active:cursor-grabbing"
         >
-          <span className="h-1 w-9 rounded-full bg-[#4a4650]" aria-hidden="true" />
+          <span
+            className="h-1 w-9 rounded-full bg-[#4a4650]"
+            aria-hidden="true"
+          />
         </div>
         <SidebarContent onMobileClose={onClose} entrance={false} />
       </motion.aside>

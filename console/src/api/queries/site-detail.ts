@@ -16,7 +16,10 @@ import { queryKeys } from "@/api/query-keys";
 /** The release history is browsed, not paged through; one large page suffices. */
 const DEPLOYMENTS_PAGE_SIZE = 50;
 
-export function useSite(projectId: string | undefined, siteId: string | undefined) {
+export function useSite(
+  projectId: string | undefined,
+  siteId: string | undefined,
+) {
   return useQuery({
     queryKey: queryKeys.site(projectId ?? "", siteId ?? ""),
     enabled: Boolean(projectId && siteId),
@@ -77,17 +80,20 @@ export function useSiteDeploymentLogs(
     enabled: Boolean(projectId && siteId && deploymentId),
     refetchInterval: active ? 2000 : false,
     queryFn: cancellableQuery((signal) =>
-      api.GET("/v1/projects/{projectID}/sites/{siteID}/deployments/{deploymentID}/logs", {
-        params: {
-          path: {
-            projectID: projectId as string,
-            siteID: siteId as string,
-            deploymentID: deploymentId as string,
+      api.GET(
+        "/v1/projects/{projectID}/sites/{siteID}/deployments/{deploymentID}/logs",
+        {
+          params: {
+            path: {
+              projectID: projectId as string,
+              siteID: siteId as string,
+              deploymentID: deploymentId as string,
+            },
+            query: { limit: 200 },
+            signal,
           },
-          query: { limit: 200 },
-          signal,
         },
-      }),
+      ),
     ),
   });
 }

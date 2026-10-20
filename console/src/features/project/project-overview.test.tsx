@@ -129,7 +129,9 @@ describe("ProjectOverview", () => {
     expect(screen.getByText("12 MB of 512 MB")).toBeInTheDocument();
     expect(screen.getByText("640 runs in 30 days")).toBeInTheDocument();
     expect(screen.getByText("8.0 MB of 100 MB")).toBeInTheDocument();
-    expect(screen.getByText("Accounts registered through this project")).toBeInTheDocument();
+    expect(
+      screen.getByText("Accounts registered through this project"),
+    ).toBeInTheDocument();
   });
 
   it("links each tile into the section it counts", () => {
@@ -151,7 +153,9 @@ describe("ProjectOverview", () => {
     // window is part of the label.
     expect(screen.getByText("18K API requests in 30 days")).toBeInTheDocument();
     expect(screen.getByText("40 MB egress")).toBeInTheDocument();
-    expect(screen.getByText("Created Oct 15, 2026 · 09:12")).toBeInTheDocument();
+    expect(
+      screen.getByText("Created Oct 15, 2026 · 09:12"),
+    ).toBeInTheDocument();
   });
 
   it("shows the metering series from the window the API returned", () => {
@@ -182,7 +186,9 @@ describe("ProjectOverview", () => {
 
     renderOverview();
 
-    expect(screen.getByText("Unable to load project usage")).toBeInTheDocument();
+    expect(
+      screen.getByText("Unable to load project usage"),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Retry/ }));
     expect(refetch).toHaveBeenCalled();
   });

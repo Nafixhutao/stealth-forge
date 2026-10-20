@@ -2,9 +2,15 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useCreateDatabase, useDeleteDatabase } from "@/api/mutations/databases";
+import {
+  useCreateDatabase,
+  useDeleteDatabase,
+} from "@/api/mutations/databases";
 import { useCreateBucket, useDeleteBucket } from "@/api/mutations/storage";
-import { useCreateFunction, useDeleteFunction } from "@/api/mutations/functions";
+import {
+  useCreateFunction,
+  useDeleteFunction,
+} from "@/api/mutations/functions";
 import { FunctionRuntime } from "@/api/generated/schema";
 
 // These writes are six different endpoints that look alike, so the one thing

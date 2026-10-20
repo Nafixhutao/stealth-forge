@@ -37,7 +37,14 @@ vi.mock("@/api/mutations/sites", () => ({
 }));
 
 vi.mock("next/link", () => ({
-  default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (
+  default: ({
+    href,
+    children,
+    ...rest
+  }: {
+    href: string;
+    children: React.ReactNode;
+  }) => (
     <a href={href} {...rest}>
       {children}
     </a>
@@ -146,7 +153,9 @@ beforeEach(() => {
     }),
   );
   useSiteDeploymentLogs.mockReturnValue(query({ data: { logs: [] } }));
-  useSiteDeploymentFiles.mockReturnValue(query({ data: { files: [], truncated: false } }));
+  useSiteDeploymentFiles.mockReturnValue(
+    query({ data: { files: [], truncated: false } }),
+  );
 });
 
 describe("SiteDetail", () => {
@@ -154,7 +163,10 @@ describe("SiteDetail", () => {
     renderDetail();
 
     const frame = screen.getByTitle("Preview of docs");
-    expect(frame).toHaveAttribute("src", "/v1/sites/44444444-4444-4444-4444-444444444441?v=0");
+    expect(frame).toHaveAttribute(
+      "src",
+      "/v1/sites/44444444-4444-4444-4444-444444444441?v=0",
+    );
     // Without sandboxing, published site code could read the console session.
     expect(frame).toHaveAttribute("sandbox");
     expect(frame.getAttribute("sandbox")).not.toContain("allow-same-origin");
@@ -178,7 +190,9 @@ describe("SiteDetail", () => {
     renderDetail();
 
     expect(screen.queryByTitle(/Preview of/)).toBeNull();
-    expect(screen.getByText("Deploy a release to see the site here.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Deploy a release to see the site here."),
+    ).toBeInTheDocument();
     expect(screen.getByText("Not deployed")).toBeInTheDocument();
   });
 
@@ -186,7 +200,9 @@ describe("SiteDetail", () => {
     renderDetail();
 
     // The live release cannot be deleted; the superseded one can be promoted.
-    expect(screen.getAllByRole("button", { name: "Make live" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Make live" })).toHaveLength(
+      1,
+    );
     expect(
       screen.getByRole("button", { name: "Delete release 2" }),
     ).toBeInTheDocument();
@@ -211,7 +227,12 @@ describe("SiteDetail", () => {
       query({
         data: {
           logs: [
-            { id: "l1", level: "info", message: "cloning repository", sequence: 1 },
+            {
+              id: "l1",
+              level: "info",
+              message: "cloning repository",
+              sequence: 1,
+            },
             { id: "l2", level: "error", message: "build failed", sequence: 2 },
           ],
         },
@@ -270,7 +291,9 @@ describe("SiteDetail", () => {
 
     expect(screen.queryByTestId("site-source")).toBeNull();
     expect(
-      screen.getByText(/The source of a release appears here once it has finished building/),
+      screen.getByText(
+        /The source of a release appears here once it has finished building/,
+      ),
     ).toBeInTheDocument();
   });
 
@@ -280,7 +303,10 @@ describe("SiteDetail", () => {
         data: {
           pages: [
             {
-              deployments: [deployment(), deployment({ id: "dep-2", version: 2 })],
+              deployments: [
+                deployment(),
+                deployment({ id: "dep-2", version: 2 }),
+              ],
               can_manage: false,
             },
           ],
@@ -290,10 +316,10 @@ describe("SiteDetail", () => {
 
     renderDetail();
 
-    expect(screen.queryByRole("button", { name: "Deploy from Git" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Make live" })).toBeNull();
     expect(
-      screen.queryByRole("button", { name: /Delete release/ }),
+      screen.queryByRole("button", { name: "Deploy from Git" }),
     ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Make live" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Delete release/ })).toBeNull();
   });
 });

@@ -56,9 +56,7 @@ describe("useDeploySite", () => {
         body: FormData;
       },
     ];
-    expect(path).toBe(
-      "/v1/projects/{projectID}/sites/{siteID}/deployments",
-    );
+    expect(path).toBe("/v1/projects/{projectID}/sites/{siteID}/deployments");
     expect(init.params.path).toEqual({
       projectID: PROJECT_ID,
       siteID: SITE_ID,
@@ -76,8 +74,7 @@ describe("useDeploySite", () => {
       error: {
         error: {
           code: "validation_error",
-          message:
-            "site archive must contain a regular index.html at its root",
+          message: "site archive must contain a regular index.html at its root",
         },
       },
       response: new Response(null, { status: 422 }),

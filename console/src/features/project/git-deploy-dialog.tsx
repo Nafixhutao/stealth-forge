@@ -118,9 +118,7 @@ export function GitDeployDialog({
       toast.success(`Build queued for ${siteName}`);
     } catch (cause) {
       setError(
-        cause instanceof Error
-          ? cause.message
-          : "Could not queue the build.",
+        cause instanceof Error ? cause.message : "Could not queue the build.",
       );
     }
   };
@@ -162,7 +160,8 @@ export function GitDeployDialog({
             id={`${fieldId}-repo-help`}
             className="m-0 text-[12px] leading-4 text-[var(--projects-muted)]"
           >
-            {repoProblem ?? "The repository's default archive is downloaded, so the branch must be public."}
+            {repoProblem ??
+              "The repository's default archive is downloaded, so the branch must be public."}
           </p>
 
           <div className="grid grid-cols-2 gap-3">

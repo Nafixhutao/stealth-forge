@@ -342,7 +342,11 @@ export function UserHome() {
                           FOCUS,
                         )}
                       >
-                        <Icon className="size-4 shrink-0" strokeWidth={1.8} aria-hidden="true" />
+                        <Icon
+                          className="size-4 shrink-0"
+                          strokeWidth={1.8}
+                          aria-hidden="true"
+                        />
                       </button>
                     ))}
                   </div>
@@ -354,7 +358,11 @@ export function UserHome() {
                       onClick={() => setCreateOpen(true)}
                       className={PRIMARY_ACTION}
                     >
-                      <Plus className="size-4 shrink-0" strokeWidth={2.2} aria-hidden="true" />
+                      <Plus
+                        className="size-4 shrink-0"
+                        strokeWidth={2.2}
+                        aria-hidden="true"
+                      />
                       Create project
                     </Button>
                   ) : null}

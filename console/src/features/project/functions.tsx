@@ -180,7 +180,9 @@ export function ProjectFunctions({ projectId }: { projectId: string }) {
                       </span>
                     </td>
                     {canManage ? (
-                      <td className={`${RESOURCE_CELL} px-2 text-right sm:px-5`}>
+                      <td
+                        className={`${RESOURCE_CELL} px-2 text-right sm:px-5`}
+                      >
                         <ResourceRowAction
                           tone="danger"
                           icon={Trash2}

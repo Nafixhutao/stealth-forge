@@ -21,9 +21,21 @@ import {
 import { cn, isSlug, toSlug } from "@/lib/utils";
 
 /** The runtimes the API accepts, with the entrypoint each one conventionally uses. */
-const RUNTIMES: { value: FunctionRuntime; label: string; entrypoint: string }[] = [
-  { value: FunctionRuntime.node_22, label: "Node.js 22", entrypoint: "src/main.js" },
-  { value: FunctionRuntime.python_3_13, label: "Python 3.13", entrypoint: "main.py" },
+const RUNTIMES: {
+  value: FunctionRuntime;
+  label: string;
+  entrypoint: string;
+}[] = [
+  {
+    value: FunctionRuntime.node_22,
+    label: "Node.js 22",
+    entrypoint: "src/main.js",
+  },
+  {
+    value: FunctionRuntime.python_3_13,
+    label: "Python 3.13",
+    entrypoint: "main.py",
+  },
   { value: FunctionRuntime.go_1_24, label: "Go 1.24", entrypoint: "main.go" },
 ];
 
@@ -171,7 +183,9 @@ export function CreateFunctionDialog({
             value={entrypoint}
             autoComplete="off"
             spellCheck={false}
-            placeholder={RUNTIMES.find((item) => item.value === runtime)?.entrypoint}
+            placeholder={
+              RUNTIMES.find((item) => item.value === runtime)?.entrypoint
+            }
             className={cn(
               "border-[var(--projects-border)] bg-[var(--projects-card-bg)] font-mono text-[13px] text-[var(--projects-text)] placeholder:text-[var(--projects-muted)]",
               "focus-visible:border-[var(--user-accent)]/70 focus-visible:ring-[var(--user-accent)]/15",

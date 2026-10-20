@@ -40,7 +40,9 @@ describe("CreateBucketDialog", () => {
       target: { value: "User Avatars" },
     });
 
-    expect(screen.getByText("Will be created as user-avatars")).toBeInTheDocument();
+    expect(
+      screen.getByText("Will be created as user-avatars"),
+    ).toBeInTheDocument();
   });
 
   it("sends per-file permissions on by default", async () => {

@@ -48,7 +48,9 @@ describe("CreateFunctionDialog", () => {
       target: { value: "Send Receipt" },
     });
 
-    expect(screen.getByText("Will be created as send-receipt")).toBeInTheDocument();
+    expect(
+      screen.getByText("Will be created as send-receipt"),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("Runtime")).toHaveValue("node-22");
     expect(screen.getByLabelText("Entrypoint")).toHaveValue("src/main.js");
   });

@@ -226,9 +226,9 @@ describe("ProjectSites", () => {
     // Only the site that has a hostname gets an address link; the null one says
     // so in words instead of rendering an empty cell or a dead anchor.
     expect(screen.getByText("No address yet")).toBeInTheDocument();
-    expect(
-      screen.getAllByRole("link", { name: /example\.com/ }),
-    ).toHaveLength(1);
+    expect(screen.getAllByRole("link", { name: /example\.com/ })).toHaveLength(
+      1,
+    );
   });
 
   it("offers the empty state when the project has no sites", () => {
@@ -304,9 +304,9 @@ describe("ProjectSites", () => {
     expect(
       screen.getByRole("button", { name: "Create site" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getAllByRole("button", { name: /^Deploy to / }),
-    ).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: /^Deploy to / })).toHaveLength(
+      2,
+    );
   });
 
   it("hides the write controls from a caller who may only read", () => {
@@ -317,9 +317,7 @@ describe("ProjectSites", () => {
     renderSites();
 
     expect(screen.queryByRole("button", { name: "Create site" })).toBeNull();
-    expect(
-      screen.queryByRole("button", { name: /^Deploy to / }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Deploy to / })).toBeNull();
     // The list itself is still the whole point of the section.
     expect(screen.getByText("docs")).toBeInTheDocument();
   });
@@ -346,9 +344,7 @@ describe("ProjectSites", () => {
   it("opens the deploy dialog for the row it was clicked on", () => {
     renderSites();
 
-    fireEvent.click(
-      screen.getAllByRole("button", { name: /^Deploy to / })[1],
-    );
+    fireEvent.click(screen.getAllByRole("button", { name: /^Deploy to / })[1]);
 
     expect(
       screen.getByRole("heading", { name: "Deploy to blog" }),

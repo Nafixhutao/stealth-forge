@@ -74,7 +74,11 @@ export function ApplicationShell({
           >
             {/* Three lines, matching the user top bar: both open the same
                 bottom sheet, so both are drawn as the same control. */}
-            <Menu className="size-[18px]" strokeWidth={1.9} aria-hidden="true" />
+            <Menu
+              className="size-[18px]"
+              strokeWidth={1.9}
+              aria-hidden="true"
+            />
           </button>
         )}
         <div className="min-h-dvh lg:flex">
@@ -85,7 +89,9 @@ export function ApplicationShell({
             desktopHasTopBar={desktopHasTopBar}
             desktop={desktopSidebar}
           />
-          <main className="relative min-h-dvh min-w-0 w-full max-w-full overflow-x-hidden flex-1">{children}</main>
+          <main className="relative min-h-dvh min-w-0 w-full max-w-full overflow-x-hidden flex-1">
+            {children}
+          </main>
         </div>
       </div>
     </ApplicationContext.Provider>

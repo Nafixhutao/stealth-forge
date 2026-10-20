@@ -136,7 +136,9 @@ describe("SidebarContent header", () => {
 
     // No placeholder that always says the same word: an empty slot is honest.
     const header = screen.getByText("Aulia Rahma Putri").closest("header");
-    expect(header?.querySelectorAll("[class*='rounded-[5px]']")).toHaveLength(0);
+    expect(header?.querySelectorAll("[class*='rounded-[5px]']")).toHaveLength(
+      0,
+    );
   });
 
   it("does not render a switcher glyph with no action behind it", () => {
@@ -153,9 +155,7 @@ describe("SidebarContent header", () => {
     fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
 
     expect(onToggleCollapse).toHaveBeenCalledOnce();
-    expect(
-      screen.queryByRole("button", { name: "Close sidebar" }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Close sidebar" })).toBeNull();
   });
 
   it("offers the close control in the mobile sheet", () => {

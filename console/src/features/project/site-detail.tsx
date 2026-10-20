@@ -16,7 +16,11 @@ import {
   useActivateSiteDeployment,
   useDeleteSiteDeployment,
 } from "@/api/mutations/sites";
-import { useSite, useSiteDeployments, useSiteDeploymentLogs } from "@/api/queries/site-detail";
+import {
+  useSite,
+  useSiteDeployments,
+  useSiteDeploymentLogs,
+} from "@/api/queries/site-detail";
 import { ErrorState } from "@/components/feedback/error-state";
 import { Button } from "@/components/ui/button";
 import { GitDeployDialog } from "@/features/project/git-deploy-dialog";
@@ -30,11 +34,16 @@ type Deployment = components["schemas"]["SiteDeployment"];
 
 /** Releases that have a published artifact behind them. */
 function isPublished(deployment: Deployment) {
-  return deployment.build_status === "succeeded" && deployment.status !== "failed";
+  return (
+    deployment.build_status === "succeeded" && deployment.status !== "failed"
+  );
 }
 
 function isBuilding(deployment: Deployment) {
-  return deployment.build_status === "queued" || deployment.build_status === "running";
+  return (
+    deployment.build_status === "queued" ||
+    deployment.build_status === "running"
+  );
 }
 
 /**
@@ -62,12 +71,13 @@ export function SiteDetail({
   const remove = useDeleteSiteDeployment(projectId);
   const [gitOpen, setGitOpen] = useState(false);
   const [previewNonce, setPreviewNonce] = useState(0);
-  const [selectedDeploymentId, setSelectedDeploymentId] = useState<string | null>(
-    null,
-  );
+  const [selectedDeploymentId, setSelectedDeploymentId] = useState<
+    string | null
+  >(null);
 
   const items = useMemo(
-    () => deployments.data?.pages.flatMap((page) => page?.deployments ?? []) ?? [],
+    () =>
+      deployments.data?.pages.flatMap((page) => page?.deployments ?? []) ?? [],
     [deployments.data],
   );
   const canManage = deployments.data?.pages[0]?.can_manage ?? false;
@@ -101,7 +111,11 @@ export function SiteDetail({
             href={`/projects/${projectId}/sites`}
             className="inline-flex w-fit items-center gap-1 text-[12.5px] text-[var(--projects-muted)] no-underline transition-colors hover:text-[var(--projects-text)]"
           >
-            <ArrowLeft className="size-3.5" strokeWidth={2} aria-hidden="true" />
+            <ArrowLeft
+              className="size-3.5"
+              strokeWidth={2}
+              aria-hidden="true"
+            />
             All sites
           </Link>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -135,7 +149,11 @@ export function SiteDetail({
               className="inline-flex w-fit items-center gap-1 truncate text-[12.5px] text-[var(--projects-text)] underline decoration-[var(--projects-border-hover)] underline-offset-2"
             >
               {record.platform_hostname}
-              <ExternalLink className="size-3 shrink-0" strokeWidth={2} aria-hidden="true" />
+              <ExternalLink
+                className="size-3 shrink-0"
+                strokeWidth={2}
+                aria-hidden="true"
+              />
             </a>
           ) : (
             <p className="m-0 text-[12.5px] text-[var(--projects-muted)]">
@@ -150,7 +168,11 @@ export function SiteDetail({
             onClick={() => setGitOpen(true)}
             className={PRIMARY_ACTION}
           >
-            <GitBranch className="size-4 shrink-0" strokeWidth={2.2} aria-hidden="true" />
+            <GitBranch
+              className="size-4 shrink-0"
+              strokeWidth={2.2}
+              aria-hidden="true"
+            />
             Deploy from Git
           </Button>
         ) : null}
@@ -171,7 +193,11 @@ export function SiteDetail({
               onClick={() => setPreviewNonce((value) => value + 1)}
               className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--projects-border)] px-2.5 text-[12px] font-medium text-[var(--projects-text)] transition-colors hover:border-[var(--projects-border-hover)] hover:bg-[var(--projects-control)]"
             >
-              <RefreshCw className="size-3.5" strokeWidth={2} aria-hidden="true" />
+              <RefreshCw
+                className="size-3.5"
+                strokeWidth={2}
+                aria-hidden="true"
+              />
               Reload
             </button>
             <a
@@ -180,7 +206,11 @@ export function SiteDetail({
               rel="noreferrer"
               className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--projects-border)] px-2.5 text-[12px] font-medium text-[var(--projects-text)] no-underline transition-colors hover:border-[var(--projects-border-hover)] hover:bg-[var(--projects-control)]"
             >
-              <ExternalLink className="size-3.5" strokeWidth={2} aria-hidden="true" />
+              <ExternalLink
+                className="size-3.5"
+                strokeWidth={2}
+                aria-hidden="true"
+              />
               Open
             </a>
           </div>
@@ -223,7 +253,8 @@ export function SiteDetail({
           />
         ) : items.length === 0 ? (
           <p className="m-0 px-4 text-[12.5px] text-[var(--projects-muted)] sm:px-0">
-            No releases yet. Upload an archive or deploy from Git to publish one.
+            No releases yet. Upload an archive or deploy from Git to publish
+            one.
           </p>
         ) : (
           <div className="mx-4 overflow-hidden rounded-xl border border-[var(--projects-border)] bg-[var(--projects-card-bg)] sm:mx-0">
@@ -290,7 +321,9 @@ export function SiteDetail({
             read-only
           </span>
         </h3>
-        {sourceDeploymentId && sourceDeployment && isPublished(sourceDeployment) ? (
+        {sourceDeploymentId &&
+        sourceDeployment &&
+        isPublished(sourceDeployment) ? (
           <div className="mx-4 sm:mx-0">
             <SiteSource
               key={sourceDeploymentId}

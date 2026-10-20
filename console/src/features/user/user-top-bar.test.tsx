@@ -100,31 +100,41 @@ describe("UserTopBar", () => {
   it("offers the account actions, including the admin console for an admin", () => {
     render(<UserTopBar canOpenAdmin />);
 
-    fireEvent.pointerDown(screen.getByRole("button", { name: "Account menu" }), {
-      button: 0,
-      ctrlKey: false,
-      pointerType: "mouse",
-    });
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: "Account menu" }),
+      {
+        button: 0,
+        ctrlKey: false,
+        pointerType: "mouse",
+      },
+    );
 
     expect(screen.getByText("nafi@example.com")).toBeInTheDocument();
     expect(
       screen.getByRole("menuitem", { name: "Open admin console" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Log out" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: "Log out" }),
+    ).toBeInTheDocument();
   });
 
   it("hides the admin console from an account that cannot open it", () => {
     render(<UserTopBar canOpenAdmin={false} />);
 
-    fireEvent.pointerDown(screen.getByRole("button", { name: "Account menu" }), {
-      button: 0,
-      ctrlKey: false,
-      pointerType: "mouse",
-    });
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: "Account menu" }),
+      {
+        button: 0,
+        ctrlKey: false,
+        pointerType: "mouse",
+      },
+    );
 
     expect(
       screen.queryByRole("menuitem", { name: "Open admin console" }),
     ).toBeNull();
-    expect(screen.getByRole("menuitem", { name: "Log out" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: "Log out" }),
+    ).toBeInTheDocument();
   });
 });

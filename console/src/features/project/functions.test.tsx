@@ -205,9 +205,7 @@ describe("ProjectFunctions", () => {
   });
 
   it("offers create and delete to a caller who may manage functions", () => {
-    useProjectFunctions.mockReturnValue(
-      listQuery({ data: page([resize]) }),
-    );
+    useProjectFunctions.mockReturnValue(listQuery({ data: page([resize]) }));
 
     renderFunctions();
 
@@ -223,9 +221,7 @@ describe("ProjectFunctions", () => {
     useProjectFunctions.mockReturnValue(
       listQuery({
         data: {
-          pages: [
-            { functions: [resize], pagination: {}, can_manage: false },
-          ],
+          pages: [{ functions: [resize], pagination: {}, can_manage: false }],
         },
       }),
     );
@@ -242,9 +238,7 @@ describe("ProjectFunctions", () => {
   });
 
   it("opens the create dialog from the header action", () => {
-    useProjectFunctions.mockReturnValue(
-      listQuery({ data: page([resize]) }),
-    );
+    useProjectFunctions.mockReturnValue(listQuery({ data: page([resize]) }));
 
     renderFunctions();
 

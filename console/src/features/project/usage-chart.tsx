@@ -14,8 +14,7 @@ import { formatCount, formatUtcDay, pluralize } from "@/lib/format";
  * present with a zero count draws a muted stub rather than an invisible one.
  */
 
-type ProjectUsageMetering =
-  components["schemas"]["ProjectUsageMetering"];
+type ProjectUsageMetering = components["schemas"]["ProjectUsageMetering"];
 
 /** Bar heights as percentages of the busiest day in the window. */
 export function barPercentages(values: number[]): number[] {

@@ -455,9 +455,7 @@ describe("UserHome", () => {
     expect(
       screen.getByRole("heading", { name: "checkout-api" }),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Create project" }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Create project" })).toBeNull();
   });
 
   it("says who can create the first project when the caller cannot", () => {
@@ -475,9 +473,7 @@ describe("UserHome", () => {
         "An owner or admin of this organization can create the first project.",
       ),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Create project" }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Create project" })).toBeNull();
   });
 
   it("offers the rest of a long project list instead of dropping it", () => {
@@ -496,9 +492,7 @@ describe("UserHome", () => {
     renderHome();
 
     // The grid offers the same control as the table box.
-    fireEvent.click(
-      screen.getByRole("button", { name: "Load more projects" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Load more projects" }));
     expect(fetchNextPage).toHaveBeenCalled();
 
     // The compact view says the count is partial, so it is not read as the
@@ -518,9 +512,7 @@ describe("UserHome", () => {
     expect(screen.queryByText("checkout-api")).toBeNull();
     // Permission is part of the list, so it is unknown until the list lands.
     // Offering a create control now would be a guess that can answer 403.
-    expect(
-      screen.queryByRole("button", { name: "Create project" }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Create project" })).toBeNull();
   });
 
   it("surfaces a failed project load with a working retry", () => {

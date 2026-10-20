@@ -88,9 +88,7 @@ describe("SearchPalette", () => {
     });
 
     expect(screen.getByRole("button", { name: /Log out/ })).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /Go to Projects/ }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: /Go to Projects/ })).toBeNull();
   });
 
   it("says so when nothing matches instead of showing a dead row", () => {

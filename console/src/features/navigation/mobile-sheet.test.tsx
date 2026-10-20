@@ -59,7 +59,9 @@ describe("MobileSheet", () => {
   it("closes when the page behind it is tapped", () => {
     const { onClose } = renderSheet();
 
-    fireEvent.click(screen.getByRole("button", { name: "Close sidebar overlay" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Close sidebar overlay" }),
+    );
 
     expect(onClose).toHaveBeenCalledOnce();
   });
@@ -80,9 +82,12 @@ describe("MobileSheet", () => {
     // A real pointer tap produces a click with `detail >= 1`. Acting on it is
     // what made the opener look dead on a phone: the sheet opened on press and
     // the same gesture's click closed it again.
-    fireEvent.click(screen.getByRole("button", { name: "Close sidebar overlay" }), {
-      detail: 1,
-    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Close sidebar overlay" }),
+      {
+        detail: 1,
+      },
+    );
 
     expect(onClose).not.toHaveBeenCalled();
   });

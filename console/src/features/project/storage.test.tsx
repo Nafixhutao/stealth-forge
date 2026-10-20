@@ -232,9 +232,7 @@ describe("ProjectStorage", () => {
 
     renderStorage();
 
-    expect(
-      screen.queryByRole("button", { name: "Create bucket" }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Create bucket" })).toBeNull();
     expect(
       screen.queryByRole("button", { name: "Delete bucket uploads" }),
     ).toBeNull();
@@ -268,7 +266,9 @@ describe("ProjectStorage", () => {
 
     renderStorage();
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete bucket uploads" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete bucket uploads" }),
+    );
 
     expect(
       screen.getByRole("heading", { name: "Delete bucket" }),

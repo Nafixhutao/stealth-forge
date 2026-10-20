@@ -143,12 +143,14 @@ describe("ProjectShell", () => {
     for (const label of tabs) {
       expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
     }
-    expect(
-      screen.getByRole("link", { name: "Overview" }),
-    ).toHaveAttribute("href", `/projects/${PROJECT_ID}`);
-    expect(
-      screen.getByRole("link", { name: "Sites" }),
-    ).toHaveAttribute("href", `/projects/${PROJECT_ID}/sites`);
+    expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute(
+      "href",
+      `/projects/${PROJECT_ID}`,
+    );
+    expect(screen.getByRole("link", { name: "Sites" })).toHaveAttribute(
+      "href",
+      `/projects/${PROJECT_ID}/sites`,
+    );
   });
 
   it("marks the current section", () => {

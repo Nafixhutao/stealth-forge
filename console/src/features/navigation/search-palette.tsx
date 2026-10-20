@@ -43,7 +43,12 @@ const SEARCH_RESULTS: SearchResult[] = [
     Icon: FolderKanban,
     navigateTo: "Projects",
   },
-  { section: "Help Center", label: "Status page", Icon: ShieldCheck, run: "status" },
+  {
+    section: "Help Center",
+    label: "Status page",
+    Icon: ShieldCheck,
+    run: "status",
+  },
   { section: "Account", label: "Log out", Icon: LogOut, run: "logout" },
 ];
 

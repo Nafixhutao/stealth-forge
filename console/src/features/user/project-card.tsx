@@ -156,7 +156,8 @@ export function ProjectCard({
   return (
     <article
       ref={cardRef}
-      className="relative mx-4 flex flex-col overflow-hidden rounded-[13px] border border-[var(--projects-border)] bg-[var(--projects-card-bg)] divide-y divide-[var(--projects-divider)] transition-colors hover:border-[var(--projects-border-hover)] sm:mx-0">
+      className="relative mx-4 flex flex-col overflow-hidden rounded-[13px] border border-[var(--projects-border)] bg-[var(--projects-card-bg)] divide-y divide-[var(--projects-divider)] transition-colors hover:border-[var(--projects-border-hover)] sm:mx-0"
+    >
       <div className="flex min-h-[65px] flex-col justify-center py-[12.5px] !px-4">
         <h3
           title={project.name}
@@ -197,7 +198,9 @@ export function ProjectCard({
             </span>
           )}
           {requests === undefined ? (
-            <span className="sr-only">Requests in the last 30 days loading</span>
+            <span className="sr-only">
+              Requests in the last 30 days loading
+            </span>
           ) : null}
         </div>
         {/* The accent line sits at the bottom, exactly against the divider with pb-2 */}

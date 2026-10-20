@@ -61,7 +61,9 @@ describe("CreateSiteDialog", () => {
       target: { value: "Docs Site" },
     });
 
-    expect(screen.getByText("Will be created as docs-site")).toBeInTheDocument();
+    expect(
+      screen.getByText("Will be created as docs-site"),
+    ).toBeInTheDocument();
   });
 
   it("states the rule instead of failing on submit", () => {
@@ -109,9 +111,9 @@ describe("CreateSiteDialog", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Create site" }));
 
-    expect(
-      await screen.findByRole("alert"),
-    ).toHaveTextContent("the organization's site limit has been reached");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "the organization's site limit has been reached",
+    );
     expect(onOpenChange).not.toHaveBeenCalled();
     expect(onCreated).not.toHaveBeenCalled();
   });
