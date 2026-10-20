@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useCurrentAccount } from "@/api/queries/account";
-import { useProjectRequestCounts } from "@/api/queries/projects";
 import {
   useOrganizationPlan,
   useOrganizationProjects,
@@ -131,9 +130,13 @@ export function UserHome() {
   }, [selected?.id]);
 
   const projectItems = useMemo(
-    () => projects.data?.projects ?? [],
+    () => projects.data?.pages.flatMap((page) => page?.projects ?? []) ?? [],
     [projects.data],
   );
+  // Only owners and admins may create a project. The API says so on the list
+  // itself, so a viewer or billing member is shown the list without a control
+  // that would answer 403.
+  const canManage = projects.data?.pages[0]?.can_manage ?? false;
   const visible = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return projectItems;
@@ -141,14 +144,6 @@ export function UserHome() {
       project.name.toLowerCase().includes(query),
     );
   }, [projectItems, search]);
-
-  // The card's Requests figure comes from each project's own snapshot: the
-  // project list carries no usage, so this is the only honest source.
-  const visibleIds = useMemo(
-    () => visible.map((project) => project.id),
-    [visible],
-  );
-  const requestCounts = useProjectRequestCounts(visibleIds);
 
   const role = account.data?.account.instance_role ?? null;
   const canOpenAdmin = role === "instance_owner" || role === "instance_admin";
@@ -229,19 +224,21 @@ export function UserHome() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : null}
-              <button
-                type="button"
-                disabled={!selected}
-                onClick={() => setCreateOpen(true)}
-                aria-label="Create project"
-                title="Create project"
-                className={cn(
-                  "ml-[5px] sm:ml-[18px] inline-flex size-6 shrink-0 items-center justify-center text-[var(--projects-muted)] transition-colors hover:text-[var(--projects-text)] disabled:pointer-events-none disabled:opacity-40",
-                  FOCUS,
-                )}
-              >
-                <Plus size={16} strokeWidth={2} aria-hidden="true" />
-              </button>
+              {canManage ? (
+                <button
+                  type="button"
+                  disabled={!selected}
+                  onClick={() => setCreateOpen(true)}
+                  aria-label="Create project"
+                  title="Create project"
+                  className={cn(
+                    "ml-[5px] sm:ml-[18px] inline-flex size-6 shrink-0 items-center justify-center text-[var(--projects-muted)] transition-colors hover:text-[var(--projects-text)] disabled:pointer-events-none disabled:opacity-40",
+                    FOCUS,
+                  )}
+                >
+                  <Plus size={16} strokeWidth={2} aria-hidden="true" />
+                </button>
+              ) : null}
             </div>
           </header>
 
@@ -350,15 +347,17 @@ export function UserHome() {
                     ))}
                   </div>
 
-                  <Button
-                    type="button"
-                    disabled={!selected}
-                    onClick={() => setCreateOpen(true)}
-                    className={PRIMARY_ACTION}
-                  >
-                    <Plus className="size-4 shrink-0" strokeWidth={2.2} aria-hidden="true" />
-                    Create project
-                  </Button>
+                  {canManage ? (
+                    <Button
+                      type="button"
+                      disabled={!selected}
+                      onClick={() => setCreateOpen(true)}
+                      className={PRIMARY_ACTION}
+                    >
+                      <Plus className="size-4 shrink-0" strokeWidth={2.2} aria-hidden="true" />
+                      Create project
+                    </Button>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -389,15 +388,21 @@ export function UserHome() {
                   className="py-10 sm:py-14"
                   icon={FolderKanban}
                   title="No projects in this organization yet"
-                  description="Create the first project to get a place for its databases, storage, functions, and deployments."
+                  description={
+                    canManage
+                      ? "Create the first project to get a place for its databases, storage, functions, and deployments."
+                      : "An owner or admin of this organization can create the first project."
+                  }
                   action={
-                    <Button
-                      type="button"
-                      onClick={() => setCreateOpen(true)}
-                      className={PRIMARY_ACTION}
-                    >
-                      Create project
-                    </Button>
+                    canManage ? (
+                      <Button
+                        type="button"
+                        onClick={() => setCreateOpen(true)}
+                        className={PRIMARY_ACTION}
+                      >
+                        Create project
+                      </Button>
+                    ) : undefined
                   }
                 />
               ) : visible.length === 0 ? (
@@ -423,9 +428,10 @@ export function UserHome() {
                     <ProjectCard
                       key={project.id}
                       project={project}
-                      requests={requestCounts.get(project.id)}
                       canOpenAdmin={canOpenAdmin}
-                      onCreateProject={() => setCreateOpen(true)}
+                      onCreateProject={
+                        canManage ? () => setCreateOpen(true) : undefined
+                      }
                     />
                   ))}
                 </div>
@@ -468,15 +474,35 @@ export function UserHome() {
                           colSpan={3}
                           className="px-4 py-2.5 text-[12.5px] leading-5 text-[var(--projects-muted)] sm:px-5 sm:py-3"
                         >
-                          {`Showing ${visible.length} of ${projectItems.length} ${
-                            projectItems.length === 1 ? "project" : "projects"
-                          }`}
+                          {projects.hasNextPage
+                            ? `Showing ${visible.length} of ${projectItems.length} loaded`
+                            : `Showing ${visible.length} of ${projectItems.length} ${
+                                projectItems.length === 1
+                                  ? "project"
+                                  : "projects"
+                              }`}
                         </td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
               )}
+
+              {projects.hasNextPage && visible.length > 0 ? (
+                <div className="flex justify-center">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => void projects.fetchNextPage()}
+                    disabled={projects.isFetchingNextPage}
+                    className={SECONDARY_ACTION}
+                  >
+                    {projects.isFetchingNextPage
+                      ? "Loading…"
+                      : "Load more projects"}
+                  </Button>
+                </div>
+              ) : null}
             </>
           )}
         </PageBody>

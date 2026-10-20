@@ -10,7 +10,7 @@ const useOrganizations = vi.fn();
 const useOrganizationProjects = vi.fn();
 const useOrganizationPlan = vi.fn();
 const useCurrentAccount = vi.fn();
-const useProjectRequestCounts = vi.fn();
+const useProjectRequestCount = vi.fn();
 
 vi.mock("@/api/queries/organizations", () => ({
   useOrganizations: () => useOrganizations(),
@@ -23,11 +23,11 @@ vi.mock("@/api/queries/account", () => ({
   useCurrentAccount: () => useCurrentAccount(),
 }));
 
-// The card's Requests figure comes from each project's own snapshot; the stub
-// keeps this file about the page, not about N parallel reads.
+// Each card asks for its own 30-day count; the stub keeps this file about the
+// page, not about the per-card reads.
 vi.mock("@/api/queries/projects", () => ({
-  useProjectRequestCounts: (ids: readonly string[]) =>
-    useProjectRequestCounts(ids),
+  useProjectRequestCount: (projectId: string, enabled: boolean) =>
+    useProjectRequestCount(projectId, enabled),
 }));
 
 vi.mock("@/api/mutations/projects", () => ({
@@ -48,6 +48,9 @@ type QueryStub = {
   isError: boolean;
   error: unknown;
   refetch: () => void;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
+  fetchNextPage?: () => void;
 };
 
 function query(overrides: Partial<QueryStub> = {}): QueryStub {
@@ -57,6 +60,9 @@ function query(overrides: Partial<QueryStub> = {}): QueryStub {
     isError: false,
     error: null,
     refetch: vi.fn(),
+    hasNextPage: false,
+    isFetchingNextPage: false,
+    fetchNextPage: vi.fn(),
     ...overrides,
   };
 }
@@ -79,11 +85,20 @@ function organizationsPage(organizations: unknown[]) {
   return { organizations, pagination: { limit: 50, next_cursor: null } };
 }
 
-function projectsPage(projects: unknown[]) {
+/** An infinite read's shape: one or more pages, each with its own cursor. */
+function projectsPage(
+  projects: unknown[],
+  options: { canManage?: boolean; nextCursor?: string | null } = {},
+) {
+  const { canManage = true, nextCursor = null } = options;
   return {
-    projects,
-    pagination: { limit: 50, next_cursor: null },
-    can_manage: true,
+    pages: [
+      {
+        projects,
+        pagination: { limit: 50, next_cursor: nextCursor },
+        can_manage: canManage,
+      },
+    ],
   };
 }
 
@@ -144,11 +159,8 @@ function renderHome() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  useProjectRequestCounts.mockReturnValue(
-    new Map<string, number | undefined>([
-      ["p-1", 12_400],
-      ["p-2", 0],
-    ]),
+  useProjectRequestCount.mockImplementation((projectId: string) =>
+    projectId === "p-1" ? 12_400 : 0,
   );
   useCurrentAccount.mockReturnValue(
     query({
@@ -207,9 +219,7 @@ describe("UserHome", () => {
     useOrganizationProjects.mockReturnValue(
       query({ data: projectsPage([checkout]) }),
     );
-    useProjectRequestCounts.mockReturnValue(
-      new Map<string, number | undefined>([["p-1", undefined]]),
-    );
+    useProjectRequestCount.mockReturnValue(undefined);
 
     renderHome();
 
@@ -431,6 +441,72 @@ describe("UserHome", () => {
     ).toBeDisabled();
   });
 
+  it("hides every create control from a member who may not create", () => {
+    useOrganizations.mockReturnValue(
+      query({ data: organizationsPage([acme]) }),
+    );
+    useOrganizationProjects.mockReturnValue(
+      query({ data: projectsPage([checkout], { canManage: false }) }),
+    );
+
+    renderHome();
+
+    // The list is still the point of the page.
+    expect(
+      screen.getByRole("heading", { name: "checkout-api" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Create project" }),
+    ).toBeNull();
+  });
+
+  it("says who can create the first project when the caller cannot", () => {
+    useOrganizations.mockReturnValue(
+      query({ data: organizationsPage([acme]) }),
+    );
+    useOrganizationProjects.mockReturnValue(
+      query({ data: projectsPage([], { canManage: false }) }),
+    );
+
+    renderHome();
+
+    expect(
+      screen.getByText(
+        "An owner or admin of this organization can create the first project.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Create project" }),
+    ).toBeNull();
+  });
+
+  it("offers the rest of a long project list instead of dropping it", () => {
+    useOrganizations.mockReturnValue(
+      query({ data: organizationsPage([acme]) }),
+    );
+    const fetchNextPage = vi.fn();
+    useOrganizationProjects.mockReturnValue(
+      query({
+        data: projectsPage([checkout], { nextCursor: "cursor-2" }),
+        hasNextPage: true,
+        fetchNextPage,
+      }),
+    );
+
+    renderHome();
+
+    // The grid offers the same control as the table box.
+    fireEvent.click(
+      screen.getByRole("button", { name: "Load more projects" }),
+    );
+    expect(fetchNextPage).toHaveBeenCalled();
+
+    // The compact view says the count is partial, so it is not read as the
+    // organization's total.
+    fireEvent.click(screen.getByRole("button", { name: "List view" }));
+    expect(screen.getByText("Showing 1 of 1 loaded")).toBeInTheDocument();
+  });
+
   it("shows skeletons while projects load", () => {
     useOrganizations.mockReturnValue(
       query({ data: organizationsPage([acme]) }),
@@ -440,11 +516,11 @@ describe("UserHome", () => {
     renderHome();
 
     expect(screen.queryByText("checkout-api")).toBeNull();
-    for (const button of screen.getAllByRole("button", {
-      name: "Create project",
-    })) {
-      expect(button).toBeEnabled();
-    }
+    // Permission is part of the list, so it is unknown until the list lands.
+    // Offering a create control now would be a guess that can answer 403.
+    expect(
+      screen.queryByRole("button", { name: "Create project" }),
+    ).toBeNull();
   });
 
   it("surfaces a failed project load with a working retry", () => {

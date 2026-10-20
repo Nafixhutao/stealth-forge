@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { api, cancellableQuery } from "@/api/client";
 import { queryKeys } from "@/api/query-keys";
 
@@ -31,22 +31,33 @@ export function useOrganizations() {
 }
 
 /**
- * Projects scoped to one organization. Disabled until an organization is
- * known, so the view never requests a project list it cannot attribute.
+ * Projects scoped to one organization, read page by page.
+ *
+ * The first page is large because an organization is browsed rather than paged
+ * through, but the cursor is kept: asking for one page and dropping
+ * `next_cursor` made every project past the fiftieth disappear without a trace.
+ * `can_manage` rides on each page because it describes the caller, not the page.
+ * Disabled until an organization is known, so the view never requests a list it
+ * cannot attribute.
  */
 export function useOrganizationProjects(organizationId: string | undefined) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: queryKeys.projects(organizationId ?? ""),
     enabled: Boolean(organizationId),
-    queryFn: cancellableQuery((signal) =>
-      api.GET("/v1/organizations/{organizationID}/projects", {
-        params: {
-          path: { organizationID: organizationId as string },
-          query: { limit: PROJECTS_LIMIT },
-          signal,
-        },
-      }),
-    ),
+    initialPageParam: undefined as string | undefined,
+    queryFn: (context) => {
+      const fetchPage = cancellableQuery((signal) =>
+        api.GET("/v1/organizations/{organizationID}/projects", {
+          params: {
+            path: { organizationID: organizationId as string },
+            query: { limit: PROJECTS_LIMIT, cursor: context.pageParam },
+            signal,
+          },
+        }),
+      );
+      return fetchPage(context);
+    },
+    getNextPageParam: (last) => last?.pagination.next_cursor,
   });
 }
 

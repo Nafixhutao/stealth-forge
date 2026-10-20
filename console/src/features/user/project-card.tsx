@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { FolderKanban, MoreHorizontal, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -11,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useProjectRequestCount } from "@/api/queries/projects";
 import { projectPath } from "@/features/project/paths";
 import { formatCount } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -133,25 +135,28 @@ function ProjectActionsMenu({
 /** One project, rendered as a card: identity, metric, usage line, actions. */
 export function ProjectCard({
   project,
-  requests,
   canOpenAdmin,
   onCreateProject,
 }: {
   project: { id: string; name: string; created_at: string };
-  /**
-   * Requests in the last 30 days, from the project's usage snapshot.
-   * `undefined` while that read is in flight or if it failed; the card says so
-   * rather than printing a zero it did not measure.
-   */
-  requests: number | undefined;
   canOpenAdmin: boolean;
-  onCreateProject: () => void;
+  /** Omitted when the caller may not create projects, which hides the
+   * quick-create control rather than showing one that would answer 403. */
+  onCreateProject?: () => void;
 }) {
   const created = formatUtcDate(project.created_at);
   const href = projectPath(project.id);
+  const cardRef = useRef<HTMLElement>(null);
+  const inView = useInView(cardRef);
+  // Requests in the last 30 days, from the project's own snapshot. `undefined`
+  // while that read is in flight, not started, or failed; the card says which
+  // rather than printing a zero it did not measure.
+  const requests = useProjectRequestCount(project.id, inView);
 
   return (
-    <article className="relative mx-4 flex flex-col overflow-hidden rounded-[13px] border border-[var(--projects-border)] bg-[var(--projects-card-bg)] divide-y divide-[var(--projects-divider)] transition-colors hover:border-[var(--projects-border-hover)] sm:mx-0">
+    <article
+      ref={cardRef}
+      className="relative mx-4 flex flex-col overflow-hidden rounded-[13px] border border-[var(--projects-border)] bg-[var(--projects-card-bg)] divide-y divide-[var(--projects-divider)] transition-colors hover:border-[var(--projects-border-hover)] sm:mx-0">
       <div className="flex min-h-[65px] flex-col justify-center py-[12.5px] !px-4">
         <h3
           title={project.name}
@@ -199,19 +204,26 @@ export function ProjectCard({
         <div className="h-px bg-[var(--user-accent)]/70" aria-hidden="true" />
       </div>
 
-      <div className="relative flex items-center justify-between gap-2 !px-4 py-[13px]">
-        <button
-          type="button"
-          onClick={onCreateProject}
-          aria-label="Create project"
-          title="Create project"
-          className={cn(
-            "inline-flex !size-7 shrink-0 items-center justify-center rounded-lg border border-dashed border-[var(--projects-border-hover)] text-[var(--projects-muted)] transition-colors hover:text-[var(--projects-text)]",
-            FOCUS,
-          )}
-        >
-          <Plus size={15} strokeWidth={2} aria-hidden="true" />
-        </button>
+      <div
+        className={cn(
+          "relative flex items-center gap-2 !px-4 py-[13px]",
+          onCreateProject ? "justify-between" : "justify-end",
+        )}
+      >
+        {onCreateProject ? (
+          <button
+            type="button"
+            onClick={onCreateProject}
+            aria-label="Create project"
+            title="Create project"
+            className={cn(
+              "inline-flex !size-7 shrink-0 items-center justify-center rounded-lg border border-dashed border-[var(--projects-border-hover)] text-[var(--projects-muted)] transition-colors hover:text-[var(--projects-text)]",
+              FOCUS,
+            )}
+          >
+            <Plus size={15} strokeWidth={2} aria-hidden="true" />
+          </button>
+        ) : null}
 
         <ProjectActionsMenu
           projectId={project.id}
@@ -310,4 +322,39 @@ export function ProjectCardsSkeleton({ count }: { count: number }) {
       ))}
     </div>
   );
+}
+
+/**
+ * Whether an element is on screen, so a card can defer its own read until it is.
+ *
+ * The observer is created once per card and disconnected on unmount. A card that
+ * has already been seen stays enabled: scrolling away should not throw away a
+ * number that was already fetched.
+ */
+function useInView(ref: React.RefObject<HTMLElement | null>) {
+  const [inView, setInView] = useState(
+    () => typeof IntersectionObserver === "undefined",
+  );
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element || inView) return;
+    // Without IntersectionObserver the honest fallback is to load: a missing
+    // number is worse than one extra request. The check is part of the initial
+    // state instead of an effect write, so the first render already knows.
+    if (typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref, inView]);
+
+  return inView;
 }

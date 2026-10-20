@@ -16,6 +16,15 @@ func (r *Repository) requireProjectAccess(ctx context.Context, projectID, accoun
 	return err
 }
 
+// ProjectRoleForAccount resolves the account's role on a project through its
+// organization membership. It exists so the request pipeline can establish that
+// a console session belongs to the project at all, before a handler gets to run;
+// the per-resource role rules (owner/admin for some writes, developer for
+// others) still live in the repositories, because they differ per resource.
+func (r *Repository) ProjectRoleForAccount(ctx context.Context, projectID, accountID uuid.UUID) (string, error) {
+	return r.projectRole(ctx, projectID, accountID)
+}
+
 func (r *Repository) projectRole(ctx context.Context, projectID, accountID uuid.UUID) (string, error) {
 	var role string
 	err := r.pool.QueryRow(ctx, `
