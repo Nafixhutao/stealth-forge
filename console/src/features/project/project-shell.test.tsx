@@ -16,9 +16,15 @@ vi.mock("@/api/queries/projects", () => ({
   useProject: (id: string | undefined) => useProject(id),
 }));
 
-vi.mock("@/api/queries/organizations", () => ({
-  useOrganizations: () => useOrganizations(),
-}));
+vi.mock("@/api/queries/organizations", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/api/queries/organizations")>();
+  return {
+    // The frame flattens the pages with the real helper.
+    organizationItems: actual.organizationItems,
+    useOrganizations: () => useOrganizations(),
+  };
+});
 
 vi.mock("@/api/queries/account", () => ({
   useCurrentAccount: () => useCurrentAccount(),
@@ -95,15 +101,19 @@ beforeEach(() => {
   useOrganizations.mockReturnValue(
     query({
       data: {
-        organizations: [
+        pages: [
           {
-            id: "11111111-1111-1111-1111-111111111111",
-            name: "Acme Inc",
-            slug: "acme",
-            created_at: "2026-03-12T09:30:00Z",
+            organizations: [
+              {
+                id: "11111111-1111-1111-1111-111111111111",
+                name: "Acme Inc",
+                slug: "acme",
+                created_at: "2026-03-12T09:30:00Z",
+              },
+            ],
+            pagination: { limit: 50, next_cursor: null },
           },
         ],
-        pagination: { limit: 50, next_cursor: null },
       },
     }),
   );

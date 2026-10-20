@@ -1,7 +1,12 @@
 "use client";
 
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useQuery,
+  type InfiniteData,
+} from "@tanstack/react-query";
 import { api, cancellableQuery } from "@/api/client";
+import type { components } from "@/api/generated/schema";
 import { queryKeys } from "@/api/query-keys";
 
 /** One page of organizations. The API paginates with a cursor. */
@@ -14,20 +19,42 @@ const PROJECTS_LIMIT = 50;
 const MEMBERSHIPS_LIMIT = 50;
 
 /**
- * Organizations the authenticated account can see. This is the only list the
- * user console can build a landing view from: the API has no top-level project
- * collection, so projects are always read through an organization.
+ * Organizations the authenticated account can see, read page by page.
+ *
+ * This is the only list the user console can build a landing view from: the API
+ * has no top-level project collection, so projects are always read through an
+ * organization. It pages like the project list does — an account in more than
+ * fifty organizations could not otherwise reach the rest of them.
  */
 export function useOrganizations() {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: queryKeys.organizations,
-    queryFn: cancellableQuery((signal) =>
-      api.GET("/v1/organizations", {
-        params: { query: { limit: ORGANIZATIONS_LIMIT } },
-        signal,
-      }),
-    ),
+    initialPageParam: undefined as string | undefined,
+    queryFn: (context) => {
+      const fetchPage = cancellableQuery((signal) =>
+        api.GET("/v1/organizations", {
+          params: {
+            query: {
+              limit: ORGANIZATIONS_LIMIT,
+              cursor: context.pageParam,
+            },
+            signal,
+          },
+        }),
+      );
+      return fetchPage(context);
+    },
+    getNextPageParam: (last) => last?.pagination.next_cursor,
   });
+}
+
+/** Every organization loaded so far, in the API's order. */
+export function organizationItems(
+  data:
+    | InfiniteData<components["schemas"]["OrganizationsPage"] | undefined>
+    | undefined,
+): components["schemas"]["Organization"][] {
+  return data?.pages.flatMap((page) => page?.organizations ?? []) ?? [];
 }
 
 /**

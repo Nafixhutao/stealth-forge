@@ -12,12 +12,19 @@ const useOrganizationPlan = vi.fn();
 const useCurrentAccount = vi.fn();
 const useProjectRequestCount = vi.fn();
 
-vi.mock("@/api/queries/organizations", () => ({
-  useOrganizations: () => useOrganizations(),
-  useOrganizationProjects: (id: string | undefined) =>
-    useOrganizationProjects(id),
-  useOrganizationPlan: (id: string | undefined) => useOrganizationPlan(id),
-}));
+vi.mock("@/api/queries/organizations", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/api/queries/organizations")>();
+  return {
+    // The page reads the flattened list through this helper; only the hooks are
+    // stubbed, so the real helper keeps its behaviour.
+    organizationItems: actual.organizationItems,
+    useOrganizations: () => useOrganizations(),
+    useOrganizationProjects: (id: string | undefined) =>
+      useOrganizationProjects(id),
+    useOrganizationPlan: (id: string | undefined) => useOrganizationPlan(id),
+  };
+});
 
 vi.mock("@/api/queries/account", () => ({
   useCurrentAccount: () => useCurrentAccount(),
@@ -81,8 +88,20 @@ const beta = {
   created_at: "2026-04-04T11:00:00Z",
 };
 
-function organizationsPage(organizations: unknown[]) {
-  return { organizations, pagination: { limit: 50, next_cursor: null } };
+/** An infinite read's shape, matching `useOrganizations`. */
+function organizationsPage(
+  organizations: unknown[],
+  options: { nextCursor?: string | null } = {},
+) {
+  const { nextCursor = null } = options;
+  return {
+    pages: [
+      {
+        organizations,
+        pagination: { limit: 50, next_cursor: nextCursor },
+      },
+    ],
+  };
 }
 
 /** An infinite read's shape: one or more pages, each with its own cursor. */
@@ -499,6 +518,55 @@ describe("UserHome", () => {
     // organization's total.
     fireEvent.click(screen.getByRole("button", { name: "List view" }));
     expect(screen.getByText("Showing 1 of 1 loaded")).toBeInTheDocument();
+  });
+
+  it("keeps Load more reachable when the search matches nothing yet", () => {
+    useOrganizations.mockReturnValue(
+      query({ data: organizationsPage([acme]) }),
+    );
+    const fetchNextPage = vi.fn();
+    useOrganizationProjects.mockReturnValue(
+      query({
+        data: projectsPage([checkout], { nextCursor: "cursor-2" }),
+        hasNextPage: true,
+        fetchNextPage,
+      }),
+    );
+
+    renderHome();
+    fireEvent.change(screen.getByLabelText("Search projects"), {
+      target: { value: "not-on-this-page" },
+    });
+
+    // The match may live on a later page, so hiding the control here would make
+    // that project unreachable.
+    fireEvent.click(screen.getByRole("button", { name: "Load more projects" }));
+    expect(fetchNextPage).toHaveBeenCalled();
+  });
+
+  it("offers the rest of a long organization list", () => {
+    const fetchNextPage = vi.fn();
+    useOrganizations.mockReturnValue(
+      query({
+        data: organizationsPage([acme], { nextCursor: "org-cursor-2" }),
+        hasNextPage: true,
+        fetchNextPage,
+      }),
+    );
+    useOrganizationProjects.mockReturnValue(
+      query({ data: projectsPage([checkout]) }),
+    );
+
+    renderHome();
+
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: "Switch organization" }),
+      { button: 0, ctrlKey: false, pointerType: "mouse" },
+    );
+    fireEvent.click(
+      screen.getByRole("menuitem", { name: "Load more organizations" }),
+    );
+    expect(fetchNextPage).toHaveBeenCalled();
   });
 
   it("shows skeletons while projects load", () => {

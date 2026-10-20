@@ -12,6 +12,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useCurrentAccount } from "@/api/queries/account";
 import {
+  organizationItems,
   useOrganizationPlan,
   useOrganizationProjects,
   useOrganizations,
@@ -111,7 +112,7 @@ export function UserHome() {
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
 
-  const items = organizations.data?.organizations ?? [];
+  const items = organizationItems(organizations.data);
   // An explicit choice wins; otherwise the first organization is the default so
   // the page has something to show on first paint.
   const selected =
@@ -221,6 +222,23 @@ export function UserHome() {
                         ) : null}
                       </DropdownMenuItem>
                     ))}
+                    {organizations.hasNextPage ? (
+                      <DropdownMenuItem
+                        onSelect={(event) => {
+                          // Keep the menu open: the point is to reach the rest
+                          // of the list, not to dismiss it.
+                          event.preventDefault();
+                          void organizations.fetchNextPage();
+                        }}
+                        disabled={organizations.isFetchingNextPage}
+                      >
+                        <span className="text-[var(--projects-muted)]">
+                          {organizations.isFetchingNextPage
+                            ? "Loading…"
+                            : "Load more organizations"}
+                        </span>
+                      </DropdownMenuItem>
+                    ) : null}
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : null}
@@ -496,7 +514,9 @@ export function UserHome() {
                 </div>
               )}
 
-              {projects.hasNextPage && visible.length > 0 ? (
+              {/* Offered even when the search matches nothing here: a project
+                  that exists only on a later page must still be reachable. */}
+              {projects.hasNextPage && projectItems.length > 0 ? (
                 <div className="flex justify-center">
                   <Button
                     type="button"

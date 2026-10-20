@@ -127,12 +127,11 @@ func (s *Server) editSiteDeploymentFile(w http.ResponseWriter, r *http.Request) 
 		internalError(s, w, err)
 		return
 	}
-	committed = true
 
-	sourceName := "edit:" + path
-	if len(sourceName) > 255 {
-		sourceName = "edit:" + path[len(path)-250:]
-	}
+	// From here the artifact exists on disk, so a failure has to remove it: a
+	// published directory with no row is unreachable and would sit in the quota
+	// forever. `committed` is only set once the row is written.
+	sourceName := editSourceName(path)
 	var createdBy *uuid.UUID
 	if actor.Kind == repository.SiteConsoleActor && actor.AccountID != uuid.Nil {
 		createdBy = &actor.AccountID
@@ -153,13 +152,36 @@ func (s *Server) editSiteDeploymentFile(w http.ResponseWriter, r *http.Request) 
 		PublishCleanup:     &publishCleanup,
 	})
 	if siteResourceError(w, err) {
+		// The row was refused (quota, conflict), so the artifact it would have
+		// described is removed rather than left behind.
+		_ = s.sites.RemoveRelative(r.Context(), artifactPath)
 		return
 	}
 	if err != nil {
+		_ = s.sites.RemoveRelative(r.Context(), artifactPath)
 		internalError(s, w, err)
 		return
 	}
+	committed = true
 	writeJSON(w, http.StatusCreated, map[string]domain.SiteDeployment{"deployment": item})
+}
+
+// editSourceName describes an edit in the release's source_name column.
+//
+// The column is a single file name, not a path: the schema rejects "/" and "\",
+// so a nested edit such as assets/app.css cannot be recorded verbatim. The base
+// name identifies the file well enough for the release list, and the full path is
+// in the audit trail.
+func editSourceName(path string) string {
+	base := path
+	if index := strings.LastIndexByte(base, '/'); index >= 0 {
+		base = base[index+1:]
+	}
+	name := "edit: " + base
+	if len(name) > 255 {
+		name = name[:255]
+	}
+	return strings.TrimRight(name, " ")
 }
 
 // writeSiteEditError maps the storage-level refusals of an edit onto the API's

@@ -6,7 +6,10 @@ import { ChevronLeft, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { ApiError } from "@/api/client";
 import { useCurrentAccount } from "@/api/queries/account";
-import { useOrganizations } from "@/api/queries/organizations";
+import {
+  organizationItems,
+  useOrganizations,
+} from "@/api/queries/organizations";
 import { useProject } from "@/api/queries/projects";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageBody } from "@/components/panel";
@@ -113,7 +116,7 @@ function ProjectHeader({ projectId }: { projectId: string }) {
   const organizations = useOrganizations();
   const project = useProject(projectId);
   const organizationId = project.data?.project.organization_id;
-  const organization = organizations.data?.organizations.find(
+  const organization = organizationItems(organizations.data).find(
     (item) => item.id === organizationId,
   );
   const heading = project.data?.project.name;
