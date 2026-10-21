@@ -237,6 +237,7 @@ export function logFromApi(item: AdminLog): LogEntry {
       item.span_id ?? "",
       item.message,
     ].join("|"),
+    timestampIso: item.timestamp,
     timestamp: logClock(item.timestamp),
     level: normalizeLogLevel(item.level),
     service: item.service,

@@ -4,12 +4,12 @@ import { useState } from "react";
 import { Server } from "lucide-react";
 import {
   useInfrastructureReadModel,
-  type AdminTimeRange,
+  type HostTimeRange,
 } from "../data/admin-read-model";
 import { AdminHeader, AdminPageBody } from "../components/admin-panel";
 import { StatTile } from "../components/stat-tile";
 import { LiveIndicator } from "../components/live-indicator";
-import { TimeRangeSelect } from "../components/time-range-select";
+import { HostTimeRangeSelect } from "../components/time-range-select";
 import { PanelRowsSkeleton } from "../components/admin-skeletons";
 import { ResourceCharts } from "./resource-charts";
 import { HostList } from "./host-list";
@@ -17,7 +17,7 @@ import { WorkersSection } from "./workers-section";
 
 /** Infrastructure — hosts, resources, workers, runtime health. */
 export function InfrastructurePage() {
-  const [range, setRange] = useState<AdminTimeRange>("1h");
+  const [range, setRange] = useState<HostTimeRange>("1h");
   const read = useInfrastructureReadModel(range);
   const { host, series, cpuHistory, operations } = read.data;
   const memoryUsed = host ? (host.memory / 100) * host.memoryTotalGb : 0;
@@ -28,7 +28,7 @@ export function InfrastructurePage() {
         title="Infrastructure"
         subtitle="Monitor hosts, resources, workers, and runtime health."
       >
-        <TimeRangeSelect value={range} onChange={setRange} />
+        <HostTimeRangeSelect value={range} onChange={setRange} />
         <LiveIndicator live={read.status !== "error"} />
       </AdminHeader>
 

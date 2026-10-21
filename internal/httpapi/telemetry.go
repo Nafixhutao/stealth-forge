@@ -161,6 +161,18 @@ func (s *Server) recordHTTPTrace(requestContext context.Context, observation obs
 	case "unmatched", "/healthz", "/readyz", "/metrics", "/version":
 		return
 	}
+	// Tenant traffic is indexed after authorization. Instance-level routes are
+	// indexed only for an authenticated instance owner/admin, so anonymous
+	// public probes cannot fill the telemetry table or manufacture admin noise.
+	if organizationID == nil && projectID == nil {
+		if accountID == nil {
+			return
+		}
+		allowed, err := s.repo.IsInstanceAdmin(requestContext, *accountID)
+		if err != nil || !allowed {
+			return
+		}
+	}
 	traceID, err := uuid.NewV7()
 	if err != nil {
 		s.logger.Warn("trace index id generation failed", "error", err)

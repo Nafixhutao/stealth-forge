@@ -554,13 +554,6 @@ func (s *PostgresStore) QueryServiceMap(ctx context.Context, query ServiceMapQue
 	return ServiceMapResult{Items: []ServiceMapEdge{}}, nil
 }
 
-func (s *PostgresStore) QueryContainerLogs(ctx context.Context, query ContainerLogsQuery) (ContainerLogsResult, error) {
-	if err := s.validate(query.Range, query.Limit); err != nil {
-		return ContainerLogsResult{}, err
-	}
-	return ContainerLogsResult{Items: []ContainerLogRecord{}}, nil
-}
-
 const postgresLogMatchAlertQuery = `
 SELECT count(*)
 FROM http_traces

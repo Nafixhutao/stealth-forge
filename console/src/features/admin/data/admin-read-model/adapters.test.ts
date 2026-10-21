@@ -156,6 +156,7 @@ describe("admin read model adapters", () => {
     };
 
     expect(logFromApi(log)).toMatchObject({
+      timestampIso: "2026-10-21T10:11:12.345Z",
       timestamp: "10:11:12.345",
       level: "WARN",
       service: "api",
@@ -164,6 +165,24 @@ describe("admin read model adapters", () => {
       traceId: "trace-1",
       meta: "200",
     });
+  });
+
+  it("sorts logs across days by their full timestamp", () => {
+    const entries = [
+      {
+        timestampIso: "2026-10-21T03:01:04.306Z",
+        timestamp: "03:01:04.306",
+      },
+      {
+        timestampIso: "2026-10-20T11:10:03.555Z",
+        timestamp: "11:10:03.555",
+      },
+    ];
+    entries.sort((a, b) => b.timestampIso.localeCompare(a.timestampIso));
+    expect(entries.map((entry) => entry.timestampIso)).toEqual([
+      "2026-10-21T03:01:04.306Z",
+      "2026-10-20T11:10:03.555Z",
+    ]);
   });
 
   it("uses durable summary counts for the execution queue", () => {

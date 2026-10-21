@@ -25,6 +25,7 @@ export interface AdminReadState<T> {
 }
 
 export type AdminTimeRange = "1h" | "6h" | "24h" | "7d";
+export type HostTimeRange = "5m" | "15m" | "1h";
 
 export interface RunProjection {
   id: string;

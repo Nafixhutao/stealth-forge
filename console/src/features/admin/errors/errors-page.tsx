@@ -78,19 +78,24 @@ export function ErrorsPage() {
     group: AdminErrorGroup,
     status: ErrorLifecycleStatus,
   ) => {
-    const updated = await updateStatus.mutateAsync({
-      fingerprint: group.fingerprint,
-      status,
-    });
-    if (updated) {
-      setSelected((current) =>
-        current?.fingerprint === group.fingerprint
-          ? {
-              ...current,
-              status: status as unknown as AdminErrorGroupStatus,
-            }
-          : current,
-      );
+    try {
+      const updated = await updateStatus.mutateAsync({
+        fingerprint: group.fingerprint,
+        status,
+      });
+      if (updated) {
+        setSelected((current) =>
+          current?.fingerprint === group.fingerprint
+            ? {
+                ...current,
+                status: status as unknown as AdminErrorGroupStatus,
+              }
+            : current,
+        );
+      }
+    } catch {
+      // The mutation state renders the API error; this catch prevents an
+      // unhandled rejection from the button's fire-and-forget call.
     }
   };
 

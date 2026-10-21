@@ -59,7 +59,6 @@ type ManagedStore interface {
 	InfrastructureExplorer
 	OverviewExplorer
 	AlertExplorer
-	ContainerLogReader
 	Migrate(context.Context) error
 	Close() error
 }

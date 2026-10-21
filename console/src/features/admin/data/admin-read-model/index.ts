@@ -35,6 +35,7 @@ import type {
   AdminReadStatus,
   AdminStatusPage,
   AdminTimeRange,
+  HostTimeRange,
   ExecutionQueueProjection,
   ProviderReadModel,
   RunProjection,
@@ -49,6 +50,7 @@ export type {
   AdminReadState,
   AdminReadStatus,
   AdminTimeRange,
+  HostTimeRange,
   ExecutionQueueProjection,
   ProviderProjection,
   ProviderReadModel,
@@ -63,6 +65,12 @@ const RANGE_MS: Record<AdminTimeRange, number> = {
   "6h": 6 * 60 * 60 * 1000,
   "24h": 24 * 60 * 60 * 1000,
   "7d": 7 * 24 * 60 * 60 * 1000,
+};
+
+const HOST_RANGE_MINUTES: Record<HostTimeRange, number> = {
+  "5m": 5,
+  "15m": 15,
+  "1h": 60,
 };
 
 function windowFor(range: AdminTimeRange) {
@@ -102,6 +110,25 @@ function refetchAll(queries: UseQueryResult[]) {
   };
 }
 
+function useSecondaryReadState<T>(
+  required: UseQueryResult,
+  optional: UseQueryResult[],
+  data: T,
+): AdminReadState<T> {
+  const queries = [required, ...optional];
+  return {
+    status: required.isError
+      ? "error"
+      : required.isPending
+        ? "pending"
+        : "ready",
+    data,
+    error: required.isError ? errorMessage(required.error) : null,
+    isFetching: queries.some((query) => query.isFetching),
+    refetch: refetchAll(queries),
+  };
+}
+
 function useAdminOverviewQuery() {
   return useQuery({
     queryKey: queryKeys.adminOverview,
@@ -132,7 +159,7 @@ function useOperationsQuery(
 }
 
 export function useInfrastructureReadModel(
-  range: AdminTimeRange = "1h",
+  range: HostTimeRange = "1h",
 ): AdminReadState<{
   host: ReturnType<typeof hostFromMetrics>;
   series: ReturnType<typeof resourceSeriesFromMetrics>;
@@ -145,7 +172,7 @@ export function useInfrastructureReadModel(
     queryFn: cancellableQuery((signal) =>
       api.GET("/v1/admin/host-metrics", {
         params: {
-          query: { window_minutes: Math.round(RANGE_MS[range] / 60_000) },
+          query: { window_minutes: HOST_RANGE_MINUTES[range] },
         },
         signal,
       }),
@@ -169,12 +196,11 @@ export function useInfrastructureReadModel(
 export function useExecutionQueueReadModel(): AdminReadState<ExecutionQueueProjection> {
   const operations = useOperationsQuery("24h", 100);
   const overview = useAdminOverviewQuery();
-  const queries = [operations, overview];
   const data = executionQueueFromOperations(
     operations.data?.items ?? [],
     overview.data?.operations ?? null,
   );
-  return readState(queries, data, refetchAll(queries));
+  return useSecondaryReadState(operations, [overview], data);
 }
 
 export function useRunsReadModel(
@@ -247,7 +273,7 @@ export function useLogsReadModel(options: {
       merged.set(entry.id, entry);
     }
     return [...merged.values()].sort((a, b) =>
-      b.timestamp.localeCompare(a.timestamp),
+      b.timestampIso.localeCompare(a.timestampIso),
     );
   }, [base.data, tail.items]);
   const tailError = tail.error ? new Error(tail.error) : null;
@@ -283,7 +309,7 @@ export function useTracesReadModel(
     () => tracesFromSpans(traces.data?.items ?? []),
     [traces.data],
   );
-  return readState([traces, overview], data, refetchAll([traces, overview]));
+  return useSecondaryReadState(traces, [overview], data);
 }
 
 export function useTraceMetrics() {
@@ -335,12 +361,11 @@ export function useUsageReadModel(
 ): AdminReadState<UsageProjection> {
   const operations = useOperationsQuery(range, 100);
   const overview = useAdminOverviewQuery();
-  const queries = [operations, overview];
   const data = usageFromOperations(
     operations.data?.items ?? [],
     overview.data?.operations ?? null,
   );
-  return readState(queries, data, refetchAll(queries));
+  return useSecondaryReadState(operations, [overview], data);
 }
 
 export function useStatusReadModel(): AdminReadState<StatusProjection> {
