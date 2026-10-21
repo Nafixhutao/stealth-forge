@@ -120,14 +120,9 @@ func recordTraceAccount(ctx context.Context, account domain.Account) {
 // backend; a persistence failure is observable but never changes the caller's
 // already-written response.
 func (s *Server) recordHTTPTrace(requestContext context.Context, observation observability.HTTPTraceRecord) {
-	// Authentication and authorization failures do not belong to the tenant's
-	// trace index. Apart from avoiding noisy rows, this prevents an outsider
-	// from manufacturing organization-scoped observations through a guessed
-	// route identifier.
 	repoMissing := s.repo == nil
 	traceIDMissing := observation.TraceID == ""
-	authFailure := observation.Status == http.StatusUnauthorized || observation.Status == http.StatusForbidden
-	if repoMissing || traceIDMissing || authFailure {
+	if repoMissing || traceIDMissing {
 		return
 	}
 	routeContext := chi.RouteContext(requestContext)
@@ -159,7 +154,11 @@ func (s *Server) recordHTTPTrace(requestContext context.Context, observation obs
 			accountID = &parsed
 		}
 	}
-	if organizationID == nil && projectID == nil {
+	// Health, metrics, and version probes are operational noise. The API
+	// request index keeps application routes, including instance-admin requests
+	// that have no organization or project scope.
+	switch observation.Route {
+	case "unmatched", "/healthz", "/readyz", "/metrics", "/version":
 		return
 	}
 	traceID, err := uuid.NewV7()

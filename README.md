@@ -117,7 +117,9 @@ The API owns authentication, tenant boundaries, and the REST contract. The
 Console has no second business-logic backend. The worker owns asynchronous
 builds, execution, delivery, realtime publication, and optional Agent runs.
 Host resource metrics are sampled in-process by the API, so the platform keeps
-no separate telemetry storage service.
+no separate telemetry storage service. Admin Logs, Traces, and Errors use a
+bounded PostgreSQL request index by default; ClickHouse remains optional for
+installations that explicitly configure it.
 
 ## Documentation
 

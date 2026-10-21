@@ -130,9 +130,6 @@ func (r *Repository) RecordHTTPTrace(ctx context.Context, id uuid.UUID, input HT
 		input.FinishedAt.IsZero() {
 		return ErrInvalidHTTPTrace
 	}
-	if input.OrganizationID == nil && input.ProjectID == nil {
-		return ErrInvalidHTTPTrace
-	}
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err

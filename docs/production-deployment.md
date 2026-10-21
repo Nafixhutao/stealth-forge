@@ -561,9 +561,14 @@ The worker's Docker socket is a dedicated trust
 boundary for function execution. It has no host `ports` mapping, drops
 capabilities, and the worker is the only service that mounts it.
 
-The platform keeps no separate telemetry storage service. Host resource
-metrics are sampled in-process by the API and served to instance owners and
-admins through authenticated admin routes.
+The platform keeps no separate telemetry storage service by default. Host
+resource metrics are sampled in-process by the API. Admin Logs, Traces, Errors,
+HTTP latency/error metrics, and telemetry-backed alert evaluation read a
+bounded PostgreSQL request index containing only method, route template,
+status, duration, response size, and trace identifiers. The worker prunes rows
+older than `TELEMETRY_RETENTION` in bounded batches. An external ClickHouse
+store remains an explicit opt-in for installations that need higher telemetry
+volume; it is not required for the portable Compose baseline.
 
 Redis is authenticated but intentionally has no volume in this baseline. It
 stores distributed rate-limit windows, not the durable job state. Losing Redis

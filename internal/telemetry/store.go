@@ -43,6 +43,20 @@ type Store interface {
 	ListSources(context.Context, SourcesQuery) (SourcesResult, error)
 }
 
+// ManagedStore is the lifecycle surface used by process composition. The
+// PostgreSQL implementation owns no external connection and its Close is a
+// no-op; the optional ClickHouse implementation releases its client.
+type ManagedStore interface {
+	Store
+	Explorer
+	InfrastructureExplorer
+	OverviewExplorer
+	AlertExplorer
+	ContainerLogReader
+	Migrate(context.Context) error
+	Close() error
+}
+
 type ClickHouseStore struct {
 	conn             driver.Conn
 	database         string
