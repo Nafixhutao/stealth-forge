@@ -19,6 +19,13 @@ var (
 	ErrInvalidQuery = errors.New("invalid telemetry query")
 )
 
+// Pinger is the small health capability used by the Admin overview. Keeping
+// it separate lets optional query capabilities evolve without changing health
+// reporting.
+type Pinger interface {
+	Ping(context.Context) error
+}
+
 // Config contains only the ClickHouse connection and server-side safety
 // limits. Password is held in memory by the process and is never included in
 // errors, logs, or query text.
