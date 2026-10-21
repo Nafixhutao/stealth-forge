@@ -14,7 +14,7 @@ import { StatusBadge } from "../components/status-badge";
 import { IncidentListSkeleton } from "../components/admin-skeletons";
 import { AdminSelect } from "../components/admin-select";
 import { CreateIncidentDialog } from "./create-incident-dialog";
-import { toIncident } from "../data/admin-adapters";
+import { toIncident } from "../data/admin-read-model";
 import type {
   Incident,
   IncidentSeverity,

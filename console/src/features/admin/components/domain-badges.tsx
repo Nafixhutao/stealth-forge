@@ -11,6 +11,7 @@ const RUN_STATUS: Record<
   completed: { tone: "success", label: "Completed" },
   failed: { tone: "danger", label: "Failed" },
   queued: { tone: "neutral", label: "Queued" },
+  cancelled: { tone: "neutral", label: "Cancelled" },
 };
 
 /** Semantic badge for an agent run status. */

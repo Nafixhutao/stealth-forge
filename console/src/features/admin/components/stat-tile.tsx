@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * Small labeled stat used in summary rows (platform metrics, host summary,
- * usage tiles). Value strings arrive pre-formatted from mock data.
+ * usage tiles). Value strings arrive pre-formatted from the Admin read model.
  */
 export function StatTile({
   icon: Icon,

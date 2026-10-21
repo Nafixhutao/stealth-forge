@@ -46,7 +46,11 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     label: "Operations",
     items: [
       { label: "Agent Runs", href: "/admin/runs", icon: Activity },
-      { label: "Workers", href: "/admin/workers", icon: BrainCircuit },
+      {
+        label: "Execution Queue",
+        href: "/admin/workers",
+        icon: BrainCircuit,
+      },
       { label: "Incidents", href: "/admin/incidents", icon: TriangleAlert },
     ],
   },

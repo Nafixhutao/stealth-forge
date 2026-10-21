@@ -20,7 +20,6 @@ export function SettingsPage() {
   const [region, setRegion] = useState("sgp-1");
   const [traceSampling, setTraceSampling] = useState("10%");
   const [logRetention, setLogRetention] = useState("7 days");
-  const [liveFeed, setLiveFeed] = useState(true);
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [slackAlerts, setSlackAlerts] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -135,12 +134,6 @@ export function SettingsPage() {
             subtitle="Where incidents and degradations notify the on-call."
           />
           <div className="grid gap-2 sm:grid-cols-3">
-            <ToggleRow
-              label="Live mock telemetry feed"
-              description="Nudge metrics and stream logs every few seconds."
-              checked={liveFeed}
-              onChange={setLiveFeed}
-            />
             <ToggleRow
               label="Email alerts"
               description="Email on-call for critical incidents."

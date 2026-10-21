@@ -1,33 +1,26 @@
 "use client";
 
+import { useState } from "react";
 import { Server } from "lucide-react";
-import { HOSTS } from "../data/admin-mock-data";
+import {
+  useInfrastructureReadModel,
+  type AdminTimeRange,
+} from "../data/admin-read-model";
 import { AdminHeader, AdminPageBody } from "../components/admin-panel";
 import { StatTile } from "../components/stat-tile";
 import { LiveIndicator } from "../components/live-indicator";
+import { TimeRangeSelect } from "../components/time-range-select";
+import { PanelRowsSkeleton } from "../components/admin-skeletons";
 import { ResourceCharts } from "./resource-charts";
 import { HostList } from "./host-list";
 import { WorkersSection } from "./workers-section";
 
 /** Infrastructure — hosts, resources, workers, runtime health. */
 export function InfrastructurePage() {
-  const online = HOSTS.filter((host) => host.status === "online").length;
-  const avgCpu = Math.round(
-    HOSTS.reduce((sum, host) => sum + host.cpu, 0) / HOSTS.length,
-  );
-  const memoryUsed = HOSTS.reduce(
-    (sum, host) => sum + (host.memory / 100) * host.memoryTotalGb,
-    0,
-  );
-  const memoryTotal = HOSTS.reduce((sum, host) => sum + host.memoryTotalGb, 0);
-  const storageUsed = HOSTS.reduce(
-    (sum, host) => sum + (host.storage / 100) * host.storageTotalGb,
-    0,
-  );
-  const storageTotal = HOSTS.reduce(
-    (sum, host) => sum + host.storageTotalGb,
-    0,
-  );
+  const [range, setRange] = useState<AdminTimeRange>("1h");
+  const read = useInfrastructureReadModel(range);
+  const { host, series, cpuHistory, operations } = read.data;
+  const memoryUsed = host ? (host.memory / 100) * host.memoryTotalGb : 0;
 
   return (
     <AdminPageBody>
@@ -35,31 +28,49 @@ export function InfrastructurePage() {
         title="Infrastructure"
         subtitle="Monitor hosts, resources, workers, and runtime health."
       >
-        <LiveIndicator />
+        <TimeRangeSelect value={range} onChange={setRange} />
+        <LiveIndicator live={read.status !== "error"} />
       </AdminHeader>
 
-      {/* Host summary */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-        <StatTile icon={Server} label="Hosts" value={String(HOSTS.length)} />
-        <StatTile label="Online" value={String(online)} tone="success" />
-        <StatTile label="Average CPU" value={`${avgCpu}%`} />
+        <StatTile icon={Server} label="Hosts" value={host ? "1" : "—"} />
+        <StatTile
+          label="Online"
+          value={host?.status === "online" ? "1" : "0"}
+          tone="success"
+        />
+        <StatTile label="CPU now" value={host ? `${host.cpu}%` : "—"} />
         <StatTile
           label="Memory"
-          value={`${memoryUsed.toFixed(1)} GB`}
-          hint={`/ ${memoryTotal} GB`}
+          value={host ? `${memoryUsed.toFixed(1)} GB` : "—"}
+          hint={host ? `/ ${host.memoryTotalGb} GB` : undefined}
         />
         <StatTile
           label="Storage"
-          value={`${Math.round(storageUsed)} GB`}
-          hint={storageTotal >= 1000 ? "/ 1 TB" : `/ ${storageTotal} GB`}
+          value={
+            host
+              ? `${Math.round((host.storage / 100) * host.storageTotalGb)} GB`
+              : "—"
+          }
+          hint={host ? `/ ${host.storageTotalGb} GB` : undefined}
         />
       </div>
 
-      <ResourceCharts />
+      {read.status === "pending" ? (
+        <PanelRowsSkeleton rows={4} />
+      ) : read.status === "error" ? (
+        <p className="m-0 rounded-lg border border-[var(--projects-border)] bg-[#141416] px-4 py-8 text-center text-[13px] text-[var(--projects-danger)]">
+          {read.error}
+        </p>
+      ) : (
+        <>
+          <ResourceCharts series={series} />
 
-      <HostList />
+          <HostList host={host} cpuHistory={cpuHistory} />
 
-      <WorkersSection />
+          <WorkersSection operations={operations} />
+        </>
+      )}
     </AdminPageBody>
   );
 }

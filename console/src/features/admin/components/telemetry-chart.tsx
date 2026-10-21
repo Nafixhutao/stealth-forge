@@ -91,7 +91,7 @@ function formatValue(value: number): string {
 }
 
 // X-axis labels are ISO timestamps from the API. Render them as a compact
-// wall-clock time; non-date labels (e.g. mock short strings) pass through.
+// wall-clock time; non-date labels pass through.
 function formatAxisTime(value: unknown): string {
   if (typeof value !== "string") return String(value ?? "");
   const parsed = new Date(value);
