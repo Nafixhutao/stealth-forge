@@ -149,6 +149,18 @@ func (r *Repository) RecordHTTPTrace(ctx context.Context, id uuid.UUID, input HT
 		if input.OrganizationID != nil && *input.OrganizationID != projectOrganizationID {
 			return ErrNotFound
 		}
+		if input.AccountID != nil {
+			if err := requireTraceMembership(ctx, tx, projectOrganizationID, *input.AccountID); err != nil {
+				return err
+			}
+		}
+	} else if input.OrganizationID != nil {
+		if input.AccountID == nil {
+			return ErrNotFound
+		}
+		if err := requireTraceMembership(ctx, tx, *input.OrganizationID, *input.AccountID); err != nil {
+			return err
+		}
 	}
 	_, err = tx.Exec(ctx, `
 		INSERT INTO http_traces (id,trace_id,span_id,organization_id,project_id,account_id,method,route,status,duration_ms,response_bytes,started_at,finished_at)
@@ -179,6 +191,24 @@ func (r *Repository) RecordHTTPTrace(ctx context.Context, id uuid.UUID, input HT
 		}
 	}
 	return tx.Commit(ctx)
+}
+
+// requireTraceMembership keeps the request index and usage ledger inside the
+// same tenant boundary as the resource that was requested. In particular, a
+// failed cross-tenant lookup must not create a durable trace or meter usage.
+func requireTraceMembership(ctx context.Context, tx pgx.Tx, organizationID, accountID uuid.UUID) error {
+	var member bool
+	if err := tx.QueryRow(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM organization_memberships
+			WHERE organization_id=$1 AND account_id=$2
+		)`, organizationID, accountID).Scan(&member); err != nil {
+		return err
+	}
+	if !member {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (r *Repository) ListOrganizationHTTPTraces(

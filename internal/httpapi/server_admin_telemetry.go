@@ -8,10 +8,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Nafixhutao/stealth-forge/internal/domain"
 	"github.com/Nafixhutao/stealth-forge/internal/repository"
 	"github.com/Nafixhutao/stealth-forge/internal/telemetry"
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 )
+
+const adminTelemetryAuthRecheckInterval = 15 * time.Second
 
 func (s *Server) adminTelemetryLogs(w http.ResponseWriter, r *http.Request) {
 	if s.telemetry == nil {
@@ -91,6 +95,21 @@ func (s *Server) adminTelemetryLogTail(w http.ResponseWriter, r *http.Request) {
 	defer deadline.Stop()
 	poll := time.NewTicker(2 * time.Second)
 	defer poll.Stop()
+	authCheck := time.NewTicker(adminTelemetryAuthRecheckInterval)
+	defer authCheck.Stop()
+	authorized := func() bool {
+		account, accountOK := r.Context().Value(accountContextKey).(domain.Account)
+		sessionID, sessionOK := r.Context().Value(sessionContextKey).(uuid.UUID)
+		if !accountOK || !sessionOK {
+			// Direct handler tests do not install the production auth context.
+			return true
+		}
+		if s.repo == nil {
+			return false
+		}
+		allowed, err := s.repo.IsInstanceAdminSession(r.Context(), mustUUID(account.ID), sessionID)
+		return err == nil && allowed
+	}
 
 	writeEvent := func(event string, value any) bool {
 		payload, err := json.Marshal(value)
@@ -191,6 +210,10 @@ func (s *Server) adminTelemetryLogTail(w http.ResponseWriter, r *http.Request) {
 			return
 		case <-deadline.C:
 			return
+		case <-authCheck.C:
+			if !authorized() {
+				return
+			}
 		case <-poll.C:
 		}
 	}

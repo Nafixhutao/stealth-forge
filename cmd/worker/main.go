@@ -178,7 +178,7 @@ func main() {
 	if telemetryErr != nil && !errors.Is(telemetryErr, telemetry.ErrDisabled) {
 		logger.Warn("telemetry alert store configuration error", "error", telemetryErr)
 	}
-	if telemetryStore != nil {
+	if telemetryErr == nil {
 		defer telemetryStore.Close()
 	}
 	var userStorage artifactcleanup.Cleaner
@@ -235,7 +235,7 @@ func main() {
 		logger.Error("admin monitoring worker configuration error", "error", err)
 		os.Exit(1)
 	}
-	if telemetryStore != nil {
+	if telemetryErr == nil {
 		telemetryAlerts, alertErr := monitoring.NewTelemetryAlertEvaluator(repo, telemetryStore, logger)
 		if alertErr != nil {
 			logger.Warn("telemetry alert evaluator is unavailable", "error", alertErr)

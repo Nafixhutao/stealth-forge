@@ -148,7 +148,7 @@ func (s *Server) adminOverview(w http.ResponseWriter, r *http.Request) {
 		}
 		// Recent activity is decorative but honest; a slow or failing query
 		// must not block the rest of the overview, so it degrades to omitted.
-		if deployments, err := s.repo.ListRecentAppDeployments(r.Context(), 5); err == nil {
+		if deployments, err := s.repo.ListRecentAppDeployments(healthContext, 5); err == nil {
 			recentDeployments = deployments
 		}
 	}

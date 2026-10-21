@@ -46,3 +46,26 @@ func TestRecordHTTPTraceInputNoLongerRequiresTenantScope(t *testing.T) {
 		t.Fatal("instance telemetry test fixture unexpectedly has a tenant")
 	}
 }
+
+func TestRecordHTTPTraceSkipsAdminRoutes(t *testing.T) {
+	for _, route := range []string{
+		"",
+		"unmatched",
+		"/healthz",
+		"/v1/admin/overview",
+		"/v1/admin/telemetry/logs",
+		"/v1/admin/monitors/{monitorID}",
+	} {
+		if shouldRecordHTTPTrace(route) {
+			t.Fatalf("admin route %q must not be recorded", route)
+		}
+	}
+	for _, route := range []string{
+		"/v1/projects/{projectID}",
+		"/v1/status-page",
+	} {
+		if !shouldRecordHTTPTrace(route) {
+			t.Fatalf("application route %q must remain eligible for telemetry", route)
+		}
+	}
+}

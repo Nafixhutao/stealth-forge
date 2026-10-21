@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -269,8 +268,7 @@ func (r *Repository) ListInstanceAuditEvents(
 		return nil, "", fmt.Errorf("%w: audit limit must be between 1 and %d", ErrInvalidQuery, adminAuditMaxLimit)
 	}
 	rows, err := r.pool.Query(ctx, `
-		SELECT e.id::text,e.organization_id::text,e.actor_account_id::text,a.email,
-		       e.action,e.target_type,e.target_id::text,e.metadata,e.created_at
+		SELECT `+auditEventProjection+`
 		FROM audit_events e
 		LEFT JOIN accounts a ON a.id=e.actor_account_id
 		WHERE e.organization_id IS NULL AND ($1::uuid IS NULL OR e.id<$1)
@@ -280,21 +278,8 @@ func (r *Repository) ListInstanceAuditEvents(
 		return nil, "", err
 	}
 	defer rows.Close()
-	items := make([]domain.AuditEvent, 0, limit)
-	for rows.Next() {
-		var item domain.AuditEvent
-		var metadata []byte
-		if err := rows.Scan(&item.ID, &item.OrganizationID, &item.ActorAccountID, &item.ActorEmail, &item.Action, &item.TargetType, &item.TargetID, &metadata, &item.CreatedAt); err != nil {
-			return nil, "", err
-		}
-		if len(metadata) == 0 || !json.Valid(metadata) {
-			item.Metadata = []byte(`{}`)
-		} else {
-			item.Metadata = metadata
-		}
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
+	items, err := scanAuditEvents(rows, limit+1)
+	if err != nil {
 		return nil, "", err
 	}
 	if len(items) <= limit {

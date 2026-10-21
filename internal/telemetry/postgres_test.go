@@ -1,6 +1,7 @@
 package telemetry
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -53,5 +54,50 @@ func TestPostgresVolumeQueryUsesBoundedBuckets(t *testing.T) {
 		if got := postgresVolumeQueryFor(queryRange); got != test.want {
 			t.Fatalf("bucket query for %s was not the expected fixed statement", test.duration)
 		}
+	}
+}
+
+func TestPostgresLogProjectionKeepsSeverityAndTraceIdentity(t *testing.T) {
+	item := postgresLogRecord(
+		"0199fb52-7a6d-7f91-8f6c-ab95ef2fe3c1",
+		"4bf92f3577b34da6a3ce929d0e0e4736",
+		"00f067aa0ba902b7",
+		"POST",
+		"/v1/projects/{projectID}/apps",
+		503,
+		42,
+		128,
+		time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC),
+	)
+	if item.Severity != "ERROR" || item.TraceID == "" || item.EventID == "" {
+		t.Fatalf("unexpected PostgreSQL log projection: %+v", item)
+	}
+	if item.Body != "POST /v1/projects/{projectID}/apps -> 503 (42ms)" {
+		t.Fatalf("unexpected log body: %q", item.Body)
+	}
+}
+
+func TestRequestLogFilterIsSharedByEveryPostgresLogSurface(t *testing.T) {
+	for name, statement := range map[string]string{
+		"logs":       postgresLogsQuery,
+		"logs-after": postgresLogsAfterQuery,
+		"volume":     postgresMinuteVolumeQuery,
+		"alert":      postgresLogMatchAlertQuery,
+	} {
+		if !strings.Contains(statement, requestLogFilter) {
+			t.Fatalf("%s query does not use the shared log filter", name)
+		}
+	}
+}
+
+func TestRequestLogFilterRetainsMethodSearch(t *testing.T) {
+	if !strings.Contains(requestLogFilter, "method ILIKE") {
+		t.Fatal("shared log filter dropped method search")
+	}
+}
+
+func TestPostgresSourcesDoNotClaimMetrics(t *testing.T) {
+	if strings.Contains(postgresSourcesQuery, "'metrics'") {
+		t.Fatal("request traces must not be reported as a metrics signal source")
 	}
 }

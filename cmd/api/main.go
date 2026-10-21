@@ -136,7 +136,7 @@ func main() {
 	if telemetryErr != nil && !errors.Is(telemetryErr, telemetry.ErrDisabled) {
 		logger.Error("telemetry store configuration error", "error", telemetryErr)
 	}
-	if telemetryStore != nil {
+	if telemetryErr == nil {
 		defer telemetryStore.Close()
 		if err := telemetryStore.Migrate(ctx); err != nil {
 			// Telemetry is intentionally not a startup dependency for the core

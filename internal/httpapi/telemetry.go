@@ -154,11 +154,14 @@ func (s *Server) recordHTTPTrace(requestContext context.Context, observation obs
 			accountID = &parsed
 		}
 	}
-	// Health, metrics, and version probes are operational noise. The API
-	// request index keeps application routes, including instance-admin requests
-	// that have no organization or project scope.
-	switch observation.Route {
-	case "unmatched", "/healthz", "/readyz", "/metrics", "/version":
+	if !shouldRecordHTTPTrace(observation.Route) {
+		return
+	}
+	// A project or organization route that failed before its auth middleware
+	// could record an account has no tenant authorization to persist. This is
+	// especially important for guessed project UUIDs: a 401/403/404 must not
+	// create a trace row or inflate that tenant's API usage.
+	if (organizationID != nil || projectID != nil) && accountID == nil && observation.Status >= http.StatusBadRequest {
 		return
 	}
 	// Tenant traffic is indexed after authorization. Instance-level routes are
@@ -195,6 +198,17 @@ func (s *Server) recordHTTPTrace(requestContext context.Context, observation obs
 			"route",
 			observation.Route,
 		)
+	}
+}
+
+func shouldRecordHTTPTrace(route string) bool {
+	switch route {
+	case "", "unmatched", "/healthz", "/readyz", "/metrics", "/version":
+		return false
+	default:
+		// Admin polling must not create more telemetry for the views to
+		// display. Exclude the whole namespace, including future admin routes.
+		return !strings.HasPrefix(route, "/v1/admin/")
 	}
 }
 

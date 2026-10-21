@@ -26,8 +26,8 @@ type PostgresStore struct {
 }
 
 // Open selects PostgreSQL when no external ClickHouse address is configured.
-// The core control plane therefore has a working telemetry query surface by
-// default while retaining the optional ClickHouse adapter for larger installs.
+// A nil error always means the returned store is usable; on error the store is
+// nil so process wiring cannot accidentally treat a partial backend as ready.
 func Open(pool *pgxpool.Pool, cfg Config) (ManagedStore, error) {
 	if strings.TrimSpace(cfg.Address) != "" {
 		return New(cfg)
@@ -95,36 +95,36 @@ func (s *PostgresStore) queryContext(ctx context.Context) (context.Context, cont
 	return context.WithTimeout(ctx, s.maxQueryDuration)
 }
 
+// requestLogFilter is shared by logs, volume, and alert queries. $1/$2 are the
+// time range, $3 the service, $4 the search text, and $5 the severity. The
+// caller appends only ordering, cursor, or grouping clauses around it.
+const requestLogFilter = `
+  started_at >= $1 AND started_at < $2
+  AND ($3 = '' OR $3 = 'api')
+  AND ($4 = '' OR method ILIKE '%' || $4 || '%' OR route ILIKE '%' || $4 || '%')
+  AND (
+    $5 = '' OR
+    (upper($5) IN ('ERROR', 'FATAL') AND status >= 500) OR
+    (upper($5) IN ('WARN', 'WARNING') AND status >= 400 AND status < 500) OR
+    (upper($5) = 'INFO' AND status < 400)
+  )`
+
 const postgresLogsQuery = `
 SELECT id::text, trace_id, COALESCE(span_id, ''), method, route, status,
        duration_ms, response_bytes, started_at
 FROM http_traces
-WHERE started_at >= $1 AND started_at < $2
-  AND ($3 = '' OR method ILIKE '%' || $3 || '%' OR route ILIKE '%' || $3 || '%')
-  AND (
-    $4 = '' OR
-    (upper($4) IN ('ERROR', 'FATAL') AND status >= 500) OR
-    (upper($4) IN ('WARN', 'WARNING') AND status >= 400 AND status < 500) OR
-    (upper($4) = 'INFO' AND status < 400)
-  )
+WHERE ` + requestLogFilter + `
 ORDER BY started_at DESC, id DESC
-LIMIT $5`
+LIMIT $6`
 
 const postgresLogsAfterQuery = `
 SELECT id::text, trace_id, COALESCE(span_id, ''), method, route, status,
        duration_ms, response_bytes, started_at
 FROM http_traces
-WHERE started_at >= $1 AND started_at < $2
-  AND ($3 = '' OR method ILIKE '%' || $3 || '%' OR route ILIKE '%' || $3 || '%')
-  AND (
-    $4 = '' OR
-    (upper($4) IN ('ERROR', 'FATAL') AND status >= 500) OR
-    (upper($4) IN ('WARN', 'WARNING') AND status >= 400 AND status < 500) OR
-    (upper($4) = 'INFO' AND status < 400)
-  )
-  AND (started_at, id) > ($5, $6::uuid)
+WHERE ` + requestLogFilter + `
+  AND (started_at, id) > ($6, $7::uuid)
 ORDER BY started_at ASC, id ASC
-LIMIT $7`
+LIMIT $8`
 
 func (s *PostgresStore) QueryLogs(ctx context.Context, query LogsQuery) (LogsResult, error) {
 	if err := s.validate(query.Range, query.Limit); err != nil {
@@ -134,6 +134,7 @@ func (s *PostgresStore) QueryLogs(ctx context.Context, query LogsQuery) (LogsRes
 	args := []any{
 		query.Range.From.UTC(),
 		query.Range.To.UTC(),
+		boundedFilter(query.Service, 128),
 		boundedFilter(query.Search, 256),
 		boundedFilter(query.Level, 64),
 	}
@@ -161,29 +162,41 @@ func (s *PostgresStore) QueryLogs(ctx context.Context, query LogsQuery) (LogsRes
 		if err := rows.Scan(&eventID, &traceID, &spanID, &method, &route, &status, &durationMS, &responseBytes, &timestamp); err != nil {
 			return LogsResult{}, fmt.Errorf("scan PostgreSQL telemetry log: %w", err)
 		}
-		severity := postgresLogSeverity(status)
-		result.Items = append(result.Items, LogRecord{
-			Timestamp: timestamp,
-			TraceID:   traceID,
-			SpanID:    spanID,
-			Severity:  severity,
-			Service:   "api",
-			Body:      fmt.Sprintf("%s %s -> %d (%dms)", method, route, status, durationMS),
-			Attributes: map[string]string{
-				"http.request.method":       method,
-				"http.route":                route,
-				"http.response.status_code": fmt.Sprintf("%d", status),
-				"duration_ms":               fmt.Sprintf("%d", durationMS),
-				"response_bytes":            fmt.Sprintf("%d", responseBytes),
-			},
-			ResourceAttributes: map[string]string{"service.name": "api"},
-			EventID:            eventID,
-		})
+		result.Items = append(result.Items, postgresLogRecord(
+			eventID, traceID, spanID, method, route, status, durationMS,
+			responseBytes, timestamp,
+		))
 	}
 	if err := rows.Err(); err != nil {
 		return LogsResult{}, fmt.Errorf("read PostgreSQL telemetry logs: %w", err)
 	}
 	return result, nil
+}
+
+func postgresLogRecord(
+	eventID, traceID, spanID, method, route string,
+	status int,
+	durationMS int,
+	responseBytes int64,
+	timestamp time.Time,
+) LogRecord {
+	return LogRecord{
+		Timestamp: timestamp,
+		TraceID:   traceID,
+		SpanID:    spanID,
+		Severity:  postgresLogSeverity(status),
+		Service:   "api",
+		Body:      fmt.Sprintf("%s %s -> %d (%dms)", method, route, status, durationMS),
+		Attributes: map[string]string{
+			"http.request.method":       method,
+			"http.route":                route,
+			"http.response.status_code": fmt.Sprintf("%d", status),
+			"duration_ms":               fmt.Sprintf("%d", durationMS),
+			"response_bytes":            fmt.Sprintf("%d", responseBytes),
+		},
+		ResourceAttributes: map[string]string{"service.name": "api"},
+		EventID:            eventID,
+	}
 }
 
 func postgresLogSeverity(status int) string {
@@ -365,75 +378,21 @@ func postgresErrorFingerprint(service, errorType, message string) string {
 	return hex.EncodeToString(value[:])
 }
 
-const postgresMinuteVolumeQuery = `
-SELECT date_bin('1 minute', started_at, TIMESTAMPTZ '1970-01-01'), count(*)
+func postgresVolumeQuery(interval string) string {
+	return `
+SELECT date_bin('` + interval + `', started_at, TIMESTAMPTZ '1970-01-01'), count(*)
 FROM http_traces
-WHERE started_at >= $1 AND started_at < $2
-  AND ($3 = '' OR $3 = 'api')
-  AND ($4 = '' OR route ILIKE '%' || $4 || '%')
-  AND (
-    $5 = '' OR
-    (upper($5) IN ('ERROR', 'FATAL') AND status >= 500) OR
-    (upper($5) IN ('WARN', 'WARNING') AND status >= 400 AND status < 500) OR
-    (upper($5) = 'INFO' AND status < 400)
-  )
+WHERE ` + requestLogFilter + `
 GROUP BY 1 ORDER BY 1 ASC LIMIT $6`
+}
 
-const postgresFiveMinuteVolumeQuery = `
-SELECT date_bin('5 minutes', started_at, TIMESTAMPTZ '1970-01-01'), count(*)
-FROM http_traces
-WHERE started_at >= $1 AND started_at < $2
-  AND ($3 = '' OR $3 = 'api')
-  AND ($4 = '' OR route ILIKE '%' || $4 || '%')
-  AND (
-    $5 = '' OR
-    (upper($5) IN ('ERROR', 'FATAL') AND status >= 500) OR
-    (upper($5) IN ('WARN', 'WARNING') AND status >= 400 AND status < 500) OR
-    (upper($5) = 'INFO' AND status < 400)
-  )
-GROUP BY 1 ORDER BY 1 ASC LIMIT $6`
-
-const postgresQuarterHourVolumeQuery = `
-SELECT date_bin('15 minutes', started_at, TIMESTAMPTZ '1970-01-01'), count(*)
-FROM http_traces
-WHERE started_at >= $1 AND started_at < $2
-  AND ($3 = '' OR $3 = 'api')
-  AND ($4 = '' OR route ILIKE '%' || $4 || '%')
-  AND (
-    $5 = '' OR
-    (upper($5) IN ('ERROR', 'FATAL') AND status >= 500) OR
-    (upper($5) IN ('WARN', 'WARNING') AND status >= 400 AND status < 500) OR
-    (upper($5) = 'INFO' AND status < 400)
-  )
-GROUP BY 1 ORDER BY 1 ASC LIMIT $6`
-
-const postgresHourVolumeQuery = `
-SELECT date_bin('1 hour', started_at, TIMESTAMPTZ '1970-01-01'), count(*)
-FROM http_traces
-WHERE started_at >= $1 AND started_at < $2
-  AND ($3 = '' OR $3 = 'api')
-  AND ($4 = '' OR route ILIKE '%' || $4 || '%')
-  AND (
-    $5 = '' OR
-    (upper($5) IN ('ERROR', 'FATAL') AND status >= 500) OR
-    (upper($5) IN ('WARN', 'WARNING') AND status >= 400 AND status < 500) OR
-    (upper($5) = 'INFO' AND status < 400)
-  )
-GROUP BY 1 ORDER BY 1 ASC LIMIT $6`
-
-const postgresDayVolumeQuery = `
-SELECT date_bin('1 day', started_at, TIMESTAMPTZ '1970-01-01'), count(*)
-FROM http_traces
-WHERE started_at >= $1 AND started_at < $2
-  AND ($3 = '' OR $3 = 'api')
-  AND ($4 = '' OR route ILIKE '%' || $4 || '%')
-  AND (
-    $5 = '' OR
-    (upper($5) IN ('ERROR', 'FATAL') AND status >= 500) OR
-    (upper($5) IN ('WARN', 'WARNING') AND status >= 400 AND status < 500) OR
-    (upper($5) = 'INFO' AND status < 400)
-  )
-GROUP BY 1 ORDER BY 1 ASC LIMIT $6`
+var (
+	postgresMinuteVolumeQuery      = postgresVolumeQuery("1 minute")
+	postgresFiveMinuteVolumeQuery  = postgresVolumeQuery("5 minutes")
+	postgresQuarterHourVolumeQuery = postgresVolumeQuery("15 minutes")
+	postgresHourVolumeQuery        = postgresVolumeQuery("1 hour")
+	postgresDayVolumeQuery         = postgresVolumeQuery("1 day")
+)
 
 func (s *PostgresStore) QueryLogVolume(ctx context.Context, query LogVolumeQuery) (LogVolumeResult, error) {
 	if err := s.validate(query.Range, query.Limit); err != nil {
@@ -493,9 +452,6 @@ FROM (
   WHERE started_at >= $1 AND started_at < $2
   UNION ALL
   SELECT started_at, 'traces'::text FROM http_traces
-  WHERE started_at >= $1 AND started_at < $2
-  UNION ALL
-  SELECT started_at, 'metrics'::text FROM http_traces
   WHERE started_at >= $1 AND started_at < $2
 ) signals
 GROUP BY signal
@@ -557,15 +513,7 @@ func (s *PostgresStore) QueryServiceMap(ctx context.Context, query ServiceMapQue
 const postgresLogMatchAlertQuery = `
 SELECT count(*)
 FROM http_traces
-WHERE started_at >= $1 AND started_at < $2
-  AND ($3 = '' OR $3 = 'api')
-  AND ($4 = '' OR route ILIKE '%' || $4 || '%')
-  AND (
-    $5 = '' OR
-    (upper($5) IN ('ERROR', 'FATAL') AND status >= 500) OR
-    (upper($5) IN ('WARN', 'WARNING') AND status >= 400 AND status < 500) OR
-    (upper($5) = 'INFO' AND status < 400)
-  )`
+WHERE ` + requestLogFilter
 
 func (s *PostgresStore) EvaluateAlert(ctx context.Context, query AlertQuery) (AlertValue, error) {
 	if err := s.validate(query.Range, 1); err != nil {

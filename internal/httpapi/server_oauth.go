@@ -148,15 +148,7 @@ func (s *Server) beginOAuth(w http.ResponseWriter, r *http.Request, intent, acco
 		internalError(s, w, err)
 		return
 	}
-	// Correlate the authorize challenge with the callback cookie by state so a
-	// stale browser URL is distinguishable from a provider rejection.
-	s.logger.Info(
-		"oauth start",
-		"provider", provider.Name,
-		"intent", intent,
-		"state", state[:8],
-		"challenge", challenge,
-	)
+	s.logger.Info("oauth start", "provider", provider.Name, "intent", intent)
 	writeJSON(w, http.StatusOK, oauthStartResponse{
 		AuthorizationURL: provider.AuthorizationURL(callbackURL, state, verifier),
 	})
@@ -188,6 +180,14 @@ func (s *Server) oauthCallback(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, s.consoleURL("/login?oauth=error"), http.StatusFound)
 		return
 	}
+	if oauthlogin.S256Challenge(payload.Verifier) != payload.Challenge {
+		s.logger.Warn(
+			"oauth pkce pair mismatch",
+			"provider", provider.Name,
+		)
+		http.Redirect(w, r, s.consoleURL("/login?oauth=error"), http.StatusFound)
+		return
+	}
 	callbackURL, err := s.oauthCallbackURL(r, provider.Name)
 	if err != nil || !strings.HasPrefix(callbackURL, "https://") {
 		http.Redirect(w, r, s.consoleURL("/login?oauth=error"), http.StatusFound)
@@ -195,33 +195,12 @@ func (s *Server) oauthCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	oauthToken, err := s.oauthLogin.Exchange(r.Context(), provider, code, callbackURL, payload.Verifier)
 	if err != nil {
-		// Distinguish an internal pair mismatch from a provider rejection:
-		// if sha256(verifier) != the challenge advertised in the authorize
-		// URL, the cookie and the URL came from different starts and the
-		// fix is on this side; otherwise the provider rejected a consistent
-		// pair and the cause is external (clock, credentials, redirect).
-		computed := oauthlogin.S256Challenge(payload.Verifier)
-		if computed != payload.Challenge {
-			s.logger.Error(
-				"oauth pkce pair mismatch",
-				"provider", provider.Name,
-				"state", payload.State[:min(8, len(payload.State))],
-				"cookie_verifier_len", len(payload.Verifier),
-				"cookie_challenge", payload.Challenge,
-				"computed_challenge", computed,
-			)
-		} else {
-			s.logger.Warn(
-				"oauth token exchange failed with a consistent pkce pair",
-				"provider", provider.Name,
-				"state", payload.State[:min(8, len(payload.State))],
-				"verifier_len", len(payload.Verifier),
-				"challenge", payload.Challenge,
-				"redirect", callbackURL,
-				"client_id", provider.ClientID,
-				"error", err,
-			)
-		}
+		s.logger.Warn(
+			"oauth token exchange failed",
+			"provider", provider.Name,
+			"redirect", callbackURL,
+			"error", err,
+		)
 		http.Redirect(w, r, s.consoleURL("/login?oauth=error"), http.StatusFound)
 		return
 	}

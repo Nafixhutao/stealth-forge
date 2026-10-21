@@ -72,7 +72,12 @@ func TestPostgresStoreQueriesRequestTelemetryIntegration(t *testing.T) {
 	})
 
 	queryRange := TimeRange{From: now.Add(-5 * time.Minute), To: now.Add(time.Minute)}
-	logs, err := store.QueryLogs(ctx, LogsQuery{Range: queryRange, Limit: 10})
+	// Other integration packages share the database and may leave unrelated
+	// traces inside the same time window. Scope every assertion to this
+	// fixture's route prefix so the test remains deterministic in a full run.
+	logs, err := store.QueryLogs(ctx, LogsQuery{
+		Range: queryRange, Search: "/v1/projects/{projectID}", Limit: 10,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +89,19 @@ func TestPostgresStoreQueriesRequestTelemetryIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(traces.Items) != 3 || traces.Items[0].Status != "error" {
+	// QueryTraces has no substring search, so filter the bounded response to
+	// the three fixture trace IDs. Unrelated integration traffic may still be
+	// present when packages share a database.
+	fixtureTraces := make([]SpanRecord, 0, len(rows))
+	for _, item := range traces.Items {
+		for _, row := range rows {
+			if item.TraceID == row.traceID {
+				fixtureTraces = append(fixtureTraces, item)
+				break
+			}
+		}
+	}
+	if len(fixtureTraces) != 3 || fixtureTraces[0].Status != "error" {
 		t.Fatalf("unexpected traces: %+v", traces.Items)
 	}
 
@@ -96,7 +113,13 @@ func TestPostgresStoreQueriesRequestTelemetryIntegration(t *testing.T) {
 		t.Fatalf("unexpected error groups: %+v", errorsResult.Items)
 	}
 
-	overview, err := store.QueryHTTPOverview(ctx, HTTPOverviewQuery{Range: queryRange})
+	// HTTP overview is intentionally service-wide, so isolate it from other
+	// integration fixtures that may share the same database and time window.
+	overviewRange := TimeRange{
+		From: now.Add(-2*time.Minute - time.Millisecond),
+		To:   now.Add(-30*time.Second + time.Millisecond),
+	}
+	overview, err := store.QueryHTTPOverview(ctx, HTTPOverviewQuery{Range: overviewRange})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,12 +128,16 @@ func TestPostgresStoreQueriesRequestTelemetryIntegration(t *testing.T) {
 	}
 
 	alert, err := store.EvaluateAlert(ctx, AlertQuery{
-		Kind: "error_rate", Range: queryRange,
+		Kind: "error_rate", Range: overviewRange,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !alert.Available || alert.SampleCount != 3 {
 		t.Fatalf("unexpected error-rate alert value: %+v", alert)
+	}
+
+	if _, ok := any(store).(ContainerLogReader); ok {
+		t.Fatal("PostgreSQL request telemetry must not claim App runtime-log support")
 	}
 }
