@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { FolderKanban, MoreHorizontal, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -10,6 +12,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useProjectRequestCount } from "@/api/queries/projects";
+import { projectPath } from "@/features/project/paths";
+import { formatCount } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
@@ -55,14 +60,18 @@ function formatUtcDate(value: string): string | null {
 }
 
 /**
- * The box row's identity mark: a tinted square with the project glyph, so a
- * row starts with the same kind of mark the reference table uses.
+ * The project's identity mark: a tinted square with the project glyph. Shared
+ * by the box row and the project header, so a project looks the same wherever
+ * it is named.
  */
-function ProjectMark() {
+export function ProjectMark({ className }: { className?: string }) {
   return (
     <span
       aria-hidden="true"
-      className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--user-accent)_12%,transparent)] sm:size-9"
+      className={cn(
+        "flex size-8 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--user-accent)_12%,transparent)] sm:size-9",
+        className,
+      )}
     >
       <FolderKanban
         size={16}
@@ -109,6 +118,9 @@ function ProjectActionsMenu({
       {/* Portaled to the body, so it opts into the console's light palette and
           accent with `data-user-surface`. */}
       <DropdownMenuContent align="end" data-user-surface="">
+        <DropdownMenuItem onSelect={() => router.push(projectPath(projectId))}>
+          Open project
+        </DropdownMenuItem>
         <DropdownMenuItem onSelect={copyId}>Copy project ID</DropdownMenuItem>
         {canOpenAdmin ? (
           <DropdownMenuItem onSelect={() => router.push("/admin")}>
@@ -128,18 +140,40 @@ export function ProjectCard({
 }: {
   project: { id: string; name: string; created_at: string };
   canOpenAdmin: boolean;
-  onCreateProject: () => void;
+  /** Omitted when the caller may not create projects, which hides the
+   * quick-create control rather than showing one that would answer 403. */
+  onCreateProject?: () => void;
 }) {
   const created = formatUtcDate(project.created_at);
+  const href = projectPath(project.id);
+  const cardRef = useRef<HTMLElement>(null);
+  const inView = useInView(cardRef);
+  // Requests in the last 30 days, from the project's own snapshot. `undefined`
+  // while that read is in flight, not started, or failed; the card says which
+  // rather than printing a zero it did not measure.
+  const requests = useProjectRequestCount(project.id, inView);
 
   return (
-    <article className="mx-4 flex flex-col overflow-hidden rounded-[13px] border border-[var(--projects-border)] bg-[var(--projects-card-bg)] divide-y divide-[var(--projects-divider)] transition-colors hover:border-[var(--projects-border-hover)] sm:mx-0">
+    <article
+      ref={cardRef}
+      className="relative mx-4 flex flex-col overflow-hidden rounded-[13px] border border-[var(--projects-border)] bg-[var(--projects-card-bg)] divide-y divide-[var(--projects-divider)] transition-colors hover:border-[var(--projects-border-hover)] sm:mx-0"
+    >
       <div className="flex min-h-[65px] flex-col justify-center py-[12.5px] !px-4">
         <h3
           title={project.name}
           className="m-0 truncate !text-[14px] font-semibold leading-5 tracking-[-0.01em] text-[var(--projects-text)]"
         >
-          {project.name}
+          {/* The link's `after` overlay makes the whole card a target for the
+              pointer; the action row below paints above it. */}
+          <Link
+            href={href}
+            className={cn(
+              "block truncate no-underline after:absolute after:inset-0 after:content-['']",
+              FOCUS,
+            )}
+          >
+            {project.name}
+          </Link>
         </h3>
         <p className="m-0 truncate !text-[12px] leading-5 text-[var(--projects-muted)]">
           {created ? `Created ${created}` : "Creation date unavailable"}
@@ -151,27 +185,48 @@ export function ProjectCard({
           <span className="text-[12px] leading-5 text-[var(--projects-muted)]">
             Requests
           </span>
-          <span className="text-[12px] font-medium leading-5 text-[var(--projects-muted)]">
-            N/A
-          </span>
+          {requests === undefined ? (
+            // A placeholder keeps the row's height while the snapshot loads, and
+            // is never mistaken for a count.
+            <span
+              aria-hidden="true"
+              className="h-3 w-8 animate-pulse rounded bg-[var(--projects-control)] motion-reduce:animate-none"
+            />
+          ) : (
+            <span className="text-[12px] font-medium leading-5 text-[var(--projects-muted)]">
+              {formatCount(requests)}
+            </span>
+          )}
+          {requests === undefined ? (
+            <span className="sr-only">
+              Requests in the last 30 days loading
+            </span>
+          ) : null}
         </div>
         {/* The accent line sits at the bottom, exactly against the divider with pb-2 */}
         <div className="h-px bg-[var(--user-accent)]/70" aria-hidden="true" />
       </div>
 
-      <div className="flex items-center justify-between gap-2 !px-4 py-[13px]">
-        <button
-          type="button"
-          onClick={onCreateProject}
-          aria-label="Create project"
-          title="Create project"
-          className={cn(
-            "inline-flex !size-7 shrink-0 items-center justify-center rounded-lg border border-dashed border-[var(--projects-border-hover)] text-[var(--projects-muted)] transition-colors hover:text-[var(--projects-text)]",
-            FOCUS,
-          )}
-        >
-          <Plus size={15} strokeWidth={2} aria-hidden="true" />
-        </button>
+      <div
+        className={cn(
+          "relative flex items-center gap-2 !px-4 py-[13px]",
+          onCreateProject ? "justify-between" : "justify-end",
+        )}
+      >
+        {onCreateProject ? (
+          <button
+            type="button"
+            onClick={onCreateProject}
+            aria-label="Create project"
+            title="Create project"
+            className={cn(
+              "inline-flex !size-7 shrink-0 items-center justify-center rounded-lg border border-dashed border-[var(--projects-border-hover)] text-[var(--projects-muted)] transition-colors hover:text-[var(--projects-text)]",
+              FOCUS,
+            )}
+          >
+            <Plus size={15} strokeWidth={2} aria-hidden="true" />
+          </button>
+        ) : null}
 
         <ProjectActionsMenu
           projectId={project.id}
@@ -203,12 +258,16 @@ export function ProjectRow({
         <div className="flex min-w-0 items-center gap-3">
           <ProjectMark />
           <span className="min-w-0">
-            <span
+            <Link
+              href={projectPath(project.id)}
               title={project.name}
-              className="block truncate text-[14px] font-semibold leading-5 text-[var(--projects-text)] sm:text-[15px]"
+              className={cn(
+                "block truncate text-[14px] font-semibold leading-5 text-[var(--projects-text)] no-underline sm:text-[15px]",
+                FOCUS,
+              )}
             >
               {project.name}
-            </span>
+            </Link>
             <span className="block truncate text-[12.5px] leading-5 text-[var(--projects-muted)] sm:text-[13px]">
               {created ? `Created ${created}` : "Creation date unavailable"}
             </span>
@@ -266,4 +325,39 @@ export function ProjectCardsSkeleton({ count }: { count: number }) {
       ))}
     </div>
   );
+}
+
+/**
+ * Whether an element is on screen, so a card can defer its own read until it is.
+ *
+ * The observer is created once per card and disconnected on unmount. A card that
+ * has already been seen stays enabled: scrolling away should not throw away a
+ * number that was already fetched.
+ */
+function useInView(ref: React.RefObject<HTMLElement | null>) {
+  const [inView, setInView] = useState(
+    () => typeof IntersectionObserver === "undefined",
+  );
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element || inView) return;
+    // Without IntersectionObserver the honest fallback is to load: a missing
+    // number is worse than one extra request. The check is part of the initial
+    // state instead of an effect write, so the first render already knows.
+    if (typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref, inView]);
+
+  return inView;
 }

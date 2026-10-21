@@ -70,8 +70,19 @@ func (s *Server) serveSiteFile(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
+	// A preview is served from the console's own origin, so a published page's
+	// script would otherwise run with the console's cookies in reach. The CSP
+	// `sandbox` directive gives the document an opaque origin even when it is
+	// opened directly rather than inside the console's sandboxed frame. Sites
+	// served on their platform hostname are a separate origin and use a
+	// different handler, so they are unaffected.
+	w.Header().Set("Content-Security-Policy", previewSiteCSP)
 	s.servePublishedSiteFile(w, r, artifact)
 }
+
+// previewSiteCSP lets a published page render and run its own scripts while
+// denying it the console's origin, cookies, and storage.
+const previewSiteCSP = "sandbox allow-scripts allow-forms allow-popups allow-modals"
 
 // serveSiteDeploymentFile exposes a ready immutable release at a preview URL.
 // It is public by design: the deployment UUID is the capability-like URL and
@@ -101,6 +112,7 @@ func (s *Server) serveSiteDeploymentFile(w http.ResponseWriter, r *http.Request)
 		internalError(s, w, err)
 		return
 	}
+	w.Header().Set("Content-Security-Policy", previewSiteCSP)
 	s.servePublishedSiteFile(w, r, artifact)
 }
 

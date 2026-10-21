@@ -8,8 +8,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { Menu } from "lucide-react";
 import { Sidebar } from "@/features/navigation/sidebar";
-import { PanelToggleIcon } from "@/features/navigation/sidebar-shared";
 
 type ApplicationShellValue = {
   openSidebar: () => void;
@@ -72,7 +72,13 @@ export function ApplicationShell({
             aria-haspopup="dialog"
             className="fixed left-4 top-3 z-40 inline-flex size-9 items-center justify-center rounded-lg border border-[var(--projects-border)] bg-[var(--projects-control)] text-[var(--projects-text)] shadow-[0_1px_3px_rgba(0,0,0,0.35)] transition-colors hover:border-[var(--projects-border-hover)] lg:hidden"
           >
-            <PanelToggleIcon className="size-[18px]" />
+            {/* Three lines, matching the user top bar: both open the same
+                bottom sheet, so both are drawn as the same control. */}
+            <Menu
+              className="size-[18px]"
+              strokeWidth={1.9}
+              aria-hidden="true"
+            />
           </button>
         )}
         <div className="min-h-dvh lg:flex">

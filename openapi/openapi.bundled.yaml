@@ -8086,6 +8086,73 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /v1/projects/{projectID}/sites/{siteID}/deployments/{deploymentID}/files:
+    get:
+      operationId: listSiteDeploymentFiles
+      description: List the regular files of one published immutable Site release. Contents are served by the deployment's public preview route; this only returns paths and sizes.
+      security:
+        - sessionCookie: []
+        - projectApiKey: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectID'
+        - $ref: '#/components/parameters/SiteID'
+        - $ref: '#/components/parameters/DeploymentID'
+      responses:
+        '200':
+          description: Published release files
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteDeploymentFilesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      operationId: editSiteDeploymentFile
+      description: Publish a new release from an existing one with one file's contents replaced. A release is immutable, so this copies the source release, rewrites the file, and creates a new deployment; the previous release is untouched. Only files that already exist in the release can be edited, symlinks are skipped rather than followed, and the artifact quota applies.
+      security:
+        - sessionCookie: []
+        - projectApiKey: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectID'
+        - $ref: '#/components/parameters/SiteID'
+        - $ref: '#/components/parameters/DeploymentID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditSiteDeploymentFileRequest'
+      responses:
+        '201':
+          description: New release published
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteDeploymentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /v1/sites/{siteID}:
     get:
       operationId: serveSiteIndex
@@ -18725,3 +18792,49 @@ components:
           type: integer
           minimum: 1
           maximum: 100
+    SiteDeploymentFile:
+      type: object
+      additionalProperties: false
+      required:
+        - path
+        - size
+      properties:
+        path:
+          type: string
+          description: Path relative to the release root using forward slashes. The public preview route accepts it verbatim.
+        size:
+          type: integer
+          format: int64
+          minimum: 0
+    SiteDeploymentFilesResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - files
+        - truncated
+      properties:
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/SiteDeploymentFile'
+        truncated:
+          type: boolean
+          description: True when the listing hit its bound and does not describe the whole release.
+    EditSiteDeploymentFileRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - path
+        - content
+      properties:
+        path:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          description: Path of a file that already exists in the source release relative to its root.
+        content:
+          type: string
+          description: Text contents to write. The API bounds this by the configured artifact size.
+        activate:
+          type: boolean
+          default: true
