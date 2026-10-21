@@ -16,6 +16,8 @@ export function errorMessage(error: unknown) {
     return "Could not reach the Stealth API. Check your connection and retry.";
   }
   if (error instanceof ApiError) {
+    if (error.code === "invalid_credentials")
+      return "That email and password do not match. If this account uses Google sign-in, choose Google above.";
     if (error.status === 401)
       return "Your session has expired. Sign in again to continue.";
     if (error.status === 403)
