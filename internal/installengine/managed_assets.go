@@ -35,6 +35,15 @@ func DefaultManagedAssets() []ManagedAsset {
 		{Path: "traefik/traefik.yaml", RemotePath: "traefik/traefik.yaml", Marker: "entryPoints:", productionOnly: true, render: renderTraefikStaticAsset, validate: validateTraefikStaticAsset},
 		{Path: "traefik/dynamic/core.yaml", RemotePath: "traefik/dynamic/core.yaml", Marker: "__STEALTH_PUBLIC_HOST__", productionOnly: true, render: renderTraefikCoreAsset, validate: validateTraefikCoreAsset},
 		{Path: "traefik/dynamic/generated/.gitkeep", RemotePath: "traefik/dynamic/generated/.gitkeep", Marker: "Stealth route reconciler", productionOnly: true},
+		// The public status site is a static asset tree the proxy bind-mounts
+		// from the install root, so it has to arrive through the same signed
+		// release manifest as every other runtime file. Binary assets are
+		// identified by their PNG signature instead of a text marker.
+		{Path: "status-site/index.html", RemotePath: "status-site/index.html", Marker: "<!doctype html>", productionOnly: true},
+		{Path: "status-site/app.js", RemotePath: "status-site/app.js", Marker: "function renderPublished(", productionOnly: true},
+		{Path: "status-site/styles.css", RemotePath: "status-site/styles.css", Marker: ".site-header__inner", productionOnly: true},
+		{Path: "status-site/favicon.png", RemotePath: "status-site/favicon.png", Marker: "\x89PNG\r\n\x1a\n", productionOnly: true},
+		{Path: "status-site/stealth-mark.png", RemotePath: "status-site/stealth-mark.png", Marker: "\x89PNG\r\n\x1a\n", productionOnly: true},
 		{Path: "compose.setup.yaml", RemotePath: "compose.setup.yaml", Marker: "services:", setupOnly: true},
 	}
 }

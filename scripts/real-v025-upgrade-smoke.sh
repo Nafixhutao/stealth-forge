@@ -44,29 +44,22 @@ cleanup() {
 trap cleanup EXIT
 
 cp -a "$fixture_root"/. "$smoke_root"/
+# release-managed-assets.txt is the single source of truth for what a release
+# ships. Mirroring its list here instead of a second hardcoded copy keeps this
+# smoke honest when the manifest grows.
 for asset_version in "$bridge_version" "$target_version"; do
-	mkdir -p "$asset_root/$asset_version/console/deploy"
-	mkdir -p "$asset_root/$asset_version/buildkit"
-	mkdir -p "$asset_root/$asset_version/traefik/dynamic/generated"
-	cp "$repo_root/compose.production.yaml" "$asset_root/$asset_version/compose.production.yaml"
-	cp "$repo_root/compose.setup.yaml" "$asset_root/$asset_version/compose.setup.yaml"
-	cp "$repo_root/buildkit/buildkitd.toml" "$asset_root/$asset_version/buildkit/buildkitd.toml"
-	cp "$repo_root/buildkit/stealth-buildkit-rootless.apparmor" "$asset_root/$asset_version/buildkit/stealth-buildkit-rootless.apparmor"
-	cp "$repo_root/console/deploy/nginx.conf" "$asset_root/$asset_version/console/deploy/nginx.conf"
-	cp "$repo_root/traefik/traefik.yaml" "$asset_root/$asset_version/traefik/traefik.yaml"
-	cp "$repo_root/traefik/dynamic/core.yaml" "$asset_root/$asset_version/traefik/dynamic/core.yaml"
-	cp "$repo_root/traefik/dynamic/generated/.gitkeep" "$asset_root/$asset_version/traefik/dynamic/generated/.gitkeep"
+	mkdir -p "$asset_root/$asset_version"
+	while IFS= read -r managed_asset; do
+		[[ -n "$managed_asset" ]] || continue
+		mkdir -p "$asset_root/$asset_version/$(dirname "$managed_asset")"
+		cp "$repo_root/$managed_asset" "$asset_root/$asset_version/$managed_asset"
+	done < "$repo_root/release-managed-assets.txt"
 	(
 		cd "$asset_root/$asset_version"
-		sha256sum \
-			compose.production.yaml \
-			buildkit/buildkitd.toml \
-			buildkit/stealth-buildkit-rootless.apparmor \
-			console/deploy/nginx.conf \
-			traefik/traefik.yaml \
-			traefik/dynamic/core.yaml \
-			traefik/dynamic/generated/.gitkeep \
-			compose.setup.yaml > checksums.txt
+		while IFS= read -r managed_asset; do
+			[[ -n "$managed_asset" ]] || continue
+			sha256sum "$managed_asset"
+		done < "$repo_root/release-managed-assets.txt" > checksums.txt
 	)
 done
 
