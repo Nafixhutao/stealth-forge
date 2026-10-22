@@ -100,7 +100,9 @@ func (c *APIClient) ConfigureTunnel(ctx context.Context, accountID, tunnelID str
 		return errors.New("tunnel ingress configuration is invalid")
 	}
 	for _, rule := range ingress {
-		if strings.TrimSpace(rule.Service) == "" || len(rule.Service) > 2048 || strings.ContainsAny(rule.Service, "\x00\r\n") {
+		if strings.TrimSpace(rule.Service) == "" ||
+			len(rule.Service) > 2048 ||
+			strings.ContainsAny(rule.Service, "\x00\r\n") {
 			return errors.New("tunnel ingress service is invalid")
 		}
 	}
@@ -131,7 +133,9 @@ func (c *APIClient) TunnelConfiguration(ctx context.Context, accountID, tunnelID
 		return nil, errors.New("Cloudflare returned an invalid tunnel configuration")
 	}
 	for _, rule := range result.Result.Config.Ingress {
-		if strings.TrimSpace(rule.Service) == "" || len(rule.Service) > 2048 || strings.ContainsAny(rule.Service, "\x00\r\n") {
+		if strings.TrimSpace(rule.Service) == "" ||
+			len(rule.Service) > 2048 ||
+			strings.ContainsAny(rule.Service, "\x00\r\n") {
 			return nil, errors.New("Cloudflare returned an invalid tunnel configuration")
 		}
 	}
@@ -180,5 +184,3 @@ func (c *APIClient) TunnelToken(ctx context.Context, accountID, tunnelID string)
 func StatusIsHealthy(status TunnelStatus) bool {
 	return strings.EqualFold(strings.TrimSpace(status.Status), "healthy")
 }
-
-func NumericStatus(value int) string { return strconv.Itoa(value) }

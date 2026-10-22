@@ -29,7 +29,3 @@ func NewOAuthState() (plain string, hash string, expiresAt time.Time, err error)
 func HashCallbackState(value string) string {
 	return base64.RawURLEncoding.EncodeToString(sha256Bytes([]byte(strings.TrimSpace(value))))
 }
-
-func HashOAuthState(value string) string {
-	return HashCallbackState(value)
-}

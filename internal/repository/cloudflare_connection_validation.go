@@ -36,7 +36,8 @@ func validateCloudflareConnectionInput(input CloudflareConnectionInput, requireT
 }
 
 func validateCloudflareObserved(update domain.CloudflareRoutingUpdate) error {
-	if (update.ConsoleOriginDesired != "proxy" && update.ConsoleOriginDesired != "traefik") || update.ConsoleOriginObserved != update.ConsoleOriginDesired {
+	if (update.ConsoleOriginDesired != "proxy" && update.ConsoleOriginDesired != "traefik") ||
+		update.ConsoleOriginObserved != update.ConsoleOriginDesired {
 		return errors.New("Cloudflare Console origin observation is invalid")
 	}
 	if update.ExpectedWorkloadBaseDomain != nil {
@@ -45,7 +46,10 @@ func validateCloudflareObserved(update domain.CloudflareRoutingUpdate) error {
 			return errors.New("Cloudflare workload domain is invalid")
 		}
 		expected := "*." + domain
-		if update.WildcardHostname != expected || update.WorkloadZoneID == "" || update.WorkloadZoneName == "" || update.WildcardRecordID == "" {
+		if update.WildcardHostname != expected ||
+			update.WorkloadZoneID == "" ||
+			update.WorkloadZoneName == "" ||
+			update.WildcardRecordID == "" {
 			return errors.New("Cloudflare wildcard observation is incomplete")
 		}
 		switch update.EdgeTLSStatus {
@@ -53,7 +57,10 @@ func validateCloudflareObserved(update domain.CloudflareRoutingUpdate) error {
 		default:
 			return errors.New("Cloudflare workload edge TLS observation is incomplete")
 		}
-	} else if update.WorkloadZoneID != "" || update.WorkloadZoneName != "" || update.WildcardHostname != "" || update.WildcardRecordID != "" {
+	} else if update.WorkloadZoneID != "" ||
+		update.WorkloadZoneName != "" ||
+		update.WildcardHostname != "" ||
+		update.WildcardRecordID != "" {
 		return errors.New("Cloudflare clear observation must not contain wildcard resources")
 	} else if update.EdgeTLSStatus != "not_applicable" {
 		return errors.New("Cloudflare clear observation must mark edge TLS not applicable")
@@ -66,13 +73,6 @@ func validateCloudflareObserved(update domain.CloudflareRoutingUpdate) error {
 
 func sameCloudflareIdentity(existing domain.CloudflareConnection, input CloudflareConnectionInput) bool {
 	return existing.AccountID == input.AccountID && existing.ConsoleZoneID == input.ConsoleZoneID && existing.ConsoleHostname == input.ConsoleHostname && existing.TunnelID == input.TunnelID && existing.TunnelName == input.TunnelName
-}
-
-func sameOptionalString(left, right *string) bool {
-	if left == nil || right == nil {
-		return left == nil && right == nil
-	}
-	return *left == *right
 }
 
 func nullableBytes(value []byte) any {

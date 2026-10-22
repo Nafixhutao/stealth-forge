@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"net/url"
 	"regexp"
 	"slices"
 	"strconv"
@@ -456,12 +455,4 @@ func numberValue(value any) (float64, bool) {
 	default:
 		return 0, false
 	}
-}
-
-// EncodeQueryValue gives the SQL adapter a stable representation for cursor
-// values. Query values are still passed as pgx parameters; URL encoding here
-// is only for cursor transport and does not enter SQL.
-func EncodeQueryValue(value any) string {
-	encoded, _ := json.Marshal(value)
-	return url.QueryEscape(string(encoded))
 }

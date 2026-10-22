@@ -68,7 +68,15 @@ func (r *Repository) AdminAlertRuleByID(ctx context.Context, id uuid.UUID) (doma
 	return item, err
 }
 
-func (r *Repository) CreateAdminAlertRule(ctx context.Context, accountID, id uuid.UUID, input AdminAlertRuleInput) (domain.AdminAlertRule, error) {
+func (r *Repository) CreateAdminAlertRule(
+	ctx context.Context,
+	accountID,
+	id uuid.UUID,
+	input AdminAlertRuleInput,
+) (
+	domain.AdminAlertRule,
+	error,
+) {
 	normalized, err := normalizeAdminAlertRuleInput(input)
 	if err != nil {
 		return domain.AdminAlertRule{}, err
@@ -102,7 +110,15 @@ func (r *Repository) CreateAdminAlertRule(ctx context.Context, accountID, id uui
 	return item, nil
 }
 
-func (r *Repository) UpdateAdminAlertRule(ctx context.Context, accountID, id uuid.UUID, patch AdminAlertRulePatch) (domain.AdminAlertRule, error) {
+func (r *Repository) UpdateAdminAlertRule(
+	ctx context.Context,
+	accountID,
+	id uuid.UUID,
+	patch AdminAlertRulePatch,
+) (
+	domain.AdminAlertRule,
+	error,
+) {
 	normalized, err := normalizeAdminAlertRulePatch(patch)
 	if err != nil {
 		return domain.AdminAlertRule{}, err
@@ -126,7 +142,16 @@ func (r *Repository) UpdateAdminAlertRule(ctx context.Context, accountID, id uui
 // relationship before locking the rule row. Monitor-backed relationship
 // changes therefore use monitor -> rule ordering, matching monitor updates and
 // monitor-worker evaluation. The caller must commit or roll back tx.
-func updateAdminAlertRuleTx(ctx context.Context, tx pgx.Tx, accountID, id uuid.UUID, normalized AdminAlertRulePatch) (domain.AdminAlertRule, error) {
+func updateAdminAlertRuleTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	accountID,
+	id uuid.UUID,
+	normalized AdminAlertRulePatch,
+) (
+	domain.AdminAlertRule,
+	error,
+) {
 	if err := requireInstanceAdminTx(ctx, tx, accountID); err != nil {
 		return domain.AdminAlertRule{}, err
 	}
@@ -217,7 +242,18 @@ func updateAdminAlertRuleTx(ctx context.Context, tx pgx.Tx, accountID, id uuid.U
 	return item, nil
 }
 
-func mergedAdminAlertRuleValues(current domain.AdminAlertRule, normalized AdminAlertRulePatch) (string, string, json.RawMessage, string, int, bool, error) {
+func mergedAdminAlertRuleValues(
+	current domain.AdminAlertRule,
+	normalized AdminAlertRulePatch,
+) (
+	string,
+	string,
+	json.RawMessage,
+	string,
+	int,
+	bool,
+	error,
+) {
 	name := current.Name
 	if normalized.Name != nil {
 		name = *normalized.Name
@@ -277,7 +313,11 @@ func lockAdminAlertMonitorsTx(ctx context.Context, tx pgx.Tx, monitorIDs ...uuid
 	return locked, nil
 }
 
-func validateLockedAdminAlertMonitor(ruleKind string, monitorID uuid.UUID, lockedMonitorKinds map[uuid.UUID]string) error {
+func validateLockedAdminAlertMonitor(
+	ruleKind string,
+	monitorID uuid.UUID,
+	lockedMonitorKinds map[uuid.UUID]string,
+) error {
 	monitorKind, ok := lockedMonitorKinds[monitorID]
 	if !ok {
 		return ErrAdminAlertRuleConflict
@@ -362,16 +402,15 @@ func deleteAdminAlertRuleTx(ctx context.Context, tx pgx.Tx, accountID, id uuid.U
 	return nil
 }
 
-func (r *Repository) ListAdminAlertEvents(ctx context.Context, ruleID uuid.UUID, limit int) ([]domain.AdminAlertEvent, error) {
+func (r *Repository) ListAdminAlertEvents(
+	ctx context.Context,
+	ruleID uuid.UUID,
+	limit int,
+) (
+	[]domain.AdminAlertEvent,
+	error,
+) {
 	page, err := r.QueryAdminAlertEvents(ctx, AdminAlertEventQuery{RuleID: &ruleID, Limit: limit})
-	if err != nil {
-		return nil, err
-	}
-	return page.Items, nil
-}
-
-func (r *Repository) ListRecentAdminAlertEvents(ctx context.Context, limit int) ([]domain.AdminAlertEvent, error) {
-	page, err := r.QueryAdminAlertEvents(ctx, AdminAlertEventQuery{Limit: limit})
 	if err != nil {
 		return nil, err
 	}
