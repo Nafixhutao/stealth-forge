@@ -163,21 +163,7 @@ func (r *Repository) RecordHTTPTrace(ctx context.Context, id uuid.UUID, input HT
 		}
 	}
 	_, err = tx.Exec(ctx, `
-				INSERT INTO http_traces (
-			id,
-			trace_id,
-			span_id,
-			organization_id,
-			project_id,
-			account_id,
-			method,
-			route,
-			status,
-			duration_ms,
-			response_bytes,
-			started_at,
-			finished_at,
-		)
+		INSERT INTO http_traces (id,trace_id,span_id,organization_id,project_id,account_id,method,route,status,duration_ms,response_bytes,started_at,finished_at)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
 		id,
 		strings.ToLower(strings.TrimSpace(input.TraceID)),

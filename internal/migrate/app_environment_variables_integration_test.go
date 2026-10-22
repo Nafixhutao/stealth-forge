@@ -65,18 +65,7 @@ func TestAppEnvironmentVariablesMigrationPreservesExistingAppsAndDownIntegration
 		label     string
 	}{{appID, projectID, "existing-app", "existing-app"}, {secondAppID, projectID, "second-existing-app", "second-existing-app"}, {cascadeAppID, cascadeProjectID, "cascade-app", "cascade-app"}} {
 		if _, err := conn.Exec(ctx, `
-						INSERT INTO project_apps (
-				id,
-				project_id,
-				name,
-				platform_label,
-				enabled,
-				workload_spec,
-				workload_spec_sha256,
-				desired_generation,
-				observed_generation,
-				runtime_status,
-			)
+			INSERT INTO project_apps (id,project_id,name,platform_label,enabled,workload_spec,workload_spec_sha256,desired_generation,observed_generation,runtime_status)
 			VALUES ($1,$2,$3,$4,true,$5::jsonb,repeat('a',64),1,0,'not_deployed')`, app.id, app.projectID, app.name, app.label, spec); err != nil {
 			t.Fatal(err)
 		}

@@ -181,21 +181,7 @@ func (r *Repository) CreateAdminMonitor(
 		return domain.AdminMonitor{}, err
 	}
 	_, err = tx.Exec(ctx, `
-		INSERT INTO admin_monitors
-				(
-			id,
-			name,
-			kind,
-			target,
-			interval_seconds,
-			timeout_ms,
-			enabled,
-			public_config,
-			config_encrypted,
-			heartbeat_token_hash,
-			next_check_at,
-			created_by_account_id,
-		)
+		INSERT INTO admin_monitors (id,name,kind,target,interval_seconds,timeout_ms,enabled,public_config,config_encrypted,heartbeat_token_hash,next_check_at,created_by_account_id)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now(),$11)`,
 		id, input.Name, input.Kind, input.Target, input.IntervalSeconds, input.TimeoutMS,
 		input.Enabled, input.PublicConfig, encryptedConfig, nullableHeartbeatHash(input.HeartbeatTokenHash), accountID)

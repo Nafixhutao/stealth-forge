@@ -180,16 +180,7 @@ func (r *Repository) CreateAppEnvironmentVariable(
 	item, err := scanAppEnvironmentVariable(tx.QueryRow(
 		ctx,
 		`
-				INSERT INTO app_environment_variables (
-			id,
-			app_id,
-			project_id,
-			key,
-			is_secret,
-			value_ciphertext,
-			value_plaintext_bytes,
-			description,
-		)
+		INSERT INTO app_environment_variables (id,app_id,project_id,key,is_secret,value_ciphertext,value_plaintext_bytes,description)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING `+appEnvironmentVariableProjection,
 		id,
 		appID,

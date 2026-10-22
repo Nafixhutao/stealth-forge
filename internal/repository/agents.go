@@ -197,20 +197,7 @@ func (r *Repository) CreateAgent(ctx context.Context, id, accountID uuid.UUID, i
 	_, err = tx.Exec(
 		ctx,
 		`
-				INSERT INTO project_agents (
-			id,
-			project_id,
-			created_by_account_id,
-			name,
-			description,
-			role,
-			branch,
-			provider,
-			model,
-			current_task,
-			tools,
-			instructions,
-		)
+		INSERT INTO project_agents (id,project_id,created_by_account_id,name,description,role,branch,provider,model,current_task,tools,instructions)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
 		id,
 		normalized.ProjectID,

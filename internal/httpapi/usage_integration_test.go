@@ -112,15 +112,7 @@ func TestProjectUsageIntegration(t *testing.T) {
 
 	usageDate := time.Now().UTC().AddDate(0, 0, -10).Format("2006-01-02")
 	if _, err := pool.Exec(ctx, `
-				INSERT INTO project_usage_daily (
-			project_id,
-			usage_date,
-			api_request_count,
-			api_egress_bytes,
-			function_invocation_count,
-			function_failure_count,
-			function_compute_ms,
-		)
+		INSERT INTO project_usage_daily (project_id,usage_date,api_request_count,api_egress_bytes,function_invocation_count,function_failure_count,function_compute_ms)
 		VALUES ($1,$2::date,7,700,2,1,50)
 		ON CONFLICT (project_id,usage_date) DO UPDATE SET
 			api_request_count=EXCLUDED.api_request_count,

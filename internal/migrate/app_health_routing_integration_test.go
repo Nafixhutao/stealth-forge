@@ -60,30 +60,12 @@ func TestAppHealthMigrationKeepsExistingRuntimeNonRoutableIntegration(t *testing
 		t.Fatal(err)
 	}
 	if _, err := conn.Exec(ctx, `
-				INSERT INTO project_apps (
-			id,
-			project_id,
-			name,
-			platform_label,
-			enabled,
-			workload_spec,
-			workload_spec_sha256,
-			desired_generation,
-			observed_generation,
-			runtime_status,
-		)
+		INSERT INTO project_apps (id,project_id,name,platform_label,enabled,workload_spec,workload_spec_sha256,desired_generation,observed_generation,runtime_status)
 		VALUES ($1,$2,'existing-health-app','existing-health-app',true,$3::jsonb,$4,1,1,'running')`, appID, projectID, canonical, digest); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := conn.Exec(ctx, `
-				INSERT INTO app_runtime_state (
-			app_id,
-			project_id,
-			container_id,
-			container_name,
-			applied_workload_spec_sha256,
-			applied_generation,
-		)
+		INSERT INTO app_runtime_state (app_id,project_id,container_id,container_name,applied_workload_spec_sha256,applied_generation)
 		VALUES ($1,$2,$3,$4,$5,1)`, appID, projectID, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "stealth-app-"+appID.String(), digest); err != nil {
 		t.Fatal(err)
 	}

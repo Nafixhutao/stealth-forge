@@ -125,17 +125,7 @@ func (r *Repository) CreateMessagingMessage(
 		return MessagingMessageCreateResult{}, ErrMessagingTooManyRecipients
 	}
 	item, err := scanMessagingMessage(tx.QueryRow(ctx, `
-				INSERT INTO project_messaging_messages (
-			id,
-			project_id,
-			topic_id,
-			channel,
-			payload_ciphertext,
-			request_hash,
-			idempotency_key,
-			status,
-			recipient_count,
-		)
+		INSERT INTO project_messaging_messages (id,project_id,topic_id,channel,payload_ciphertext,request_hash,idempotency_key,status,recipient_count)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,'queued',$8)
 		RETURNING `+messagingMessageProjection, id, projectID, input.TopicID, channel, payloadCiphertext, requestHash, nullableMessagingIdempotencyKey(idempotencyKey), len(recipients)))
 	if err != nil {

@@ -20,19 +20,7 @@ func insertAdminAlertHistoryEvent(
 	eventID := uuid.Must(uuid.NewV7())
 	if _, err := fixture.pool.Exec(context.Background(), `
 		INSERT INTO admin_alert_events
-						(
-				id,
-				rule_id,
-				state,
-				value,
-				message,
-				occurred_at,
-				rule_id_snapshot,
-				rule_name_snapshot,
-				rule_kind_snapshot,
-				severity_snapshot,
-				condition_snapshot,
-			)
+			(id,rule_id,state,value,message,occurred_at,rule_id_snapshot,rule_name_snapshot,rule_kind_snapshot,severity_snapshot,condition_snapshot)
 		VALUES ($1,$2,$3,91,$4,$5,$2,'Delete history regression','metric_threshold','critical',
 			'{"operator":"gte","threshold":90,"metric":"system.cpu.utilization"}'::jsonb)`,
 		eventID, fixture.ruleID, state, "history event "+eventID.String(), occurredAt); err != nil {
@@ -117,19 +105,7 @@ func TestQueryAdminAlertEventsPerRulePaginationSurvivesDeletionIntegration(t *te
 	otherEventID := uuid.Must(uuid.NewV7())
 	if _, err := fixture.pool.Exec(context.Background(), `
 		INSERT INTO admin_alert_events
-						(
-				id,
-				rule_id,
-				state,
-				value,
-				message,
-				occurred_at,
-				rule_id_snapshot,
-				rule_name_snapshot,
-				rule_kind_snapshot,
-				severity_snapshot,
-				condition_snapshot,
-			)
+			(id,rule_id,state,value,message,occurred_at,rule_id_snapshot,rule_name_snapshot,rule_kind_snapshot,severity_snapshot,condition_snapshot)
 		VALUES ($1,$2,'firing',80,'other rule event',$3,$2,'Second history rule','metric_threshold','warning','{"operator":"gte","threshold":80}'::jsonb)`, otherEventID, ruleB, occurredAt); err != nil {
 		t.Fatal(err)
 	}

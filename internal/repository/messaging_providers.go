@@ -44,16 +44,7 @@ func (r *Repository) CreateMessagingProvider(
 		return domain.MessagingProvider{}, err
 	}
 	item, err := scanMessagingProvider(tx.QueryRow(ctx, `
-				INSERT INTO project_messaging_providers (
-			id,
-			project_id,
-			name,
-			channel,
-			provider,
-			credentials_ciphertext,
-			credentials_present,
-			enabled,
-		)
+		INSERT INTO project_messaging_providers (id,project_id,name,channel,provider,credentials_ciphertext,credentials_present,enabled)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
 		RETURNING `+messagingProviderProjection, id, projectID, name, channel, provider, ciphertext, credentialsPresent, input.Enabled))
 	if err != nil {

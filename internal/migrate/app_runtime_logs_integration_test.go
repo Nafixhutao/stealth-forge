@@ -74,18 +74,7 @@ func TestAppRuntimeLogSourcesMigrationBackfillConstraintsAndDownIntegration(t *t
 	for _, appID := range []uuid.UUID{appID, secondAppID} {
 		appName := "app-" + strings.ReplaceAll(appID.String(), "-", "")
 		if _, err := conn.Exec(ctx, `
-						INSERT INTO project_apps (
-				id,
-				project_id,
-				name,
-				platform_label,
-				enabled,
-				workload_spec,
-				workload_spec_sha256,
-				desired_generation,
-				observed_generation,
-				runtime_status,
-			)
+			INSERT INTO project_apps (id,project_id,name,platform_label,enabled,workload_spec,workload_spec_sha256,desired_generation,observed_generation,runtime_status)
 			VALUES ($1,$2,$3,$4,true,$5::jsonb,repeat('a',64),1,0,'pending')`, appID, projectID, appName, appName, spec); err != nil {
 			t.Fatal(err)
 		}

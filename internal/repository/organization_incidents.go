@@ -411,16 +411,7 @@ func (r *Repository) CreateOrganizationIncident(
 		resolvedAt = time.Now().UTC()
 	}
 	if _, err := tx.Exec(ctx, `
-				INSERT INTO organization_incidents (
-			id,
-			organization_id,
-			created_by_account_id,
-			title,
-			severity,
-			status,
-			services,
-			resolved_at,
-		)
+		INSERT INTO organization_incidents (id,organization_id,created_by_account_id,title,severity,status,services,resolved_at)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`, id, organizationID, accountID, normalized.Title, normalized.Severity, normalized.Status, normalized.Services, resolvedAt); err != nil {
 		return domain.OrganizationIncident{}, mapError(err)
 	}

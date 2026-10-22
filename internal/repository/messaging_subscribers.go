@@ -45,16 +45,7 @@ func (r *Repository) CreateMessagingSubscriber(
 		return domain.MessagingSubscriber{}, err
 	}
 	item, err := scanMessagingSubscriber(tx.QueryRow(ctx, `
-				INSERT INTO project_messaging_subscribers (
-			id,
-			project_id,
-			topic_id,
-			channel,
-			address_ciphertext,
-			address_hash,
-			address_preview,
-			enabled,
-		)
+		INSERT INTO project_messaging_subscribers (id,project_id,topic_id,channel,address_ciphertext,address_hash,address_preview,enabled)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
 		RETURNING `+messagingSubscriberProjection, id, projectID, topicID, channel, addressCiphertext, addressHash, preview, input.Enabled))
 	if err != nil {
