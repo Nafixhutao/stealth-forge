@@ -32,7 +32,7 @@ type HTTPTrace struct {
 // cleanup and system workers may leave an event without a live row.
 type AuditEvent struct {
 	ID             string          `json:"id"`
-	OrganizationID string          `json:"organization_id"`
+	OrganizationID *string         `json:"organization_id,omitempty"`
 	ActorAccountID *string         `json:"actor_account_id,omitempty"`
 	ActorEmail     *string         `json:"actor_email,omitempty"`
 	Action         string          `json:"action"`

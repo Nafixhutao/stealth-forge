@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { LOGS, buildLiveLog } from "../data/admin-mock-data";
+import { useDeferredValue, useMemo, useState } from "react";
+import {
+  useLogsReadModel,
+  type AdminTimeRange,
+} from "../data/admin-read-model";
 import { AdminHeader, AdminPageBody, Mono } from "../components/admin-panel";
 import { AdminSelect } from "../components/admin-select";
 import { TimeRangeSelect } from "../components/time-range-select";
@@ -9,18 +12,10 @@ import { LiveToggle, ToolbarSearch } from "../components/toolbar-search";
 import { DetailDrawer, DetailField } from "../components/detail-drawer";
 import { CopyButton } from "@/components/copy-button";
 import { StatusBadge } from "../components/status-badge";
-import { useLiveTick } from "../hooks/use-live-updates";
+import { PanelRowsSkeleton } from "../components/admin-skeletons";
 import { cn } from "@/lib/utils";
 import type { LogEntry, LogLevel } from "../types/logs";
 
-const SERVICES = [
-  "api",
-  "worker",
-  "sandbox",
-  "database",
-  "scheduler",
-  "gateway",
-];
 const LEVELS: LogLevel[] = ["INFO", "WARN", "ERROR", "DEBUG"];
 
 const LEVEL_TONE: Record<LogLevel, { text: string; label: string }> = {
@@ -38,52 +33,32 @@ const LEVEL_TONE: Record<LogLevel, { text: string; label: string }> = {
 
 type LevelFilter = "all" | LogLevel;
 type ServiceFilter = "all" | string;
-type EnvFilter = "all" | "production" | "staging";
 
 /**
- * Logs — the log explorer: toolbar filters, mono stream, live tail, and a
- * right-hand detail drawer per entry. Frontend mock only.
+ * Logs — the bounded telemetry explorer. The API owns filtering and the
+ * optional SSE tail; this page only projects redacted records for display.
  */
 export function LogsPage() {
   const [query, setQuery] = useState("");
-  const [range, setRange] = useState<"1h" | "6h" | "24h" | "7d">("1h");
+  const deferredQuery = useDeferredValue(query);
+  const [range, setRange] = useState<AdminTimeRange>("1h");
   const [service, setService] = useState<ServiceFilter>("all");
   const [level, setLevel] = useState<LevelFilter>("all");
-  const [environment, setEnvironment] = useState<EnvFilter>("all");
   const [liveTail, setLiveTail] = useState(false);
-  const [entries, setEntries] = useState<LogEntry[]>(() => LOGS);
   const [selected, setSelected] = useState<LogEntry | null>(null);
-  const tick = useLiveTick(4000, liveTail);
-  const counterRef = useRef(0);
 
-  // Live tail prepends a rotating mock entry every tick.
-  useEffect(() => {
-    if (tick === 0) return;
-    const entry = buildLiveLog(counterRef.current, Date.now());
-    counterRef.current += 1;
-    setEntries((prev) => [entry, ...prev].slice(0, 80));
-  }, [tick]);
+  const read = useLogsReadModel({
+    range,
+    service: service === "all" ? undefined : service,
+    level: level === "all" ? undefined : level.toLowerCase(),
+    search: deferredQuery.trim() || undefined,
+    live: liveTail,
+  });
 
-  const visible = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    return entries.filter((entry) => {
-      if (service !== "all" && entry.service !== service) return false;
-      if (level !== "all" && entry.level !== level) return false;
-      if (environment !== "all" && entry.environment !== environment)
-        return false;
-      if (!normalizedQuery) return true;
-      return [
-        entry.message,
-        entry.service,
-        entry.agentRun ?? "",
-        entry.requestId,
-        entry.traceId,
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(normalizedQuery);
-    });
-  }, [entries, query, service, level, environment]);
+  const services = useMemo(
+    () => [...new Set(read.data.map((entry) => entry.service))].sort(),
+    [read.data],
+  );
 
   return (
     <AdminPageBody>
@@ -94,7 +69,6 @@ export function LogsPage() {
         <TimeRangeSelect value={range} onChange={setRange} />
       </AdminHeader>
 
-      {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2.5">
         <ToolbarSearch
           value={query}
@@ -108,7 +82,7 @@ export function LogsPage() {
           onChange={(value) => setService(value as ServiceFilter)}
           options={[
             { value: "all", label: "All services" },
-            ...SERVICES.map((item) => ({ value: item, label: item })),
+            ...services.map((item) => ({ value: item, label: item })),
           ]}
         />
         <AdminSelect
@@ -120,22 +94,11 @@ export function LogsPage() {
             ...LEVELS.map((item) => ({ value: item, label: item })),
           ]}
         />
-        <AdminSelect
-          label="Filter by environment"
-          value={environment}
-          onChange={(value) => setEnvironment(value as EnvFilter)}
-          options={[
-            { value: "all", label: "All environments" },
-            { value: "production", label: "production" },
-            { value: "staging", label: "staging" },
-          ]}
-        />
         <div className="ml-auto">
           <LiveToggle enabled={liveTail} onChange={setLiveTail} />
         </div>
       </div>
 
-      {/* Stream */}
       <div className="overflow-hidden rounded-lg border border-[var(--projects-border)] bg-[#141416]">
         <div
           aria-hidden="true"
@@ -161,12 +124,18 @@ export function LogsPage() {
           className="admin-scrollbar max-h-[640px] overflow-y-auto"
           aria-label="Log stream"
         >
-          {visible.length === 0 ? (
+          {read.status === "pending" ? (
+            <PanelRowsSkeleton rows={8} />
+          ) : read.status === "error" ? (
+            <p className="m-0 px-4 py-12 text-center text-[13px] text-[var(--projects-danger)]">
+              {read.error}
+            </p>
+          ) : read.data.length === 0 ? (
             <p className="m-0 px-4 py-12 text-center text-[13px] text-[var(--projects-muted)]">
               No log entries match the current filters.
             </p>
           ) : (
-            visible.map((entry) => (
+            read.data.map((entry) => (
               <LogRow
                 key={entry.id}
                 entry={entry}
@@ -177,11 +146,10 @@ export function LogsPage() {
         </div>
         <div className="flex items-center justify-between border-t border-[var(--projects-divider)] px-3.5 py-2">
           <Mono className="text-[11px] text-[var(--projects-muted)]">
-            {visible.length} of {entries.length} entries
+            {read.data.length} entries
           </Mono>
           <Mono className="text-[11px] text-[var(--projects-muted)]">
-            retention 7d · environment{" "}
-            {environment === "all" ? "any" : environment}
+            {liveTail ? "live tail" : `window ${range}`}
           </Mono>
         </div>
       </div>
@@ -200,7 +168,6 @@ function LogRow({ entry, onOpen }: { entry: LogEntry; onOpen: () => void }) {
       aria-label={`Inspect log: ${entry.message}`}
       className="stealth-log-line block w-full border-b border-[var(--projects-divider)] px-3.5 py-1.5 text-left transition-colors last:border-b-0 hover:bg-white/[0.03] aria-selected:bg-white/[0.04]"
     >
-      {/* desktop layout */}
       <span className="hidden items-baseline gap-3 md:grid md:grid-cols-[92px_58px_84px_minmax(0,1fr)_auto]">
         <Mono className="text-[11.5px] leading-5 text-[#8a8791]">
           {entry.timestamp}
@@ -220,17 +187,11 @@ function LogRow({ entry, onOpen }: { entry: LogEntry; onOpen: () => void }) {
           <Mono className="block truncate text-[12px] leading-5 text-[var(--projects-text)]">
             {entry.message}
           </Mono>
-          {entry.environment === "staging" && (
-            <Mono className="mt-0.5 block text-[10px] leading-3 text-[var(--admin-info)]">
-              staging
-            </Mono>
-          )}
         </span>
         <Mono className="text-[11.5px] leading-5 text-[#8a8791]">
           {entry.meta}
         </Mono>
       </span>
-      {/* compact layout */}
       <span className="block md:hidden">
         <span className="flex items-baseline gap-2">
           <span

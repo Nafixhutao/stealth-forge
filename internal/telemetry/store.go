@@ -19,6 +19,13 @@ var (
 	ErrInvalidQuery = errors.New("invalid telemetry query")
 )
 
+// Pinger is the small health capability used by the Admin overview. Keeping
+// it separate lets optional query capabilities evolve without changing health
+// reporting.
+type Pinger interface {
+	Ping(context.Context) error
+}
+
 // Config contains only the ClickHouse connection and server-side safety
 // limits. Password is held in memory by the process and is never included in
 // errors, logs, or query text.
@@ -41,6 +48,19 @@ type Store interface {
 	QueryTraces(context.Context, TracesQuery) (TracesResult, error)
 	QueryMetrics(context.Context, MetricsQuery) (MetricsResult, error)
 	ListSources(context.Context, SourcesQuery) (SourcesResult, error)
+}
+
+// ManagedStore is the lifecycle surface used by process composition. The
+// PostgreSQL implementation owns no external connection and its Close is a
+// no-op; the optional ClickHouse implementation releases its client.
+type ManagedStore interface {
+	Store
+	Explorer
+	InfrastructureExplorer
+	OverviewExplorer
+	AlertExplorer
+	Migrate(context.Context) error
+	Close() error
 }
 
 type ClickHouseStore struct {

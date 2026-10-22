@@ -64,10 +64,12 @@ backoff and become terminal after their attempt cap. A sustained failure rate
 usually means the provider endpoint is rejecting requests; check the delivery
 `last_error` through the Console.
 
-**Telemetry unavailable.** This release keeps no telemetry store. Host resource
-metrics are sampled in-process by the API, and App logs are read from Docker
-json-file logs through the bounded project-scoped API. There is no separate
-collector to restart.
+**Telemetry unavailable.** The portable baseline stores bounded root-request
+telemetry in PostgreSQL, so first verify the API can reach its normal database
+and that the `http_traces` migration is applied. Host resource metrics are
+sampled in-process by the API. App logs are read from Docker json-file logs
+through the bounded project-scoped API. There is no separate collector to
+restart unless the installation explicitly configured ClickHouse.
 
 **Migration failure on upgrade.** The migration runner is advisory-locked and
 fails loudly. See [Upgrade and rollback](upgrade.md); roll back the application

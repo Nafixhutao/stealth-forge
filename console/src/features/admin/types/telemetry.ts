@@ -8,6 +8,15 @@ export const TIME_RANGES = [
 
 export type TimeRange = (typeof TIME_RANGES)[number]["value"];
 
+/** Host metrics retain one hour, so its selector must not offer wider ranges. */
+export const HOST_TIME_RANGES = [
+  { value: "5m", label: "Last 5 minutes" },
+  { value: "15m", label: "Last 15 minutes" },
+  { value: "1h", label: "Last 1 hour" },
+] as const;
+
+export type HostTimeRange = (typeof HOST_TIME_RANGES)[number]["value"];
+
 /** One sampled telemetry point; `timestamp` is a pre-formatted axis label. */
 export interface MetricPoint {
   timestamp: string;

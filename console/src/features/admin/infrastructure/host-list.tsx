@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Cpu, HardDrive, MemoryStick } from "lucide-react";
-import { HOSTS, HOST_CPU_HISTORY } from "../data/admin-mock-data";
 import { AdminPanel, AdminPanelHeader, Mono } from "../components/admin-panel";
 import { ResourceBar } from "../components/resource-bar";
 import { Sparkline } from "../components/sparkline";
@@ -13,9 +12,14 @@ import type { Host } from "../types/infrastructure";
  * Host inventory rows with per-resource bars. Selecting a host expands a
  * detail strip (ip/region/uptime/jobs + CPU history) beneath the list.
  */
-export function HostList() {
-  const [selectedId, setSelectedId] = useState<string | null>("host-01");
-  const selected = HOSTS.find((host) => host.id === selectedId) ?? null;
+export function HostList({
+  host,
+  cpuHistory,
+}: {
+  host: Host | null;
+  cpuHistory: number[];
+}) {
+  const [selected, setSelected] = useState(true);
 
   return (
     <AdminPanel>
@@ -23,19 +27,21 @@ export function HostList() {
         title="Hosts"
         subtitle="Select a host for runtime details. Bars show current load per resource."
       />
-      <ul className="m-0 list-none p-0">
-        {HOSTS.map((host) => (
+      {!host ? (
+        <p className="m-0 px-1 py-8 text-center text-[13px] text-[var(--projects-muted)]">
+          Host metrics are unavailable.
+        </p>
+      ) : (
+        <ul className="m-0 list-none p-0">
           <HostRow
             key={host.id}
             host={host}
-            selected={host.id === selectedId}
-            onSelect={() =>
-              setSelectedId((prev) => (prev === host.id ? null : host.id))
-            }
+            selected={selected}
+            onSelect={() => setSelected((current) => !current)}
           />
-        ))}
-      </ul>
-      {selected && <HostDetail host={selected} />}
+        </ul>
+      )}
+      {selected && host && <HostDetail host={host} cpuHistory={cpuHistory} />}
     </AdminPanel>
   );
 }
@@ -109,9 +115,13 @@ function HostRow({
   );
 }
 
-function HostDetail({ host }: { host: Host }) {
-  const cpuHistory = HOST_CPU_HISTORY[host.id] ?? [];
-
+function HostDetail({
+  host,
+  cpuHistory,
+}: {
+  host: Host;
+  cpuHistory: number[];
+}) {
   return (
     <div className="border-t border-[var(--projects-divider)] bg-white/[0.02] px-3 py-3">
       <div className="flex flex-wrap items-center gap-2">

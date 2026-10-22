@@ -1,180 +1,230 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import { WORKERS, WORKER_CPU_HISTORY } from "../data/admin-mock-data";
+import { useMemo, useState, type ReactNode } from "react";
+import {
+  useExecutionQueueReadModel,
+  type AdminOperation,
+} from "../data/admin-read-model";
 import { AdminHeader, AdminPageBody, Mono } from "../components/admin-panel";
 import { AdminPanel, AdminPanelHeader } from "../components/admin-panel";
-import { ResourceBar } from "../components/resource-bar";
-import { Sparkline } from "../components/sparkline";
+import { DetailDrawer, DetailField } from "../components/detail-drawer";
+import { PanelRowsSkeleton } from "../components/admin-skeletons";
 import { StatusBadge } from "../components/status-badge";
-import { nudge, useLiveTick } from "../hooks/use-live-updates";
+import { formatDuration } from "../lib/format";
+
+function statusTone(status: string) {
+  const normalized = status.toLowerCase();
+  if (normalized.includes("fail")) return "danger" as const;
+  if (normalized.includes("run") || normalized.includes("build"))
+    return "warning" as const;
+  if (normalized.includes("complete") || normalized.includes("succeed"))
+    return "success" as const;
+  return "neutral" as const;
+}
+
+function operationKindLabel(kind: string): string {
+  return kind.replaceAll("_", " ");
+}
 
 /**
- * Workers — dedicated queue-consumer view: fleet tiles, a live CPU table,
- * and per-worker detail (selection) with CPU history.
+ * Execution Queue — the durable work the control plane can expose. Stealth
+ * does not publish worker identities, so this view never invents fleet rows.
  */
 export function WorkersPage() {
-  const [selectedId, setSelectedId] = useState<string | null>("wk-01");
-  const [cpuValues, setCpuValues] = useState<Record<string, number>>(() =>
-    Object.fromEntries(WORKERS.map((worker) => [worker.id, worker.cpu])),
+  const read = useExecutionQueueReadModel();
+  const [selected, setSelected] = useState<AdminOperation | null>(null);
+  const { items, summary, queued, running, failed } = read.data;
+
+  const kinds = useMemo(
+    () => [...new Set(items.map((item) => item.kind))].sort(),
+    [items],
   );
-  const tick = useLiveTick(4000);
-
-  useEffect(() => {
-    if (tick === 0) return;
-    setCpuValues((prev) =>
-      Object.fromEntries(
-        Object.entries(prev).map(([id, value]) => {
-          const base = WORKERS.find((worker) => worker.id === id);
-          const [min, max] = base
-            ? [Math.max(5, base.cpu - 18), Math.min(96, base.cpu + 18)]
-            : [5, 96];
-          return [id, Math.round(nudge(value, 2.4, min, max))];
-        }),
-      ),
-    );
-  }, [tick]);
-
-  const online = WORKERS.filter((worker) => worker.status !== "offline").length;
-  const totalJobs = WORKERS.reduce((sum, worker) => sum + worker.jobs, 0);
-  const queueDepth = WORKERS.reduce((sum, worker) => sum + worker.queue, 0);
-  const selected = WORKERS.find((worker) => worker.id === selectedId) ?? null;
 
   return (
     <AdminPageBody>
       <AdminHeader
-        title="Workers"
-        subtitle="Queue consumers that execute agent runs inside sandboxes."
-      />
+        title="Execution Queue"
+        subtitle="Durable jobs waiting for trusted workers across the instance."
+      >
+        <Mono className="hidden h-9 items-center rounded-lg border border-[var(--projects-border)] bg-[#141416] px-3 text-[12px] text-[var(--projects-muted)] sm:inline-flex">
+          last 24 hours
+        </Mono>
+      </AdminHeader>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Tile label="Queued" value={queued} tone="neutral" />
+        <Tile label="Running" value={running} tone="success" />
         <Tile
-          label="Workers online"
-          value={`${online} / ${WORKERS.length}`}
-          tone="success"
+          label="Failed"
+          value={failed}
+          tone={failed > 0 ? "warning" : "neutral"}
         />
-        <Tile label="Active jobs" value={String(totalJobs)} />
         <Tile
-          label="Queue depth"
-          value={String(queueDepth)}
-          tone={queueDepth > 4 ? "warning" : "neutral"}
+          label="Active deployments"
+          value={summary?.active_deployments ?? 0}
         />
-        <Tile label="Heartbeat interval" value="5 s" />
       </div>
 
-      <AdminPanel>
-        <AdminPanelHeader
-          title="Fleet"
-          subtitle="Select a worker for detail."
-        />
+      <AdminPanel flush>
+        <div className="px-3.5 pb-3 pt-4">
+          <AdminPanelHeader
+            title="Queue"
+            subtitle="Newest durable operations first. Select one for its safe metadata."
+            right={
+              <Mono className="text-[11.5px] text-[var(--projects-muted)]">
+                {items.length} records
+              </Mono>
+            }
+          />
+        </div>
         <div
           aria-hidden="true"
-          className="hidden grid-cols-[minmax(0,1fr)_110px_minmax(0,1.2fr)_90px_90px_110px] gap-3 border-b border-[var(--projects-divider)] px-3.5 pb-2 lg:grid"
+          className="hidden grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_100px_110px_90px] gap-3 border-b border-[var(--projects-divider)] px-3.5 pb-2 lg:grid"
         >
-          <Col>Worker</Col>
-          <Col>Status</Col>
-          <Col>CPU</Col>
-          <Col>Jobs</Col>
-          <Col>Queue</Col>
-          <Col>Heartbeat</Col>
+          <Column>Operation</Column>
+          <Column>Kind</Column>
+          <Column>Project</Column>
+          <Column>Duration</Column>
+          <Column>Status</Column>
+          <Column>Created</Column>
         </div>
-        <ul className="m-0 list-none p-0">
-          {WORKERS.map((worker) => {
-            const cpu = cpuValues[worker.id] ?? worker.cpu;
-            const memoryPct =
-              (Number.parseInt(worker.memoryUsed, 10) / 8) * 100;
-            return (
+        {read.status === "pending" ? (
+          <PanelRowsSkeleton rows={8} />
+        ) : read.status === "error" ? (
+          <p className="m-0 px-4 py-12 text-center text-[13px] text-[var(--projects-danger)]">
+            {read.error}
+          </p>
+        ) : items.length === 0 ? (
+          <p className="m-0 px-4 py-12 text-center text-[13px] text-[var(--projects-muted)]">
+            No durable operations were recorded in the last 24 hours.
+          </p>
+        ) : (
+          <ul className="m-0 list-none p-0">
+            {items.map((item) => (
               <li
-                key={worker.id}
+                key={item.id}
                 className="border-b border-[var(--projects-divider)] last:border-b-0"
               >
                 <button
                   type="button"
-                  onClick={() =>
-                    setSelectedId((prev) =>
-                      prev === worker.id ? null : worker.id,
-                    )
-                  }
-                  aria-expanded={selectedId === worker.id}
+                  onClick={() => setSelected(item)}
+                  aria-label={`Inspect ${item.kind} ${item.name}`}
                   className="block w-full px-3.5 py-2.5 text-left transition-colors hover:bg-white/[0.03]"
                 >
-                  <span className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(0,1fr)_110px_minmax(0,1.2fr)_90px_90px_110px] lg:items-center lg:gap-3">
-                    <span className="flex items-center gap-2.5">
-                      <Mono className="text-[13px] font-medium text-[var(--projects-text)]">
-                        {worker.name}
-                      </Mono>
-                      <Mono className="text-[11px] text-[var(--projects-muted)]">
-                        {worker.host}
-                      </Mono>
+                  <span className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_100px_110px_90px] lg:items-center lg:gap-3">
+                    <Mono className="truncate text-[12.5px] font-medium text-[var(--projects-text)]">
+                      {item.name}
+                    </Mono>
+                    <span className="truncate text-[12px] text-[var(--projects-muted)]">
+                      {operationKindLabel(item.kind)}
                     </span>
+                    <span className="truncate text-[12px] text-[var(--projects-muted)]">
+                      {item.project_name ?? "—"}
+                    </span>
+                    <Mono className="text-[11.5px] text-[var(--projects-muted)]">
+                      {item.duration_ms > 0
+                        ? formatDuration(item.duration_ms)
+                        : "—"}
+                    </Mono>
                     <span>
                       <StatusBadge
-                        tone={worker.status === "busy" ? "warning" : "success"}
-                        label={worker.status === "busy" ? "Busy" : "Online"}
-                        pulse
+                        tone={statusTone(item.status)}
+                        label={item.status}
                       />
                     </span>
-                    <span className="hidden lg:block">
-                      <ResourceBar label="CPU" value={cpu} />
-                    </span>
-                    <Mono className="text-[11.5px] text-[var(--projects-muted)] lg:text-[12px] lg:text-[var(--projects-text)]">
-                      {worker.jobs}
+                    <Mono className="text-[11px] text-[var(--projects-muted)]">
+                      {new Date(item.created_at).toISOString().slice(5, 16)}
                     </Mono>
-                    <Mono className="text-[11.5px] text-[var(--projects-muted)] lg:text-[12px]">
-                      {worker.queue}
-                    </Mono>
-                    <Mono className="text-[11.5px] text-[var(--projects-muted)]">
-                      ♥ {worker.heartbeat}
-                    </Mono>
-                    {/* compact CPU bar */}
-                    <span className="lg:hidden">
-                      <ResourceBar label="CPU" value={cpu} />
-                      <span className="mt-2 block">
-                        <ResourceBar
-                          label="RAM"
-                          value={memoryPct}
-                          detail={worker.memoryUsed}
-                        />
-                      </span>
-                    </span>
                   </span>
                 </button>
               </li>
-            );
-          })}
-        </ul>
+            ))}
+          </ul>
+        )}
       </AdminPanel>
 
-      {selected && (
-        <AdminPanel>
-          <AdminPanelHeader
-            title={`worker detail · ${selected.name}`}
-            subtitle={`host ${selected.host} · uptime ${selected.uptime} · ${selected.jobs} active jobs`}
-          />
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div>
-              <p className="m-0 mb-1 text-[10.5px] font-medium uppercase tracking-[0.07em] text-[var(--projects-muted)]">
-                CPU · last 30 min
-              </p>
-              <Sparkline
-                data={WORKER_CPU_HISTORY[selected.id] ?? []}
-                tone={selected.status === "busy" ? "warning" : "accent"}
-                height={64}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2 self-center">
-              <Meta
-                label="CPU now"
-                value={`${cpuValues[selected.id] ?? selected.cpu}%`}
-              />
-              <Meta label="RAM" value={selected.memoryUsed} />
-              <Meta label="Current run" value={selected.currentRun ?? "—"} />
-              <Meta label="Queue" value={String(selected.queue)} />
-            </div>
-          </div>
-        </AdminPanel>
-      )}
+      <AdminPanel>
+        <AdminPanelHeader
+          title="Observed kinds"
+          subtitle="Kinds present in the current 24-hour operation window."
+        />
+        <div className="flex flex-wrap gap-2">
+          {kinds.length === 0 ? (
+            <span className="text-[12px] text-[var(--projects-muted)]">
+              No operation kinds observed.
+            </span>
+          ) : (
+            kinds.map((kind) => (
+              <Mono
+                key={kind}
+                className="rounded-md border border-[var(--projects-border)] px-2 py-1 text-[11px] text-[var(--projects-muted)]"
+              >
+                {operationKindLabel(kind)}
+              </Mono>
+            ))
+          )}
+        </div>
+      </AdminPanel>
+
+      <OperationDetail operation={selected} onClose={() => setSelected(null)} />
     </AdminPageBody>
+  );
+}
+
+function OperationDetail({
+  operation,
+  onClose,
+}: {
+  operation: AdminOperation | null;
+  onClose: () => void;
+}) {
+  return (
+    <DetailDrawer
+      open={operation !== null}
+      onClose={onClose}
+      title={<Mono className="truncate">{operation?.name}</Mono>}
+      subtitle={
+        operation
+          ? `${operationKindLabel(operation.kind)} · ${operation.project_name ?? "instance"}`
+          : undefined
+      }
+    >
+      {operation && (
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+          <DetailField label="Status">
+            <StatusBadge
+              tone={statusTone(operation.status)}
+              label={operation.status}
+            />
+          </DetailField>
+          <DetailField label="Duration">
+            {operation.duration_ms > 0
+              ? formatDuration(operation.duration_ms)
+              : "—"}
+          </DetailField>
+          <DetailField label="Operation ID" wide>
+            <Mono>{operation.id}</Mono>
+          </DetailField>
+          <DetailField label="Started">
+            {operation.started_at
+              ? new Date(operation.started_at).toISOString()
+              : "—"}
+          </DetailField>
+          <DetailField label="Finished">
+            {operation.finished_at
+              ? new Date(operation.finished_at).toISOString()
+              : "—"}
+          </DetailField>
+          {operation.error && (
+            <DetailField label="Error" wide>
+              <span className="text-[var(--projects-danger)]">
+                {operation.error}
+              </span>
+            </DetailField>
+          )}
+        </div>
+      )}
+    </DetailDrawer>
   );
 }
 
@@ -184,7 +234,7 @@ function Tile({
   tone = "neutral",
 }: {
   label: string;
-  value: string;
+  value: number;
   tone?: "neutral" | "success" | "warning";
 }) {
   const valueClass =
@@ -205,20 +255,7 @@ function Tile({
   );
 }
 
-function Meta({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <p className="m-0 text-[10.5px] uppercase tracking-[0.06em] text-[var(--projects-muted)]">
-        {label}
-      </p>
-      <p className="m-0 truncate text-[13px] font-medium text-[var(--projects-text)]">
-        <Mono>{value}</Mono>
-      </p>
-    </div>
-  );
-}
-
-function Col({ children }: { children: ReactNode }) {
+function Column({ children }: { children: ReactNode }) {
   return (
     <span className="text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--projects-muted)]">
       {children}

@@ -10,6 +10,60 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+const auditEventProjection = `
+	e.id::text,
+	e.organization_id::text,
+	e.actor_account_id::text,
+	a.email,
+	e.action,
+	e.target_type,
+	e.target_id::text,
+	e.metadata,
+	e.created_at`
+
+type auditEventScanner interface {
+	Scan(...any) error
+}
+
+func scanAuditEvent(row auditEventScanner) (domain.AuditEvent, error) {
+	var item domain.AuditEvent
+	var metadata []byte
+	if err := row.Scan(
+		&item.ID,
+		&item.OrganizationID,
+		&item.ActorAccountID,
+		&item.ActorEmail,
+		&item.Action,
+		&item.TargetType,
+		&item.TargetID,
+		&metadata,
+		&item.CreatedAt,
+	); err != nil {
+		return domain.AuditEvent{}, err
+	}
+	if len(metadata) == 0 || !json.Valid(metadata) {
+		item.Metadata = json.RawMessage(`{}`)
+	} else {
+		item.Metadata = json.RawMessage(metadata)
+	}
+	return item, nil
+}
+
+func scanAuditEvents(rows pgx.Rows, limit int) ([]domain.AuditEvent, error) {
+	items := make([]domain.AuditEvent, 0, limit)
+	for rows.Next() {
+		item, err := scanAuditEvent(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 // ListAuditEvents returns the newest tenant audit events visible to a member.
 // UUIDv7 event IDs provide a monotonic cursor for this descending projection;
 // the API keeps the cursor opaque to callers while validating it as a UUID.
@@ -57,8 +111,7 @@ func (r *Repository) listAuditEvents(
 	cursor string,
 ) ([]domain.AuditEvent, string, error) {
 	query := `
-		SELECT e.id::text,e.organization_id::text,e.actor_account_id::text,a.email,
-		       e.action,e.target_type,e.target_id::text,e.metadata,e.created_at
+		SELECT ` + auditEventProjection + `
 		FROM audit_events e
 		LEFT JOIN accounts a ON a.id=e.actor_account_id
 		WHERE e.organization_id=$1 AND ($2='' OR e.id::text<$2)`
@@ -76,35 +129,8 @@ func (r *Repository) listAuditEvents(
 	}
 	defer rows.Close()
 
-	items := make([]domain.AuditEvent, 0, limit)
-	for rows.Next() {
-		var item domain.AuditEvent
-		var metadata []byte
-		if err := rows.Scan(
-			&item.ID,
-			&item.OrganizationID,
-			&item.ActorAccountID,
-			&item.ActorEmail,
-			&item.Action,
-			&item.TargetType,
-			&item.TargetID,
-			&metadata,
-			&item.CreatedAt,
-		); err != nil {
-			return nil, "", err
-		}
-		if len(metadata) == 0 {
-			item.Metadata = json.RawMessage(`{}`)
-		} else if !json.Valid(metadata) {
-			// The column is JSONB, but keep the response contract safe if a
-			// future driver or migration returns malformed bytes.
-			item.Metadata = json.RawMessage(`{}`)
-		} else {
-			item.Metadata = json.RawMessage(metadata)
-		}
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
+	items, err := scanAuditEvents(rows, limit)
+	if err != nil {
 		return nil, "", err
 	}
 

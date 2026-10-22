@@ -120,14 +120,9 @@ func recordTraceAccount(ctx context.Context, account domain.Account) {
 // backend; a persistence failure is observable but never changes the caller's
 // already-written response.
 func (s *Server) recordHTTPTrace(requestContext context.Context, observation observability.HTTPTraceRecord) {
-	// Authentication and authorization failures do not belong to the tenant's
-	// trace index. Apart from avoiding noisy rows, this prevents an outsider
-	// from manufacturing organization-scoped observations through a guessed
-	// route identifier.
 	repoMissing := s.repo == nil
 	traceIDMissing := observation.TraceID == ""
-	authFailure := observation.Status == http.StatusUnauthorized || observation.Status == http.StatusForbidden
-	if repoMissing || traceIDMissing || authFailure {
+	if repoMissing || traceIDMissing {
 		return
 	}
 	routeContext := chi.RouteContext(requestContext)
@@ -159,8 +154,27 @@ func (s *Server) recordHTTPTrace(requestContext context.Context, observation obs
 			accountID = &parsed
 		}
 	}
-	if organizationID == nil && projectID == nil {
+	if !shouldRecordHTTPTrace(observation.Route) {
 		return
+	}
+	// A project or organization route that failed before its auth middleware
+	// could record an account has no tenant authorization to persist. This is
+	// especially important for guessed project UUIDs: a 401/403/404 must not
+	// create a trace row or inflate that tenant's API usage.
+	if (organizationID != nil || projectID != nil) && accountID == nil && observation.Status >= http.StatusBadRequest {
+		return
+	}
+	// Tenant traffic is indexed after authorization. Instance-level routes are
+	// indexed only for an authenticated instance owner/admin, so anonymous
+	// public probes cannot fill the telemetry table or manufacture admin noise.
+	if organizationID == nil && projectID == nil {
+		if accountID == nil {
+			return
+		}
+		allowed, err := s.repo.IsInstanceAdmin(requestContext, *accountID)
+		if err != nil || !allowed {
+			return
+		}
 	}
 	traceID, err := uuid.NewV7()
 	if err != nil {
@@ -184,6 +198,17 @@ func (s *Server) recordHTTPTrace(requestContext context.Context, observation obs
 			"route",
 			observation.Route,
 		)
+	}
+}
+
+func shouldRecordHTTPTrace(route string) bool {
+	switch route {
+	case "", "unmatched", "/healthz", "/readyz", "/metrics", "/version":
+		return false
+	default:
+		// Admin polling must not create more telemetry for the views to
+		// display. Exclude the whole namespace, including future admin routes.
+		return !strings.HasPrefix(route, "/v1/admin/")
 	}
 }
 

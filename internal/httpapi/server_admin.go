@@ -129,10 +129,12 @@ func (s *Server) adminOverview(w http.ResponseWriter, r *http.Request) {
 	}
 	components = append(components, adminComponentStatus{Name: "redis", Status: redisStatus})
 
-	// The ClickHouse-backed telemetry pipeline is no longer part of the
-	// platform, so the overview reports telemetry as unavailable rather than
-	// surfacing phantom clickhouse/otel-collector components.
 	telemetryStatus := "unavailable"
+	if telemetryStore, ok := s.telemetry.(telemetry.Pinger); ok {
+		if telemetryStore.Ping(healthContext) == nil {
+			telemetryStatus = "healthy"
+		}
+	}
 
 	instanceStatus := "degraded"
 	if coreHealthy {
@@ -146,7 +148,7 @@ func (s *Server) adminOverview(w http.ResponseWriter, r *http.Request) {
 		}
 		// Recent activity is decorative but honest; a slow or failing query
 		// must not block the rest of the overview, so it degrades to omitted.
-		if deployments, err := s.repo.ListRecentAppDeployments(r.Context(), 5); err == nil {
+		if deployments, err := s.repo.ListRecentAppDeployments(healthContext, 5); err == nil {
 			recentDeployments = deployments
 		}
 	}

@@ -123,7 +123,7 @@ func main() {
 			OAuthCipher:      webhookCipher,
 		},
 	)
-	telemetryStore, telemetryErr := telemetry.New(telemetry.Config{
+	telemetryStore, telemetryErr := telemetry.Open(pool, telemetry.Config{
 		Address:          cfg.TelemetryClickHouseAddr,
 		Database:         cfg.TelemetryClickHouseDatabase,
 		Username:         cfg.TelemetryClickHouseUser,
@@ -136,7 +136,7 @@ func main() {
 	if telemetryErr != nil && !errors.Is(telemetryErr, telemetry.ErrDisabled) {
 		logger.Error("telemetry store configuration error", "error", telemetryErr)
 	}
-	if telemetryStore != nil {
+	if telemetryErr == nil {
 		defer telemetryStore.Close()
 		if err := telemetryStore.Migrate(ctx); err != nil {
 			// Telemetry is intentionally not a startup dependency for the core
@@ -145,9 +145,9 @@ func main() {
 			logger.Warn("telemetry schema registry unavailable", "error", err)
 		}
 	}
-	// Host resource metrics are sampled in-process (no ClickHouse) so the admin
-	// Overview keeps its CPU/memory/disk/network cards without the telemetry
-	// stack. A 1-hour ring at 5s backs the Overview time-range selector.
+	// Host resource metrics are sampled in-process so the admin Overview keeps
+	// its CPU/memory/disk/network cards without a telemetry backend. A 1-hour
+	// ring at 5s backs the Overview time-range selector.
 	hostMetrics := hostmetrics.New(5*time.Second, 720, "/")
 	// Database metrics ride the API's own pool on the same cadence so the
 	// Overview's database card reads PostgreSQL's own statistics directly.

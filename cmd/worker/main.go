@@ -165,7 +165,7 @@ func main() {
 		logger.Error("platform route reconciler configuration error", "error", err)
 		os.Exit(1)
 	}
-	telemetryStore, telemetryErr := telemetry.New(telemetry.Config{
+	telemetryStore, telemetryErr := telemetry.Open(pool, telemetry.Config{
 		Address:          cfg.TelemetryClickHouseAddr,
 		Database:         cfg.TelemetryClickHouseDatabase,
 		Username:         cfg.TelemetryClickHouseUser,
@@ -178,7 +178,7 @@ func main() {
 	if telemetryErr != nil && !errors.Is(telemetryErr, telemetry.ErrDisabled) {
 		logger.Warn("telemetry alert store configuration error", "error", telemetryErr)
 	}
-	if telemetryStore != nil {
+	if telemetryErr == nil {
 		defer telemetryStore.Close()
 	}
 	var userStorage artifactcleanup.Cleaner
@@ -235,7 +235,7 @@ func main() {
 		logger.Error("admin monitoring worker configuration error", "error", err)
 		os.Exit(1)
 	}
-	if telemetryStore != nil {
+	if telemetryErr == nil {
 		telemetryAlerts, alertErr := monitoring.NewTelemetryAlertEvaluator(repo, telemetryStore, logger)
 		if alertErr != nil {
 			logger.Warn("telemetry alert evaluator is unavailable", "error", alertErr)
@@ -354,7 +354,7 @@ func main() {
 			{Name: "Cloudflare routing reconciler", Runner: cloudflareReconciler},
 			{Name: "platform route reconciler", Runner: platformRouteReconciler},
 			{Name: "retention maintenance", Runner: workersupervisor.RunnerFunc(func(ctx context.Context) error {
-				return runRetentionMaintenance(ctx, repo, logger)
+				return runRetentionMaintenance(ctx, repo, cfg.TelemetryRetention, logger)
 			})},
 			{Name: "artifact cleanup worker", Runner: artifactCleanupWorker},
 			{Name: "App build worker", Runner: appBuildWorker},
@@ -448,7 +448,7 @@ func main() {
 		{Name: "platform route reconciler", Runner: platformRouteReconciler},
 		{Name: "artifact cleanup worker", Runner: artifactCleanupWorker},
 		{Name: "retention maintenance", Runner: workersupervisor.RunnerFunc(func(ctx context.Context) error {
-			return runRetentionMaintenance(ctx, repo, logger)
+			return runRetentionMaintenance(ctx, repo, cfg.TelemetryRetention, logger)
 		})},
 		{Name: "function worker", Runner: worker},
 		{Name: "site worker", Runner: siteWorker},
@@ -557,12 +557,15 @@ const (
 // runRetentionMaintenance bounds the two append-only tables that previously grew
 // without limit: per-request traces and admin monitor checks. Each pass deletes
 // a bounded batch so it does not contend with live traffic.
-func runRetentionMaintenance(ctx context.Context, repo *repository.Repository, logger *slog.Logger) error {
+func runRetentionMaintenance(ctx context.Context, repo *repository.Repository, telemetryRetention time.Duration, logger *slog.Logger) error {
 	if repo == nil {
 		return errors.New("retention maintenance requires a repository")
 	}
+	if telemetryRetention <= 0 {
+		telemetryRetention = retentionAge
+	}
 	prune := func() {
-		if rows, err := repo.PruneHTTPTraces(ctx, retentionAge, retentionBatch); err != nil {
+		if rows, err := repo.PruneHTTPTraces(ctx, telemetryRetention, retentionBatch); err != nil {
 			if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
 				logger.Error("prune HTTP traces failed", "error", err)
 			}

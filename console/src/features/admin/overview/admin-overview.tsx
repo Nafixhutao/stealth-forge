@@ -18,7 +18,7 @@ import {
   UpdatedLabel,
 } from "../components/live-indicator";
 import { formatBytes } from "@/lib/format";
-import { toIncident } from "../data/admin-adapters";
+import { toIncident } from "../data/admin-read-model";
 import { SystemStatus } from "./system-status";
 import { ResourceOverview, type OverviewTab } from "./resource-overview";
 import { DatabaseOverview } from "./database-overview";
