@@ -57,7 +57,15 @@ func TestProjectCORSPolicyIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"project"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects", map[string]string{"name": "cors-" + ownerID.String()[:8]}, http.StatusCreated, &project)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects",
+		map[string]string{"name": "cors-" + ownerID.String()[:8]},
+		http.StatusCreated,
+		&project,
+	)
 	t.Cleanup(func() {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM audit_events WHERE actor_account_id=$1 OR organization_id=$2`, registration.Account.ID, registration.Organization.ID)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM organizations WHERE id=$1`, registration.Organization.ID)
@@ -77,7 +85,15 @@ func TestProjectCORSPolicyIntegration(t *testing.T) {
 	if initialSettings.Settings.CORSOrigins == nil {
 		t.Fatal("initial cors_origins must be an empty JSON array, not null")
 	}
-	requestJSON(t, ownerClient, http.MethodPatch, projectURL+"/auth/settings", map[string]any{"cors_origins": []string{"https://APP.Example.com", "http://localhost:3000"}}, http.StatusOK, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPatch,
+		projectURL+"/auth/settings",
+		map[string]any{"cors_origins": []string{"https://APP.Example.com", "http://localhost:3000"}},
+		http.StatusOK,
+		nil,
+	)
 
 	preflight, err := http.NewRequest(http.MethodOptions, projectURL+"/account/sessions", nil)
 	if err != nil {
@@ -91,8 +107,14 @@ func TestProjectCORSPolicyIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	preflightResponse.Body.Close()
-	if preflightResponse.StatusCode != http.StatusNoContent || preflightResponse.Header.Get("Access-Control-Allow-Origin") != "https://app.example.com" || preflightResponse.Header.Get("Access-Control-Allow-Credentials") != "true" {
-		t.Fatalf("unexpected preflight response: status=%d headers=%v", preflightResponse.StatusCode, preflightResponse.Header)
+	if preflightResponse.StatusCode != http.StatusNoContent ||
+		preflightResponse.Header.Get("Access-Control-Allow-Origin") != "https://app.example.com" ||
+		preflightResponse.Header.Get("Access-Control-Allow-Credentials") != "true" {
+		t.Fatalf(
+			"unexpected preflight response: status=%d headers=%v",
+			preflightResponse.StatusCode,
+			preflightResponse.Header,
+		)
 	}
 
 	allowed, err := http.NewRequest(http.MethodGet, projectURL, nil)
@@ -105,7 +127,8 @@ func TestProjectCORSPolicyIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	allowedResponse.Body.Close()
-	if allowedResponse.StatusCode != http.StatusOK || allowedResponse.Header.Get("Access-Control-Allow-Origin") != "https://app.example.com" {
+	if allowedResponse.StatusCode != http.StatusOK ||
+		allowedResponse.Header.Get("Access-Control-Allow-Origin") != "https://app.example.com" {
 		t.Fatalf("allowed origin response: status=%d headers=%v", allowedResponse.StatusCode, allowedResponse.Header)
 	}
 

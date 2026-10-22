@@ -33,7 +33,17 @@ func (r stubRow) Scan(dest ...any) error {
 	return nil
 }
 
-var sampleRowValues = []any{int64(12), int64(3), int64(200), uint64(980), uint64(20), uint64(1000), int64(0), uint64(1 << 30), 3600.0}
+var sampleRowValues = []any{
+	int64(12),
+	int64(3),
+	int64(200),
+	uint64(980),
+	uint64(20),
+	uint64(1000),
+	int64(0),
+	uint64(1 << 30),
+	3600.0,
+}
 
 type stubQuerier struct{}
 

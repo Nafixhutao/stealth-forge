@@ -30,7 +30,10 @@ func TestEnsureCreatesDistinctRoleBoundIdentitiesAndPreservesThem(t *testing.T) 
 	if err != nil || !ca.IsCA || !ca.BasicConstraintsValid || ca.KeyUsage&x509.KeyUsageCertSign == 0 {
 		t.Fatalf("CA constraints are invalid: cert=%+v err=%v", ca, err)
 	}
-	if mode(t, paths.CAKey) != caKeyMode || mode(t, paths.ServerKey) != keyMode || mode(t, paths.WorkerKey) != keyMode || mode(t, paths.HealthKey) != keyMode {
+	if mode(t, paths.CAKey) != caKeyMode ||
+		mode(t, paths.ServerKey) != keyMode ||
+		mode(t, paths.WorkerKey) != keyMode ||
+		mode(t, paths.HealthKey) != keyMode {
 		t.Fatal("unexpected private key file permissions")
 	}
 	serverCert, serverKey := identity(t, paths.ServerCert, paths.ServerKey)
@@ -40,7 +43,9 @@ func TestEnsureCreatesDistinctRoleBoundIdentitiesAndPreservesThem(t *testing.T) 
 	assertRole(t, workerCert, ca, clientRole)
 	assertRole(t, healthCert, ca, healthRole)
 	assertDistinct(t, serverKey, workerKey, healthKey)
-	if serverCert.SerialNumber.Cmp(workerCert.SerialNumber) == 0 || serverCert.SerialNumber.Cmp(healthCert.SerialNumber) == 0 || workerCert.SerialNumber.Cmp(healthCert.SerialNumber) == 0 {
+	if serverCert.SerialNumber.Cmp(workerCert.SerialNumber) == 0 ||
+		serverCert.SerialNumber.Cmp(healthCert.SerialNumber) == 0 ||
+		workerCert.SerialNumber.Cmp(healthCert.SerialNumber) == 0 {
 		t.Fatal("leaf certificate serials are not distinct")
 	}
 	before := map[string][]byte{}
@@ -67,7 +72,16 @@ func TestEnsureRenewsLeafSetBeforeExpiryWithoutRotatingCA(t *testing.T) {
 	oldCA := read(t, paths.CACert)
 	caKey, caCert := caIdentity(t, paths)
 	_, workerKey := identity(t, paths.WorkerCert, paths.WorkerKey)
-	writeLeafForTest(t, paths.WorkerCert, workerKey, caKey, caCert, clientRole, time.Now().Add(-5*24*time.Hour), time.Now().Add(10*24*time.Hour))
+	writeLeafForTest(
+		t,
+		paths.WorkerCert,
+		workerKey,
+		caKey,
+		caCert,
+		clientRole,
+		time.Now().Add(-5*24*time.Hour),
+		time.Now().Add(10*24*time.Hour),
+	)
 	changed, err := Ensure(state)
 	if err != nil || !changed {
 		t.Fatalf("renewing leaf Ensure = %v, %v", changed, err)
@@ -93,7 +107,16 @@ func TestEnsureRenewsExpiredLeafAndRejectsBrokenState(t *testing.T) {
 		paths := PathsAt(state)
 		caKey, caCert := caIdentity(t, paths)
 		_, workerKey := identity(t, paths.WorkerCert, paths.WorkerKey)
-		writeLeafForTest(t, paths.WorkerCert, workerKey, caKey, caCert, clientRole, time.Now().Add(-48*time.Hour), time.Now().Add(-time.Hour))
+		writeLeafForTest(
+			t,
+			paths.WorkerCert,
+			workerKey,
+			caKey,
+			caCert,
+			clientRole,
+			time.Now().Add(-48*time.Hour),
+			time.Now().Add(-time.Hour),
+		)
 		changed, err := Ensure(state)
 		if err != nil || !changed {
 			t.Fatalf("expired leaf Ensure = %v, %v", changed, err)
@@ -111,7 +134,15 @@ func TestEnsureRenewsExpiredLeafAndRejectsBrokenState(t *testing.T) {
 				t.Fatal(err)
 			}
 			_, serverKey := identity(t, paths.ServerCert, paths.ServerKey)
-			_, cert := makeLeafForTest(t, serverKey, otherKey, otherCA, serverRole, time.Now().Add(-time.Minute), time.Now().Add(time.Hour))
+			_, cert := makeLeafForTest(
+				t,
+				serverKey,
+				otherKey,
+				otherCA,
+				serverRole,
+				time.Now().Add(-time.Minute),
+				time.Now().Add(time.Hour),
+			)
 			mustWrite(t, paths.ServerCert, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}), fileMode)
 		},
 		"wrong SAN": func(t *testing.T, paths Paths) {
@@ -119,7 +150,15 @@ func TestEnsureRenewsExpiredLeafAndRejectsBrokenState(t *testing.T) {
 			_, serverKey := identity(t, paths.ServerCert, paths.ServerKey)
 			wrongRole := serverRole
 			wrongRole.dnsName = "other"
-			_, cert := makeLeafForTest(t, serverKey, caKey, caCert, wrongRole, time.Now().Add(-time.Minute), time.Now().Add(time.Hour))
+			_, cert := makeLeafForTest(
+				t,
+				serverKey,
+				caKey,
+				caCert,
+				wrongRole,
+				time.Now().Add(-time.Minute),
+				time.Now().Add(time.Hour),
+			)
 			mustWrite(t, paths.ServerCert, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}), fileMode)
 		},
 		"wrong EKU": func(t *testing.T, paths Paths) {
@@ -127,7 +166,15 @@ func TestEnsureRenewsExpiredLeafAndRejectsBrokenState(t *testing.T) {
 			_, workerKey := identity(t, paths.WorkerCert, paths.WorkerKey)
 			wrongRole := clientRole
 			wrongRole.usage = x509.ExtKeyUsageServerAuth
-			_, cert := makeLeafForTest(t, workerKey, caKey, caCert, wrongRole, time.Now().Add(-time.Minute), time.Now().Add(time.Hour))
+			_, cert := makeLeafForTest(
+				t,
+				workerKey,
+				caKey,
+				caCert,
+				wrongRole,
+				time.Now().Add(-time.Minute),
+				time.Now().Add(time.Hour),
+			)
 			mustWrite(t, paths.WorkerCert, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}), fileMode)
 		},
 		"key symlink": func(t *testing.T, paths Paths) {
@@ -223,7 +270,9 @@ func assertRole(t *testing.T, cert, ca *x509.Certificate, expected role) {
 
 func assertDistinct(t *testing.T, a, b, c *ecdsa.PrivateKey) {
 	t.Helper()
-	if a.X.Cmp(b.X) == 0 && a.Y.Cmp(b.Y) == 0 || a.X.Cmp(c.X) == 0 && a.Y.Cmp(c.Y) == 0 || b.X.Cmp(c.X) == 0 && b.Y.Cmp(c.Y) == 0 {
+	if a.X.Cmp(b.X) == 0 && a.Y.Cmp(b.Y) == 0 ||
+		a.X.Cmp(c.X) == 0 && a.Y.Cmp(c.Y) == 0 ||
+		b.X.Cmp(c.X) == 0 && b.Y.Cmp(c.Y) == 0 {
 		t.Fatal("TLS identities reused an ECDSA key")
 	}
 }
@@ -266,7 +315,18 @@ func caIdentity(t *testing.T, paths Paths) (*ecdsa.PrivateKey, *x509.Certificate
 	return caKey, caCert
 }
 
-func makeLeafForTest(t *testing.T, leafKey, caKey *ecdsa.PrivateKey, ca *x509.Certificate, expected role, notBefore, notAfter time.Time) (*ecdsa.PrivateKey, *x509.Certificate) {
+func makeLeafForTest(
+	t *testing.T,
+	leafKey,
+	caKey *ecdsa.PrivateKey,
+	ca *x509.Certificate,
+	expected role,
+	notBefore,
+	notAfter time.Time,
+) (
+	*ecdsa.PrivateKey,
+	*x509.Certificate,
+) {
 	t.Helper()
 	serial, err := rand.Int(rand.Reader, big.NewInt(1<<62))
 	if err != nil {
@@ -293,7 +353,16 @@ func makeLeafForTest(t *testing.T, leafKey, caKey *ecdsa.PrivateKey, ca *x509.Ce
 	return leafKey, cert
 }
 
-func writeLeafForTest(t *testing.T, path string, key, caKey *ecdsa.PrivateKey, ca *x509.Certificate, expected role, notBefore, notAfter time.Time) {
+func writeLeafForTest(
+	t *testing.T,
+	path string,
+	key,
+	caKey *ecdsa.PrivateKey,
+	ca *x509.Certificate,
+	expected role,
+	notBefore,
+	notAfter time.Time,
+) {
 	t.Helper()
 	_, cert := makeLeafForTest(t, key, caKey, ca, expected, notBefore, notAfter)
 	mustWrite(t, path, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}), fileMode)

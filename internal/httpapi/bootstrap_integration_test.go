@@ -85,7 +85,14 @@ func TestInstanceBootstrapIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	invalid := bootstrapRequest(t, client, http.MethodPost, server.URL+"/v1/bootstrap/verify", map[string]string{"setup_code": invalidCode}, nil)
+	invalid := bootstrapRequest(
+		t,
+		client,
+		http.MethodPost,
+		server.URL+"/v1/bootstrap/verify",
+		map[string]string{"setup_code": invalidCode},
+		nil,
+	)
 	if invalid.StatusCode != http.StatusUnauthorized || !strings.Contains(string(invalid.Body), "invalid_bootstrap_code") {
 		t.Fatalf("invalid code response = %d %q", invalid.StatusCode, invalid.Body)
 	}
@@ -97,7 +104,14 @@ func TestInstanceBootstrapIntegration(t *testing.T) {
 	if _, err := pool.Exec(ctx, `INSERT INTO bootstrap_sessions (id,code_hash,expires_at) VALUES ($1,$2,$3)`, uuid.Must(uuid.NewV7()), bootstrap.HashCode(expiredCode), time.Now().UTC().Add(-time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	expired := bootstrapRequest(t, client, http.MethodPost, server.URL+"/v1/bootstrap/verify", map[string]string{"setup_code": expiredCode}, nil)
+	expired := bootstrapRequest(
+		t,
+		client,
+		http.MethodPost,
+		server.URL+"/v1/bootstrap/verify",
+		map[string]string{"setup_code": expiredCode},
+		nil,
+	)
 	if expired.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("expired code status = %d, want 401", expired.StatusCode)
 	}
@@ -105,7 +119,14 @@ func TestInstanceBootstrapIntegration(t *testing.T) {
 	if _, err := pool.Exec(ctx, `UPDATE bootstrap_sessions SET used_at=now() WHERE code_hash=$1`, bootstrap.HashCode(firstSession.SetupCode)); err != nil {
 		t.Fatal(err)
 	}
-	used := bootstrapRequest(t, client, http.MethodPost, server.URL+"/v1/bootstrap/verify", map[string]string{"setup_code": firstSession.SetupCode}, nil)
+	used := bootstrapRequest(
+		t,
+		client,
+		http.MethodPost,
+		server.URL+"/v1/bootstrap/verify",
+		map[string]string{"setup_code": firstSession.SetupCode},
+		nil,
+	)
 	if used.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("used code status = %d, want 401", used.StatusCode)
 	}
@@ -116,7 +137,14 @@ func TestInstanceBootstrapIntegration(t *testing.T) {
 		AuthorizationSessionID string    `json:"authorization_session_id"`
 		ExpiresAt              time.Time `json:"expires_at"`
 	}
-	verified := bootstrapRequest(t, client, http.MethodPost, server.URL+"/v1/bootstrap/verify", map[string]string{"setup_code": secondSession.SetupCode}, nil)
+	verified := bootstrapRequest(
+		t,
+		client,
+		http.MethodPost,
+		server.URL+"/v1/bootstrap/verify",
+		map[string]string{"setup_code": secondSession.SetupCode},
+		nil,
+	)
 	if verified.StatusCode != http.StatusOK {
 		t.Fatalf("verify setup code status = %d %q", verified.StatusCode, verified.Body)
 	}
@@ -229,9 +257,21 @@ type bootstrapHTTPTestResponse struct {
 	Body       []byte
 }
 
-func createBootstrapSessionForTest(t *testing.T, client *http.Client, serverURL string, key []byte) bootstrapSessionTestResponse {
+func createBootstrapSessionForTest(
+	t *testing.T,
+	client *http.Client,
+	serverURL string,
+	key []byte,
+) bootstrapSessionTestResponse {
 	t.Helper()
-	response := bootstrapRequest(t, client, http.MethodPost, serverURL+"/v1/bootstrap/sessions", nil, map[string]string{bootstrap.CLIProofHeader: bootstrap.CLIProof(key)})
+	response := bootstrapRequest(
+		t,
+		client,
+		http.MethodPost,
+		serverURL+"/v1/bootstrap/sessions",
+		nil,
+		map[string]string{bootstrap.CLIProofHeader: bootstrap.CLIProof(key)},
+	)
 	if response.StatusCode != http.StatusCreated {
 		t.Fatalf("create bootstrap session status = %d %q", response.StatusCode, response.Body)
 	}
@@ -275,7 +315,14 @@ func newBootstrapClient(t *testing.T) *http.Client {
 	return &http.Client{Jar: jar}
 }
 
-func bootstrapRequest(t *testing.T, client *http.Client, method, url string, payload any, headers map[string]string) bootstrapHTTPTestResponse {
+func bootstrapRequest(
+	t *testing.T,
+	client *http.Client,
+	method,
+	url string,
+	payload any,
+	headers map[string]string,
+) bootstrapHTTPTestResponse {
 	t.Helper()
 	response, err := bootstrapRequestRaw(client, method, url, payload, headers)
 	if err != nil {
@@ -284,7 +331,16 @@ func bootstrapRequest(t *testing.T, client *http.Client, method, url string, pay
 	return response
 }
 
-func bootstrapRequestRaw(client *http.Client, method, url string, payload any, headers map[string]string) (bootstrapHTTPTestResponse, error) {
+func bootstrapRequestRaw(
+	client *http.Client,
+	method,
+	url string,
+	payload any,
+	headers map[string]string,
+) (
+	bootstrapHTTPTestResponse,
+	error,
+) {
 	var body io.Reader
 	if payload != nil {
 		encoded, err := json.Marshal(payload)

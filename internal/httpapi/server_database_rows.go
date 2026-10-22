@@ -68,7 +68,15 @@ func (s *Server) createDatabaseRow(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 422, "validation_error", err.Error())
 		return
 	}
-	item, err := s.repo.CreateDatabaseRow(r.Context(), uuid.Must(uuid.NewV7()), projectID, databaseID, tableID, databaseActorFrom(r), repository.DatabaseRowInput{Data: data, ReadPermissions: req.ReadPermissions, UpdatePermissions: req.UpdatePermissions, DeletePermissions: req.DeletePermissions})
+	item, err := s.repo.CreateDatabaseRow(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		projectID,
+		databaseID,
+		tableID,
+		databaseActorFrom(r),
+		repository.DatabaseRowInput{Data: data, ReadPermissions: req.ReadPermissions, UpdatePermissions: req.UpdatePermissions, DeletePermissions: req.DeletePermissions},
+	)
 	if databaseResourceError(w, err) {
 		return
 	}
@@ -137,7 +145,15 @@ func (s *Server) updateDatabaseRow(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	item, err := s.repo.UpdateDatabaseRow(r.Context(), projectID, databaseID, tableID, rowID, databaseActorFrom(r), repository.DatabaseRowPatch{Data: data, ReadPermissions: req.ReadPermissions, UpdatePermissions: req.UpdatePermissions, DeletePermissions: req.DeletePermissions})
+	item, err := s.repo.UpdateDatabaseRow(
+		r.Context(),
+		projectID,
+		databaseID,
+		tableID,
+		rowID,
+		databaseActorFrom(r),
+		repository.DatabaseRowPatch{Data: data, ReadPermissions: req.ReadPermissions, UpdatePermissions: req.UpdatePermissions, DeletePermissions: req.DeletePermissions},
+	)
 	if databaseResourceError(w, err) {
 		return
 	}
@@ -165,9 +181,11 @@ func (s *Server) deleteDatabaseRow(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.repo.DeleteDatabaseRow(r.Context(), projectID, databaseID, tableID, rowID, databaseActorFrom(r)); databaseResourceError(w, err) {
+	err := s.repo.DeleteDatabaseRow(r.Context(), projectID, databaseID, tableID, rowID, databaseActorFrom(r))
+	if databaseResourceError(w, err) {
 		return
-	} else if err != nil {
+	}
+	if err != nil {
 		internalError(s, w, err)
 		return
 	}

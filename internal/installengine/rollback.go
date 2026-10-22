@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -209,7 +210,7 @@ func (e *Engine) applyPlatformRollback(
 		return err
 	}
 	if err := e.runComposeFileWithEnv(ctx, targetPlan, composePath, targetPlan.Layout.Root, stageEnvFile,
-		"run", "--rm", "--no-deps", "-e", fmt.Sprintf("STEALTH_TRAEFIK_HOST_UID=%d", os.Geteuid()), "traefik-state-init"); err != nil {
+		"run", "--rm", "--no-deps", "-e", "STEALTH_TRAEFIK_HOST_UID="+strconv.Itoa(os.Geteuid()), "traefik-state-init"); err != nil {
 		_ = removeAllAndSync(prepared.assets.stageDir)
 		return fmt.Errorf("prepare previous Traefik state: %w", err)
 	}

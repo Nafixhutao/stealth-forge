@@ -45,7 +45,12 @@ func TestAppDeploymentSnapshotSelectionAndQuotaIntegration(t *testing.T) {
 	}
 	deploymentID := uuid.Must(uuid.NewV7())
 	sourcePath := f.projectOneID.String() + "/" + appID.String() + "/" + deploymentID.String()
-	sourceCleanup := ArtifactCleanupInput{ProjectID: f.projectOneID, StoreKind: ArtifactCleanupAppSources, Operation: ArtifactCleanupRelative, RelativePath: sourcePath}
+	sourceCleanup := ArtifactCleanupInput{
+		ProjectID:    f.projectOneID,
+		StoreKind:    ArtifactCleanupAppSources,
+		Operation:    ArtifactCleanupRelative,
+		RelativePath: sourcePath,
+	}
 	if err := f.repo.ReserveAppSourceUpload(f.ctx, f.projectOneID, appID, f.actor, 100, sourceCleanup); err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +71,10 @@ func TestAppDeploymentSnapshotSelectionAndQuotaIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if deployment.Version != 1 || deployment.BuildStatus != "queued" || deployment.WorkloadSpecSHA256 != workloadHash || deployment.Selected {
+	if deployment.Version != 1 ||
+		deployment.BuildStatus != "queued" ||
+		deployment.WorkloadSpecSHA256 != workloadHash ||
+		deployment.Selected {
 		t.Fatalf("queued deployment did not capture immutable App state: %+v", deployment)
 	}
 
@@ -77,17 +85,36 @@ func TestAppDeploymentSnapshotSelectionAndQuotaIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	job, err := f.repo.ClaimNextAppDeployment(f.ctx, "build-worker-a")
-	if err != nil || job.Deployment.ID != deployment.ID || job.Deployment.WorkloadSpecSHA256 != workloadHash || job.SourcePath != sourcePath {
+	if err != nil ||
+		job.Deployment.ID != deployment.ID ||
+		job.Deployment.WorkloadSpecSHA256 != workloadHash ||
+		job.SourcePath != sourcePath {
 		t.Fatalf("claimed job lost immutable inputs: %#v err=%v", job, err)
 	}
 	imagePath := f.projectOneID.String() + "/" + appID.String() + "/" + deploymentID.String()
-	imageCleanup := ArtifactCleanupInput{ProjectID: f.projectOneID, StoreKind: ArtifactCleanupAppImages, Operation: ArtifactCleanupRelative, RelativePath: imagePath}
+	imageCleanup := ArtifactCleanupInput{
+		ProjectID:    f.projectOneID,
+		StoreKind:    ArtifactCleanupAppImages,
+		Operation:    ArtifactCleanupRelative,
+		RelativePath: imagePath,
+	}
 	if err := f.repo.ReserveAppImagePublish(f.ctx, f.projectOneID, appID, deploymentID, "build-worker-a", 50, imageCleanup); err != nil {
 		t.Fatal(err)
 	}
 	digest := "sha256:" + strings.Repeat("b", 64)
 	archiveHash := strings.Repeat("c", 64)
-	ready, err := f.repo.CompleteAppDeploymentBuildWithCleanup(f.ctx, f.projectOneID, appID, deploymentID, "build-worker-a", digest, imagePath, archiveHash, 50, imageCleanup)
+	ready, err := f.repo.CompleteAppDeploymentBuildWithCleanup(
+		f.ctx,
+		f.projectOneID,
+		appID,
+		deploymentID,
+		"build-worker-a",
+		digest,
+		imagePath,
+		archiveHash,
+		50,
+		imageCleanup,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,8 +122,19 @@ func TestAppDeploymentSnapshotSelectionAndQuotaIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ready.Status != "ready" || !ready.Selected || app.DesiredDeploymentID == nil || *app.DesiredDeploymentID != deploymentID.String() || app.DesiredGeneration != 3 || app.ObservedGeneration != 0 || app.RuntimeStatus != "pending" || app.WorkloadSpecSHA256 == workloadHash {
-		t.Fatalf("successful build and selection violated runtime truth or generation semantics: App=%+v deployment=%+v", app, ready)
+	if ready.Status != "ready" ||
+		!ready.Selected ||
+		app.DesiredDeploymentID == nil ||
+		*app.DesiredDeploymentID != deploymentID.String() ||
+		app.DesiredGeneration != 3 ||
+		app.ObservedGeneration != 0 ||
+		app.RuntimeStatus != "pending" ||
+		app.WorkloadSpecSHA256 == workloadHash {
+		t.Fatalf(
+			"successful build and selection violated runtime truth or generation semantics: App=%+v deployment=%+v",
+			app,
+			ready,
+		)
 	}
 	if !workloadspec.Equal(ready.WorkloadSnapshot, workloadspec.Default()) || ready.WorkloadSpecSHA256 != workloadHash {
 		t.Fatalf("completed deployment snapshot changed after App edit: %+v", ready)
@@ -119,7 +157,9 @@ func TestAppDeploymentSnapshotSelectionAndQuotaIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(encoded), "source_path") || strings.Contains(string(encoded), "image_path") || strings.Contains(string(encoded), "build_worker_id") {
+	if strings.Contains(string(encoded), "source_path") ||
+		strings.Contains(string(encoded), "image_path") ||
+		strings.Contains(string(encoded), "build_worker_id") {
 		t.Fatalf("public AppDeployment exposed private build data: %s", encoded)
 	}
 }
@@ -146,7 +186,12 @@ func TestAppDeploymentConcurrentVersionsAndLeaseFencingIntegration(t *testing.T)
 			<-start
 			deploymentID := uuid.Must(uuid.NewV7())
 			sourcePath := f.projectOneID.String() + "/" + appID.String() + "/" + deploymentID.String()
-			cleanup := ArtifactCleanupInput{ProjectID: f.projectOneID, StoreKind: ArtifactCleanupAppSources, Operation: ArtifactCleanupRelative, RelativePath: sourcePath}
+			cleanup := ArtifactCleanupInput{
+				ProjectID:    f.projectOneID,
+				StoreKind:    ArtifactCleanupAppSources,
+				Operation:    ArtifactCleanupRelative,
+				RelativePath: sourcePath,
+			}
 			if err := f.repo.ReserveAppSourceUpload(f.ctx, f.projectOneID, appID, f.actor, 100, cleanup); err != nil {
 				created <- createdDeployment{err: err}
 				return
@@ -206,7 +251,12 @@ func TestAppDeploymentConcurrentVersionsAndLeaseFencingIntegration(t *testing.T)
 	}
 	reservedImageID := uuid.Must(uuid.NewV7())
 	reservedImagePath := f.projectOneID.String() + "/" + appID.String() + "/" + reservedImageID.String()
-	reservedImageCleanup := ArtifactCleanupInput{ProjectID: f.projectOneID, StoreKind: ArtifactCleanupAppImages, Operation: ArtifactCleanupRelative, RelativePath: reservedImagePath}
+	reservedImageCleanup := ArtifactCleanupInput{
+		ProjectID:    f.projectOneID,
+		StoreKind:    ArtifactCleanupAppImages,
+		Operation:    ArtifactCleanupRelative,
+		RelativePath: reservedImagePath,
+	}
 	if err := f.repo.ReserveAppImagePublish(f.ctx, f.projectOneID, appID, uuid.MustParse(first.Deployment.ID), first.WorkerID, 50, reservedImageCleanup); err != nil {
 		t.Fatal(err)
 	}
@@ -237,7 +287,12 @@ func TestAppDeploymentConcurrentVersionsAndLeaseFencingIntegration(t *testing.T)
 		t.Fatal(err)
 	}
 	if reservationStatus != "pending" || reservationAppID != nil || reservationBytes != 0 {
-		t.Fatalf("stale image publish reservation was not converted to cleanup: status=%s app=%v bytes=%d", reservationStatus, reservationAppID, reservationBytes)
+		t.Fatalf(
+			"stale image publish reservation was not converted to cleanup: status=%s app=%v bytes=%d",
+			reservationStatus,
+			reservationAppID,
+			reservationBytes,
+		)
 	}
 	second, err := f.repo.ClaimNextAppDeployment(f.ctx, "lease-second")
 	if err != nil {
@@ -286,7 +341,11 @@ func TestAppDeploymentSelectionRollbackQuotaAndDeletionCleanupIntegration(t *tes
 			t.Fatal(err)
 		}
 		wantGeneration := int64(index + 2)
-		if app.DesiredGeneration != wantGeneration || app.ObservedGeneration != 0 || app.RuntimeStatus != "pending" || app.DesiredDeploymentID == nil || *app.DesiredDeploymentID != item.ID {
+		if app.DesiredGeneration != wantGeneration ||
+			app.ObservedGeneration != 0 ||
+			app.RuntimeStatus != "pending" ||
+			app.DesiredDeploymentID == nil ||
+			*app.DesiredDeploymentID != item.ID {
 			t.Fatalf("selection %d violated desired/runtime state: App=%+v selected=%+v", index, app, selected)
 		}
 	}
@@ -333,7 +392,12 @@ func TestAppDeploymentSelectionRollbackQuotaAndDeletionCleanupIntegration(t *tes
 	}
 	failingImageID := uuid.Must(uuid.NewV7())
 	failingImagePath := f.projectOneID.String() + "/" + quotaAppID.String() + "/" + failingImageID.String()
-	failingImageCleanup := ArtifactCleanupInput{ProjectID: f.projectOneID, StoreKind: ArtifactCleanupAppImages, Operation: ArtifactCleanupRelative, RelativePath: failingImagePath}
+	failingImageCleanup := ArtifactCleanupInput{
+		ProjectID:    f.projectOneID,
+		StoreKind:    ArtifactCleanupAppImages,
+		Operation:    ArtifactCleanupRelative,
+		RelativePath: failingImagePath,
+	}
 	if err := f.repo.ReserveAppImagePublish(f.ctx, f.projectOneID, quotaAppID, uuid.MustParse(failingBuild.ID), failingJob.WorkerID, 200, failingImageCleanup); err != nil {
 		t.Fatal(err)
 	}
@@ -348,7 +412,12 @@ func TestAppDeploymentSelectionRollbackQuotaAndDeletionCleanupIntegration(t *tes
 		t.Fatal(err)
 	}
 	if failedImageStatus != "pending" || failedImageAppID != nil || failedImageReserved != 0 {
-		t.Fatalf("failed image publish reservation did not release cleanup/quota: status=%s app=%v bytes=%d", failedImageStatus, failedImageAppID, failedImageReserved)
+		t.Fatalf(
+			"failed image publish reservation did not release cleanup/quota: status=%s app=%v bytes=%d",
+			failedImageStatus,
+			failedImageAppID,
+			failedImageReserved,
+		)
 	}
 	type reservation struct {
 		cleanup ArtifactCleanupInput
@@ -435,7 +504,12 @@ func TestAppAndProjectDeletionWaitForArtifactPublishReservationsIntegration(t *t
 		t.Fatal(err)
 	}
 	appSourcePath := f.projectOneID.String() + "/" + appID.String() + "/" + uuid.Must(uuid.NewV7()).String()
-	appSourceCleanup := ArtifactCleanupInput{ProjectID: f.projectOneID, StoreKind: ArtifactCleanupAppSources, Operation: ArtifactCleanupRelative, RelativePath: appSourcePath}
+	appSourceCleanup := ArtifactCleanupInput{
+		ProjectID:    f.projectOneID,
+		StoreKind:    ArtifactCleanupAppSources,
+		Operation:    ArtifactCleanupRelative,
+		RelativePath: appSourcePath,
+	}
 	if err := f.repo.ReserveAppSourceUpload(f.ctx, f.projectOneID, appID, f.actor, 64, appSourceCleanup); err != nil {
 		t.Fatal(err)
 	}
@@ -458,7 +532,12 @@ func TestAppAndProjectDeletionWaitForArtifactPublishReservationsIntegration(t *t
 		t.Fatalf("claim build for deletion race: job=%+v err=%v", buildJob, err)
 	}
 	imagePath := f.projectOneID.String() + "/" + appID.String() + "/" + uuid.Must(uuid.NewV7()).String()
-	imageCleanup := ArtifactCleanupInput{ProjectID: f.projectOneID, StoreKind: ArtifactCleanupAppImages, Operation: ArtifactCleanupRelative, RelativePath: imagePath}
+	imageCleanup := ArtifactCleanupInput{
+		ProjectID:    f.projectOneID,
+		StoreKind:    ArtifactCleanupAppImages,
+		Operation:    ArtifactCleanupRelative,
+		RelativePath: imagePath,
+	}
 	if err := f.repo.ReserveAppImagePublish(f.ctx, f.projectOneID, appID, uuid.MustParse(deployment.ID), buildJob.WorkerID, 128, imageCleanup); err != nil {
 		t.Fatal(err)
 	}
@@ -477,7 +556,12 @@ func TestAppAndProjectDeletionWaitForArtifactPublishReservationsIntegration(t *t
 		t.Fatal(err)
 	}
 	projectSourcePath := f.projectTwoID.String() + "/" + projectAppID.String() + "/" + uuid.Must(uuid.NewV7()).String()
-	projectSourceCleanup := ArtifactCleanupInput{ProjectID: f.projectTwoID, StoreKind: ArtifactCleanupAppSources, Operation: ArtifactCleanupRelative, RelativePath: projectSourcePath}
+	projectSourceCleanup := ArtifactCleanupInput{
+		ProjectID:    f.projectTwoID,
+		StoreKind:    ArtifactCleanupAppSources,
+		Operation:    ArtifactCleanupRelative,
+		RelativePath: projectSourcePath,
+	}
 	if err := f.repo.ReserveAppSourceUpload(f.ctx, f.projectTwoID, projectAppID, f.actor, 64, projectSourceCleanup); err != nil {
 		t.Fatal(err)
 	}
@@ -499,11 +583,22 @@ func TestAppAndProjectDeletionWaitForArtifactPublishReservationsIntegration(t *t
 	}
 }
 
-func createQueuedAppDeploymentForTest(t *testing.T, f appRepositoryFixture, projectID, appID uuid.UUID, selectAfterBuild bool) domain.AppDeployment {
+func createQueuedAppDeploymentForTest(
+	t *testing.T,
+	f appRepositoryFixture,
+	projectID,
+	appID uuid.UUID,
+	selectAfterBuild bool,
+) domain.AppDeployment {
 	t.Helper()
 	deploymentID := uuid.Must(uuid.NewV7())
 	sourcePath := projectID.String() + "/" + appID.String() + "/" + deploymentID.String()
-	cleanup := ArtifactCleanupInput{ProjectID: projectID, StoreKind: ArtifactCleanupAppSources, Operation: ArtifactCleanupRelative, RelativePath: sourcePath}
+	cleanup := ArtifactCleanupInput{
+		ProjectID:    projectID,
+		StoreKind:    ArtifactCleanupAppSources,
+		Operation:    ArtifactCleanupRelative,
+		RelativePath: sourcePath,
+	}
 	if err := f.repo.ReserveAppSourceUpload(f.ctx, projectID, appID, f.actor, 64, cleanup); err != nil {
 		t.Fatal(err)
 	}
@@ -522,13 +617,26 @@ func createQueuedAppDeploymentForTest(t *testing.T, f appRepositoryFixture, proj
 	return item
 }
 
-func completeAppDeploymentForTest(t *testing.T, f appRepositoryFixture, appID uuid.UUID, deploymentID, workerID string) domain.AppDeployment {
+func completeAppDeploymentForTest(
+	t *testing.T,
+	f appRepositoryFixture,
+	appID uuid.UUID,
+	deploymentID,
+	workerID string,
+) domain.AppDeployment {
 	t.Helper()
 	imagePath := f.projectOneID.String() + "/" + appID.String() + "/" + deploymentID
 	return completeAppDeploymentForTestAtPath(t, f, appID, deploymentID, workerID, imagePath)
 }
 
-func completeAppDeploymentForTestAtPath(t *testing.T, f appRepositoryFixture, appID uuid.UUID, deploymentID, workerID, imagePath string) domain.AppDeployment {
+func completeAppDeploymentForTestAtPath(
+	t *testing.T,
+	f appRepositoryFixture,
+	appID uuid.UUID,
+	deploymentID,
+	workerID,
+	imagePath string,
+) domain.AppDeployment {
 	t.Helper()
 	job, err := f.repo.ClaimNextAppDeployment(f.ctx, workerID)
 	if err != nil {
@@ -537,7 +645,12 @@ func completeAppDeploymentForTestAtPath(t *testing.T, f appRepositoryFixture, ap
 	if job.Deployment.ID != deploymentID {
 		t.Fatalf("claimed deployment %q, want %q", job.Deployment.ID, deploymentID)
 	}
-	cleanup := ArtifactCleanupInput{ProjectID: f.projectOneID, StoreKind: ArtifactCleanupAppImages, Operation: ArtifactCleanupRelative, RelativePath: imagePath}
+	cleanup := ArtifactCleanupInput{
+		ProjectID:    f.projectOneID,
+		StoreKind:    ArtifactCleanupAppImages,
+		Operation:    ArtifactCleanupRelative,
+		RelativePath: imagePath,
+	}
 	if err := f.repo.ReserveAppImagePublish(f.ctx, f.projectOneID, appID, uuid.MustParse(deploymentID), workerID, 128, cleanup); err != nil {
 		t.Fatal(err)
 	}
@@ -549,7 +662,15 @@ func completeAppDeploymentForTestAtPath(t *testing.T, f appRepositoryFixture, ap
 	return item
 }
 
-func appArtifactPathsForTest(t *testing.T, f appRepositoryFixture, projectID uuid.UUID, deploymentID string) (string, string) {
+func appArtifactPathsForTest(
+	t *testing.T,
+	f appRepositoryFixture,
+	projectID uuid.UUID,
+	deploymentID string,
+) (
+	string,
+	string,
+) {
 	t.Helper()
 	var sourcePath, imagePath string
 	if err := f.pool.QueryRow(f.ctx, `SELECT source_path,image_path FROM app_deployments WHERE project_id=$1 AND id=$2`, projectID, uuid.MustParse(deploymentID)).Scan(&sourcePath, &imagePath); err != nil {
@@ -561,7 +682,13 @@ func appArtifactPathsForTest(t *testing.T, f appRepositoryFixture, projectID uui
 	return sourcePath, imagePath
 }
 
-func assertArtifactCleanupJob(t *testing.T, f appRepositoryFixture, projectID uuid.UUID, kind ArtifactCleanupStoreKind, relativePath string) {
+func assertArtifactCleanupJob(
+	t *testing.T,
+	f appRepositoryFixture,
+	projectID uuid.UUID,
+	kind ArtifactCleanupStoreKind,
+	relativePath string,
+) {
 	t.Helper()
 	var count int
 	if err := f.pool.QueryRow(f.ctx, `SELECT count(*) FROM artifact_cleanup_jobs WHERE project_id=$1 AND store_kind=$2 AND operation='relative' AND relative_path=$3`, projectID, kind, relativePath).Scan(&count); err != nil {
@@ -667,7 +794,10 @@ func TestAppsPersistenceGenerationAndPlanLimitIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if first.DesiredGeneration != 1 || first.ObservedGeneration != 0 || first.RuntimeStatus != "not_deployed" || first.RuntimeError != nil {
+	if first.DesiredGeneration != 1 ||
+		first.ObservedGeneration != 0 ||
+		first.RuntimeStatus != "not_deployed" ||
+		first.RuntimeError != nil {
 		t.Fatalf("initial App runtime state = %+v", first)
 	}
 	wantDigest, err := workloadspec.Digest(workload)
@@ -707,7 +837,9 @@ func TestAppsPersistenceGenerationAndPlanLimitIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if noOp.DesiredGeneration != 1 || noOp.WorkloadSpecSHA256 != first.WorkloadSpecSHA256 || !workloadspec.Equal(noOp.Workload, first.Workload) {
+	if noOp.DesiredGeneration != 1 ||
+		noOp.WorkloadSpecSHA256 != first.WorkloadSpecSHA256 ||
+		!workloadspec.Equal(noOp.Workload, first.Workload) {
 		t.Fatalf("semantically equivalent spec created runtime work: %+v", noOp)
 	}
 	if _, err := f.repo.UpdateApp(f.ctx, f.projectOneID, firstID, f.actor, AppPatch{Workload: &equivalent}); err != nil {
@@ -742,7 +874,10 @@ func TestAppsPersistenceGenerationAndPlanLimitIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.DesiredGeneration != 3 || updated.ObservedGeneration != 0 || updated.RuntimeStatus != "pending" || updated.WorkloadSpecSHA256 == first.WorkloadSpecSHA256 {
+	if updated.DesiredGeneration != 3 ||
+		updated.ObservedGeneration != 0 ||
+		updated.RuntimeStatus != "pending" ||
+		updated.WorkloadSpecSHA256 == first.WorkloadSpecSHA256 {
 		t.Fatalf("workload change violated generation or digest semantics: %+v", updated)
 	}
 	updated, err = f.repo.UpdateApp(f.ctx, f.projectOneID, firstID, f.actor, AppPatch{Workload: &portChange})
@@ -753,7 +888,13 @@ func TestAppsPersistenceGenerationAndPlanLimitIntegration(t *testing.T) {
 		t.Fatalf("repeated identical workload incremented generation to %d", updated.DesiredGeneration)
 	}
 
-	second, err := f.repo.CreateApp(f.ctx, uuid.Must(uuid.NewV7()), f.projectTwoID, f.actor, AppInput{Name: "frontend", Enabled: true})
+	second, err := f.repo.CreateApp(
+		f.ctx,
+		uuid.Must(uuid.NewV7()),
+		f.projectTwoID,
+		f.actor,
+		AppInput{Name: "frontend", Enabled: true},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -773,7 +914,13 @@ func TestAppsPersistenceGenerationAndPlanLimitIntegration(t *testing.T) {
 		go func(name string) {
 			defer writers.Done()
 			<-start
-			item, createErr := f.repo.CreateApp(f.ctx, uuid.Must(uuid.NewV7()), f.projectOneID, f.actor, AppInput{Name: name, Enabled: true})
+			item, createErr := f.repo.CreateApp(
+				f.ctx,
+				uuid.Must(uuid.NewV7()),
+				f.projectOneID,
+				f.actor,
+				AppInput{Name: name, Enabled: true},
+			)
 			results <- createResult{item: item, err: createErr}
 		}(name)
 	}
@@ -835,7 +982,8 @@ func TestAppsPersistenceGenerationAndPlanLimitIntegration(t *testing.T) {
 	if _, err := f.repo.CreateApp(f.ctx, uuid.Must(uuid.NewV7()), f.projectOneID, writeActor, AppInput{Name: "write-scope-limited", Enabled: true}); !errors.Is(err, ErrPlanLimitExceeded) {
 		t.Fatalf("apps.write API key was not authorized before plan enforcement: %v", err)
 	}
-	if _, err := f.repo.GetApp(f.ctx, f.projectOneID, firstID, AppActor{Kind: AppConsoleActor, AccountID: uuid.Must(uuid.NewV7())}); !errors.Is(err, ErrNotFound) && !errors.Is(err, ErrForbidden) {
+	if _, err := f.repo.GetApp(f.ctx, f.projectOneID, firstID, AppActor{Kind: AppConsoleActor, AccountID: uuid.Must(uuid.NewV7())}); !errors.Is(err, ErrNotFound) &&
+		!errors.Is(err, ErrForbidden) {
 		t.Fatalf("cross-account App read error = %v, want hidden denial", err)
 	}
 }
@@ -940,7 +1088,12 @@ func TestAppsSharedHostnameNamespaceConcurrencyAndSiteRouteIsolationIntegration(
 		t.Fatalf("App rename changed persisted claim from %q to %q", appLabel, newName)
 	}
 
-	layout, err := f.repo.ReplaceProjectServiceLayout(f.ctx, f.projectOneID, f.accountID, []ProjectServiceLayoutInput{{ResourceType: "app", ResourceID: appID, X: 12, Y: 34}})
+	layout, err := f.repo.ReplaceProjectServiceLayout(
+		f.ctx,
+		f.projectOneID,
+		f.accountID,
+		[]ProjectServiceLayoutInput{{ResourceType: "app", ResourceID: appID, X: 12, Y: 34}},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1005,7 +1158,13 @@ func TestAppsSharedHostnameNamespaceConcurrencyAndSiteRouteIsolationIntegration(
 	go func() {
 		defer writers.Done()
 		<-start
-		created, createErr := f.repo.CreateSite(f.ctx, siteID, f.projectOneID, siteActor, SiteInput{Name: "racing", Enabled: true, Status: "active", ArtifactQuotaBytes: 1 << 20})
+		created, createErr := f.repo.CreateSite(
+			f.ctx,
+			siteID,
+			f.projectOneID,
+			siteActor,
+			SiteInput{Name: "racing", Enabled: true, Status: "active", ArtifactQuotaBytes: 1 << 20},
+		)
 		if createErr != nil {
 			results <- raceResult{err: createErr}
 			return
@@ -1018,7 +1177,13 @@ func TestAppsSharedHostnameNamespaceConcurrencyAndSiteRouteIsolationIntegration(
 	go func() {
 		defer writers.Done()
 		<-start
-		created, createErr := f.repo.CreateApp(f.ctx, appRaceID, crossProjectID, f.actor, AppInput{Name: "racing", Enabled: true})
+		created, createErr := f.repo.CreateApp(
+			f.ctx,
+			appRaceID,
+			crossProjectID,
+			f.actor,
+			AppInput{Name: "racing", Enabled: true},
+		)
 		if createErr != nil {
 			results <- raceResult{err: createErr}
 			return

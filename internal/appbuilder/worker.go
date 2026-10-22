@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -39,7 +40,7 @@ type Persistence interface {
 	ReserveAppImagePublish(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, int64, repository.ArtifactCleanupInput) error
 	CompleteAppDeploymentBuildWithCleanup(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, string, string, string, int64, repository.ArtifactCleanupInput) (domain.AppDeployment, error)
 	FailAppDeploymentBuild(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, string) (domain.AppDeployment, error)
-	AppendAppBuildLog(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, uuid.UUID, string, string) (domain.AppBuildLog, error)
+	AppendAppBuildLog(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, repository.BuildLogEntry) (domain.AppBuildLog, error)
 }
 
 var _ Persistence = (*repository.Repository)(nil)
@@ -63,8 +64,23 @@ type Worker struct {
 	logMu              sync.Mutex
 }
 
-func New(store Persistence, artifacts *appstore.Store, builder *BuildKitClient, workerID, stagingRoot string, logger *slog.Logger) (*Worker, error) {
-	if store == nil || artifacts == nil || artifacts.Sources == nil || artifacts.Images == nil || builder == nil || !safeWorkerID(workerID) {
+func New(
+	store Persistence,
+	artifacts *appstore.Store,
+	builder *BuildKitClient,
+	workerID,
+	stagingRoot string,
+	logger *slog.Logger,
+) (
+	*Worker,
+	error,
+) {
+	if store == nil ||
+		artifacts == nil ||
+		artifacts.Sources == nil ||
+		artifacts.Images == nil ||
+		builder == nil ||
+		!safeWorkerID(workerID) {
 		return nil, errors.New("invalid App build worker dependencies")
 	}
 	if strings.TrimSpace(stagingRoot) == "" {
@@ -224,7 +240,7 @@ func (w *Worker) RunOnce(ctx context.Context) (bool, error) {
 	}
 	started := time.Now()
 	spanContext, span := observability.StartWorkerSpan(ctx, "apps.build",
-		attribute.String("stealth.app.deployment.version", fmt.Sprint(job.Deployment.Version)))
+		attribute.String("stealth.app.deployment.version", strconv.FormatInt(job.Deployment.Version, 10)))
 	if w.Metrics != nil {
 		w.Metrics.AppBuildsClaimed.Inc()
 		w.Metrics.AppBuildInFlight.Inc()

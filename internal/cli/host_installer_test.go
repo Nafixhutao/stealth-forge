@@ -166,7 +166,10 @@ func TestHostInstallerOwnsRequestAndCompletesHandoff(t *testing.T) {
 	if len(runner.calls) != 15 {
 		t.Fatalf("host Docker calls = %#v, want preflight, staged Compose validation, five state inits, production steps, and setup cleanup", runner.calls)
 	}
-	if got := runner.command(1).args; !slices.Contains(got, "config") || !slices.Contains(got, "--quiet") || !slices.Contains(got, "--project-directory") || !strings.Contains(strings.Join(got, " "), filepath.Join(fixture.layout.StateDir, ".stealth-managed-assets-")) {
+	if got := runner.command(1).args; !slices.Contains(got, "config") ||
+		!slices.Contains(got, "--quiet") ||
+		!slices.Contains(got, "--project-directory") ||
+		!strings.Contains(strings.Join(got, " "), filepath.Join(fixture.layout.StateDir, ".stealth-managed-assets-")) {
 		t.Fatalf("staged Compose validation command = %#v", got)
 	}
 	if got := runner.command(2).args; len(got) < 6 {
@@ -174,7 +177,9 @@ func TestHostInstallerOwnsRequestAndCompletesHandoff(t *testing.T) {
 	} else {
 		suffix := got[len(got)-6:]
 		uidValue := strings.TrimPrefix(suffix[4], "STEALTH_TRAEFIK_HOST_UID=")
-		if !equalStrings(suffix[:4], []string{"run", "--rm", "--no-deps", "-e"}) || !strings.HasPrefix(suffix[4], "STEALTH_TRAEFIK_HOST_UID=") || suffix[5] != "traefik-state-init" {
+		if !equalStrings(suffix[:4], []string{"run", "--rm", "--no-deps", "-e"}) ||
+			!strings.HasPrefix(suffix[4], "STEALTH_TRAEFIK_HOST_UID=") ||
+			suffix[5] != "traefik-state-init" {
 			t.Fatalf("staged Traefik state init command = %#v", got)
 		}
 		if _, err := strconv.ParseUint(uidValue, 10, 32); err != nil {
@@ -231,7 +236,8 @@ func TestHostInstallerRepairResumesHandoffWithoutReinstalling(t *testing.T) {
 		t.Fatalf("handoff repair state = %#v", completed)
 	}
 	calls := fixture.app.runner.(*setupRunner).calls
-	if len(calls) != 1 || !equalStrings(calls[0].args, []string{"compose", "--env-file", fixture.layout.EnvFile, "-f", fixture.layout.SetupComposeFile, "rm", "-sf", "setup", "setup-console", "setup-proxy"}) {
+	if len(calls) != 1 ||
+		!equalStrings(calls[0].args, []string{"compose", "--env-file", fixture.layout.EnvFile, "-f", fixture.layout.SetupComposeFile, "rm", "-sf", "setup", "setup-console", "setup-proxy"}) {
 		t.Fatalf("handoff repair Docker calls = %#v", calls)
 	}
 }
@@ -240,7 +246,14 @@ type cleanupFailureRunner struct {
 	*setupRunner
 }
 
-func (r *cleanupFailureRunner) Run(ctx context.Context, dir string, stdout, stderr io.Writer, name string, args ...string) error {
+func (r *cleanupFailureRunner) Run(
+	ctx context.Context,
+	dir string,
+	stdout,
+	stderr io.Writer,
+	name string,
+	args ...string,
+) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -287,7 +300,13 @@ func TestHostInstallerFailsInvalidFinalizedStateWithoutDocker(t *testing.T) {
 	if err := fixture.store.Save(context.Background(), fixture.state); err != nil {
 		t.Fatal(err)
 	}
-	err := fixture.app.executeHostInstallation(context.Background(), fixture.layout, fixture.values, fixture.store, "run-1")
+	err := fixture.app.executeHostInstallation(
+		context.Background(),
+		fixture.layout,
+		fixture.values,
+		fixture.store,
+		"run-1",
+	)
 	if err == nil || !strings.Contains(err.Error(), "GitHub") {
 		t.Fatalf("invalid finalized state error = %v", err)
 	}
@@ -305,14 +324,17 @@ func TestHostInstallerFailsInvalidFinalizedStateWithoutDocker(t *testing.T) {
 
 func TestHostInstallerRejectsRunIDMismatchWithoutChangingState(t *testing.T) {
 	fixture := newHostInstallFixture(t)
-	if err := fixture.app.executeHostInstallation(context.Background(), fixture.layout, fixture.values, fixture.store, "run-2"); err == nil || !strings.Contains(err.Error(), "does not own setup state") {
+	if err := fixture.app.executeHostInstallation(context.Background(), fixture.layout, fixture.values, fixture.store, "run-2"); err == nil ||
+		!strings.Contains(err.Error(), "does not own setup state") {
 		t.Fatalf("run ID mismatch error = %v", err)
 	}
 	state, err := fixture.store.Load(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if state.Phase != setupstate.PhaseInstallRequested || state.InstallRunID != "run-1" || state.Step != fixture.state.Step {
+	if state.Phase != setupstate.PhaseInstallRequested ||
+		state.InstallRunID != "run-1" ||
+		state.Step != fixture.state.Step {
 		t.Fatalf("run ID mismatch changed setup state = %#v", state)
 	}
 	if len(fixture.app.runner.(*setupRunner).calls) != 0 {
@@ -345,7 +367,13 @@ func TestHostInstallerLeavesRequestOwnedByExistingLock(t *testing.T) {
 func TestHostInstallerFailureIsDurableAndProgressIsSafe(t *testing.T) {
 	fixture := newHostInstallFixture(t)
 	fixture.app.runner = &setupRunner{runErr: errors.New("docker compose pull failed: secret must not be copied")}
-	err := fixture.app.executeHostInstallation(context.Background(), fixture.layout, fixture.values, fixture.store, "run-1")
+	err := fixture.app.executeHostInstallation(
+		context.Background(),
+		fixture.layout,
+		fixture.values,
+		fixture.store,
+		"run-1",
+	)
 	if err == nil {
 		t.Fatal("host installer unexpectedly succeeded")
 	}
@@ -382,7 +410,15 @@ func (r *blockingHostRunner) Run(ctx context.Context, _ string, _, _ io.Writer, 
 	return nil
 }
 
-func (r *blockingHostRunner) RunWithEnv(ctx context.Context, dir string, _ []string, stdout, stderr io.Writer, name string, args ...string) error {
+func (r *blockingHostRunner) RunWithEnv(
+	ctx context.Context,
+	dir string,
+	_ []string,
+	stdout,
+	stderr io.Writer,
+	name string,
+	args ...string,
+) error {
 	return r.Run(ctx, dir, stdout, stderr, name, args...)
 }
 

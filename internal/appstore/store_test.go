@@ -29,7 +29,8 @@ func TestNamespacesPublishOpenAndRemoveUUIDArtifacts(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer store.Sources.Cleanup(&prepared)
-	if strings.Contains(prepared.RelativePath, "source.zip") || prepared.RelativePath != projectID.String()+"/"+appID.String()+"/"+deploymentID.String() {
+	if strings.Contains(prepared.RelativePath, "source.zip") ||
+		prepared.RelativePath != projectID.String()+"/"+appID.String()+"/"+deploymentID.String() {
 		t.Fatalf("source path is not UUID-derived: %q", prepared.RelativePath)
 	}
 	want := sha256.Sum256([]byte(content))
@@ -75,7 +76,14 @@ func TestUploadEnforcesNamespaceLimitAndCleanup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prepared, err := store.Sources.BeginUpload(context.Background(), uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7()), strings.NewReader("four"), 3)
+	prepared, err := store.Sources.BeginUpload(
+		context.Background(),
+		uuid.Must(uuid.NewV7()),
+		uuid.Must(uuid.NewV7()),
+		uuid.Must(uuid.NewV7()),
+		strings.NewReader("four"),
+		3,
+	)
 	if err == nil || prepared.TempPath != "" {
 		t.Fatalf("oversized upload = %#v, %v", prepared, err)
 	}
@@ -89,12 +97,26 @@ func TestCleanupStaleUploadsRemovesOnlyOldPrivateStagingFiles(t *testing.T) {
 	}
 	projectID := uuid.Must(uuid.NewV7())
 	appID := uuid.Must(uuid.NewV7())
-	old, err := store.Sources.BeginUpload(ctx, projectID, appID, uuid.Must(uuid.NewV7()), strings.NewReader("old staging"), 1024)
+	old, err := store.Sources.BeginUpload(
+		ctx,
+		projectID,
+		appID,
+		uuid.Must(uuid.NewV7()),
+		strings.NewReader("old staging"),
+		1024,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer store.Sources.Cleanup(&old)
-	recent, err := store.Sources.BeginUpload(ctx, projectID, appID, uuid.Must(uuid.NewV7()), strings.NewReader("recent staging"), 1024)
+	recent, err := store.Sources.BeginUpload(
+		ctx,
+		projectID,
+		appID,
+		uuid.Must(uuid.NewV7()),
+		strings.NewReader("recent staging"),
+		1024,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +125,14 @@ func TestCleanupStaleUploadsRemovesOnlyOldPrivateStagingFiles(t *testing.T) {
 	if err := os.Chtimes(old.TempPath, now.Add(-2*time.Hour), now.Add(-2*time.Hour)); err != nil {
 		t.Fatal(err)
 	}
-	committed, err := store.Sources.BeginUpload(ctx, projectID, appID, uuid.Must(uuid.NewV7()), strings.NewReader("published"), 1024)
+	committed, err := store.Sources.BeginUpload(
+		ctx,
+		projectID,
+		appID,
+		uuid.Must(uuid.NewV7()),
+		strings.NewReader("published"),
+		1024,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}

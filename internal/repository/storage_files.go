@@ -18,7 +18,19 @@ func storageFilePermissionSQL(column string, actor StorageActor, args *[]any) st
 	return rowPermissionSQL(column, actor, args)
 }
 
-func (r *Repository) ListStorageFiles(ctx context.Context, projectID, bucketID uuid.UUID, actor StorageActor, limit int, cursor *uuid.UUID) ([]domain.StorageFile, string, bool, error) {
+func (r *Repository) ListStorageFiles(
+	ctx context.Context,
+	projectID,
+	bucketID uuid.UUID,
+	actor StorageActor,
+	limit int,
+	cursor *uuid.UUID,
+) (
+	[]domain.StorageFile,
+	string,
+	bool,
+	error,
+) {
 	bucket, err := r.storageBucket(ctx, r.pool, projectID, bucketID, false)
 	if err != nil {
 		return nil, "", false, err
@@ -63,7 +75,18 @@ func (r *Repository) ListStorageFiles(ctx context.Context, projectID, bucketID u
 	return items, next, canManage, nil
 }
 
-func (r *Repository) storageFile(ctx context.Context, projectID, bucketID, fileID uuid.UUID, actor StorageActor, lock bool) (domain.StorageFile, string, error) {
+func (r *Repository) storageFile(
+	ctx context.Context,
+	projectID,
+	bucketID,
+	fileID uuid.UUID,
+	actor StorageActor,
+	lock bool,
+) (
+	domain.StorageFile,
+	string,
+	error,
+) {
 	bucket, err := r.storageBucket(ctx, r.pool, projectID, bucketID, false)
 	if err != nil {
 		return domain.StorageFile{}, "", err
@@ -91,12 +114,31 @@ func (r *Repository) storageFile(ctx context.Context, projectID, bucketID, fileI
 	return item, path, err
 }
 
-func (r *Repository) GetStorageFile(ctx context.Context, projectID, bucketID, fileID uuid.UUID, actor StorageActor) (domain.StorageFile, error) {
+func (r *Repository) GetStorageFile(
+	ctx context.Context,
+	projectID,
+	bucketID,
+	fileID uuid.UUID,
+	actor StorageActor,
+) (
+	domain.StorageFile,
+	error,
+) {
 	item, _, err := r.storageFile(ctx, projectID, bucketID, fileID, actor, false)
 	return item, err
 }
 
-func (r *Repository) StorageFileForDownload(ctx context.Context, projectID, bucketID, fileID uuid.UUID, actor StorageActor) (domain.StorageFile, string, error) {
+func (r *Repository) StorageFileForDownload(
+	ctx context.Context,
+	projectID,
+	bucketID,
+	fileID uuid.UUID,
+	actor StorageActor,
+) (
+	domain.StorageFile,
+	string,
+	error,
+) {
 	return r.storageFile(ctx, projectID, bucketID, fileID, actor, false)
 }
 
@@ -104,7 +146,17 @@ func (r *Repository) StorageFileForDownload(ctx context.Context, projectID, buck
 // immutable blob. Management actors require storage.write; application actors
 // may rename only when the effective update grant allows it, and cannot change
 // ACLs (the same anti-escalation rule used by Database rows).
-func (r *Repository) UpdateStorageFile(ctx context.Context, projectID, bucketID, fileID uuid.UUID, actor StorageActor, patch StorageFilePatch) (domain.StorageFile, error) {
+func (r *Repository) UpdateStorageFile(
+	ctx context.Context,
+	projectID,
+	bucketID,
+	fileID uuid.UUID,
+	actor StorageActor,
+	patch StorageFilePatch,
+) (
+	domain.StorageFile,
+	error,
+) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.StorageFile{}, err
@@ -217,7 +269,14 @@ func (r *Repository) UpdateStorageFile(ctx context.Context, projectID, bucketID,
 	return item, nil
 }
 
-func storageFilePermissions(bucket domain.StorageBucket, actor StorageActor, input StorageFileInput) ([3][]string, error) {
+func storageFilePermissions(
+	bucket domain.StorageBucket,
+	actor StorageActor,
+	input StorageFileInput,
+) (
+	[3][]string,
+	error,
+) {
 	// PostgreSQL permission columns are NOT NULL arrays. Management uploads on
 	// file-security buckets intentionally default to deny, so represent omitted
 	// grants as non-nil empty arrays instead of driver-encoded SQL NULL values.
@@ -277,7 +336,17 @@ func storageFilePermissions(bucket domain.StorageBucket, actor StorageActor, inp
 // A publishing caller supplies a durable reservation created before the blob
 // was published; this transaction consumes that reservation before metadata
 // becomes visible.
-func (r *Repository) CreateStorageFile(ctx context.Context, id, projectID, bucketID uuid.UUID, actor StorageActor, input StorageFileInput) (domain.StorageFile, error) {
+func (r *Repository) CreateStorageFile(
+	ctx context.Context,
+	id,
+	projectID,
+	bucketID uuid.UUID,
+	actor StorageActor,
+	input StorageFileInput,
+) (
+	domain.StorageFile,
+	error,
+) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.StorageFile{}, err
@@ -347,9 +416,11 @@ func (r *Repository) RemoveStorageFileMetadata(ctx context.Context, projectID, b
 	}
 	defer tx.Rollback(ctx)
 	var size int64
-	if err := tx.QueryRow(ctx, `SELECT size_bytes FROM storage_files WHERE project_id=$1 AND bucket_id=$2 AND id=$3 FOR UPDATE`, projectID, bucketID, fileID).Scan(&size); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT size_bytes FROM storage_files WHERE project_id=$1 AND bucket_id=$2 AND id=$3 FOR UPDATE`, projectID, bucketID, fileID).Scan(&size)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
-	} else if err != nil {
+	}
+	if err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM storage_files WHERE project_id=$1 AND bucket_id=$2 AND id=$3`, projectID, bucketID, fileID); err != nil {
@@ -361,7 +432,16 @@ func (r *Repository) RemoveStorageFileMetadata(ctx context.Context, projectID, b
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) DeleteStorageFile(ctx context.Context, projectID, bucketID, fileID uuid.UUID, actor StorageActor) (string, error) {
+func (r *Repository) DeleteStorageFile(
+	ctx context.Context,
+	projectID,
+	bucketID,
+	fileID uuid.UUID,
+	actor StorageActor,
+) (
+	string,
+	error,
+) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return "", err

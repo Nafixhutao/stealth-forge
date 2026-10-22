@@ -12,7 +12,18 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (r *Repository) CreateDatabaseRow(ctx context.Context, id, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor, input DatabaseRowInput) (domain.DatabaseRow, error) {
+func (r *Repository) CreateDatabaseRow(
+	ctx context.Context,
+	id,
+	projectID,
+	databaseID,
+	tableID uuid.UUID,
+	actor DatabaseActor,
+	input DatabaseRowInput,
+) (
+	domain.DatabaseRow,
+	error,
+) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.DatabaseRow{}, err
@@ -38,9 +49,23 @@ func (r *Repository) CreateDatabaseRow(ctx context.Context, id, projectID, datab
 	return item, nil
 }
 
-func (r *Repository) CreateDatabaseRows(ctx context.Context, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor, inputs []DatabaseBulkRowInput) ([]domain.DatabaseRow, error) {
+func (r *Repository) CreateDatabaseRows(
+	ctx context.Context,
+	projectID,
+	databaseID,
+	tableID uuid.UUID,
+	actor DatabaseActor,
+	inputs []DatabaseBulkRowInput,
+) (
+	[]domain.DatabaseRow,
+	error,
+) {
 	if len(inputs) == 0 || len(inputs) > DatabaseRowBulkImportMaxRows {
-		return nil, fmt.Errorf("%w: import rows must contain between 1 and %d items", dbcore.ErrInvalidRow, DatabaseRowBulkImportMaxRows)
+		return nil, fmt.Errorf(
+			"%w: import rows must contain between 1 and %d items",
+			dbcore.ErrInvalidRow,
+			DatabaseRowBulkImportMaxRows,
+		)
 	}
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -81,9 +106,23 @@ func (r *Repository) CreateDatabaseRows(ctx context.Context, projectID, database
 // TransactDatabaseRows applies a bounded sequence of creates, updates, and
 // deletes under one database transaction. The database namespace lock also
 // serializes this batch with relationship creation and target-row deletion.
-func (r *Repository) TransactDatabaseRows(ctx context.Context, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor, operations []DatabaseRowTransactionOperation) (DatabaseRowTransactionResult, error) {
+func (r *Repository) TransactDatabaseRows(
+	ctx context.Context,
+	projectID,
+	databaseID,
+	tableID uuid.UUID,
+	actor DatabaseActor,
+	operations []DatabaseRowTransactionOperation,
+) (
+	DatabaseRowTransactionResult,
+	error,
+) {
 	if len(operations) == 0 || len(operations) > DatabaseRowTransactionMaxOps {
-		return DatabaseRowTransactionResult{}, fmt.Errorf("%w: transaction operations must contain between 1 and %d items", dbcore.ErrInvalidRow, DatabaseRowTransactionMaxOps)
+		return DatabaseRowTransactionResult{}, fmt.Errorf(
+			"%w: transaction operations must contain between 1 and %d items",
+			dbcore.ErrInvalidRow,
+			DatabaseRowTransactionMaxOps,
+		)
 	}
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -155,7 +194,19 @@ func (r *Repository) TransactDatabaseRows(ctx context.Context, projectID, databa
 	return result, nil
 }
 
-func (r *Repository) createDatabaseRowTx(ctx context.Context, tx pgx.Tx, projectID, tableID uuid.UUID, schema DatabaseTableSchema, id uuid.UUID, actor DatabaseActor, input DatabaseRowInput) (domain.DatabaseRow, error) {
+func (r *Repository) createDatabaseRowTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID,
+	tableID uuid.UUID,
+	schema DatabaseTableSchema,
+	id uuid.UUID,
+	actor DatabaseActor,
+	input DatabaseRowInput,
+) (
+	domain.DatabaseRow,
+	error,
+) {
 	data, err := dbcore.NormalizeCreate(input.Data, columnDefinitions(schema.Columns))
 	if err != nil {
 		return domain.DatabaseRow{}, err
@@ -201,7 +252,18 @@ func (r *Repository) createDatabaseRowTx(ctx context.Context, tx pgx.Tx, project
 	return item, nil
 }
 
-func (r *Repository) UpdateDatabaseRow(ctx context.Context, projectID, databaseID, tableID, rowID uuid.UUID, actor DatabaseActor, input DatabaseRowPatch) (domain.DatabaseRow, error) {
+func (r *Repository) UpdateDatabaseRow(
+	ctx context.Context,
+	projectID,
+	databaseID,
+	tableID,
+	rowID uuid.UUID,
+	actor DatabaseActor,
+	input DatabaseRowPatch,
+) (
+	domain.DatabaseRow,
+	error,
+) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.DatabaseRow{}, err
@@ -227,7 +289,19 @@ func (r *Repository) UpdateDatabaseRow(ctx context.Context, projectID, databaseI
 	return item, nil
 }
 
-func (r *Repository) updateDatabaseRowTx(ctx context.Context, tx pgx.Tx, projectID, tableID, rowID uuid.UUID, actor DatabaseActor, schema DatabaseTableSchema, input DatabaseRowPatch) (domain.DatabaseRow, error) {
+func (r *Repository) updateDatabaseRowTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID,
+	tableID,
+	rowID uuid.UUID,
+	actor DatabaseActor,
+	schema DatabaseTableSchema,
+	input DatabaseRowPatch,
+) (
+	domain.DatabaseRow,
+	error,
+) {
 	selectSQL := `SELECT ` + rowProjection + ` FROM database_rows r WHERE r.project_id=$1 AND r.table_id=$2 AND r.id=$3`
 	selectArgs := []any{projectID, tableID, rowID}
 	if actor.IsApplication() && schema.Table.RowSecurity && !tablePermission(schema.Table.UpdatePermissions, actor) {

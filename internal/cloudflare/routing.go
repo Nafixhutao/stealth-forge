@@ -46,7 +46,15 @@ type ReconcileResult struct {
 	ConsoleOriginObserved string
 }
 
-func NewReconciler(store RoutingStore, client ClientFactory, interval time.Duration, logger *slog.Logger) (*Reconciler, error) {
+func NewReconciler(
+	store RoutingStore,
+	client ClientFactory,
+	interval time.Duration,
+	logger *slog.Logger,
+) (
+	*Reconciler,
+	error,
+) {
 	if store == nil || client == nil {
 		return nil, errors.New("Cloudflare reconciler requires a store and API client")
 	}
@@ -94,11 +102,33 @@ func (r *Reconciler) runPass(ctx context.Context) {
 	case errors.Is(err, ErrUnauthorized):
 		r.logger.Error("cloudflare token unauthorized", "error", safeReconcileError(err, ""))
 	case result.EdgeTLSStatus == EdgeTLSError && err != nil:
-		r.logger.Error("cloudflare edge TLS inspection failed", "edge_tls_status", result.EdgeTLSStatus, "error", safeReconcileError(err, ""))
+		r.logger.Error(
+			"cloudflare edge TLS inspection failed",
+			"edge_tls_status",
+			result.EdgeTLSStatus,
+			"error",
+			safeReconcileError(err, ""),
+		)
 	case result.EdgeTLSStatus == EdgeTLSActionRequired:
-		r.logger.Error("cloudflare edge TLS action required", "workload_hostname", result.Hostname, "zone", result.Zone, "reason", result.EdgeTLSReason)
+		r.logger.Error(
+			"cloudflare edge TLS action required",
+			"workload_hostname",
+			result.Hostname,
+			"zone",
+			result.Zone,
+			"reason",
+			result.EdgeTLSReason,
+		)
 	case result.EdgeTLSStatus == EdgeTLSPending:
-		r.logger.Info("cloudflare edge TLS pending", "workload_hostname", result.Hostname, "zone", result.Zone, "reason", result.EdgeTLSReason)
+		r.logger.Info(
+			"cloudflare edge TLS pending",
+			"workload_hostname",
+			result.Hostname,
+			"zone",
+			result.Zone,
+			"reason",
+			result.EdgeTLSReason,
+		)
 	case errors.Is(err, ErrRoutingConflict):
 		r.logger.Error("cloudflare reconcile conflict", "error", safeReconcileError(err, ""))
 	case err != nil:
@@ -151,7 +181,11 @@ func (r *Reconciler) Reconcile(ctx context.Context) (result ReconcileResult, err
 		return result, r.recordFailure(ctx, connection.APIToken, err)
 	}
 	if connection.ConsoleOriginDesired != ConsoleOriginProxy && connection.ConsoleOriginDesired != ConsoleOriginTraefik {
-		return result, r.recordFailure(ctx, connection.APIToken, errors.New("saved Console origin is invalid; run stealth ingress rollback"))
+		return result, r.recordFailure(
+			ctx,
+			connection.APIToken,
+			errors.New("saved Console origin is invalid; run stealth ingress rollback"),
+		)
 	}
 	provider, err := r.client(connection.APIToken)
 	if err != nil {
@@ -160,7 +194,15 @@ func (r *Reconciler) Reconcile(ctx context.Context) (result ReconcileResult, err
 	providerCtx, cancel := context.WithTimeout(ctx, r.httpTimeout)
 	defer cancel()
 
-	zones, err := validateExistingConnection(providerCtx, provider, connection.AccountID, connection.ConsoleZoneID, connection.ConsoleHostname, connection.TunnelID, connection.TunnelName)
+	zones, err := validateExistingConnection(
+		providerCtx,
+		provider,
+		connection.AccountID,
+		connection.ConsoleZoneID,
+		connection.ConsoleHostname,
+		connection.TunnelID,
+		connection.TunnelName,
+	)
 	if err != nil {
 		return result, r.recordFailure(ctx, connection.APIToken, err)
 	}
@@ -170,21 +212,42 @@ func (r *Reconciler) Reconcile(ctx context.Context) (result ReconcileResult, err
 	if connection.WorkloadBaseDomain != nil {
 		workloadDomain, normalizeErr := domainname.NormalizeDomain(*connection.WorkloadBaseDomain)
 		if normalizeErr != nil || workloadDomain != *connection.WorkloadBaseDomain {
-			return result, r.recordFailure(ctx, connection.APIToken, errors.New("saved workload domain is invalid; correct the Instance domain setting"))
+			return result, r.recordFailure(
+				ctx,
+				connection.APIToken,
+				errors.New("saved workload domain is invalid; correct the Instance domain setting"),
+			)
 		}
 		workloadZone, err = longestContainingZone(zones, workloadDomain)
 		if err != nil {
 			return result, r.recordFailure(ctx, connection.APIToken, err)
 		}
 		wildcardHostname = "*." + workloadDomain
-		record, changed, ensureErr := ensureWildcardDNS(providerCtx, provider, workloadZone.ID, wildcardHostname, connection.TunnelID+"."+tunnelServiceDomain, connection.WorkloadZoneID, connection.WildcardHostname, connection.WildcardRecordID)
+		record, changed, ensureErr := ensureWildcardDNS(
+			providerCtx,
+			provider,
+			workloadZone.ID,
+			wildcardHostname,
+			connection.TunnelID+"."+tunnelServiceDomain,
+			connection.WorkloadZoneID,
+			connection.WildcardHostname,
+			connection.WildcardRecordID,
+		)
 		if ensureErr != nil {
 			return result, r.recordFailure(ctx, connection.APIToken, ensureErr)
 		}
 		wildcardRecordID = record.ID
 		result.Changed = result.Changed || changed
 		if changed {
-			r.logger.Info("cloudflare wildcard DNS reconciled", "hostname", wildcardHostname, "zone", workloadZone.Name, "record_id", record.ID)
+			r.logger.Info(
+				"cloudflare wildcard DNS reconciled",
+				"hostname",
+				wildcardHostname,
+				"zone",
+				workloadZone.Name,
+				"record_id",
+				record.ID,
+			)
 		}
 	}
 	result.Hostname = wildcardHostname
@@ -204,17 +267,32 @@ func (r *Reconciler) Reconcile(ctx context.Context) (result ReconcileResult, err
 			return result, r.recordFailure(ctx, connection.APIToken, err)
 		}
 		if !sameIngress(verified, desiredIngress) {
-			return result, r.recordFailure(ctx, connection.APIToken, errors.New("Cloudflare tunnel ingress did not match the requested Console and workload routes"))
+			return result, r.recordFailure(
+				ctx,
+				connection.APIToken,
+				errors.New("Cloudflare tunnel ingress did not match the requested Console and workload routes"),
+			)
 		}
 		result.Changed = true
-		r.logger.Info("cloudflare tunnel ingress updated", "console_origin", consoleOriginService(connection.ConsoleOriginDesired), "workload_origin", workloadOrigin(wildcardHostname))
+		r.logger.Info(
+			"cloudflare tunnel ingress updated",
+			"console_origin",
+			consoleOriginService(connection.ConsoleOriginDesired),
+			"workload_origin",
+			workloadOrigin(wildcardHostname),
+		)
 	}
 	result.ConsoleOriginObserved = connection.ConsoleOriginDesired
 
 	tlsObservation := edgeTLSObservation{Status: EdgeTLSNotApplicable}
 	var tlsInspectionErr error
 	if connection.WorkloadBaseDomain != nil {
-		tlsObservation, tlsInspectionErr = inspectWorkloadEdgeTLS(providerCtx, provider, workloadZone, *connection.WorkloadBaseDomain)
+		tlsObservation, tlsInspectionErr = inspectWorkloadEdgeTLS(
+			providerCtx,
+			provider,
+			workloadZone,
+			*connection.WorkloadBaseDomain,
+		)
 	}
 	tlsObservation.Reason = boundedEdgeTLSReason(tlsObservation.Reason)
 	result.EdgeTLSStatus = tlsObservation.Status

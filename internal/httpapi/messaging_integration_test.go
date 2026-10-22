@@ -65,7 +65,15 @@ func TestProjectMessagingControlPlaneIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"project"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects", map[string]string{"name": "messaging-" + ownerID.String()[:8]}, http.StatusCreated, &project)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects",
+		map[string]string{"name": "messaging-" + ownerID.String()[:8]},
+		http.StatusCreated,
+		&project,
+	)
 	t.Cleanup(func() {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM organizations WHERE id=$1`, registration.Organization.ID)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM accounts WHERE id=$1`, registration.Account.ID)
@@ -84,17 +92,43 @@ func TestProjectMessagingControlPlaneIntegration(t *testing.T) {
 	if err := json.Unmarshal(createBody, &createdProvider); err != nil {
 		t.Fatal(err)
 	}
-	if createdProvider.Provider.ID == "" || !createdProvider.Provider.CredentialsPresent || bytes.Contains(createBody, []byte("do-not-return")) || bytes.Contains(createBody, []byte("ciphertext")) {
+	if createdProvider.Provider.ID == "" ||
+		!createdProvider.Provider.CredentialsPresent ||
+		bytes.Contains(createBody, []byte("do-not-return")) ||
+		bytes.Contains(createBody, []byte("ciphertext")) {
 		t.Fatalf("provider response leaked or omitted credential metadata: %s", createBody)
 	}
-	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/messaging/providers", map[string]any{"name": "Primary SMTP", "channel": "email", "provider": "smtp"}, http.StatusConflict, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/messaging/providers",
+		map[string]any{"name": "Primary SMTP", "channel": "email", "provider": "smtp"},
+		http.StatusConflict,
+		nil,
+	)
 
-	requestJSON(t, ownerClient, http.MethodPatch, projectURL+"/messaging/providers/"+createdProvider.Provider.ID, map[string]any{"credentials": map[string]string{}}, http.StatusOK, &createdProvider)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPatch,
+		projectURL+"/messaging/providers/"+createdProvider.Provider.ID,
+		map[string]any{"credentials": map[string]string{}},
+		http.StatusOK,
+		&createdProvider,
+	)
 	if createdProvider.Provider.CredentialsPresent {
 		t.Fatal("clearing credentials kept credentials_present=true")
 	}
 
-	topicBody := requestJSONRaw(t, ownerClient, http.MethodPost, projectURL+"/messaging/topics", map[string]any{"name": "Product updates", "description": "Release notifications"}, http.StatusCreated)
+	topicBody := requestJSONRaw(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/messaging/topics",
+		map[string]any{"name": "Product updates", "description": "Release notifications"},
+		http.StatusCreated,
+	)
 	var createdTopic struct {
 		Topic struct {
 			ID              string `json:"id"`
@@ -108,7 +142,14 @@ func TestProjectMessagingControlPlaneIntegration(t *testing.T) {
 		t.Fatalf("unexpected topic response: %s", topicBody)
 	}
 
-	subscriberBody := requestJSONRaw(t, ownerClient, http.MethodPost, projectURL+"/messaging/topics/"+createdTopic.Topic.ID+"/subscribers", map[string]any{"channel": "email", "address": "Person@example.test"}, http.StatusCreated)
+	subscriberBody := requestJSONRaw(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/messaging/topics/"+createdTopic.Topic.ID+"/subscribers",
+		map[string]any{"channel": "email", "address": "Person@example.test"},
+		http.StatusCreated,
+	)
 	var createdSubscriber struct {
 		Subscriber struct {
 			ID             string `json:"id"`
@@ -118,11 +159,29 @@ func TestProjectMessagingControlPlaneIntegration(t *testing.T) {
 	if err := json.Unmarshal(subscriberBody, &createdSubscriber); err != nil {
 		t.Fatal(err)
 	}
-	if createdSubscriber.Subscriber.ID == "" || strings.Contains(strings.ToLower(createdSubscriber.Subscriber.AddressPreview), "person@example.test") || !strings.Contains(createdSubscriber.Subscriber.AddressPreview, "@") {
+	if createdSubscriber.Subscriber.ID == "" ||
+		strings.Contains(strings.ToLower(createdSubscriber.Subscriber.AddressPreview), "person@example.test") ||
+		!strings.Contains(createdSubscriber.Subscriber.AddressPreview, "@") {
 		t.Fatalf("subscriber address was not masked: %s", subscriberBody)
 	}
-	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/messaging/topics/"+createdTopic.Topic.ID+"/subscribers", map[string]any{"channel": "email", "address": "person@example.test"}, http.StatusConflict, nil)
-	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/messaging/topics/"+createdTopic.Topic.ID+"/subscribers", map[string]any{"channel": "sms", "address": "not-a-phone"}, http.StatusUnprocessableEntity, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/messaging/topics/"+createdTopic.Topic.ID+"/subscribers",
+		map[string]any{"channel": "email", "address": "person@example.test"},
+		http.StatusConflict,
+		nil,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/messaging/topics/"+createdTopic.Topic.ID+"/subscribers",
+		map[string]any{"channel": "sms", "address": "not-a-phone"},
+		http.StatusUnprocessableEntity,
+		nil,
+	)
 
 	var topicList struct {
 		Topics []struct {
@@ -140,14 +199,62 @@ func TestProjectMessagingControlPlaneIntegration(t *testing.T) {
 		} `json:"key"`
 		Secret string `json:"secret"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/api-keys", map[string]any{"name": "messaging-read", "scopes": []string{"messaging.read"}}, http.StatusCreated, &readKey)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/api-keys",
+		map[string]any{"name": "messaging-read", "scopes": []string{"messaging.read"}},
+		http.StatusCreated,
+		&readKey,
+	)
 	keyClient := &http.Client{}
-	requestJSONWithHeaders(t, keyClient, http.MethodGet, projectURL+"/messaging/providers", nil, http.StatusOK, map[string]string{"X-Stealth-Key": readKey.Secret})
-	requestJSONWithHeaders(t, keyClient, http.MethodPost, projectURL+"/messaging/topics", map[string]any{"name": "denied-topic"}, http.StatusForbidden, map[string]string{"X-Stealth-Key": readKey.Secret})
+	requestJSONWithHeaders(
+		t,
+		keyClient,
+		http.MethodGet,
+		projectURL+"/messaging/providers",
+		nil,
+		http.StatusOK,
+		map[string]string{"X-Stealth-Key": readKey.Secret},
+	)
+	requestJSONWithHeaders(
+		t,
+		keyClient,
+		http.MethodPost,
+		projectURL+"/messaging/topics",
+		map[string]any{"name": "denied-topic"},
+		http.StatusForbidden,
+		map[string]string{"X-Stealth-Key": readKey.Secret},
+	)
 
-	requestJSON(t, ownerClient, http.MethodDelete, projectURL+"/messaging/topics/"+createdTopic.Topic.ID+"/subscribers/"+createdSubscriber.Subscriber.ID, nil, http.StatusNoContent, nil)
-	requestJSON(t, ownerClient, http.MethodDelete, projectURL+"/messaging/topics/"+createdTopic.Topic.ID, nil, http.StatusNoContent, nil)
-	requestJSON(t, ownerClient, http.MethodDelete, projectURL+"/messaging/providers/"+createdProvider.Provider.ID, nil, http.StatusNoContent, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodDelete,
+		projectURL+"/messaging/topics/"+createdTopic.Topic.ID+"/subscribers/"+createdSubscriber.Subscriber.ID,
+		nil,
+		http.StatusNoContent,
+		nil,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodDelete,
+		projectURL+"/messaging/topics/"+createdTopic.Topic.ID,
+		nil,
+		http.StatusNoContent,
+		nil,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodDelete,
+		projectURL+"/messaging/providers/"+createdProvider.Provider.ID,
+		nil,
+		http.StatusNoContent,
+		nil,
+	)
 }
 
 func TestProjectMessagingDeliveryIntegration(t *testing.T) {
@@ -196,7 +303,15 @@ func TestProjectMessagingDeliveryIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"project"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects", map[string]string{"name": "delivery-" + ownerID.String()[:8]}, http.StatusCreated, &project)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects",
+		map[string]string{"name": "delivery-" + ownerID.String()[:8]},
+		http.StatusCreated,
+		&project,
+	)
 	t.Cleanup(func() {
 		if _, cleanupErr := pool.Exec(context.Background(), `DELETE FROM projects WHERE id=$1`, project.Project.ID); cleanupErr != nil {
 			t.Logf("cleanup project: %v", cleanupErr)
@@ -214,7 +329,14 @@ func TestProjectMessagingDeliveryIntegration(t *testing.T) {
 	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/messaging/providers", map[string]any{
 		"name": "Local delivery log", "channel": "email", "provider": "log", "credentials": map[string]string{},
 	}, http.StatusCreated, nil)
-	topicBody := requestJSONRaw(t, ownerClient, http.MethodPost, projectURL+"/messaging/topics", map[string]any{"name": "Delivery test topic"}, http.StatusCreated)
+	topicBody := requestJSONRaw(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/messaging/topics",
+		map[string]any{"name": "Delivery test topic"},
+		http.StatusCreated,
+	)
 	var topic struct {
 		Topic struct {
 			ID string `json:"id"`
@@ -238,9 +360,23 @@ func TestProjectMessagingDeliveryIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	messageInput := map[string]any{"topic_id": topic.Topic.ID, "channel": "email", "subject": "Delivery test", "body": "hello from the queue", "data": map[string]string{"kind": "integration"}}
+	messageInput := map[string]any{
+		"topic_id": topic.Topic.ID,
+		"channel":  "email",
+		"subject":  "Delivery test",
+		"body":     "hello from the queue",
+		"data":     map[string]string{"kind": "integration"},
+	}
 	idempotencyKey := "delivery-" + ownerID.String()
-	firstBody := requestJSONRawWithHeaders(t, ownerClient, http.MethodPost, projectURL+"/messaging/messages", messageInput, http.StatusAccepted, map[string]string{"Idempotency-Key": idempotencyKey})
+	firstBody := requestJSONRawWithHeaders(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/messaging/messages",
+		messageInput,
+		http.StatusAccepted,
+		map[string]string{"Idempotency-Key": idempotencyKey},
+	)
 	var first struct {
 		Message struct {
 			ID             string  `json:"id"`
@@ -253,15 +389,37 @@ func TestProjectMessagingDeliveryIntegration(t *testing.T) {
 	if err := json.Unmarshal(firstBody, &first); err != nil {
 		t.Fatal(err)
 	}
-	if first.Message.ID == "" || first.Message.TopicID == nil || *first.Message.TopicID != topic.Topic.ID || first.Message.Status != "queued" || first.Message.RecipientCount != 1 || first.Message.SucceededCount != 0 {
+	if first.Message.ID == "" ||
+		first.Message.TopicID == nil ||
+		*first.Message.TopicID != topic.Topic.ID ||
+		first.Message.Status != "queued" ||
+		first.Message.RecipientCount != 1 ||
+		first.Message.SucceededCount != 0 {
 		t.Fatalf("unexpected accepted message: %s", firstBody)
 	}
-	if bytes.Contains(firstBody, []byte("hello from the queue")) || bytes.Contains(firstBody, []byte("delivery-recipient@example.test")) {
+	if bytes.Contains(firstBody, []byte("hello from the queue")) ||
+		bytes.Contains(firstBody, []byte("delivery-recipient@example.test")) {
 		t.Fatalf("message response leaked encrypted content: %s", firstBody)
 	}
 
-	requestJSONWithHeaders(t, ownerClient, http.MethodPost, projectURL+"/messaging/messages", messageInput, http.StatusOK, map[string]string{"Idempotency-Key": idempotencyKey})
-	requestJSONWithHeaders(t, ownerClient, http.MethodPost, projectURL+"/messaging/messages", map[string]any{"topic_id": topic.Topic.ID, "channel": "email", "subject": "different", "body": "hello from the queue"}, http.StatusConflict, map[string]string{"Idempotency-Key": idempotencyKey})
+	requestJSONWithHeaders(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/messaging/messages",
+		messageInput,
+		http.StatusOK,
+		map[string]string{"Idempotency-Key": idempotencyKey},
+	)
+	requestJSONWithHeaders(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/messaging/messages",
+		map[string]any{"topic_id": topic.Topic.ID, "channel": "email", "subject": "different", "body": "hello from the queue"},
+		http.StatusConflict,
+		map[string]string{"Idempotency-Key": idempotencyKey},
+	)
 
 	var deliveries struct {
 		Deliveries []struct {
@@ -271,8 +429,20 @@ func TestProjectMessagingDeliveryIntegration(t *testing.T) {
 			AddressPreview string `json:"address_preview"`
 		} `json:"deliveries"`
 	}
-	requestJSON(t, ownerClient, http.MethodGet, projectURL+"/messaging/messages/"+first.Message.ID+"/deliveries", nil, http.StatusOK, &deliveries)
-	if len(deliveries.Deliveries) != 1 || deliveries.Deliveries[0].Status != "pending" || deliveries.Deliveries[0].AttemptCount != 0 || deliveries.Deliveries[0].ID == "" || strings.Contains(deliveries.Deliveries[0].AddressPreview, "delivery-recipient@example.test") {
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		projectURL+"/messaging/messages/"+first.Message.ID+"/deliveries",
+		nil,
+		http.StatusOK,
+		&deliveries,
+	)
+	if len(deliveries.Deliveries) != 1 ||
+		deliveries.Deliveries[0].Status != "pending" ||
+		deliveries.Deliveries[0].AttemptCount != 0 ||
+		deliveries.Deliveries[0].ID == "" ||
+		strings.Contains(deliveries.Deliveries[0].AddressPreview, "delivery-recipient@example.test") {
 		t.Fatalf("unexpected pending delivery projection: %+v", deliveries)
 	}
 
@@ -294,7 +464,10 @@ func TestProjectMessagingDeliveryIntegration(t *testing.T) {
 	if err != nil || !processed {
 		t.Fatalf("worker RunOnce() processed=%t err=%v", processed, err)
 	}
-	if delivered.Recipient != "delivery-recipient@example.test" || delivered.Subject != "Delivery test" || delivered.Body != "hello from the queue" || delivered.Data["kind"] != "integration" {
+	if delivered.Recipient != "delivery-recipient@example.test" ||
+		delivered.Subject != "Delivery test" ||
+		delivered.Body != "hello from the queue" ||
+		delivered.Data["kind"] != "integration" {
 		t.Fatalf("worker did not decrypt delivery payload correctly: %+v", delivered)
 	}
 
@@ -305,17 +478,53 @@ func TestProjectMessagingDeliveryIntegration(t *testing.T) {
 			FailedCount    int64  `json:"failed_count"`
 		} `json:"message"`
 	}
-	requestJSON(t, ownerClient, http.MethodGet, projectURL+"/messaging/messages/"+first.Message.ID, nil, http.StatusOK, &messageAfter)
-	if messageAfter.Message.Status != "succeeded" || messageAfter.Message.SucceededCount != 1 || messageAfter.Message.FailedCount != 0 {
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		projectURL+"/messaging/messages/"+first.Message.ID,
+		nil,
+		http.StatusOK,
+		&messageAfter,
+	)
+	if messageAfter.Message.Status != "succeeded" ||
+		messageAfter.Message.SucceededCount != 1 ||
+		messageAfter.Message.FailedCount != 0 {
 		t.Fatalf("message status was not refreshed after worker delivery: %+v", messageAfter.Message)
 	}
-	requestJSON(t, ownerClient, http.MethodGet, projectURL+"/messaging/messages/"+first.Message.ID+"/deliveries", nil, http.StatusOK, &deliveries)
-	if len(deliveries.Deliveries) != 1 || deliveries.Deliveries[0].Status != "succeeded" || deliveries.Deliveries[0].AttemptCount != 1 {
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		projectURL+"/messaging/messages/"+first.Message.ID+"/deliveries",
+		nil,
+		http.StatusOK,
+		&deliveries,
+	)
+	if len(deliveries.Deliveries) != 1 ||
+		deliveries.Deliveries[0].Status != "succeeded" ||
+		deliveries.Deliveries[0].AttemptCount != 1 {
 		t.Fatalf("delivery status was not refreshed after worker delivery: %+v", deliveries)
 	}
-	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/messaging/messages/"+first.Message.ID+"/cancel", map[string]any{}, http.StatusConflict, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/messaging/messages/"+first.Message.ID+"/cancel",
+		map[string]any{},
+		http.StatusConflict,
+		nil,
+	)
 
-	secondBody := requestJSONRawWithHeaders(t, ownerClient, http.MethodPost, projectURL+"/messaging/messages", messageInput, http.StatusAccepted, map[string]string{"Idempotency-Key": idempotencyKey + "-cancel"})
+	secondBody := requestJSONRawWithHeaders(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/messaging/messages",
+		messageInput,
+		http.StatusAccepted,
+		map[string]string{"Idempotency-Key": idempotencyKey + "-cancel"},
+	)
 	var second struct {
 		Message struct {
 			ID string `json:"id"`
@@ -324,9 +533,33 @@ func TestProjectMessagingDeliveryIntegration(t *testing.T) {
 	if err := json.Unmarshal(secondBody, &second); err != nil {
 		t.Fatal(err)
 	}
-	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/messaging/messages/"+second.Message.ID+"/cancel", map[string]any{}, http.StatusOK, nil)
-	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/messaging/messages/"+second.Message.ID+"/cancel", map[string]any{}, http.StatusOK, nil)
-	requestJSON(t, ownerClient, http.MethodGet, projectURL+"/messaging/messages/"+second.Message.ID+"/deliveries", nil, http.StatusOK, &deliveries)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/messaging/messages/"+second.Message.ID+"/cancel",
+		map[string]any{},
+		http.StatusOK,
+		nil,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/messaging/messages/"+second.Message.ID+"/cancel",
+		map[string]any{},
+		http.StatusOK,
+		nil,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		projectURL+"/messaging/messages/"+second.Message.ID+"/deliveries",
+		nil,
+		http.StatusOK,
+		&deliveries,
+	)
 	if len(deliveries.Deliveries) != 1 || deliveries.Deliveries[0].Status != "cancelled" {
 		t.Fatalf("cancel did not propagate to pending delivery: %+v", deliveries)
 	}

@@ -48,7 +48,9 @@ func TestTwilioAdapterUsesFixedEndpointAndClassifiesResponses(t *testing.T) {
 	if err := (TwilioAdapter{Client: client}).Send(context.Background(), provider, message); err != nil {
 		t.Fatal(err)
 	}
-	if seen == nil || seen.Method != http.MethodPost || seen.URL.String() != "https://api.twilio.com/2010-04-01/Accounts/test-account-sid/Messages.json" {
+	if seen == nil ||
+		seen.Method != http.MethodPost ||
+		seen.URL.String() != "https://api.twilio.com/2010-04-01/Accounts/test-account-sid/Messages.json" {
 		t.Fatalf("unexpected Twilio request: %+v", seen)
 	}
 	if seen.URL.Host != "api.twilio.com" || seen.URL.Scheme != "https" {
@@ -66,7 +68,9 @@ func TestTwilioAdapterUsesFixedEndpointAndClassifiesResponses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if values.Get("To") != message.Recipient || values.Get("Body") != message.Body || values.Get("From") != provider.Credentials["from"] {
+	if values.Get("To") != message.Recipient ||
+		values.Get("Body") != message.Body ||
+		values.Get("From") != provider.Credentials["from"] {
 		t.Fatalf("unexpected Twilio form: %v", values)
 	}
 
@@ -96,7 +100,8 @@ func TestTwilioAdapterUsesFixedEndpointAndClassifiesResponses(t *testing.T) {
 }
 
 func TestProviderAdaptersFailClosedBeforeNetwork(t *testing.T) {
-	if err := (SMTPAdapter{}).Send(context.Background(), Provider{Channel: "email", Credentials: map[string]string{"host": "smtp.example.com"}}, Message{Channel: "email", Recipient: "person@example.com", Subject: "subject", Body: "body"}); err == nil || !strings.Contains(err.Error(), "requires host and from") {
+	if err := (SMTPAdapter{}).Send(context.Background(), Provider{Channel: "email", Credentials: map[string]string{"host": "smtp.example.com"}}, Message{Channel: "email", Recipient: "person@example.com", Subject: "subject", Body: "body"}); err == nil ||
+		!strings.Contains(err.Error(), "requires host and from") {
 		t.Fatalf("incomplete SMTP credentials were not rejected: %v", err)
 	}
 	if err := (TwilioAdapter{Client: &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
@@ -114,10 +119,15 @@ func TestProviderAdaptersFailClosedBeforeNetwork(t *testing.T) {
 }
 
 func TestRetryAndErrorBounds(t *testing.T) {
-	if !retryableStatus(http.StatusRequestTimeout) || !retryableStatus(http.StatusTooEarly) || !retryableStatus(http.StatusTooManyRequests) || !retryableStatus(http.StatusInternalServerError) {
+	if !retryableStatus(http.StatusRequestTimeout) ||
+		!retryableStatus(http.StatusTooEarly) ||
+		!retryableStatus(http.StatusTooManyRequests) ||
+		!retryableStatus(http.StatusInternalServerError) {
 		t.Fatal("transient status was not retryable")
 	}
-	if retryableStatus(http.StatusBadRequest) || retryableStatus(http.StatusUnauthorized) || retryableStatus(http.StatusNotFound) {
+	if retryableStatus(http.StatusBadRequest) ||
+		retryableStatus(http.StatusUnauthorized) ||
+		retryableStatus(http.StatusNotFound) {
 		t.Fatal("permanent status was marked retryable")
 	}
 	if got := len(safeError(errors.New(strings.Repeat("x", 5000)))); got != 1000 {

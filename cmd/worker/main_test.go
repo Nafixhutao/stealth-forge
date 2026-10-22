@@ -40,7 +40,14 @@ func (f *legacyCloudflareImportFake) MarkCloudflareConnectionUnavailable(_ conte
 	return nil
 }
 
-func (f *legacyCloudflareImportFake) ImportCloudflareConnectionOnce(_ context.Context, input repository.CloudflareConnectionInput, reason string) (bool, error) {
+func (f *legacyCloudflareImportFake) ImportCloudflareConnectionOnce(
+	_ context.Context,
+	input repository.CloudflareConnectionInput,
+	reason string,
+) (
+	bool,
+	error,
+) {
 	f.importCalls++
 	f.input = input
 	f.reason = reason
@@ -118,7 +125,13 @@ func TestLegacyCloudflareImportReadsNarrowArtifactOnce(t *testing.T) {
 	if store.statusCalls != 1 || store.importCalls != 1 || store.markCalls != 0 {
 		t.Fatalf("narrow artifact import calls = %#v", store)
 	}
-	if store.input.AccountID != envelope.AccountID || store.input.ConsoleZoneID != envelope.ConsoleZoneID || store.input.ConsoleHostname != envelope.ConsoleHostname || store.input.TunnelID != envelope.TunnelID || store.input.TunnelName != envelope.TunnelName || store.input.ConsoleRecordID != envelope.ConsoleRecordID || store.input.APIToken != envelope.APIToken {
+	if store.input.AccountID != envelope.AccountID ||
+		store.input.ConsoleZoneID != envelope.ConsoleZoneID ||
+		store.input.ConsoleHostname != envelope.ConsoleHostname ||
+		store.input.TunnelID != envelope.TunnelID ||
+		store.input.TunnelName != envelope.TunnelName ||
+		store.input.ConsoleRecordID != envelope.ConsoleRecordID ||
+		store.input.APIToken != envelope.APIToken {
 		t.Fatalf("imported Cloudflare connection = %#v", store.input)
 	}
 	if strings.Contains(logs.String(), "SECRET-CLOUDFLARE-API") {
@@ -193,7 +206,10 @@ func TestLegacyCloudflareImportRequiresReconnectForIncompleteState(t *testing.T)
 	var logs bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&logs, nil))
 	importLegacyCloudflareConnection(context.Background(), path, cipher, store, logger)
-	if store.statusCalls != 1 || store.markCalls != 1 || store.importCalls != 0 || !strings.Contains(store.markReason, "Instance Owner") {
+	if store.statusCalls != 1 ||
+		store.markCalls != 1 ||
+		store.importCalls != 0 ||
+		!strings.Contains(store.markReason, "Instance Owner") {
 		t.Fatalf("reconnect-required handling = %#v", store)
 	}
 }
@@ -206,7 +222,13 @@ func TestLegacyCloudflareImportDoesNotOverwriteConfiguredConnection(t *testing.T
 	store := &legacyCloudflareImportFake{configured: true}
 	var logs bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&logs, nil))
-	importLegacyCloudflareConnection(context.Background(), filepath.Join(t.TempDir(), "missing.enc"), cipher, store, logger)
+	importLegacyCloudflareConnection(
+		context.Background(),
+		filepath.Join(t.TempDir(), "missing.enc"),
+		cipher,
+		store,
+		logger,
+	)
 	if store.statusCalls != 1 || store.markCalls != 0 || store.importCalls != 0 {
 		t.Fatalf("configured connection was overwritten: %#v", store)
 	}

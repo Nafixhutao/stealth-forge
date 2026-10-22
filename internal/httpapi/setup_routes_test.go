@@ -86,7 +86,13 @@ type setupUpdateProbeStore struct {
 	updates chan struct{}
 }
 
-func (s *setupUpdateProbeStore) Update(ctx context.Context, mutate func(*setupstate.State) error) (setupstate.State, error) {
+func (s *setupUpdateProbeStore) Update(
+	ctx context.Context,
+	mutate func(*setupstate.State) error,
+) (
+	setupstate.State,
+	error,
+) {
 	select {
 	case s.updates <- struct{}{}:
 	default:
@@ -134,7 +140,14 @@ func (*gatedSetupCloudflareClient) ConfigureTunnel(context.Context, string, stri
 	return nil
 }
 
-func (*gatedSetupCloudflareClient) TunnelConfiguration(context.Context, string, string) ([]cloudflare.IngressRule, error) {
+func (*gatedSetupCloudflareClient) TunnelConfiguration(
+	context.Context,
+	string,
+	string,
+) (
+	[]cloudflare.IngressRule,
+	error,
+) {
 	return []cloudflare.IngressRule{{Hostname: "app.example.test", Service: "http://proxy:80"}, {Service: "http_status:404"}}, nil
 }
 
@@ -146,12 +159,27 @@ func (*gatedSetupCloudflareClient) GetDNSRecord(context.Context, string, string)
 	return cloudflare.DNSRecord{}, cloudflare.ErrResourceNotFound
 }
 
-func (*gatedSetupCloudflareClient) CreateDNSRecord(_ context.Context, _ string, record cloudflare.DNSRecord) (cloudflare.DNSRecord, error) {
+func (*gatedSetupCloudflareClient) CreateDNSRecord(
+	_ context.Context,
+	_ string,
+	record cloudflare.DNSRecord,
+) (
+	cloudflare.DNSRecord,
+	error,
+) {
 	record.ID = "record-a"
 	return record, nil
 }
 
-func (*gatedSetupCloudflareClient) UpdateDNSRecord(_ context.Context, _, recordID string, record cloudflare.DNSRecord) (cloudflare.DNSRecord, error) {
+func (*gatedSetupCloudflareClient) UpdateDNSRecord(
+	_ context.Context,
+	_,
+	recordID string,
+	record cloudflare.DNSRecord,
+) (
+	cloudflare.DNSRecord,
+	error,
+) {
 	record.ID = recordID
 	return record, nil
 }
@@ -166,7 +194,17 @@ func (*gatedSetupCloudflareClient) TunnelToken(context.Context, string, string) 
 	return "tunnel-token", nil
 }
 
-func (f *setupGitHubOAuthFake) ExchangeAuthorizationCode(context.Context, string, string, string, string, string) (githubauth.OAuthToken, error) {
+func (f *setupGitHubOAuthFake) ExchangeAuthorizationCode(
+	context.Context,
+	string,
+	string,
+	string,
+	string,
+	string,
+) (
+	githubauth.OAuthToken,
+	error,
+) {
 	f.exchanges++
 	if f.exchangeErr != nil {
 		return githubauth.OAuthToken{}, f.exchangeErr
@@ -238,8 +276,18 @@ func TestSetupHTTPFlowClaimsCodeAndKeepsProviderSecretsServerSide(t *testing.T) 
 		t.Fatalf("bootstrap verification = %d: %s", verify.Code, verify.Body.String())
 	}
 	setupCookie := verify.Result().Cookies()
-	if len(setupCookie) != 1 || setupCookie[0].Name != setupCookieName || !setupCookie[0].HttpOnly || !setupCookie[0].Secure || setupCookie[0].SameSite != http.SameSiteLaxMode || setupCookie[0].Value == setupCode || strings.Contains(verify.Body.String(), setupCode) {
-		t.Fatalf("setup verification exposed code or issued an unsafe cookie: cookies=%#v body=%s", setupCookie, verify.Body.String())
+	if len(setupCookie) != 1 ||
+		setupCookie[0].Name != setupCookieName ||
+		!setupCookie[0].HttpOnly ||
+		!setupCookie[0].Secure ||
+		setupCookie[0].SameSite != http.SameSiteLaxMode ||
+		setupCookie[0].Value == setupCode ||
+		strings.Contains(verify.Body.String(), setupCode) {
+		t.Fatalf(
+			"setup verification exposed code or issued an unsafe cookie: cookies=%#v body=%s",
+			setupCookie,
+			verify.Body.String(),
+		)
 	}
 
 	replay := httptest.NewRecorder()
@@ -251,8 +299,17 @@ func TestSetupHTTPFlowClaimsCodeAndKeepsProviderSecretsServerSide(t *testing.T) 
 	}
 
 	configBody := `{"instance_name":"My Stealth","network_mode":"cloudflare_tunnel","hostname":"app.example.test","database_mode":"external","database_url":"postgres://db-user:db-password@example.test/stealth","redis_mode":"external","redis_url":"redis://:redis-password@example.test/0","storage_mode":"local"}`
-	configResponse := authenticatedSetupRequest(t, handler, setupCookie[0], http.MethodPut, "https://silent-moon.trycloudflare.com/v1/setup/config", configBody)
-	if configResponse.Code != http.StatusOK || strings.Contains(configResponse.Body.String(), "db-password") || strings.Contains(configResponse.Body.String(), "redis-password") {
+	configResponse := authenticatedSetupRequest(
+		t,
+		handler,
+		setupCookie[0],
+		http.MethodPut,
+		"https://silent-moon.trycloudflare.com/v1/setup/config",
+		configBody,
+	)
+	if configResponse.Code != http.StatusOK ||
+		strings.Contains(configResponse.Body.String(), "db-password") ||
+		strings.Contains(configResponse.Body.String(), "redis-password") {
 		t.Fatalf("setup config response = %d: %s", configResponse.Code, configResponse.Body.String())
 	}
 	s3ConfigResponse := authenticatedSetupRequest(t, handler, setupCookie[0], http.MethodPut, "https://silent-moon.trycloudflare.com/v1/setup/config", `{"instance_name":"My Stealth","network_mode":"cloudflare_tunnel","hostname":"app.example.test","database_mode":"external","redis_mode":"external","storage_mode":"s3","storage_s3_endpoint":"https://s3.example.test","storage_s3_region":"us-east-1","storage_s3_bucket":"stealth","storage_s3_access_key":"s3-access-key","storage_s3_secret_key":"s3-secret-key","storage_s3_use_ssl":true,"storage_s3_path_style":true}`)
@@ -281,22 +338,37 @@ func TestSetupHTTPFlowClaimsCodeAndKeepsProviderSecretsServerSide(t *testing.T) 
 	if authorizationURL.Host != "github.com" || authorizationURL.Path != "/login/oauth/authorize" {
 		t.Fatalf("authorize start = %s", authorizePayload.AuthorizationURL)
 	}
-	if authorizationURL.Query().Get("client_id") != "Iv1.setup-client" || authorizationURL.Query().Get("redirect_uri") != "https://silent-moon.trycloudflare.com/v1/setup/github/authorize/callback" || authorizationURL.Query().Get("code_challenge_method") != "S256" || authorizationURL.Query().Get("code_challenge") == "" {
+	if authorizationURL.Query().Get("client_id") != "Iv1.setup-client" ||
+		authorizationURL.Query().Get("redirect_uri") != "https://silent-moon.trycloudflare.com/v1/setup/github/authorize/callback" ||
+		authorizationURL.Query().Get("code_challenge_method") != "S256" ||
+		authorizationURL.Query().Get("code_challenge") == "" {
 		t.Fatalf("authorize start did not build browser authorization: %s", authorizePayload.AuthorizationURL)
 	}
 
 	authorizeCallback := httptest.NewRecorder()
-	authorizeRequest := httptest.NewRequest(http.MethodGet, "https://silent-moon.trycloudflare.com/v1/setup/github/authorize/callback?code=oauth-code&state="+url.QueryEscape(authorizationURL.Query().Get("state")), nil)
+	authorizeRequest := httptest.NewRequest(
+		http.MethodGet,
+		"https://silent-moon.trycloudflare.com/v1/setup/github/authorize/callback?code=oauth-code&state="+url.QueryEscape(authorizationURL.Query().Get("state")),
+		nil,
+	)
 	authorizeRequest.Host = "silent-moon.trycloudflare.com"
 	handler.ServeHTTP(authorizeCallback, authorizeRequest)
-	if authorizeCallback.Code != http.StatusFound || !strings.Contains(authorizeCallback.Header().Get("Location"), "github=connected") {
+	if authorizeCallback.Code != http.StatusFound ||
+		!strings.Contains(authorizeCallback.Header().Get("Location"), "github=connected") {
 		t.Fatalf("GitHub authorization callback = %d, headers=%#v", authorizeCallback.Code, authorizeCallback.Header())
 	}
 
 	repeatedAuthorizationCallback := httptest.NewRecorder()
 	handler.ServeHTTP(repeatedAuthorizationCallback, authorizeRequest)
-	if repeatedAuthorizationCallback.Code != http.StatusFound || !strings.Contains(repeatedAuthorizationCallback.Header().Get("Location"), "github=error") || githubOAuth.exchanges != 1 {
-		t.Fatalf("GitHub authorization callback replay = %d, headers=%#v exchanges=%d", repeatedAuthorizationCallback.Code, repeatedAuthorizationCallback.Header(), githubOAuth.exchanges)
+	if repeatedAuthorizationCallback.Code != http.StatusFound ||
+		!strings.Contains(repeatedAuthorizationCallback.Header().Get("Location"), "github=error") ||
+		githubOAuth.exchanges != 1 {
+		t.Fatalf(
+			"GitHub authorization callback replay = %d, headers=%#v exchanges=%d",
+			repeatedAuthorizationCallback.Code,
+			repeatedAuthorizationCallback.Header(),
+			githubOAuth.exchanges,
+		)
 	}
 
 	state, err := store.Load(context.Background())
@@ -313,7 +385,10 @@ func TestSetupHTTPFlowClaimsCodeAndKeepsProviderSecretsServerSide(t *testing.T) 
 		}
 	}
 	credentials := state.SetupCredentials()
-	if credentials.DatabaseURL != "postgres://db-user:db-password@example.test/stealth" || credentials.RedisURL != "redis://:redis-password@example.test/0" || credentials.StorageS3AccessKey != "s3-access-key" || credentials.StorageS3SecretKey != "s3-secret-key" {
+	if credentials.DatabaseURL != "postgres://db-user:db-password@example.test/stealth" ||
+		credentials.RedisURL != "redis://:redis-password@example.test/0" ||
+		credentials.StorageS3AccessKey != "s3-access-key" ||
+		credentials.StorageS3SecretKey != "s3-secret-key" {
 		t.Fatalf("setup credentials were not persisted in the encrypted state: %#v", credentials)
 	}
 	if state.Secret("github_client_secret") != "github-client-secret" {
@@ -363,7 +438,9 @@ func TestSetupInstallPersistsRequestWithoutExecutingDocker(t *testing.T) {
 	if err := json.Unmarshal(first.Body.Bytes(), &firstResponse); err != nil {
 		t.Fatal(err)
 	}
-	if firstResponse.Status != "accepted" || firstResponse.State.Phase != setupstate.PhaseInstallRequested || firstResponse.State.LastEventID == 0 {
+	if firstResponse.Status != "accepted" ||
+		firstResponse.State.Phase != setupstate.PhaseInstallRequested ||
+		firstResponse.State.LastEventID == 0 {
 		t.Fatalf("first install response = %#v", firstResponse)
 	}
 
@@ -391,7 +468,9 @@ func TestSetupInstallPersistsRequestWithoutExecutingDocker(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if secondResponse.Status != "accepted" || secondResponse.State.Phase != setupstate.PhaseInstallRequested || state.InstallRunID != runID {
+	if secondResponse.Status != "accepted" ||
+		secondResponse.State.Phase != setupstate.PhaseInstallRequested ||
+		state.InstallRunID != runID {
 		t.Fatalf("duplicate install response = %#v", secondResponse)
 	}
 }
@@ -514,7 +593,11 @@ func TestGitHubAuthorizationRejectsInvalidCallbackState(t *testing.T) {
 		t.Fatal(err)
 	}
 	callback := httptest.NewRecorder()
-	callbackRequest := httptest.NewRequest(http.MethodGet, "https://silent-moon.trycloudflare.com/v1/setup/github/authorize/callback?code=oauth-code&state=tampered", nil)
+	callbackRequest := httptest.NewRequest(
+		http.MethodGet,
+		"https://silent-moon.trycloudflare.com/v1/setup/github/authorize/callback?code=oauth-code&state=tampered",
+		nil,
+	)
 	callbackRequest.Host = "silent-moon.trycloudflare.com"
 	server.setupGitHubAuthorizationCallback(callback, callbackRequest)
 	if callback.Code != http.StatusFound || !strings.Contains(callback.Header().Get("Location"), "github=error") {
@@ -527,7 +610,9 @@ func TestGitHubAuthorizationRejectsInvalidCallbackState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if state.GitHub.AuthorizationStateHash == "" || state.Secret("github_oauth_code_verifier") == "" || parsed.Query().Get("state") == "" {
+	if state.GitHub.AuthorizationStateHash == "" ||
+		state.Secret("github_oauth_code_verifier") == "" ||
+		parsed.Query().Get("state") == "" {
 		t.Fatal("invalid callback consumed the valid authorization state")
 	}
 }
@@ -543,10 +628,16 @@ func TestGitHubAuthorizationFailureConsumesStateWithoutLeakingProviderData(t *te
 		t.Fatal(err)
 	}
 	callback := httptest.NewRecorder()
-	callbackRequest := httptest.NewRequest(http.MethodGet, "https://silent-moon.trycloudflare.com/v1/setup/github/authorize/callback?code=oauth-code&state="+url.QueryEscape(parsed.Query().Get("state")), nil)
+	callbackRequest := httptest.NewRequest(
+		http.MethodGet,
+		"https://silent-moon.trycloudflare.com/v1/setup/github/authorize/callback?code=oauth-code&state="+url.QueryEscape(parsed.Query().Get("state")),
+		nil,
+	)
 	callbackRequest.Host = "silent-moon.trycloudflare.com"
 	server.setupGitHubAuthorizationCallback(callback, callbackRequest)
-	if callback.Code != http.StatusFound || !strings.Contains(callback.Header().Get("Location"), "github=error") || strings.Contains(callback.Header().Get("Location"), "oauth-code") {
+	if callback.Code != http.StatusFound ||
+		!strings.Contains(callback.Header().Get("Location"), "github=error") ||
+		strings.Contains(callback.Header().Get("Location"), "oauth-code") {
 		t.Fatalf("GitHub authorization failure = %d, headers=%#v", callback.Code, callback.Header())
 	}
 	state, err := store.Load(context.Background())
@@ -570,7 +661,11 @@ func TestGitHubAuthorizationIdentityFailureConsumesState(t *testing.T) {
 		t.Fatal(err)
 	}
 	callback := httptest.NewRecorder()
-	callbackRequest := httptest.NewRequest(http.MethodGet, "https://silent-moon.trycloudflare.com/v1/setup/github/authorize/callback?code=oauth-code&state="+url.QueryEscape(parsed.Query().Get("state")), nil)
+	callbackRequest := httptest.NewRequest(
+		http.MethodGet,
+		"https://silent-moon.trycloudflare.com/v1/setup/github/authorize/callback?code=oauth-code&state="+url.QueryEscape(parsed.Query().Get("state")),
+		nil,
+	)
 	callbackRequest.Host = "silent-moon.trycloudflare.com"
 	server.setupGitHubAuthorizationCallback(callback, callbackRequest)
 	if callback.Code != http.StatusFound || !strings.Contains(callback.Header().Get("Location"), "github=error") {
@@ -606,13 +701,29 @@ func newGitHubAuthorizationTestServer(t *testing.T, exchangeErr error) (setupsta
 	if err := store.Save(context.Background(), state); err != nil {
 		t.Fatal(err)
 	}
-	server := &Server{config: config.Config{SetupMode: true}, setupState: store, githubOAuth: &setupGitHubOAuthFake{exchangeErr: exchangeErr}, logger: slog.Default()}
-	request := httptest.NewRequest(http.MethodPost, "https://silent-moon.trycloudflare.com/v1/setup/github/authorize/start", nil)
+	server := &Server{
+		config:      config.Config{SetupMode: true},
+		setupState:  store,
+		githubOAuth: &setupGitHubOAuthFake{exchangeErr: exchangeErr},
+		logger:      slog.Default(),
+	}
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"https://silent-moon.trycloudflare.com/v1/setup/github/authorize/start",
+		nil,
+	)
 	request.Host = "silent-moon.trycloudflare.com"
 	return store, server, request
 }
 
-func authenticatedSetupRequest(t *testing.T, handler http.Handler, cookie *http.Cookie, method, target, body string) *httptest.ResponseRecorder {
+func authenticatedSetupRequest(
+	t *testing.T,
+	handler http.Handler,
+	cookie *http.Cookie,
+	method,
+	target,
+	body string,
+) *httptest.ResponseRecorder {
 	t.Helper()
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(method, target, strings.NewReader(body))
@@ -628,13 +739,16 @@ func TestCloudflareOAuthIsExplicitlyInactive(t *testing.T) {
 	server := &Server{}
 	start := httptest.NewRecorder()
 	server.startCloudflareOAuth(start, httptest.NewRequest(http.MethodPost, "/v1/setup/cloudflare/oauth/start", nil))
-	if start.Code != http.StatusGone || !strings.Contains(start.Body.String(), "cloudflare_oauth_inactive") || strings.Contains(start.Body.String(), "authorization_url") {
+	if start.Code != http.StatusGone ||
+		!strings.Contains(start.Body.String(), "cloudflare_oauth_inactive") ||
+		strings.Contains(start.Body.String(), "authorization_url") {
 		t.Fatalf("inactive OAuth start = %d: %s", start.Code, start.Body.String())
 	}
 
 	callback := httptest.NewRecorder()
 	server.setupCloudflareOAuthCallback(callback, httptest.NewRequest(http.MethodGet, "/v1/setup/cloudflare/oauth/callback?code=secret-code&state=secret-state", nil))
-	if callback.Code != http.StatusFound || !strings.Contains(callback.Header().Get("Location"), "cloudflare=oauth-inactive") {
+	if callback.Code != http.StatusFound ||
+		!strings.Contains(callback.Header().Get("Location"), "cloudflare=oauth-inactive") {
 		t.Fatalf("inactive OAuth callback = %d, headers=%#v", callback.Code, callback.Header())
 	}
 }
@@ -665,7 +779,9 @@ func TestSetupConfigRejectsCloudflareBindingChange(t *testing.T) {
 	request := httptest.NewRequest(http.MethodPut, "/v1/setup/config", strings.NewReader(`{"instance_name":"Stealth","public_url":"https://stealth.new.example.test","network_mode":"cloudflare_tunnel","hostname":"stealth.new.example.test","database_mode":"bundled","redis_mode":"bundled","storage_mode":"local"}`))
 	request.Header.Set("Content-Type", "application/json")
 	server.saveSetupConfig(recorder, request)
-	if recorder.Code != http.StatusConflict || !strings.Contains(recorder.Body.String(), "cloudflare_tunnel_reconfiguration_required") || !strings.Contains(recorder.Body.String(), "stealth.old.example.test") {
+	if recorder.Code != http.StatusConflict ||
+		!strings.Contains(recorder.Body.String(), "cloudflare_tunnel_reconfiguration_required") ||
+		!strings.Contains(recorder.Body.String(), "stealth.old.example.test") {
 		t.Fatalf("stale binding config response = %d: %s", recorder.Code, recorder.Body.String())
 	}
 	state, err = store.Load(context.Background())
@@ -742,14 +858,17 @@ func TestCloudflareProvisioningSerializesSetupConfigMutation(t *testing.T) {
 	if provisionResponse.Code != http.StatusOK {
 		t.Fatalf("Cloudflare provisioning = %d: %s", provisionResponse.Code, provisionResponse.Body.String())
 	}
-	if configResponse.Code != http.StatusConflict || !strings.Contains(configResponse.Body.String(), "cloudflare_tunnel_reconfiguration_required") {
+	if configResponse.Code != http.StatusConflict ||
+		!strings.Contains(configResponse.Body.String(), "cloudflare_tunnel_reconfiguration_required") {
 		t.Fatalf("concurrent setup configuration = %d: %s", configResponse.Code, configResponse.Body.String())
 	}
 	state, err = store.Load(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if state.Draft.Hostname != "stealth.old.example.test" || state.Cloudflare.Binding.Hostname != "stealth.old.example.test" || state.Cloudflare.Binding.TunnelID != "tunnel-a" {
+	if state.Draft.Hostname != "stealth.old.example.test" ||
+		state.Cloudflare.Binding.Hostname != "stealth.old.example.test" ||
+		state.Cloudflare.Binding.TunnelID != "tunnel-a" {
 		t.Fatalf("concurrent mutation left inconsistent state: draft=%#v binding=%#v", state.Draft, state.Cloudflare.Binding)
 	}
 }
@@ -859,7 +978,9 @@ func TestSetupRecoveryRequiresCLIProofAndPersistsFreshClaim(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := uuid.Parse(state.SetupSessionID); err != nil || state.SetupCodeHash == "" || !state.SetupExpiresAt.Equal(payload.ExpiresAt) {
+	if _, err := uuid.Parse(state.SetupSessionID); err != nil ||
+		state.SetupCodeHash == "" ||
+		!state.SetupExpiresAt.Equal(payload.ExpiresAt) {
 		t.Fatalf("recovery claim was not persisted: %#v", state)
 	}
 	expectedHash := base64.RawURLEncoding.EncodeToString(bootstrap.HashCode(payload.SetupCode))
@@ -908,7 +1029,9 @@ func TestHostCoordinationCanRefreshTunnelDuringInstallation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if refreshed.Phase != setupstate.PhaseInstalling || refreshed.QuickTunnel != "stealth-onboarding-recovered" || refreshed.Secret("quick_tunnel_url") != "https://recovered.trycloudflare.com" {
+	if refreshed.Phase != setupstate.PhaseInstalling ||
+		refreshed.QuickTunnel != "stealth-onboarding-recovered" ||
+		refreshed.Secret("quick_tunnel_url") != "https://recovered.trycloudflare.com" {
 		t.Fatalf("refreshed host tunnel state = %#v", refreshed)
 	}
 }
@@ -956,7 +1079,9 @@ func TestHostRecoveryCanRefreshSetupClaimDuringInstallation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if refreshed.Phase != setupstate.PhaseInstalling || refreshed.SetupSessionID == "" || refreshed.SetupCodeHash != base64.RawURLEncoding.EncodeToString(bootstrap.HashCode(payload.SetupCode)) {
+	if refreshed.Phase != setupstate.PhaseInstalling ||
+		refreshed.SetupSessionID == "" ||
+		refreshed.SetupCodeHash != base64.RawURLEncoding.EncodeToString(bootstrap.HashCode(payload.SetupCode)) {
 		t.Fatalf("refreshed setup claim = %#v", refreshed)
 	}
 }
@@ -1045,7 +1170,14 @@ func (*failingDNSCloudflareClient) ConfigureTunnel(context.Context, string, stri
 	return nil
 }
 
-func (*failingDNSCloudflareClient) TunnelConfiguration(context.Context, string, string) ([]cloudflare.IngressRule, error) {
+func (*failingDNSCloudflareClient) TunnelConfiguration(
+	context.Context,
+	string,
+	string,
+) (
+	[]cloudflare.IngressRule,
+	error,
+) {
 	return nil, nil
 }
 
@@ -1057,11 +1189,26 @@ func (*failingDNSCloudflareClient) GetDNSRecord(context.Context, string, string)
 	return cloudflare.DNSRecord{}, cloudflare.ErrResourceNotFound
 }
 
-func (c *failingDNSCloudflareClient) CreateDNSRecord(context.Context, string, cloudflare.DNSRecord) (cloudflare.DNSRecord, error) {
+func (c *failingDNSCloudflareClient) CreateDNSRecord(
+	context.Context,
+	string,
+	cloudflare.DNSRecord,
+) (
+	cloudflare.DNSRecord,
+	error,
+) {
 	return cloudflare.DNSRecord{}, c.err
 }
 
-func (*failingDNSCloudflareClient) UpdateDNSRecord(_ context.Context, _, recordID string, record cloudflare.DNSRecord) (cloudflare.DNSRecord, error) {
+func (*failingDNSCloudflareClient) UpdateDNSRecord(
+	_ context.Context,
+	_,
+	recordID string,
+	record cloudflare.DNSRecord,
+) (
+	cloudflare.DNSRecord,
+	error,
+) {
 	record.ID = recordID
 	return record, nil
 }

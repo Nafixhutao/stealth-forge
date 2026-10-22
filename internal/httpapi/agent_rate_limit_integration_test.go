@@ -76,7 +76,15 @@ func TestAgentRunRateLimitUsesProjectScopeIntegration(t *testing.T) {
 				ID string `json:"id"`
 			} `json:"project"`
 		}
-		requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects", map[string]string{"name": name}, http.StatusCreated, &response)
+		requestJSON(
+			t,
+			ownerClient,
+			http.MethodPost,
+			server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects",
+			map[string]string{"name": name},
+			http.StatusCreated,
+			&response,
+		)
 		return response.Project.ID
 	}
 	projectOne := createProject("agent-rate-limit-one-" + ownerID.String()[:8])
@@ -107,14 +115,54 @@ func TestAgentRunRateLimitUsesProjectScopeIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"run"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/agents/"+agentOne+"/runs", map[string]string{"prompt": "first project run"}, http.StatusAccepted, &firstRun)
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/agents/"+agentTwo+"/runs", map[string]string{"prompt": "same project budget"}, http.StatusTooManyRequests, nil)
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/agents/"+agentOne+"/runs/"+firstRun.Run.ID+"/cancel", nil, http.StatusOK, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/agents/"+agentOne+"/runs",
+		map[string]string{"prompt": "first project run"},
+		http.StatusAccepted,
+		&firstRun,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/agents/"+agentTwo+"/runs",
+		map[string]string{"prompt": "same project budget"},
+		http.StatusTooManyRequests,
+		nil,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/agents/"+agentOne+"/runs/"+firstRun.Run.ID+"/cancel",
+		nil,
+		http.StatusOK,
+		nil,
+	)
 	var thirdRun struct {
 		Run struct {
 			ID string `json:"id"`
 		} `json:"run"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/agents/"+agentThree+"/runs", map[string]string{"prompt": "independent project budget"}, http.StatusAccepted, &thirdRun)
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/agents/"+agentThree+"/runs/"+thirdRun.Run.ID+"/cancel", nil, http.StatusOK, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/agents/"+agentThree+"/runs",
+		map[string]string{"prompt": "independent project budget"},
+		http.StatusAccepted,
+		&thirdRun,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/agents/"+agentThree+"/runs/"+thirdRun.Run.ID+"/cancel",
+		nil,
+		http.StatusOK,
+		nil,
+	)
 }

@@ -20,8 +20,21 @@ func TestLoadTLSSettings(t *testing.T) {
 	}
 	var config Config
 	settings.apply(&config)
-	if !config.ACMEEnabled || config.ACMEEmail != "ops@example.com" || config.ACMEDirectoryURL != "https://acme.example.test/directory" || config.ACMETLSAddress != "127.0.0.1:18443" || config.ACMEHTTPChallengeAddress != "127.0.0.1:18080" || config.ACMECertCacheDir != cacheDir {
-		t.Fatalf("unexpected TLS settings: enabled=%v email=%q directory=%q tls=%q challenge=%q cache=%q", config.ACMEEnabled, config.ACMEEmail, config.ACMEDirectoryURL, config.ACMETLSAddress, config.ACMEHTTPChallengeAddress, config.ACMECertCacheDir)
+	if !config.ACMEEnabled ||
+		config.ACMEEmail != "ops@example.com" ||
+		config.ACMEDirectoryURL != "https://acme.example.test/directory" ||
+		config.ACMETLSAddress != "127.0.0.1:18443" ||
+		config.ACMEHTTPChallengeAddress != "127.0.0.1:18080" ||
+		config.ACMECertCacheDir != cacheDir {
+		t.Fatalf(
+			"unexpected TLS settings: enabled=%v email=%q directory=%q tls=%q challenge=%q cache=%q",
+			config.ACMEEnabled,
+			config.ACMEEmail,
+			config.ACMEDirectoryURL,
+			config.ACMETLSAddress,
+			config.ACMEHTTPChallengeAddress,
+			config.ACMECertCacheDir,
+		)
 	}
 }
 

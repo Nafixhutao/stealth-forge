@@ -40,7 +40,13 @@ func (s *Server) listProjectUsers(w http.ResponseWriter, r *http.Request) {
 		items, next, err = s.repo.ListProjectUsersByAPIKey(r.Context(), projectID, limit, cursorID)
 		canManage = apikey.HasScope(actor.scopes, "users.write")
 	} else {
-		items, next, canManage, err = s.repo.ListProjectUsers(r.Context(), projectID, uuid.Must(uuid.Parse(accountFrom(r).ID)), limit, cursorID)
+		items, next, canManage, err = s.repo.ListProjectUsers(
+			r.Context(),
+			projectID,
+			uuid.Must(uuid.Parse(accountFrom(r).ID)),
+			limit,
+			cursorID,
+		)
 	}
 	if projectResourceError(w, err) {
 		return
@@ -122,7 +128,15 @@ func (s *Server) createProjectUser(w http.ResponseWriter, r *http.Request) {
 			name,
 		)
 	} else {
-		item, err = s.repo.CreateProjectUser(r.Context(), uuid.Must(uuid.NewV7()), projectID, uuid.Must(uuid.Parse(accountFrom(r).ID)), email, passwordHash, name)
+		item, err = s.repo.CreateProjectUser(
+			r.Context(),
+			uuid.Must(uuid.NewV7()),
+			projectID,
+			uuid.Must(uuid.Parse(accountFrom(r).ID)),
+			email,
+			passwordHash,
+			name,
+		)
 	}
 	if projectResourceError(w, err) {
 		return
@@ -205,7 +219,13 @@ func (s *Server) updateProjectUserStatus(w http.ResponseWriter, r *http.Request)
 	if actor.kind == apiKeyProjectActor {
 		item, err = s.repo.UpdateProjectUserStatusByAPIKey(r.Context(), projectID, userID, actor.apiKeyID, req.Status)
 	} else {
-		item, err = s.repo.UpdateProjectUserStatus(r.Context(), projectID, userID, uuid.Must(uuid.Parse(accountFrom(r).ID)), req.Status)
+		item, err = s.repo.UpdateProjectUserStatus(
+			r.Context(),
+			projectID,
+			userID,
+			uuid.Must(uuid.Parse(accountFrom(r).ID)),
+			req.Status,
+		)
 	}
 	if projectResourceError(w, err) {
 		return

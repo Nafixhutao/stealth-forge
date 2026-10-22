@@ -89,16 +89,46 @@ func (f *fakeAgentPersistence) RequeueStaleAgentRuns(context.Context, time.Durat
 	return 0, nil
 }
 
-func (f *fakeAgentPersistence) ClaimNextAgentRunForProviders(context.Context, string, []string) (repository.AgentRunJob, error) {
+func (f *fakeAgentPersistence) ClaimNextAgentRunForProviders(
+	context.Context,
+	string,
+	[]string,
+) (
+	repository.AgentRunJob,
+	error,
+) {
 	return f.job, nil
 }
 
-func (f *fakeAgentPersistence) TransitionAgentRun(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ uuid.UUID, _ string, result repository.AgentRunResult) (domain.AgentRun, error) {
+func (f *fakeAgentPersistence) TransitionAgentRun(
+	_ context.Context,
+	_ uuid.UUID,
+	_ uuid.UUID,
+	_ uuid.UUID,
+	_ string,
+	result repository.AgentRunResult,
+) (
+	domain.AgentRun,
+	error,
+) {
 	f.transitioned++
 	return domain.AgentRun{Status: result.Status}, nil
 }
 
-func (f *fakeAgentPersistence) AppendAgentRunLog(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, uuid.UUID, int64, string, string) (domain.AgentRunLog, error) {
+func (f *fakeAgentPersistence) AppendAgentRunLog(
+	context.Context,
+	uuid.UUID,
+	uuid.UUID,
+	uuid.UUID,
+	string,
+	uuid.UUID,
+	int64,
+	string,
+	string,
+) (
+	domain.AgentRunLog,
+	error,
+) {
 	f.logs++
 	return domain.AgentRunLog{}, nil
 }

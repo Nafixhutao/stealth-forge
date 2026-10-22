@@ -56,7 +56,16 @@ func TestPurgeCurrentManagedVolumesDockerIntegration(t *testing.T) {
 		managed["OTEL_DOCKER_LOGS_VOLUME_NAME"]:    "otel_docker_logs_state",
 	}
 	sentinel := project + "_unrelated"
-	allVolumes := append([]string(nil), managed["POSTGRES_VOLUME_NAME"], managed["STORAGE_VOLUME_NAME"], managed["FUNCTIONS_RUNNER_STAGING_VOLUME"], managed["CLICKHOUSE_VOLUME_NAME"], managed["OTELCOL_VOLUME_NAME"], managed["OTEL_DOCKER_LOGS_VOLUME_NAME"], sentinel)
+	allVolumes := append(
+		[]string(nil),
+		managed["POSTGRES_VOLUME_NAME"],
+		managed["STORAGE_VOLUME_NAME"],
+		managed["FUNCTIONS_RUNNER_STAGING_VOLUME"],
+		managed["CLICKHOUSE_VOLUME_NAME"],
+		managed["OTELCOL_VOLUME_NAME"],
+		managed["OTEL_DOCKER_LOGS_VOLUME_NAME"],
+		sentinel,
+	)
 	for _, name := range allVolumes {
 		t.Cleanup(func() { _, _ = dockerIntegrationCommand(context.Background(), "volume", "rm", "-f", name) })
 	}

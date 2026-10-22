@@ -205,7 +205,8 @@ func TestRealV025UpgradeSmoke(t *testing.T) {
 	}
 	assertExecutableVersion(t, installedCLI, targetVersion)
 	assertMigratedV025State(t, layout, targetVersion, operatorSecrets, operatorAPIImage, operatorPublicURL)
-	if strings.Contains(bridgeErrors.String()+targetMigrationOutput, operatorSecrets["POSTGRES_PASSWORD"]) || strings.Contains(bridgeErrors.String()+targetMigrationOutput, operatorSecrets["FUNCTIONS_SECRET_KEY"]) {
+	if strings.Contains(bridgeErrors.String()+targetMigrationOutput, operatorSecrets["POSTGRES_PASSWORD"]) ||
+		strings.Contains(bridgeErrors.String()+targetMigrationOutput, operatorSecrets["FUNCTIONS_SECRET_KEY"]) {
 		t.Fatal("upgrade diagnostics leaked an operator secret")
 	}
 }
@@ -247,7 +248,11 @@ func runRealV025BridgeReconciliation(t *testing.T, fixtureRoot, assetBase, bridg
 	var output, errorsOutput bytes.Buffer
 	app := NewApp(strings.NewReader(""), &output, &errorsOutput)
 	app.assetBase = assetBase
-	app.buildKitAppArmorProfilePath = filepath.Join(reconciliationRoot, "apparmor.d", installengine.BuildKitAppArmorProfileName)
+	app.buildKitAppArmorProfilePath = filepath.Join(
+		reconciliationRoot,
+		"apparmor.d",
+		installengine.BuildKitAppArmorProfileName,
+	)
 	if err := os.MkdirAll(filepath.Dir(app.buildKitAppArmorProfilePath), 0o700); err != nil {
 		t.Fatalf("create isolated AppArmor profile directory: %v", err)
 	}
@@ -356,7 +361,14 @@ func buildReleaseTestCLI(t *testing.T, version string, tags ...string) string {
 	if len(tags) > 0 {
 		args = append(args, "-tags", strings.Join(tags, ","))
 	}
-	args = append(args, "-ldflags", "-s -w -X github.com/Nafixhutao/stealth-forge/internal/buildinfo.Version="+version, "-o", output, "./cmd/stealth")
+	args = append(
+		args,
+		"-ldflags",
+		"-s -w -X github.com/Nafixhutao/stealth-forge/internal/buildinfo.Version="+version,
+		"-o",
+		output,
+		"./cmd/stealth",
+	)
 	command := exec.Command("go", args...)
 	command.Dir = repositoryRoot
 	if outputBytes, err := command.CombinedOutput(); err != nil {
@@ -429,7 +441,14 @@ func assertExecutableVersion(t *testing.T, executable, expected string) {
 	}
 }
 
-func assertMigratedV025State(t *testing.T, layout installengine.Layout, targetVersion string, secrets map[string]string, operatorAPIImage, operatorPublicURL string) {
+func assertMigratedV025State(
+	t *testing.T,
+	layout installengine.Layout,
+	targetVersion string,
+	secrets map[string]string,
+	operatorAPIImage,
+	operatorPublicURL string,
+) {
 	t.Helper()
 	values, err := installengine.ReadEnvFile(layout.EnvFile)
 	if err != nil {
@@ -444,7 +463,11 @@ func assertMigratedV025State(t *testing.T, layout installengine.Layout, targetVe
 		t.Fatalf("operator overrides changed: API=%q public_url=%q", values["STEALTH_API_IMAGE"], values["PUBLIC_APP_URL"])
 	}
 	if want := installengine.ImageName("stealth-ingress-control", targetVersion); values["STEALTH_INGRESS_CONTROL_IMAGE"] != want {
-		t.Fatalf("migration did not set ingress control image to target release: got %q want %q", values["STEALTH_INGRESS_CONTROL_IMAGE"], want)
+		t.Fatalf(
+			"migration did not set ingress control image to target release: got %q want %q",
+			values["STEALTH_INGRESS_CONTROL_IMAGE"],
+			want,
+		)
 	}
 	// Telemetry is no longer part of the platform, so the migration must not
 	// reintroduce its configuration on an upgraded install.

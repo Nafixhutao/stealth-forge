@@ -37,14 +37,30 @@ func (r *fakeRunner) Run(_ context.Context, _ string, _, _ io.Writer, name strin
 	return r.err
 }
 
-func (r *fakeRunner) RunWithEnv(_ context.Context, _ string, env []string, _, _ io.Writer, name string, args ...string) error {
+func (r *fakeRunner) RunWithEnv(
+	_ context.Context,
+	_ string,
+	env []string,
+	_,
+	_ io.Writer,
+	name string,
+	args ...string,
+) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, recordedCommand{name: name, args: append([]string(nil), args...), env: append([]string(nil), env...)})
 	return r.err
 }
 
-func (r *fakeRunner) RunInput(_ context.Context, _ string, stdin io.Reader, _, _ io.Writer, name string, args ...string) error {
+func (r *fakeRunner) RunInput(
+	_ context.Context,
+	_ string,
+	stdin io.Reader,
+	_,
+	_ io.Writer,
+	name string,
+	args ...string,
+) error {
 	contents, err := io.ReadAll(stdin)
 	if err != nil {
 		return err
@@ -126,7 +142,8 @@ func TestStagedComposeValidationUsesStagedEnvironmentFile(t *testing.T) {
 	if got, want := calls[0].env, []string{"STEALTH_ENV_FILE=" + stageEnvFile}; !equalArgs(got, want) {
 		t.Fatalf("staged Compose environment = %#v, want %#v", got, want)
 	}
-	if !containsPair(calls[0].args, "--project-directory", layout.Root) || !containsPair(calls[0].args, "--env-file", stageEnvFile) {
+	if !containsPair(calls[0].args, "--project-directory", layout.Root) ||
+		!containsPair(calls[0].args, "--env-file", stageEnvFile) {
 		t.Fatalf("staged Compose arguments = %#v, want install root and staged config", calls[0].args)
 	}
 }
@@ -342,7 +359,13 @@ func TestExistingConfigurationInitializesTraefikStateBeforeAssetActivation(t *te
 	defer assetServer.Close()
 	runner := &fakeRunner{}
 	engine := New(Options{Runner: runner, AssetBaseURL: assetServer.URL})
-	plan := Plan{Layout: layout, Version: "v1.2.3", InstalledVersion: "v1.2.2", DockerGID: uint32(os.Getgid()), Existing: true}
+	plan := Plan{
+		Layout:           layout,
+		Version:          "v1.2.3",
+		InstalledVersion: "v1.2.2",
+		DockerGID:        uint32(os.Getgid()),
+		Existing:         true,
+	}
 
 	if err := engine.RunStep(context.Background(), plan, StepConfiguration); err != nil {
 		t.Fatal(err)
@@ -351,10 +374,13 @@ func TestExistingConfigurationInitializesTraefikStateBeforeAssetActivation(t *te
 	if len(calls) != 4 {
 		t.Fatalf("recorded calls = %#v, want network probe, staged validation, staged state init, and activated validation", calls)
 	}
-	if !equalArgs(calls[1].args[len(calls[1].args)-2:], []string{"config", "--quiet"}) || !contains(calls[1].args, "--project-directory") {
+	if !equalArgs(calls[1].args[len(calls[1].args)-2:], []string{"config", "--quiet"}) ||
+		!contains(calls[1].args, "--project-directory") {
 		t.Fatalf("pre-activation staged Compose validation = %#v", calls[1])
 	}
-	if !contains(calls[2].args, "traefik-state-init") || !contains(calls[2].args, "--project-directory") || !containsPair(calls[2].args, "--env-file", filepath.Join(layout.StateDir, filepath.Base(filepath.Dir(composeFileArgument(calls[2].args))), "config.env")) {
+	if !contains(calls[2].args, "traefik-state-init") ||
+		!contains(calls[2].args, "--project-directory") ||
+		!containsPair(calls[2].args, "--env-file", filepath.Join(layout.StateDir, filepath.Base(filepath.Dir(composeFileArgument(calls[2].args))), "config.env")) {
 		t.Fatalf("pre-activation state init command = %#v", calls[2])
 	}
 	if !equalArgs(calls[3].args[len(calls[3].args)-2:], []string{"config", "--quiet"}) {
@@ -558,7 +584,10 @@ func TestEnsureBuildKitAppArmorProfileUsesSudoForSystemDirectory(t *testing.T) {
 	}
 	calls := runner.snapshot()
 	stagingPath := buildKitAppArmorStagingPath(profilePath)
-	if len(calls) != 4 || calls[0].name != "sudo" || !equalArgs(calls[0].args, []string{"tee", stagingPath}) || string(calls[0].stdin) != testBuildKitAppArmorProfileAsset() {
+	if len(calls) != 4 ||
+		calls[0].name != "sudo" ||
+		!equalArgs(calls[0].args, []string{"tee", stagingPath}) ||
+		string(calls[0].stdin) != testBuildKitAppArmorProfileAsset() {
 		t.Fatalf("profile installation escalation = %#v", calls)
 	}
 	if calls[1].name != "sudo" || !equalArgs(calls[1].args, []string{"chmod", "0644", stagingPath}) {
@@ -610,7 +639,9 @@ func TestRemoveManagedBuildKitAppArmorProfileUsesSudoForSystemDirectory(t *testi
 		t.Fatal(err)
 	}
 	calls := runner.snapshot()
-	if len(calls) != 2 || calls[0].name != "sudo" || !equalArgs(calls[0].args, []string{"apparmor_parser", "-R", profilePath}) {
+	if len(calls) != 2 ||
+		calls[0].name != "sudo" ||
+		!equalArgs(calls[0].args, []string{"apparmor_parser", "-R", profilePath}) {
 		t.Fatalf("profile unload escalation = %#v", calls)
 	}
 	if calls[1].name != "sudo" || !equalArgs(calls[1].args, []string{"rm", "--", profilePath}) {
@@ -651,7 +682,9 @@ func TestExternalDependenciesNeverStartBundledServices(t *testing.T) {
 	if len(calls) != 8 {
 		t.Fatalf("recorded calls = %#v, want five state inits, migration, and services", calls)
 	}
-	if len(calls[0].args) < 2 || !strings.HasPrefix(calls[0].args[len(calls[0].args)-2], "STEALTH_TRAEFIK_HOST_UID=") || calls[0].args[len(calls[0].args)-1] != "traefik-state-init" {
+	if len(calls[0].args) < 2 ||
+		!strings.HasPrefix(calls[0].args[len(calls[0].args)-2], "STEALTH_TRAEFIK_HOST_UID=") ||
+		calls[0].args[len(calls[0].args)-1] != "traefik-state-init" {
 		t.Fatalf("Traefik state init command = %#v", calls[0])
 	}
 	if !equalArgs(calls[1].args[len(calls[1].args)-4:], []string{"run", "--rm", "--no-deps", "cloudflare-setup-state-init"}) {
@@ -696,7 +729,13 @@ func TestProductionLifecyclesPrepareCloudflareImportBeforeWorkers(t *testing.T) 
 			layout := writeEngineFixture(t, false)
 			runner := &fakeRunner{}
 			engine := New(Options{Runner: runner})
-			plan := Plan{Layout: layout, Version: "v1.2.3", Existing: testCase.existing, ExternalDatabase: testCase.externalDB, ExternalRedis: testCase.externalRedis}
+			plan := Plan{
+				Layout:           layout,
+				Version:          "v1.2.3",
+				Existing:         testCase.existing,
+				ExternalDatabase: testCase.externalDB,
+				ExternalRedis:    testCase.externalRedis,
+			}
 			if err := engine.RunStep(context.Background(), plan, StepDependencies); err != nil {
 				t.Fatal(err)
 			}
@@ -734,7 +773,9 @@ func TestInstallLockRejectsConcurrentOperation(t *testing.T) {
 
 	engine := New(Options{Runner: &fakeRunner{}})
 	err = engine.Install(context.Background(), Plan{Layout: layout, Existing: true}, nil)
-	if err == nil || !errors.Is(err, ErrOperationInProgress) || !strings.Contains(err.Error(), "another installation operation") {
+	if err == nil ||
+		!errors.Is(err, ErrOperationInProgress) ||
+		!strings.Contains(err.Error(), "another installation operation") {
 		t.Fatalf("concurrent Install error = %v", err)
 	}
 }
@@ -994,7 +1035,14 @@ func TestPreparePreservesBuildKitPKIOnUpgrade(t *testing.T) {
 	defer assetServer.Close()
 	profilePath := filepath.Join(t.TempDir(), BuildKitAppArmorProfileName)
 	engine := New(Options{AssetBaseURL: assetServer.URL, Runner: &fakeRunner{}, BuildKitAppArmorProfilePath: profilePath})
-	plan := Plan{Layout: layout, Version: "v1.2.3", PublicURL: "https://console.example.test", GitHubAppClientID: "Iv1.test-client-id", DockerGID: uint32(os.Getgid()), IngressNetworkName: "stealth_ingress"}
+	plan := Plan{
+		Layout:             layout,
+		Version:            "v1.2.3",
+		PublicURL:          "https://console.example.test",
+		GitHubAppClientID:  "Iv1.test-client-id",
+		DockerGID:          uint32(os.Getgid()),
+		IngressNetworkName: "stealth_ingress",
+	}
 	if err := engine.Prepare(context.Background(), plan); err != nil {
 		t.Fatalf("fresh installation preparation: %v", err)
 	}
@@ -1050,7 +1098,8 @@ func TestPrepareRemovesDefaultPeerWhenAutoSelectingFreeSubnet(t *testing.T) {
 	if values["STEALTH_INGRESS_NETWORK_SUBNET"] != "172.31.1.0/24" {
 		t.Fatalf("auto-selected subnet = %q", values["STEALTH_INGRESS_NETWORK_SUBNET"])
 	}
-	if strings.Contains(values["TRUSTED_PROXY_CIDRS"], "172.31.0.254/32") || !strings.Contains(values["TRUSTED_PROXY_CIDRS"], "172.31.1.254/32") {
+	if strings.Contains(values["TRUSTED_PROXY_CIDRS"], "172.31.0.254/32") ||
+		!strings.Contains(values["TRUSTED_PROXY_CIDRS"], "172.31.1.254/32") {
 		t.Fatalf("trusted peers did not follow auto-selected subnet: %q", values["TRUSTED_PROXY_CIDRS"])
 	}
 }
@@ -1104,7 +1153,8 @@ func TestPrepareSameVersionRepairRestoresMissingAndCorruptAssets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if values["POSTGRES_PASSWORD"] != "operator-postgres-secret" || values["STEALTH_API_IMAGE"] != "registry.example.test/stealth-api:operator-pin" {
+	if values["POSTGRES_PASSWORD"] != "operator-postgres-secret" ||
+		values["STEALTH_API_IMAGE"] != "registry.example.test/stealth-api:operator-pin" {
 		t.Fatalf("same-version repair changed operator values: %#v", values)
 	}
 	if !FileIsPrivate(layout.EnvFile) {
@@ -1213,7 +1263,15 @@ func (r configFailureRunner) Run(_ context.Context, _ string, _, _ io.Writer, _ 
 	return nil
 }
 
-func (r configFailureRunner) RunWithEnv(ctx context.Context, dir string, _ []string, stdout, stderr io.Writer, name string, args ...string) error {
+func (r configFailureRunner) RunWithEnv(
+	ctx context.Context,
+	dir string,
+	_ []string,
+	stdout,
+	stderr io.Writer,
+	name string,
+	args ...string,
+) error {
 	return r.Run(ctx, dir, stdout, stderr, name, args...)
 }
 
@@ -1249,10 +1307,12 @@ func TestRunStepConfigurationRollsBackWhenComposeValidationFails(t *testing.T) {
 		observedStagedConfig = true
 		composePath := composeFileArgument(args)
 		envPath := composeEnvArgument(args)
-		if !strings.HasPrefix(composePath, filepath.Join(layout.StateDir, ".stealth-managed-assets-")) || composePath == layout.ComposeFile {
+		if !strings.HasPrefix(composePath, filepath.Join(layout.StateDir, ".stealth-managed-assets-")) ||
+			composePath == layout.ComposeFile {
 			return fmt.Errorf("Compose validation did not use the staged file")
 		}
-		if !strings.HasPrefix(envPath, filepath.Join(layout.StateDir, ".stealth-managed-assets-")) || envPath == layout.EnvFile {
+		if !strings.HasPrefix(envPath, filepath.Join(layout.StateDir, ".stealth-managed-assets-")) ||
+			envPath == layout.EnvFile {
 			return fmt.Errorf("Compose validation did not use staged config.env")
 		}
 		info, statErr := os.Stat(envPath)
@@ -1278,7 +1338,11 @@ func TestRunStepConfigurationRollsBackWhenComposeValidationFails(t *testing.T) {
 		return nil
 	}}
 	engine := New(Options{Runner: runner, AssetBaseURL: assetServer.URL})
-	err = engine.RunStep(context.Background(), Plan{Layout: layout, Version: "v1.2.3", InstalledVersion: "v1.2.2", DockerGID: uint32(os.Getgid()), Existing: true}, StepConfiguration)
+	err = engine.RunStep(
+		context.Background(),
+		Plan{Layout: layout, Version: "v1.2.3", InstalledVersion: "v1.2.2", DockerGID: uint32(os.Getgid()), Existing: true},
+		StepConfiguration,
+	)
 	if err == nil || !strings.Contains(err.Error(), "compose config rejected") {
 		t.Fatalf("Compose validation error = %v", err)
 	}
@@ -1420,7 +1484,13 @@ func TestManagedAssetRecoveryRestoresOnlyCoherentReleaseStates(t *testing.T) {
 					return nil
 				},
 			})
-			plan := Plan{Layout: layout, Version: targetVersion, InstalledVersion: "v1.2.2", DockerGID: uint32(os.Getgid()), Existing: true}
+			plan := Plan{
+				Layout:           layout,
+				Version:          targetVersion,
+				InstalledVersion: "v1.2.2",
+				DockerGID:        uint32(os.Getgid()),
+				Existing:         true,
+			}
 			err := engine.RunStep(context.Background(), plan, StepConfiguration)
 			if !errors.Is(err, errMigrationProcessInterrupted) {
 				t.Fatalf("injected interruption error = %v", err)
@@ -1487,7 +1557,8 @@ func TestTargetReleaseManifestCanAddFutureManagedAsset(t *testing.T) {
 	if err := engine.Prepare(context.Background(), Plan{Layout: layout, Version: version, InstalledVersion: "v1.2.2", DockerGID: uint32(os.Getgid()), Existing: true}); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := os.ReadFile(filepath.Join(layout.Root, "buildkit", "future.yaml")); err != nil || string(got) != "future_receiver:\n" {
+	if got, err := os.ReadFile(filepath.Join(layout.Root, "buildkit", "future.yaml")); err != nil ||
+		string(got) != "future_receiver:\n" {
 		t.Fatalf("target-owned future asset = %q, %v", got, err)
 	}
 }
@@ -1513,11 +1584,18 @@ func TestManagedAssetMigrationKeepsPreviousRecoverySetUntilTargetIsValidated(t *
 			return nil
 		},
 	})
-	plan := Plan{Layout: layout, Version: "v1.2.3", InstalledVersion: "v1.2.2", DockerGID: uint32(os.Getgid()), Existing: true}
+	plan := Plan{
+		Layout:           layout,
+		Version:          "v1.2.3",
+		InstalledVersion: "v1.2.2",
+		DockerGID:        uint32(os.Getgid()),
+		Existing:         true,
+	}
 	if err := engine.RunStep(context.Background(), plan, StepConfiguration); !errors.Is(err, errMigrationProcessInterrupted) {
 		t.Fatalf("injected interruption error = %v", err)
 	}
-	if got, err := os.ReadFile(filepath.Join(previous, "sentinel")); err != nil || string(got) != "older bounded recovery set\n" {
+	if got, err := os.ReadFile(filepath.Join(previous, "sentinel")); err != nil ||
+		string(got) != "older bounded recovery set\n" {
 		t.Fatalf("previous recovery set was removed before validation: %q, %v", got, err)
 	}
 	allowed := make(map[string]struct{})
@@ -1529,7 +1607,8 @@ func TestManagedAssetMigrationKeepsPreviousRecoverySetUntilTargetIsValidated(t *
 	if err := recoverInterruptedManagedAssetMigration(layout, allowed); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := os.ReadFile(filepath.Join(previous, "sentinel")); err != nil || string(got) != "older bounded recovery set\n" {
+	if got, err := os.ReadFile(filepath.Join(previous, "sentinel")); err != nil ||
+		string(got) != "older bounded recovery set\n" {
 		t.Fatalf("rollback replaced previous recovery set: %q, %v", got, err)
 	}
 
@@ -1613,7 +1692,14 @@ func TestWaitChecksInternalAndPublicEndpoints(t *testing.T) {
 	defer server.Close()
 	layout := writeEngineFixture(t, false)
 	engine := New(Options{HTTPClient: server.Client(), PollAttempts: 1})
-	plan := Plan{Layout: layout, InternalAPIURL: server.URL, InternalConsoleURL: server.URL, InternalProxyURL: server.URL, PublicURL: server.URL, VerifyPublicURL: true}
+	plan := Plan{
+		Layout:             layout,
+		InternalAPIURL:     server.URL,
+		InternalConsoleURL: server.URL,
+		InternalProxyURL:   server.URL,
+		PublicURL:          server.URL,
+		VerifyPublicURL:    true,
+	}
 	if err := engine.Wait(context.Background(), plan); err != nil {
 		t.Fatal(err)
 	}

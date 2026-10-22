@@ -103,7 +103,12 @@ func (s *Server) editSiteDeploymentFile(w http.ResponseWriter, r *http.Request) 
 	// The entry point is what makes the artifact a site; an edit cannot remove
 	// it, but this also catches a release that never had one.
 	if err := sitestore.ValidateEntrypoint(staging, "index.html"); err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "the release must keep a regular index.html at its root")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"the release must keep a regular index.html at its root",
+		)
 		return
 	}
 	digest, err := s.sites.DigestArtifact(staging)

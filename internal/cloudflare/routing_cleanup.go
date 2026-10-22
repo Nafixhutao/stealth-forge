@@ -30,9 +30,14 @@ func (r *Reconciler) cleanupRetiring(ctx context.Context, client Client) (bool, 
 			return changed, fmt.Errorf("revalidate old wildcard DNS record: %w", err)
 		}
 		if record.ID != item.RecordID || !exactOwnedWildcard(record, item.Hostname, item.Target) {
-			return changed, fmt.Errorf("%w: refusing to delete stored record %s because its hostname or target changed", ErrRoutingConflict, item.RecordID)
+			return changed, fmt.Errorf(
+				"%w: refusing to delete stored record %s because its hostname or target changed",
+				ErrRoutingConflict,
+				item.RecordID,
+			)
 		}
-		if err := client.DeleteDNSRecord(ctx, item.ZoneID, item.RecordID); err != nil && !errors.Is(err, ErrResourceNotFound) {
+		if err := client.DeleteDNSRecord(ctx, item.ZoneID, item.RecordID); err != nil &&
+			!errors.Is(err, ErrResourceNotFound) {
 			return changed, fmt.Errorf("delete revalidated old wildcard DNS record: %w", err)
 		}
 		if err := r.store.CompleteCloudflareWildcardRetirement(ctx, item.RecordID); err != nil {
@@ -96,7 +101,7 @@ func workloadOrigin(hostname string) string {
 func (r *Reconciler) recordFailure(ctx context.Context, token string, err error) error {
 	message := safeReconcileError(err, token)
 	if persistErr := r.store.RecordCloudflareReconcileFailure(ctx, message); persistErr != nil {
-		return errors.Join(fmt.Errorf("%s", message), fmt.Errorf("persist Cloudflare error state: %w", persistErr))
+		return errors.Join(errors.New(message), fmt.Errorf("persist Cloudflare error state: %w", persistErr))
 	}
 	if errors.Is(err, ErrRoutingConflict) {
 		r.logger.Error("cloudflare reconcile conflict", "error", message)

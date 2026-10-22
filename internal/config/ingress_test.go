@@ -17,7 +17,10 @@ func TestLoadIngressSettings(t *testing.T) {
 	}
 	var config Config
 	settings.apply(&config)
-	if config.PlatformRouteReconcileInterval != 15*time.Second || config.CloudflareReconcileInterval != 45*time.Second || config.TraefikGeneratedDir != "/var/lib/stealth/traefik/generated" || config.TraefikReloadFile != "/var/lib/stealth/traefik/.reload.yaml" {
+	if config.PlatformRouteReconcileInterval != 15*time.Second ||
+		config.CloudflareReconcileInterval != 45*time.Second ||
+		config.TraefikGeneratedDir != "/var/lib/stealth/traefik/generated" ||
+		config.TraefikReloadFile != "/var/lib/stealth/traefik/.reload.yaml" {
 		t.Fatalf("unexpected ingress settings: %+v", config)
 	}
 }

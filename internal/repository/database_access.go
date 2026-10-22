@@ -51,7 +51,13 @@ func (r *Repository) requireDatabaseRead(ctx context.Context, projectID uuid.UUI
 	}
 }
 
-func (r *Repository) requireDatabaseWriteTx(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, actor DatabaseActor, scope string) error {
+func (r *Repository) requireDatabaseWriteTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	actor DatabaseActor,
+	scope string,
+) error {
 	switch actor.Kind {
 	case DatabaseConsoleActor:
 		return requireProjectRoleTx(ctx, tx, projectID, actor.AccountID, "owner", "admin")
@@ -131,7 +137,16 @@ func columnsForTableTx(ctx context.Context, tx pgx.Tx, tableID uuid.UUID) ([]Dat
 	return columns, rows.Err()
 }
 
-func (r *Repository) auditDatabase(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, actor DatabaseActor, action, targetType string, target uuid.UUID, metadata map[string]any) error {
+func (r *Repository) auditDatabase(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	actor DatabaseActor,
+	action,
+	targetType string,
+	target uuid.UUID,
+	metadata map[string]any,
+) error {
 	orgID, err := projectOrganizationIDValue(ctx, tx, projectID)
 	if err != nil {
 		return err
@@ -213,7 +228,12 @@ func buildRowSourceMetadata(actor DatabaseActor, changed []string) map[string]an
 // visible. The actual row data is intentionally never copied into the audit or
 // integration payload; consumers can fetch it through the normal permissioned
 // row API after receiving an event.
-func buildDatabaseRowEventMetadata(actor DatabaseActor, table domain.DatabaseTable, rowReadPermissions, changed []string) map[string]any {
+func buildDatabaseRowEventMetadata(
+	actor DatabaseActor,
+	table domain.DatabaseTable,
+	rowReadPermissions,
+	changed []string,
+) map[string]any {
 	metadata := buildRowSourceMetadata(actor, changed)
 	// Keep the query scope in the public notification metadata as well as in
 	// the permission marker below. The Console must be able to invalidate the

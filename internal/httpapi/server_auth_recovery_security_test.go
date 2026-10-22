@@ -83,7 +83,13 @@ func TestAuthLinkForUsesConfiguredOriginNotRequestHeaders(t *testing.T) {
 func TestAuthLinkForAllowsConfiguredLocalHTTPOrigin(t *testing.T) {
 	server := &Server{config: config.Config{PublicAppURL: "http://localhost:4173"}}
 	request := httptest.NewRequest(http.MethodPost, "/v1/account/recovery", nil)
-	link, err := server.authLinkFor(request, "reset-password", nil, "reset-token-123456", "http://localhost:4173/reset-password")
+	link, err := server.authLinkFor(
+		request,
+		"reset-password",
+		nil,
+		"reset-token-123456",
+		"http://localhost:4173/reset-password",
+	)
 	if err != nil {
 		t.Fatal(err)
 	}

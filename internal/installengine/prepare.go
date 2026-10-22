@@ -91,7 +91,11 @@ func (e *Engine) prepareInstallation(ctx context.Context, plan Plan) (*preparedI
 				return nil, fmt.Errorf("existing VERSION is invalid: %w", err)
 			}
 			if installedVersion != "" && installedVersion != recordedVersion {
-				return nil, fmt.Errorf("installation version skew: plan reports %s but VERSION records %s", installedVersion, recordedVersion)
+				return nil, fmt.Errorf(
+					"installation version skew: plan reports %s but VERSION records %s",
+					installedVersion,
+					recordedVersion,
+				)
 			}
 			installedVersion = recordedVersion
 		}
@@ -154,14 +158,19 @@ func (e *Engine) prepareInstallation(ctx context.Context, plan Plan) (*preparedI
 		if err != nil {
 			return nil, fmt.Errorf("prepare ingress network configuration: %w", err)
 		}
-		if previous, previousErr := ingressNetworkConfigFromValues(originalValues); previousErr == nil && previous.trustedProxyCIDR() != ingress.trustedProxyCIDR() {
+		if previous, previousErr := ingressNetworkConfigFromValues(originalValues); previousErr == nil &&
+			previous.trustedProxyCIDR() != ingress.trustedProxyCIDR() {
 			// The previous peer was installer-derived whenever automatic subnet
 			// selection or legacy-network adoption changes it. Remove only that
 			// exact generated entry; all other operator proxy CIDRs survive.
 			values["TRUSTED_PROXY_CIDRS"] = removeTrustedProxyCIDR(values["TRUSTED_PROXY_CIDRS"], previous.trustedProxyCIDR())
 		}
 		setIngressNetworkValues(values, ingress)
-		trustedProxy := ensureTraefikTrustedProxyCIDR(values["TRUSTED_PROXY_CIDRS"], values["STEALTH_NETWORK_SUBNET"], ingress.trustedProxyCIDR())
+		trustedProxy := ensureTraefikTrustedProxyCIDR(
+			values["TRUSTED_PROXY_CIDRS"],
+			values["STEALTH_NETWORK_SUBNET"],
+			ingress.trustedProxyCIDR(),
+		)
 		if trustedProxy != strings.TrimSpace(values["TRUSTED_PROXY_CIDRS"]) {
 			values["TRUSTED_PROXY_CIDRS"] = trustedProxy
 		}

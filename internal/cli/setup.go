@@ -77,12 +77,22 @@ type setupPreparedMessage struct {
 // not ask for provider credentials in the terminal; the browser owns the
 // reviewed configuration, while the CLI remains responsible for local Docker
 // capability checks and the short-lived access tunnel.
-func (a *App) runWebBootstrap(ctx context.Context, checks []SystemCheck, layout InstallLayout, version string, existing bool) int {
+func (a *App) runWebBootstrap(
+	ctx context.Context,
+	checks []SystemCheck,
+	layout InstallLayout,
+	version string,
+	existing bool,
+) int {
 	if !checksPass(checks) {
 		fmt.Fprintf(a.errOut, "system requirements are not satisfied: %s\n", failedCheckSummary(checks))
 		return 1
 	}
-	coordinationLock, err := installengine.AcquireProcessLock(layout.StateDir, setupCoordinationLockName, "setup orchestration")
+	coordinationLock, err := installengine.AcquireProcessLock(
+		layout.StateDir,
+		setupCoordinationLockName,
+		"setup orchestration",
+	)
 	if err != nil {
 		fmt.Fprintln(a.errOut, err)
 		fmt.Fprintln(a.errOut, "Another `stealth install` is already coordinating browser setup.")

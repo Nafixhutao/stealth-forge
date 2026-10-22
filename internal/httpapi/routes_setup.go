@@ -50,7 +50,12 @@ func (s *Server) issueSetupHandoffToken(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if status.SetupRequired {
-		writeError(w, http.StatusConflict, "handoff_not_ready", "finish first-owner setup before preparing the production dashboard")
+		writeError(
+			w,
+			http.StatusConflict,
+			"handoff_not_ready",
+			"finish first-owner setup before preparing the production dashboard",
+		)
 		return
 	}
 	token, err := s.setupHandoff.Issue(r.Context())
@@ -75,7 +80,12 @@ func (s *Server) setupHandoffStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	pendingStore, ok := s.setupHandoff.(setuphandoff.PendingStore)
 	if !ok {
-		writeError(w, http.StatusServiceUnavailable, "handoff_unavailable", "production session handoff status is unavailable")
+		writeError(
+			w,
+			http.StatusServiceUnavailable,
+			"handoff_unavailable",
+			"production session handoff status is unavailable",
+		)
 		return
 	}
 	pending, err := pendingStore.Pending(r.Context())
@@ -102,7 +112,11 @@ func (s *Server) setupStatus(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, setupStatusResponse{SetupRequired: status.SetupRequired, Ready: s.setupStateReady(), State: state.Public()})
+	writeJSON(
+		w,
+		http.StatusOK,
+		setupStatusResponse{SetupRequired: status.SetupRequired, Ready: s.setupStateReady(), State: state.Public()},
+	)
 }
 
 func (s *Server) saveSetupConfig(w http.ResponseWriter, r *http.Request) {
@@ -146,7 +160,12 @@ func (s *Server) recoverSetupSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if status.SetupRequired {
-		writeError(w, http.StatusConflict, "recovery_not_needed", "first-owner setup is still waiting for its original local session")
+		writeError(
+			w,
+			http.StatusConflict,
+			"recovery_not_needed",
+			"first-owner setup is still waiting for its original local session",
+		)
 		return
 	}
 	code, err := bootstrap.GenerateCode()

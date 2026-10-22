@@ -9,7 +9,16 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (r *Repository) CreateMessagingTopic(ctx context.Context, id, projectID uuid.UUID, actor MessagingActor, input MessagingTopicInput) (domain.MessagingTopic, error) {
+func (r *Repository) CreateMessagingTopic(
+	ctx context.Context,
+	id,
+	projectID uuid.UUID,
+	actor MessagingActor,
+	input MessagingTopicInput,
+) (
+	domain.MessagingTopic,
+	error,
+) {
 	name, err := normalizeMessagingName(input.Name, "name")
 	if err != nil {
 		return domain.MessagingTopic{}, err
@@ -42,7 +51,18 @@ func (r *Repository) CreateMessagingTopic(ctx context.Context, id, projectID uui
 	return item, nil
 }
 
-func (r *Repository) ListMessagingTopics(ctx context.Context, projectID uuid.UUID, actor MessagingActor, limit int, cursor *uuid.UUID) ([]domain.MessagingTopic, string, bool, error) {
+func (r *Repository) ListMessagingTopics(
+	ctx context.Context,
+	projectID uuid.UUID,
+	actor MessagingActor,
+	limit int,
+	cursor *uuid.UUID,
+) (
+	[]domain.MessagingTopic,
+	string,
+	bool,
+	error,
+) {
 	canManage, err := r.requireMessagingRead(ctx, projectID, actor)
 	if err != nil {
 		return nil, "", false, err
@@ -74,7 +94,15 @@ func (r *Repository) ListMessagingTopics(ctx context.Context, projectID uuid.UUI
 	return items, next, canManage, nil
 }
 
-func (r *Repository) GetMessagingTopic(ctx context.Context, projectID, topicID uuid.UUID, actor MessagingActor) (domain.MessagingTopic, error) {
+func (r *Repository) GetMessagingTopic(
+	ctx context.Context,
+	projectID,
+	topicID uuid.UUID,
+	actor MessagingActor,
+) (
+	domain.MessagingTopic,
+	error,
+) {
 	if _, err := r.requireMessagingRead(ctx, projectID, actor); err != nil {
 		return domain.MessagingTopic{}, err
 	}
@@ -85,7 +113,16 @@ func (r *Repository) GetMessagingTopic(ctx context.Context, projectID, topicID u
 	return item, err
 }
 
-func (r *Repository) UpdateMessagingTopic(ctx context.Context, projectID, topicID uuid.UUID, actor MessagingActor, patch MessagingTopicPatch) (domain.MessagingTopic, error) {
+func (r *Repository) UpdateMessagingTopic(
+	ctx context.Context,
+	projectID,
+	topicID uuid.UUID,
+	actor MessagingActor,
+	patch MessagingTopicPatch,
+) (
+	domain.MessagingTopic,
+	error,
+) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.MessagingTopic{}, err
@@ -157,7 +194,12 @@ func (r *Repository) UpdateMessagingTopic(ctx context.Context, projectID, topicI
 	return item, nil
 }
 
-func (r *Repository) DeleteMessagingTopic(ctx context.Context, projectID, topicID uuid.UUID, actor MessagingActor) error {
+func (r *Repository) DeleteMessagingTopic(
+	ctx context.Context,
+	projectID,
+	topicID uuid.UUID,
+	actor MessagingActor,
+) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err

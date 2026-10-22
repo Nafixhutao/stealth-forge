@@ -12,7 +12,15 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (r *Repository) auditAppDeploymentTx(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, actor *AppActor, action string, deploymentID uuid.UUID, metadata map[string]any) error {
+func (r *Repository) auditAppDeploymentTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	actor *AppActor,
+	action string,
+	deploymentID uuid.UUID,
+	metadata map[string]any,
+) error {
 	organizationID, err := projectOrganizationIDValue(ctx, tx, projectID)
 	if err != nil {
 		return err

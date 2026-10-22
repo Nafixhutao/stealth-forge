@@ -85,10 +85,20 @@ func TestProjectAgentsControlPlaneIntegration(t *testing.T) {
 		} `json:"execution"`
 	}
 	requestJSON(t, ownerClient, http.MethodGet, httpServer.URL+"/v1/agent-catalog", nil, http.StatusOK, &catalog)
-	if len(catalog.Providers) < 1 || catalog.Providers[0].ID == "" || len(catalog.Providers[0].Models) < 1 || len(catalog.Roles) < 1 || len(catalog.Tools) < 1 || catalog.Execution.Mode != "queue_only" || catalog.Execution.Ready {
+	if len(catalog.Providers) < 1 ||
+		catalog.Providers[0].ID == "" ||
+		len(catalog.Providers[0].Models) < 1 ||
+		len(catalog.Roles) < 1 ||
+		len(catalog.Tools) < 1 ||
+		catalog.Execution.Mode != "queue_only" ||
+		catalog.Execution.Ready {
 		t.Fatalf("unexpected Agent catalog: %+v", catalog)
 	}
-	if len(catalog.Providers) != 2 || catalog.Providers[0].ID != "local" || len(catalog.Providers[0].Models) != 2 || catalog.Providers[1].ID != "remote" || catalog.Providers[1].Models[0] != "model-x" {
+	if len(catalog.Providers) != 2 ||
+		catalog.Providers[0].ID != "local" ||
+		len(catalog.Providers[0].Models) != 2 ||
+		catalog.Providers[1].ID != "remote" ||
+		catalog.Providers[1].Models[0] != "model-x" {
 		t.Fatalf("unexpected provider/model catalog: %+v", catalog.Providers)
 	}
 
@@ -141,7 +151,14 @@ func TestProjectAgentsControlPlaneIntegration(t *testing.T) {
 	if err := json.Unmarshal(createBody, &created); err != nil {
 		t.Fatal(err)
 	}
-	if created.Agent.ID == "" || created.Agent.ProjectID != project.Project.ID || created.Agent.ProjectName == "" || created.Agent.Name != "Frontend Engineer" || created.Agent.Role != "Frontend" || created.Agent.Status != "idle" || len(created.Agent.Tools) != 3 || !created.CanManage {
+	if created.Agent.ID == "" ||
+		created.Agent.ProjectID != project.Project.ID ||
+		created.Agent.ProjectName == "" ||
+		created.Agent.Name != "Frontend Engineer" ||
+		created.Agent.Role != "Frontend" ||
+		created.Agent.Status != "idle" ||
+		len(created.Agent.Tools) != 3 ||
+		!created.CanManage {
 		t.Fatalf("unexpected agent response: %s", createBody)
 	}
 
@@ -178,7 +195,15 @@ func TestProjectAgentsControlPlaneIntegration(t *testing.T) {
 		} `json:"pagination"`
 		CanManage bool `json:"can_manage"`
 	}
-	requestJSON(t, ownerClient, http.MethodGet, httpServer.URL+"/v1/agents?limit=1&project_id="+project.Project.ID, nil, http.StatusOK, &list)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		httpServer.URL+"/v1/agents?limit=1&project_id="+project.Project.ID,
+		nil,
+		http.StatusOK,
+		&list,
+	)
 	if len(list.Agents) != 1 || list.Agents[0].ID != created.Agent.ID || !list.CanManage {
 		t.Fatalf("unexpected agent list: %+v", list)
 	}
@@ -186,7 +211,15 @@ func TestProjectAgentsControlPlaneIntegration(t *testing.T) {
 	var viewerAgent struct {
 		CanManage bool `json:"can_manage"`
 	}
-	requestJSON(t, viewerClient, http.MethodGet, httpServer.URL+"/v1/agents/"+created.Agent.ID, nil, http.StatusOK, &viewerAgent)
+	requestJSON(
+		t,
+		viewerClient,
+		http.MethodGet,
+		httpServer.URL+"/v1/agents/"+created.Agent.ID,
+		nil,
+		http.StatusOK,
+		&viewerAgent,
+	)
 	if viewerAgent.CanManage {
 		t.Fatal("viewer received can_manage=true for Agent detail")
 	}
@@ -208,7 +241,14 @@ func TestProjectAgentsControlPlaneIntegration(t *testing.T) {
 	if err := json.Unmarshal(runBody, &createdRun); err != nil {
 		t.Fatal(err)
 	}
-	if createdRun.Run.ID == "" || createdRun.Run.AgentID != created.Agent.ID || createdRun.Run.ProjectID != project.Project.ID || createdRun.Run.Prompt == "" || createdRun.Run.Status != "queued" || createdRun.Run.Steps == nil || createdRun.Run.Changes == nil || !createdRun.CanManage {
+	if createdRun.Run.ID == "" ||
+		createdRun.Run.AgentID != created.Agent.ID ||
+		createdRun.Run.ProjectID != project.Project.ID ||
+		createdRun.Run.Prompt == "" ||
+		createdRun.Run.Status != "queued" ||
+		createdRun.Run.Steps == nil ||
+		createdRun.Run.Changes == nil ||
+		!createdRun.CanManage {
 		t.Fatalf("unexpected run response: %s", runBody)
 	}
 	var queuedAgent struct {
@@ -216,7 +256,15 @@ func TestProjectAgentsControlPlaneIntegration(t *testing.T) {
 			Status string `json:"status"`
 		} `json:"agent"`
 	}
-	requestJSON(t, ownerClient, http.MethodGet, httpServer.URL+"/v1/agents/"+created.Agent.ID, nil, http.StatusOK, &queuedAgent)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		httpServer.URL+"/v1/agents/"+created.Agent.ID,
+		nil,
+		http.StatusOK,
+		&queuedAgent,
+	)
 	if queuedAgent.Agent.Status != "active" {
 		t.Fatalf("queued run left parent Agent status %q, want active", queuedAgent.Agent.Status)
 	}
@@ -234,7 +282,15 @@ func TestProjectAgentsControlPlaneIntegration(t *testing.T) {
 			Status string `json:"status"`
 		} `json:"agent"`
 	}
-	requestJSON(t, ownerClient, http.MethodGet, httpServer.URL+"/v1/agents/"+created.Agent.ID, nil, http.StatusOK, &recoveredAgent)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		httpServer.URL+"/v1/agents/"+created.Agent.ID,
+		nil,
+		http.StatusOK,
+		&recoveredAgent,
+	)
 	if recoveredAgent.Agent.Status != "active" {
 		t.Fatalf("recovered queued run left parent Agent status %q, want active", recoveredAgent.Agent.Status)
 	}
@@ -248,24 +304,95 @@ func TestProjectAgentsControlPlaneIntegration(t *testing.T) {
 	var ownerRuns struct {
 		CanManage bool `json:"can_manage"`
 	}
-	requestJSON(t, ownerClient, http.MethodGet, httpServer.URL+"/v1/agents/"+created.Agent.ID+"/runs", nil, http.StatusOK, &ownerRuns)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		httpServer.URL+"/v1/agents/"+created.Agent.ID+"/runs",
+		nil,
+		http.StatusOK,
+		&ownerRuns,
+	)
 	if !ownerRuns.CanManage {
 		t.Fatal("owner did not receive can_manage=true for Agent runs")
 	}
 	var viewerRun struct {
 		CanManage bool `json:"can_manage"`
 	}
-	requestJSON(t, viewerClient, http.MethodGet, httpServer.URL+"/v1/agents/"+created.Agent.ID+"/runs/"+createdRun.Run.ID, nil, http.StatusOK, &viewerRun)
+	requestJSON(
+		t,
+		viewerClient,
+		http.MethodGet,
+		httpServer.URL+"/v1/agents/"+created.Agent.ID+"/runs/"+createdRun.Run.ID,
+		nil,
+		http.StatusOK,
+		&viewerRun,
+	)
 	if viewerRun.CanManage {
 		t.Fatal("viewer received can_manage=true for Agent run")
 	}
-	requestJSON(t, ownerClient, http.MethodGet, httpServer.URL+"/v1/agents/"+created.Agent.ID+"/runs/"+createdRun.Run.ID, nil, http.StatusOK, &struct{}{})
-	requestJSON(t, ownerClient, http.MethodGet, httpServer.URL+"/v1/agents/"+created.Agent.ID+"/runs/"+createdRun.Run.ID+"/logs", nil, http.StatusOK, &struct{}{})
-	requestJSON(t, viewerClient, http.MethodPost, httpServer.URL+"/v1/agents/"+created.Agent.ID+"/runs", map[string]string{"prompt": "Viewer cannot enqueue"}, http.StatusForbidden, nil)
-	requestJSON(t, viewerClient, http.MethodPost, httpServer.URL+"/v1/agents/"+created.Agent.ID+"/runs/"+createdRun.Run.ID+"/cancel", nil, http.StatusForbidden, nil)
-	requestJSON(t, ownerClient, http.MethodPost, httpServer.URL+"/v1/agents/"+created.Agent.ID+"/runs/"+createdRun.Run.ID+"/cancel", nil, http.StatusOK, &struct{}{})
-	requestJSON(t, ownerClient, http.MethodPost, httpServer.URL+"/v1/agents/"+created.Agent.ID+"/runs/"+createdRun.Run.ID+"/cancel", nil, http.StatusConflict, nil)
-	workerRunBody := requestJSONRaw(t, ownerClient, http.MethodPost, httpServer.URL+"/v1/agents/"+created.Agent.ID+"/runs", map[string]string{"prompt": "Exercise the worker lifecycle"}, http.StatusAccepted)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		httpServer.URL+"/v1/agents/"+created.Agent.ID+"/runs/"+createdRun.Run.ID,
+		nil,
+		http.StatusOK,
+		&struct{}{},
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		httpServer.URL+"/v1/agents/"+created.Agent.ID+"/runs/"+createdRun.Run.ID+"/logs",
+		nil,
+		http.StatusOK,
+		&struct{}{},
+	)
+	requestJSON(
+		t,
+		viewerClient,
+		http.MethodPost,
+		httpServer.URL+"/v1/agents/"+created.Agent.ID+"/runs",
+		map[string]string{"prompt": "Viewer cannot enqueue"},
+		http.StatusForbidden,
+		nil,
+	)
+	requestJSON(
+		t,
+		viewerClient,
+		http.MethodPost,
+		httpServer.URL+"/v1/agents/"+created.Agent.ID+"/runs/"+createdRun.Run.ID+"/cancel",
+		nil,
+		http.StatusForbidden,
+		nil,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		httpServer.URL+"/v1/agents/"+created.Agent.ID+"/runs/"+createdRun.Run.ID+"/cancel",
+		nil,
+		http.StatusOK,
+		&struct{}{},
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		httpServer.URL+"/v1/agents/"+created.Agent.ID+"/runs/"+createdRun.Run.ID+"/cancel",
+		nil,
+		http.StatusConflict,
+		nil,
+	)
+	workerRunBody := requestJSONRaw(
+		t,
+		ownerClient,
+		http.MethodPost,
+		httpServer.URL+"/v1/agents/"+created.Agent.ID+"/runs",
+		map[string]string{"prompt": "Exercise the worker lifecycle"},
+		http.StatusAccepted,
+	)
 	var workerRun struct {
 		Run struct {
 			ID string `json:"id"`
@@ -298,7 +425,15 @@ func TestProjectAgentsControlPlaneIntegration(t *testing.T) {
 	if err != nil || !processed {
 		t.Fatalf("Agent worker RunOnce() = processed=%v err=%v", processed, err)
 	}
-	requestJSON(t, ownerClient, http.MethodGet, httpServer.URL+"/v1/agents/"+created.Agent.ID+"/runs/"+workerRun.Run.ID+"/logs", nil, http.StatusOK, &struct{}{})
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		httpServer.URL+"/v1/agents/"+created.Agent.ID+"/runs/"+workerRun.Run.ID+"/logs",
+		nil,
+		http.StatusOK,
+		&struct{}{},
+	)
 	output := "Worker completed the control-plane lifecycle."
 	var completedRun struct {
 		Run struct {
@@ -308,15 +443,42 @@ func TestProjectAgentsControlPlaneIntegration(t *testing.T) {
 			Changes    []any  `json:"changes"`
 		} `json:"run"`
 	}
-	requestJSON(t, ownerClient, http.MethodGet, httpServer.URL+"/v1/agents/"+created.Agent.ID+"/runs/"+workerRun.Run.ID, nil, http.StatusOK, &completedRun)
-	if completedRun.Run.Status != "completed" || completedRun.Run.OutputText != output || len(completedRun.Run.Steps) != 1 || len(completedRun.Run.Changes) != 1 {
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		httpServer.URL+"/v1/agents/"+created.Agent.ID+"/runs/"+workerRun.Run.ID,
+		nil,
+		http.StatusOK,
+		&completedRun,
+	)
+	if completedRun.Run.Status != "completed" ||
+		completedRun.Run.OutputText != output ||
+		len(completedRun.Run.Steps) != 1 ||
+		len(completedRun.Run.Changes) != 1 {
 		t.Fatalf("unexpected completed run: %+v", completedRun.Run)
 	}
 	requestJSON(t, viewerClient, http.MethodPost, httpServer.URL+"/v1/agents", map[string]any{
 		"project_id": project.Project.ID, "name": "Viewer Agent", "role": "General", "provider": "local", "model": "model-a",
 	}, http.StatusForbidden, nil)
-	requestJSON(t, viewerClient, http.MethodPatch, httpServer.URL+"/v1/agents/"+created.Agent.ID, map[string]string{"name": "Viewer Rename"}, http.StatusForbidden, nil)
-	requestJSON(t, viewerClient, http.MethodDelete, httpServer.URL+"/v1/agents/"+created.Agent.ID, nil, http.StatusForbidden, nil)
+	requestJSON(
+		t,
+		viewerClient,
+		http.MethodPatch,
+		httpServer.URL+"/v1/agents/"+created.Agent.ID,
+		map[string]string{"name": "Viewer Rename"},
+		http.StatusForbidden,
+		nil,
+	)
+	requestJSON(
+		t,
+		viewerClient,
+		http.MethodDelete,
+		httpServer.URL+"/v1/agents/"+created.Agent.ID,
+		nil,
+		http.StatusForbidden,
+		nil,
+	)
 
 	requestJSON(t, ownerClient, http.MethodPost, httpServer.URL+"/v1/agents", map[string]any{
 		"project_id": project.Project.ID, "name": "Frontend Engineer", "role": "Frontend", "provider": "local", "model": "model-a",
@@ -324,6 +486,22 @@ func TestProjectAgentsControlPlaneIntegration(t *testing.T) {
 	requestJSON(t, ownerClient, http.MethodPatch, httpServer.URL+"/v1/agents/"+created.Agent.ID, map[string]any{
 		"name": "Frontend Platform Engineer", "current_task": "Wire the Agent control plane", "tools": []string{"Search code", "Read files"},
 	}, http.StatusOK, &struct{}{})
-	requestJSON(t, ownerClient, http.MethodDelete, httpServer.URL+"/v1/agents/"+created.Agent.ID, nil, http.StatusNoContent, nil)
-	requestJSON(t, ownerClient, http.MethodGet, httpServer.URL+"/v1/agents/"+created.Agent.ID, nil, http.StatusNotFound, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodDelete,
+		httpServer.URL+"/v1/agents/"+created.Agent.ID,
+		nil,
+		http.StatusNoContent,
+		nil,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		httpServer.URL+"/v1/agents/"+created.Agent.ID,
+		nil,
+		http.StatusNotFound,
+		nil,
+	)
 }

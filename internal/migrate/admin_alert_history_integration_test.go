@@ -84,7 +84,12 @@ func TestAdminAlertHistoryMigrationBackfillsAndPreservesDeliveriesIntegration(t 
 		FROM admin_alert_events WHERE id='`+eventID+`'`).Scan(&liveRuleCleared, &idSnapshotted, &nameSnapshotted, &conditionSnapshotted, &indexCreated, &deliveryRetained); err != nil {
 		t.Fatal(err)
 	}
-	if !liveRuleCleared || !idSnapshotted || !nameSnapshotted || !conditionSnapshotted || !indexCreated || !deliveryRetained {
+	if !liveRuleCleared ||
+		!idSnapshotted ||
+		!nameSnapshotted ||
+		!conditionSnapshotted ||
+		!indexCreated ||
+		!deliveryRetained {
 		t.Fatalf("migrated history snapshot or delivery was not preserved")
 	}
 	if _, err := conn.Exec(ctx, `UPDATE admin_notification_deliveries SET alert_event_id=NULL WHERE id='`+deliveryID+`'`); err == nil {

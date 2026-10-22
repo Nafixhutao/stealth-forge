@@ -15,7 +15,9 @@ func TestAppRuntimeRouteIdentityNamesAreIncarnationSpecificAndValidated(t *testi
 	if firstName == secondName {
 		t.Fatal("different runtime incarnations reused a routing target")
 	}
-	if len(firstName) > 63 || !ValidAppRuntimeContainerName(appID, firstName) || !ValidAppRuntimeContainerName(appID, secondName) {
+	if len(firstName) > 63 ||
+		!ValidAppRuntimeContainerName(appID, firstName) ||
+		!ValidAppRuntimeContainerName(appID, secondName) {
 		t.Fatalf("generated route names must be DNS-safe and app-scoped: first=%q second=%q", firstName, secondName)
 	}
 	for _, candidate := range []string{

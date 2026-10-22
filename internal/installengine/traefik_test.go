@@ -244,7 +244,13 @@ func TestGenerateConfigUsesDedicatedAppSecretKey(t *testing.T) {
 	appsKey, appsErr := base64.StdEncoding.DecodeString(values["APPS_SECRET_KEY"])
 	functionsKey, functionsErr := base64.StdEncoding.DecodeString(values["FUNCTIONS_SECRET_KEY"])
 	if appsErr != nil || functionsErr != nil || len(appsKey) != 32 || len(functionsKey) != 32 {
-		t.Fatalf("generated encryption key lengths Apps=%d Functions=%d errors=%v/%v", len(appsKey), len(functionsKey), appsErr, functionsErr)
+		t.Fatalf(
+			"generated encryption key lengths Apps=%d Functions=%d errors=%v/%v",
+			len(appsKey),
+			len(functionsKey),
+			appsErr,
+			functionsErr,
+		)
 	}
 	if values["APPS_SECRET_KEY"] == values["FUNCTIONS_SECRET_KEY"] {
 		t.Fatal("App and Function encryption keys were reused")
@@ -311,7 +317,11 @@ func TestMigrateReleaseConfigAddsOrPreservesBuildKitAppArmorProfile(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	config, err := migrateReleaseConfig(map[string]string{"APPS_BUILDKIT_ADDRESS": "tcp://buildkit:1234"}, "v1.2.3", "v1.2.2")
+	config, err := migrateReleaseConfig(
+		map[string]string{"APPS_BUILDKIT_ADDRESS": "tcp://buildkit:1234"},
+		"v1.2.3",
+		"v1.2.2",
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -350,7 +360,12 @@ func TestAppSecretKeyIsGeneratedOncePreservedAndNeverSilentlyReplaced(t *testing
 	}
 	repeatedValues, err := ParseEnvContents(repeated)
 	if err != nil || repeatedValues["APPS_SECRET_KEY"] != values["APPS_SECRET_KEY"] {
-		t.Fatalf("repeated migration changed generated App key: got=%q want=%q err=%v", repeatedValues["APPS_SECRET_KEY"], values["APPS_SECRET_KEY"], err)
+		t.Fatalf(
+			"repeated migration changed generated App key: got=%q want=%q err=%v",
+			repeatedValues["APPS_SECRET_KEY"],
+			values["APPS_SECRET_KEY"],
+			err,
+		)
 	}
 
 	for name, encoded := range map[string]string{
@@ -374,7 +389,8 @@ func TestAppSecretKeyIsGeneratedOncePreservedAndNeverSilentlyReplaced(t *testing
 		"wrong decoded length": base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{0x93}, 31)),
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := migrateReleaseConfig(map[string]string{"APPS_SECRET_KEY": invalid}, "v1.2.3", "v1.2.2"); err == nil || !strings.Contains(err.Error(), "refusing to replace it") {
+			if _, err := migrateReleaseConfig(map[string]string{"APPS_SECRET_KEY": invalid}, "v1.2.3", "v1.2.2"); err == nil ||
+				!strings.Contains(err.Error(), "refusing to replace it") {
 				t.Fatalf("invalid existing App key was not rejected safely: %v", err)
 			}
 		})
@@ -400,7 +416,11 @@ func TestBuildKitTLSPathsAreAddedAndOperatorPathsPreserved(t *testing.T) {
 			t.Fatalf("migrated %s = %q, want %q", name, values[name], path)
 		}
 	}
-	contents, err = migrateReleaseConfig(map[string]string{"APPS_BUILDKIT_CLIENT_KEY": "/operator/keys/buildkit-worker.pem"}, "v1.2.3", "v1.2.2")
+	contents, err = migrateReleaseConfig(
+		map[string]string{"APPS_BUILDKIT_CLIENT_KEY": "/operator/keys/buildkit-worker.pem"},
+		"v1.2.3",
+		"v1.2.2",
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -513,7 +533,8 @@ func TestTraefikStaticAssetRendersConfiguredCloudflaredPeer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(rendered), traefikCloudflaredTrustedCIDRPlaceholder) || !strings.Contains(string(rendered), "172.31.7.10/32") {
+	if strings.Contains(string(rendered), traefikCloudflaredTrustedCIDRPlaceholder) ||
+		!strings.Contains(string(rendered), "172.31.7.10/32") {
 		t.Fatalf("rendered trusted peer = %q", rendered)
 	}
 	if err := validateTraefikStaticAsset(rendered); err != nil {
@@ -697,7 +718,13 @@ func TestEnsureTraefikDirectoriesValidatesRuntimePathsWithoutChangingOwnership(t
 		t.Fatal("runtime path ownership metadata is unavailable")
 	}
 	if dynamicBefore.Mode() != dynamicAfter.Mode() || generatedBefore.Mode() != generatedAfter.Mode() {
-		t.Fatalf("runtime path modes changed: dynamic %o -> %o, generated %o -> %o", dynamicBefore.Mode().Perm(), dynamicAfter.Mode().Perm(), generatedBefore.Mode().Perm(), generatedAfter.Mode().Perm())
+		t.Fatalf(
+			"runtime path modes changed: dynamic %o -> %o, generated %o -> %o",
+			dynamicBefore.Mode().Perm(),
+			dynamicAfter.Mode().Perm(),
+			generatedBefore.Mode().Perm(),
+			generatedAfter.Mode().Perm(),
+		)
 	}
 	markerInfo, err := os.Lstat(layout.TraefikReloadMarker)
 	if err != nil {

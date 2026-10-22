@@ -48,7 +48,15 @@ type DatabaseBackupRestoreResult struct {
 func scanDatabaseBackup(row interface{ Scan(...any) error }) (domain.DatabaseBackup, string, error) {
 	var item domain.DatabaseBackup
 	var path string
-	err := row.Scan(&item.ID, &item.ProjectID, &item.DatabaseID, &path, &item.SizeBytes, &item.ChecksumSHA256, &item.CreatedAt)
+	err := row.Scan(
+		&item.ID,
+		&item.ProjectID,
+		&item.DatabaseID,
+		&path,
+		&item.SizeBytes,
+		&item.ChecksumSHA256,
+		&item.CreatedAt,
+	)
 	return item, path, err
 }
 

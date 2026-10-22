@@ -104,7 +104,11 @@ func TestAppRollbackRestoresWorkloadAndPreservesEnvironmentIntegration(t *testin
 		!workloadspec.Equal(result.App.Workload, wantWorkload) || result.App.WorkloadSpecSHA256 != wantDigest ||
 		!result.Deployment.Selected || result.Deployment.ID != first.ID || result.App.Enabled != before.Enabled ||
 		result.App.Name != before.Name || !optionalStringEqual(result.App.PlatformHostname, before.PlatformHostname) {
-		t.Fatalf("rollback did not restore only desired release/workload state: app=%+v deployment=%+v", result.App, result.Deployment)
+		t.Fatalf(
+			"rollback did not restore only desired release/workload state: app=%+v deployment=%+v",
+			result.App,
+			result.Deployment,
+		)
 	}
 	var appliedID uuid.UUID
 	var appliedGeneration int64
@@ -113,8 +117,17 @@ func TestAppRollbackRestoresWorkloadAndPreservesEnvironmentIntegration(t *testin
 	if err := f.pool.QueryRow(f.ctx, `SELECT applied_deployment_id,applied_generation,failure_count,next_retry_at FROM app_runtime_state WHERE app_id=$1`, appID).Scan(&appliedID, &appliedGeneration, &failureCount, &nextRetryAt); err != nil {
 		t.Fatal(err)
 	}
-	if appliedID != uuid.MustParse(second.ID) || appliedGeneration != before.DesiredGeneration || failureCount != 0 || nextRetryAt != nil {
-		t.Fatalf("rollback changed worker-owned apply state or failed to reset retry state: applied=%s generation=%d failures=%d retry=%v", appliedID, appliedGeneration, failureCount, nextRetryAt)
+	if appliedID != uuid.MustParse(second.ID) ||
+		appliedGeneration != before.DesiredGeneration ||
+		failureCount != 0 ||
+		nextRetryAt != nil {
+		t.Fatalf(
+			"rollback changed worker-owned apply state or failed to reset retry state: applied=%s generation=%d failures=%d retry=%v",
+			appliedID,
+			appliedGeneration,
+			failureCount,
+			nextRetryAt,
+		)
 	}
 	var ciphertextAfter []byte
 	if err := f.pool.QueryRow(f.ctx, `SELECT value_ciphertext FROM app_environment_variables WHERE id=$1`, variableID).Scan(&ciphertextAfter); err != nil {
@@ -128,7 +141,15 @@ func TestAppRollbackRestoresWorkloadAndPreservesEnvironmentIntegration(t *testin
 		t.Fatal(err)
 	}
 	if quotaAfter != quotaBefore || usedAfter != usedBefore || reservedAfter != reservedBefore {
-		t.Fatalf("rollback changed App artifact quota accounting: before=%d/%d/%d after=%d/%d/%d", quotaBefore, usedBefore, reservedBefore, quotaAfter, usedAfter, reservedAfter)
+		t.Fatalf(
+			"rollback changed App artifact quota accounting: before=%d/%d/%d after=%d/%d/%d",
+			quotaBefore,
+			usedBefore,
+			reservedBefore,
+			quotaAfter,
+			usedAfter,
+			reservedAfter,
+		)
 	}
 	firstAfter, err := f.repo.GetAppDeployment(f.ctx, f.projectOneID, appID, uuid.MustParse(first.ID), f.actor)
 	if err != nil {
@@ -142,7 +163,8 @@ func TestAppRollbackRestoresWorkloadAndPreservesEnvironmentIntegration(t *testin
 		secondAfter.WorkloadSpecSHA256 != secondBefore.WorkloadSpecSHA256 || secondAfter.ImageDigest == nil || *secondAfter.ImageDigest != *secondBefore.ImageDigest {
 		t.Fatal("rollback mutated immutable deployment history")
 	}
-	if appDeploymentBuildLogSnapshotForTest(t, f, first.ID) != firstBuildLogsBefore || appDeploymentBuildLogSnapshotForTest(t, f, second.ID) != secondBuildLogsBefore {
+	if appDeploymentBuildLogSnapshotForTest(t, f, first.ID) != firstBuildLogsBefore ||
+		appDeploymentBuildLogSnapshotForTest(t, f, second.ID) != secondBuildLogsBefore {
 		t.Fatal("rollback mutated immutable deployment build logs")
 	}
 	var auditMetadata string
@@ -176,7 +198,10 @@ func TestAppRollbackRejectionsPreserveDesiredStateIntegration(t *testing.T) {
 		t.Fatalf("rollback without a selected release = %v", err)
 	}
 	initialAfter, err := f.repo.GetApp(f.ctx, f.projectOneID, appID, f.actor)
-	if err != nil || initialAfter.DesiredGeneration != initial.DesiredGeneration || initialAfter.DesiredDeploymentID != nil || initialAfter.WorkloadSpecSHA256 != initial.WorkloadSpecSHA256 {
+	if err != nil ||
+		initialAfter.DesiredGeneration != initial.DesiredGeneration ||
+		initialAfter.DesiredDeploymentID != nil ||
+		initialAfter.WorkloadSpecSHA256 != initial.WorkloadSpecSHA256 {
 		t.Fatalf("rollback without a selected release mutated desired state: app=%+v err=%v", initialAfter, err)
 	}
 
@@ -225,7 +250,15 @@ func TestAppRollbackRejectionsPreserveDesiredStateIntegration(t *testing.T) {
 		retryUnchanged := retryBefore == nil && retryAfter == nil || retryBefore != nil && retryAfter != nil && retryBefore.Equal(*retryAfter)
 		if before.DesiredGeneration != after.DesiredGeneration || !optionalStringEqual(before.DesiredDeploymentID, after.DesiredDeploymentID) ||
 			before.WorkloadSpecSHA256 != after.WorkloadSpecSHA256 || before.Enabled != after.Enabled || failuresBefore != failuresAfter || !retryUnchanged {
-			t.Fatalf("rejected rollback mutated desired or retry state: before=%+v after=%+v retry=%d/%v -> %d/%v", before, after, failuresBefore, retryBefore, failuresAfter, retryAfter)
+			t.Fatalf(
+				"rejected rollback mutated desired or retry state: before=%+v after=%+v retry=%d/%v -> %d/%v",
+				before,
+				after,
+				failuresBefore,
+				retryBefore,
+				failuresAfter,
+				retryAfter,
+			)
 		}
 	}
 
@@ -291,8 +324,16 @@ func TestAppRollbackRejectionsPreserveDesiredStateIntegration(t *testing.T) {
 		t.Fatalf("rollback to deployment with a mismatched private artifact path = %v", err)
 	}
 	pathAfter, err := f.repo.GetApp(f.ctx, f.projectOneID, pathAppID, f.actor)
-	if err != nil || pathAfter.DesiredGeneration != pathBefore.DesiredGeneration || !optionalStringEqual(pathAfter.DesiredDeploymentID, pathBefore.DesiredDeploymentID) || pathAfter.WorkloadSpecSHA256 != pathBefore.WorkloadSpecSHA256 {
-		t.Fatalf("rejected malformed artifact locator rollback changed desired state: before=%+v after=%+v err=%v", pathBefore, pathAfter, err)
+	if err != nil ||
+		pathAfter.DesiredGeneration != pathBefore.DesiredGeneration ||
+		!optionalStringEqual(pathAfter.DesiredDeploymentID, pathBefore.DesiredDeploymentID) ||
+		pathAfter.WorkloadSpecSHA256 != pathBefore.WorkloadSpecSHA256 {
+		t.Fatalf(
+			"rejected malformed artifact locator rollback changed desired state: before=%+v after=%+v err=%v",
+			pathBefore,
+			pathAfter,
+			err,
+		)
 	}
 	var pathRollbackAuditCount int
 	if err := f.pool.QueryRow(f.ctx, `SELECT count(*) FROM audit_events WHERE target_id=$1 AND action='app_deployment.rollback'`, pathTarget.ID).Scan(&pathRollbackAuditCount); err != nil {
@@ -381,8 +422,15 @@ func TestAppRollbackConcurrentRequestsSerializeIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if app.DesiredGeneration != before.DesiredGeneration+int64(len(successes)) || app.DesiredDeploymentID == nil || !successes[*app.DesiredDeploymentID] {
-		t.Fatalf("concurrent rollback lost an update or failed to re-evaluate desired state: successes=%v before=%+v after=%+v", successes, before, app)
+	if app.DesiredGeneration != before.DesiredGeneration+int64(len(successes)) ||
+		app.DesiredDeploymentID == nil ||
+		!successes[*app.DesiredDeploymentID] {
+		t.Fatalf(
+			"concurrent rollback lost an update or failed to re-evaluate desired state: successes=%v before=%+v after=%+v",
+			successes,
+			before,
+			app,
+		)
 	}
 }
 
@@ -411,7 +459,12 @@ func TestAppRollbackFencesStaleRuntimeWorkerIntegration(t *testing.T) {
 	}
 	if current.DesiredDeploymentID == nil || *current.DesiredDeploymentID != firstID.String() ||
 		current.DesiredGeneration != staleJob.App.DesiredGeneration+2 || current.ObservedGeneration != 0 || current.RuntimeStatus != "pending" {
-		t.Fatalf("stale worker changed post-rollback desired state: old=%+v current=%+v newer=%s", staleJob.App, current, secondID)
+		t.Fatalf(
+			"stale worker changed post-rollback desired state: old=%+v current=%+v newer=%s",
+			staleJob.App,
+			current,
+			secondID,
+		)
 	}
 }
 
@@ -426,7 +479,10 @@ func TestAppDiagnosticsProjectionStatesIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if diagnostics.ConvergenceStatus != "not_deployed" || diagnostics.DesiredDeployment != nil || diagnostics.AppliedDeployment != nil || !hasAppDiagnosticIssue(diagnostics.Issues, "not_deployed") {
+	if diagnostics.ConvergenceStatus != "not_deployed" ||
+		diagnostics.DesiredDeployment != nil ||
+		diagnostics.AppliedDeployment != nil ||
+		!hasAppDiagnosticIssue(diagnostics.Issues, "not_deployed") {
 		t.Fatalf("fresh App diagnostics = %+v", diagnostics)
 	}
 	deploymentID := createReadySelectedRuntimeDeployment(t, f, f.projectOneID, appID)
@@ -468,7 +524,9 @@ func TestAppDiagnosticsProjectionStatesIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if diagnostics.HealthStatus != "unhealthy" || diagnostics.ConvergenceStatus != "degraded" || !hasAppDiagnosticIssue(diagnostics.Issues, "health_unhealthy") {
+	if diagnostics.HealthStatus != "unhealthy" ||
+		diagnostics.ConvergenceStatus != "degraded" ||
+		!hasAppDiagnosticIssue(diagnostics.Issues, "health_unhealthy") {
 		t.Fatalf("unhealthy App diagnostics = %+v", diagnostics)
 	}
 	forceAppHealthCheckDue(t, f, appID)

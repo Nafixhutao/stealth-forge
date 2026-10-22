@@ -16,7 +16,11 @@ func validatePublicURL(ctx context.Context, value *url.URL) error {
 }
 
 func validatePublicURLWithResolver(ctx context.Context, resolver ipResolver, value *url.URL) error {
-	if value == nil || (value.Scheme != "http" && value.Scheme != "https") || value.Hostname() == "" || value.User != nil || value.Fragment != "" {
+	if value == nil ||
+		(value.Scheme != "http" && value.Scheme != "https") ||
+		value.Hostname() == "" ||
+		value.User != nil ||
+		value.Fragment != "" {
 		return errors.New("monitor URL is invalid")
 	}
 	if _, err := resolvePublicHostWithResolver(ctx, resolver, value.Hostname()); err != nil {
@@ -139,7 +143,12 @@ func isPublicIP(ip net.IP) bool {
 	if address.Is4In6() {
 		address = address.Unmap()
 	}
-	if !address.IsGlobalUnicast() || address.IsPrivate() || address.IsLoopback() || address.IsLinkLocalUnicast() || address.IsMulticast() || address.IsUnspecified() {
+	if !address.IsGlobalUnicast() ||
+		address.IsPrivate() ||
+		address.IsLoopback() ||
+		address.IsLinkLocalUnicast() ||
+		address.IsMulticast() ||
+		address.IsUnspecified() {
 		return false
 	}
 	for _, prefix := range monitorDeniedPrefixes {

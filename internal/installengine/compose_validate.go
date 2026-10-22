@@ -59,7 +59,9 @@ func validateProductionComposeAsset(contents []byte) error {
 	if worker == "" || !strings.Contains(worker, "buildkit_worker_credentials:/run/secrets/stealth-buildkit:ro") {
 		return errors.New("worker must mount only its read-only BuildKit client credentials volume")
 	}
-	if strings.Contains(worker, "buildkit-mtls") || strings.Contains(worker, "buildkit_server_credentials:") || strings.Contains(worker, "ca-key.pem") {
+	if strings.Contains(worker, "buildkit-mtls") ||
+		strings.Contains(worker, "buildkit_server_credentials:") ||
+		strings.Contains(worker, "ca-key.pem") {
 		return errors.New("worker must not mount host PKI files or BuildKit server credentials")
 	}
 	workerInit := productionServiceBlock(text, "buildkit-worker-credentials-init")
@@ -80,10 +82,13 @@ func validateProductionComposeAsset(contents []byte) error {
 			return fmt.Errorf("worker BuildKit credential initializer is missing %q", required)
 		}
 	}
-	if !strings.Contains(workerInit, "for stale in /output/* /output/.[!.]* /output/..?*; do [ ! -e ") || !strings.Contains(workerInit, "$$stale") {
+	if !strings.Contains(workerInit, "for stale in /output/* /output/.[!.]* /output/..?*; do [ ! -e ") ||
+		!strings.Contains(workerInit, "$$stale") {
 		return errors.New("worker BuildKit credential initializer must clear stale volume contents before copying its identity")
 	}
-	if strings.Contains(workerInit, "/server/") || strings.Contains(workerInit, "/health/") || strings.Contains(workerInit, "ca-key.pem") {
+	if strings.Contains(workerInit, "/server/") ||
+		strings.Contains(workerInit, "/health/") ||
+		strings.Contains(workerInit, "ca-key.pem") {
 		return errors.New("worker BuildKit credential initializer has access to a non-worker private key")
 	}
 	for _, required := range []string{
@@ -98,7 +103,8 @@ func validateProductionComposeAsset(contents []byte) error {
 			return fmt.Errorf("BuildKit credential initializer is missing %q", required)
 		}
 	}
-	if !strings.Contains(serverInit, "for stale in /output/* /output/.[!.]* /output/..?*; do [ ! -e ") || !strings.Contains(serverInit, "$$stale") {
+	if !strings.Contains(serverInit, "for stale in /output/* /output/.[!.]* /output/..?*; do [ ! -e ") ||
+		!strings.Contains(serverInit, "$$stale") {
 		return errors.New("BuildKit credential initializer must clear stale volume contents before copying its identities")
 	}
 	if strings.Contains(serverInit, "/worker/") || strings.Contains(serverInit, "ca-key.pem") {

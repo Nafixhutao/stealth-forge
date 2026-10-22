@@ -181,7 +181,16 @@ func (a *App) runDoctorCommand(args []string) int {
 		if runtimeNetwork == "" {
 			runtimeNetwork = "stealth_app_runtime"
 		}
-		output, inspectErr := a.runner.Output(ctx, "", "docker", "network", "inspect", "--format", "{{json .}}", runtimeNetwork)
+		output, inspectErr := a.runner.Output(
+			ctx,
+			"",
+			"docker",
+			"network",
+			"inspect",
+			"--format",
+			"{{json .}}",
+			runtimeNetwork,
+		)
 		if inspectErr == nil && appRuntimeNetworkOwned(runtimeNetwork, output) {
 			check("App runtime", true, "owned bridge network is available")
 		} else {
@@ -199,7 +208,8 @@ func (a *App) runDoctorCommand(args []string) int {
 	volumeName := configuredVolumeName(config, "STORAGE_VOLUME_NAME", "stealth_storage")
 	if !safeVolumeName(volumeName) {
 		check("Storage volume", false, "configured Docker volume name is invalid")
-	} else if volumeDriver, volumeErr := a.runner.Output(ctx, "", "docker", "volume", "inspect", "--format", "{{.Driver}}", volumeName); volumeErr != nil || strings.TrimSpace(string(volumeDriver)) == "" {
+	} else if volumeDriver, volumeErr := a.runner.Output(ctx, "", "docker", "volume", "inspect", "--format", "{{.Driver}}", volumeName); volumeErr != nil ||
+		strings.TrimSpace(string(volumeDriver)) == "" {
 		check("Storage volume", false, "configured Docker volume is unavailable")
 	} else {
 		check("Storage volume", true, "configured Docker volume is available")

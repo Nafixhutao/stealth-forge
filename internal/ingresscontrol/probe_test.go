@@ -60,7 +60,11 @@ func newProbeServerWithHandler(t *testing.T, handler func(http.ResponseWriter, *
 		return (&net.Dialer{Timeout: time.Second}).DialContext(ctx, network, listenerAddress)
 	}
 	p := NewHTTPProbe()
-	p.client = &http.Client{Transport: transport, Timeout: server.Client().Timeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	p.client = &http.Client{
+		Transport:     transport,
+		Timeout:       server.Client().Timeout,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	}
 	p.lookup = func(context.Context, string) ([]net.IP, error) { return []net.IP{net.ParseIP("8.8.8.8")}, nil }
 	parsed, err := url.Parse(server.URL)
 	if err != nil {
@@ -87,7 +91,13 @@ func (requests *localTraefikRequests) snapshot() []string {
 	return append([]string(nil), requests.paths...)
 }
 
-func newLocalTraefikProbe(t *testing.T, handler func(http.ResponseWriter, *http.Request)) (*HTTPProbe, *localTraefikRequests) {
+func newLocalTraefikProbe(
+	t *testing.T,
+	handler func(http.ResponseWriter, *http.Request),
+) (
+	*HTTPProbe,
+	*localTraefikRequests,
+) {
 	t.Helper()
 	paths := &localTraefikRequests{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -101,7 +111,11 @@ func newLocalTraefikProbe(t *testing.T, handler func(http.ResponseWriter, *http.
 		return (&net.Dialer{Timeout: time.Second}).DialContext(ctx, network, listenerAddress)
 	}
 	probe := NewHTTPProbe()
-	probe.client = &http.Client{Transport: transport, Timeout: time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	probe.client = &http.Client{
+		Transport:     transport,
+		Timeout:       time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	}
 	return probe, paths
 }
 
@@ -337,7 +351,8 @@ func TestPublicConsoleParityComparesNormalizedRedirectBehavior(t *testing.T) {
 		}
 		w.WriteHeader(http.StatusOK)
 	})
-	if _, err := changedProbe.VerifyPublicConsole(context.Background(), changedURL, &baseline); err == nil || !strings.Contains(err.Error(), "redirect") {
+	if _, err := changedProbe.VerifyPublicConsole(context.Background(), changedURL, &baseline); err == nil ||
+		!strings.Contains(err.Error(), "redirect") {
 		t.Fatalf("changed redirect target should fail parity, got %v", err)
 	}
 }
@@ -348,7 +363,8 @@ func TestPublicConsoleHTTPSHeadersHSTSAndParity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(baseline.Routes) != len(publicConsolePaths) || baseline.Routes["/v1/account"].StatusCode != http.StatusUnauthorized {
+	if len(baseline.Routes) != len(publicConsolePaths) ||
+		baseline.Routes["/v1/account"].StatusCode != http.StatusUnauthorized {
 		t.Fatalf("public baseline = %#v", baseline)
 	}
 	if _, err := probe.VerifyPublicConsole(context.Background(), publicURL, &baseline); err != nil {
@@ -404,7 +420,8 @@ func TestPublicConsoleRejectsHTTPDowngradeRedirect(t *testing.T) {
 func TestPublicConsoleRejectsPrivateDNS(t *testing.T) {
 	probe, publicURL := newProbeServer(t, nil)
 	probe.lookup = func(context.Context, string) ([]net.IP, error) { return []net.IP{net.ParseIP("10.0.0.7")}, nil }
-	if _, err := probe.CapturePublicConsole(context.Background(), publicURL); err == nil || !strings.Contains(err.Error(), "non-public") {
+	if _, err := probe.CapturePublicConsole(context.Background(), publicURL); err == nil ||
+		!strings.Contains(err.Error(), "non-public") {
 		t.Fatalf("private DNS error = %v", err)
 	}
 }
@@ -457,7 +474,8 @@ func TestPublicSiteProbeUsesHTTPSAndOptionalDigest(t *testing.T) {
 	if err := probe.VerifyPublicSite(context.Background(), "portfolio.apps.example.com", "apps.example.com", wantDigest); err != nil {
 		t.Fatalf("public platform Site verification: %v", err)
 	}
-	if err := probe.VerifyPublicSite(context.Background(), "portfolio.apps.example.com", "apps.example.com", strings.Repeat("0", 64)); err == nil || !strings.Contains(err.Error(), "did not match") {
+	if err := probe.VerifyPublicSite(context.Background(), "portfolio.apps.example.com", "apps.example.com", strings.Repeat("0", 64)); err == nil ||
+		!strings.Contains(err.Error(), "did not match") {
 		t.Fatalf("wrong Site digest error = %v", err)
 	}
 }

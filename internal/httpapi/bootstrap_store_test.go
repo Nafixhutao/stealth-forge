@@ -31,7 +31,13 @@ func (*bootstrapStoreFake) VerifyBootstrapCode(context.Context, []byte) (reposit
 	return repository.BootstrapVerification{}, nil
 }
 
-func (*bootstrapStoreFake) CreateGitHubInstanceOwner(context.Context, repository.GitHubOwnerInput) (domain.Account, error) {
+func (*bootstrapStoreFake) CreateGitHubInstanceOwner(
+	context.Context,
+	repository.GitHubOwnerInput,
+) (
+	domain.Account,
+	error,
+) {
 	return domain.Account{}, nil
 }
 

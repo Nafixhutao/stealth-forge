@@ -106,7 +106,10 @@ func TestInstallationRequestPhaseIsDurableAndSingleOwner(t *testing.T) {
 	if err := RequestInstallation(&state, "run-1"); err != nil {
 		t.Fatal(err)
 	}
-	if state.Phase != PhaseInstallRequested || state.InstallRunID != "run-1" || !InstallationLocked(state) || !InstallationRequested(state) {
+	if state.Phase != PhaseInstallRequested ||
+		state.InstallRunID != "run-1" ||
+		!InstallationLocked(state) ||
+		!InstallationRequested(state) {
 		t.Fatalf("requested state = %#v", state)
 	}
 	if err := RequestInstallation(&state, "run-2"); err == nil {
@@ -317,7 +320,10 @@ func TestFileStoreMigratesLegacyDraftCredentials(t *testing.T) {
 		t.Fatalf("migrated state version = %d, want %d", state.Version, stateVersion)
 	}
 	credentials := state.SetupCredentials()
-	if credentials.DatabaseURL != "postgres://legacy-user:legacy-password@example.test/stealth" || credentials.RedisURL != "redis://:legacy-redis-password@example.test/0" || credentials.StorageS3AccessKey != "legacy-access" || credentials.StorageS3SecretKey != "legacy-secret" {
+	if credentials.DatabaseURL != "postgres://legacy-user:legacy-password@example.test/stealth" ||
+		credentials.RedisURL != "redis://:legacy-redis-password@example.test/0" ||
+		credentials.StorageS3AccessKey != "legacy-access" ||
+		credentials.StorageS3SecretKey != "legacy-secret" {
 		t.Fatalf("migrated credentials = %#v", credentials)
 	}
 	if _, err := store.Update(context.Background(), func(*State) error { return nil }); err != nil {
@@ -340,7 +346,11 @@ func TestFileStoreMigratesLegacyDraftCredentials(t *testing.T) {
 	if err := json.Unmarshal(plaintext, &persisted); err != nil {
 		t.Fatal(err)
 	}
-	if persisted.Version != stateVersion || persisted.Secrets["database_url"] != credentials.DatabaseURL || persisted.Secrets["redis_url"] != credentials.RedisURL || persisted.Secrets["storage_s3_access_key"] != credentials.StorageS3AccessKey || persisted.Secrets["storage_s3_secret_key"] != credentials.StorageS3SecretKey {
+	if persisted.Version != stateVersion ||
+		persisted.Secrets["database_url"] != credentials.DatabaseURL ||
+		persisted.Secrets["redis_url"] != credentials.RedisURL ||
+		persisted.Secrets["storage_s3_access_key"] != credentials.StorageS3AccessKey ||
+		persisted.Secrets["storage_s3_secret_key"] != credentials.StorageS3SecretKey {
 		t.Fatalf("persisted migrated state = %#v", persisted)
 	}
 	for _, name := range []string{"database_url", "redis_url", "storage_s3_access_key", "storage_s3_secret_key"} {
@@ -370,11 +380,19 @@ func TestFileStoreMigratesLegacyCloudflareBinding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := CloudflareBinding{AccountID: "account-a", ZoneID: "zone-a", Hostname: "stealth.example.test", TunnelName: "stealth-prod", TunnelID: "tunnel-a", RecordID: "record-a"}
+	want := CloudflareBinding{
+		AccountID:  "account-a",
+		ZoneID:     "zone-a",
+		Hostname:   "stealth.example.test",
+		TunnelName: "stealth-prod",
+		TunnelID:   "tunnel-a",
+		RecordID:   "record-a",
+	}
 	if state.Cloudflare.Binding != want {
 		t.Fatalf("migrated Cloudflare binding = %#v, want %#v", state.Cloudflare.Binding, want)
 	}
-	if public := state.Public(); public.Draft.CloudflareTunnelID != "tunnel-a" || public.Draft.CloudflareRecordID != "record-a" {
+	if public := state.Public(); public.Draft.CloudflareTunnelID != "tunnel-a" ||
+		public.Draft.CloudflareRecordID != "record-a" {
 		t.Fatalf("migrated public Cloudflare projection = %#v", public.Draft)
 	}
 }
@@ -410,7 +428,9 @@ func TestLoadEncryptedSnapshotReadsSetupCredentialWithoutWritingFiles(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Secret("cloudflare_access_token") != "setup-cloudflare-token" || loaded.Secret("tunnel_token") != "cloudflared-tunnel-token" || loaded.EffectiveCloudflareBinding().TunnelID != "tunnel-1" {
+	if loaded.Secret("cloudflare_access_token") != "setup-cloudflare-token" ||
+		loaded.Secret("tunnel_token") != "cloudflared-tunnel-token" ||
+		loaded.EffectiveCloudflareBinding().TunnelID != "tunnel-1" {
 		t.Fatalf("recovered setup state = %#v", loaded.Public())
 	}
 	public, err := json.Marshal(loaded.Public())
@@ -435,7 +455,8 @@ func TestLoadEncryptedSnapshotReadsSetupCredentialWithoutWritingFiles(t *testing
 	if err := os.WriteFile(path, []byte("not encrypted"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := LoadEncryptedSnapshot(context.Background(), path, cipher); err == nil || strings.Contains(err.Error(), "not encrypted") {
+	if _, err := LoadEncryptedSnapshot(context.Background(), path, cipher); err == nil ||
+		strings.Contains(err.Error(), "not encrypted") {
 		t.Fatalf("invalid encrypted state error = %v; want generic failure", err)
 	}
 }

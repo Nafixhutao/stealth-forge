@@ -33,7 +33,10 @@ func TestApplyKeepsStoredCredentialsWhenRequestOmitsSecrets(t *testing.T) {
 		t.Fatalf("normalized draft = %#v", state.Draft)
 	}
 	credentials := state.SetupCredentials()
-	if credentials.DatabaseURL == "" || credentials.RedisURL == "" || credentials.StorageS3AccessKey == "" || credentials.StorageS3SecretKey == "" {
+	if credentials.DatabaseURL == "" ||
+		credentials.RedisURL == "" ||
+		credentials.StorageS3AccessKey == "" ||
+		credentials.StorageS3SecretKey == "" {
 		t.Fatalf("stored credentials were lost: %#v", credentials)
 	}
 }
@@ -127,7 +130,8 @@ func TestValidateInstallableCloudflareSetupRequiresVerifiedAPIToken(t *testing.T
 	state.SetSecret("cloudflare_access_token", "api-token")
 	state.SetSecret("cloudflare_tunnel_token", "tunnel-token")
 
-	if err := ValidateInstallableSetup(state); err == nil || !strings.Contains(err.Error(), "scoped Cloudflare API token") {
+	if err := ValidateInstallableSetup(state); err == nil ||
+		!strings.Contains(err.Error(), "scoped Cloudflare API token") {
 		t.Fatalf("unverified Cloudflare setup error = %v", err)
 	}
 	state.Cloudflare.Mode = "api_token"

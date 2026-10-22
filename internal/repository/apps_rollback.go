@@ -60,7 +60,8 @@ func (r *Repository) RollbackAppDeployment(
 		return AppRollbackResult{}, ErrAppDeploymentAlreadySelected
 	}
 
-	target, _, imagePath, _, _, _, _, err := appDeploymentByID(ctx, tx, projectID, appID, deploymentID, true, true)
+	fields, err := appDeploymentByID(ctx, tx, projectID, appID, deploymentID, true, true)
+	target, imagePath := fields.Item, fields.ImagePath
 	if err != nil {
 		if errors.Is(err, ErrAppDeploymentSnapshotInvalid) {
 			return AppRollbackResult{}, ErrAppRollbackNotAvailable
@@ -121,7 +122,8 @@ func (r *Repository) RollbackAppDeployment(
 	if err != nil {
 		return AppRollbackResult{}, err
 	}
-	updatedTarget, _, _, _, _, _, _, err := appDeploymentByID(ctx, tx, projectID, appID, deploymentID, false, false)
+	fields, err = appDeploymentByID(ctx, tx, projectID, appID, deploymentID, false, false)
+	updatedTarget := fields.Item
 	if err != nil {
 		return AppRollbackResult{}, err
 	}

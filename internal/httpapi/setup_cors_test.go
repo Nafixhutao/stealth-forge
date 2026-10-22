@@ -134,8 +134,13 @@ func TestSetupCORSPreflight(t *testing.T) {
 	allowed.Header.Set("Access-Control-Request-Headers", "content-type")
 	allowedRecorder := httptest.NewRecorder()
 	handler.ServeHTTP(allowedRecorder, allowed)
-	if allowedRecorder.Code != http.StatusNoContent || allowedRecorder.Header().Get("Access-Control-Allow-Origin") != "https://real-instance.trycloudflare.com" {
-		t.Fatalf("setup preflight status=%d allow-origin=%q", allowedRecorder.Code, allowedRecorder.Header().Get("Access-Control-Allow-Origin"))
+	if allowedRecorder.Code != http.StatusNoContent ||
+		allowedRecorder.Header().Get("Access-Control-Allow-Origin") != "https://real-instance.trycloudflare.com" {
+		t.Fatalf(
+			"setup preflight status=%d allow-origin=%q",
+			allowedRecorder.Code,
+			allowedRecorder.Header().Get("Access-Control-Allow-Origin"),
+		)
 	}
 
 	denied := httptest.NewRequest(http.MethodOptions, "https://real-instance.trycloudflare.com/v1/bootstrap/verify", nil)
@@ -188,7 +193,11 @@ func TestSetupAuthorizationAllowsQuickTunnelSameOrigin(t *testing.T) {
 	handler, code := newSetupCORSTestServer(t, "http://localhost:8081", "https://real-instance.trycloudflare.com")
 
 	before := httptest.NewRecorder()
-	beforeRequest := httptest.NewRequest(http.MethodGet, "https://real-instance.trycloudflare.com/v1/setup/cloudflare/accounts", nil)
+	beforeRequest := httptest.NewRequest(
+		http.MethodGet,
+		"https://real-instance.trycloudflare.com/v1/setup/cloudflare/accounts",
+		nil,
+	)
 	beforeRequest.Host = "real-instance.trycloudflare.com"
 	handler.ServeHTTP(before, beforeRequest)
 	if before.Code != http.StatusUnauthorized {
@@ -215,7 +224,11 @@ func TestSetupAuthorizationAllowsQuickTunnelSameOrigin(t *testing.T) {
 	// The protected GET now reaches the handler (authorization succeeded) and
 	// returns its own domain error instead of 401 setup_unauthorized.
 	after := httptest.NewRecorder()
-	afterRequest := httptest.NewRequest(http.MethodGet, "https://real-instance.trycloudflare.com/v1/setup/cloudflare/accounts", nil)
+	afterRequest := httptest.NewRequest(
+		http.MethodGet,
+		"https://real-instance.trycloudflare.com/v1/setup/cloudflare/accounts",
+		nil,
+	)
 	afterRequest.Host = "real-instance.trycloudflare.com"
 	afterRequest.AddCookie(cookies[0])
 	handler.ServeHTTP(after, afterRequest)
@@ -224,7 +237,11 @@ func TestSetupAuthorizationAllowsQuickTunnelSameOrigin(t *testing.T) {
 	}
 
 	mutation := httptest.NewRecorder()
-	mutationRequest := httptest.NewRequest(http.MethodPut, "https://real-instance.trycloudflare.com/v1/setup/config", strings.NewReader(setupCORSTestConfigBody))
+	mutationRequest := httptest.NewRequest(
+		http.MethodPut,
+		"https://real-instance.trycloudflare.com/v1/setup/config",
+		strings.NewReader(setupCORSTestConfigBody),
+	)
 	mutationRequest.Host = "real-instance.trycloudflare.com"
 	mutationRequest.Header.Set("Content-Type", "application/json")
 	mutationRequest.Header.Set("Origin", "https://real-instance.trycloudflare.com")
@@ -268,12 +285,17 @@ func TestSetupAuthorizationAllowsLocalhostFallback(t *testing.T) {
 	protectedRequest.Host = "localhost:8081"
 	protectedRequest.AddCookie(cookies[0])
 	handler.ServeHTTP(protected, protectedRequest)
-	if protected.Code == http.StatusUnauthorized || !strings.Contains(protected.Body.String(), "cloudflare_not_connected") {
+	if protected.Code == http.StatusUnauthorized ||
+		!strings.Contains(protected.Body.String(), "cloudflare_not_connected") {
 		t.Fatalf("localhost protected GET after verify = %d: %s", protected.Code, protected.Body.String())
 	}
 
 	mutation := httptest.NewRecorder()
-	mutationRequest := httptest.NewRequest(http.MethodPut, "http://localhost:8081/v1/setup/config", strings.NewReader(setupCORSTestConfigBody))
+	mutationRequest := httptest.NewRequest(
+		http.MethodPut,
+		"http://localhost:8081/v1/setup/config",
+		strings.NewReader(setupCORSTestConfigBody),
+	)
 	mutationRequest.Host = "localhost:8081"
 	mutationRequest.Header.Set("Content-Type", "application/json")
 	mutationRequest.Header.Set("Origin", "http://localhost:8081")
@@ -308,7 +330,11 @@ func TestSetupCookieSecureFollowsExternalScheme(t *testing.T) {
 	codeHash := bytes.Repeat([]byte{0x44}, 32)
 	expiresAt := time.Now().UTC().Add(10 * time.Minute)
 
-	server := &Server{config: config.Config{SetupMode: true}, functionCipher: cipher, logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	server := &Server{
+		config:         config.Config{SetupMode: true},
+		functionCipher: cipher,
+		logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
 
 	tunnelRecorder := httptest.NewRecorder()
 	tunnelRequest := httptest.NewRequest(http.MethodPost, "https://abc.trycloudflare.com/v1/bootstrap/verify", nil)
@@ -331,7 +357,11 @@ func TestSetupCookieSecureFollowsExternalScheme(t *testing.T) {
 		t.Fatalf("localhost setup cookie = %#v, want non-Secure", localhostCookies)
 	}
 
-	forced := &Server{config: config.Config{SetupMode: true, CookieSecure: true}, functionCipher: cipher, logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	forced := &Server{
+		config:         config.Config{SetupMode: true, CookieSecure: true},
+		functionCipher: cipher,
+		logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
 	forcedRecorder := httptest.NewRecorder()
 	forcedRequest := httptest.NewRequest(http.MethodPost, "http://localhost:8081/v1/bootstrap/verify", nil)
 	forcedRequest.Host = "localhost:8081"

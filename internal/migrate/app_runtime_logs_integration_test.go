@@ -74,7 +74,18 @@ func TestAppRuntimeLogSourcesMigrationBackfillConstraintsAndDownIntegration(t *t
 	for _, appID := range []uuid.UUID{appID, secondAppID} {
 		appName := "app-" + strings.ReplaceAll(appID.String(), "-", "")
 		if _, err := conn.Exec(ctx, `
-			INSERT INTO project_apps (id,project_id,name,platform_label,enabled,workload_spec,workload_spec_sha256,desired_generation,observed_generation,runtime_status)
+						INSERT INTO project_apps (
+				id,
+				project_id,
+				name,
+				platform_label,
+				enabled,
+				workload_spec,
+				workload_spec_sha256,
+				desired_generation,
+				observed_generation,
+				runtime_status,
+			)
 			VALUES ($1,$2,$3,$4,true,$5::jsonb,repeat('a',64),1,0,'pending')`, appID, projectID, appName, appName, spec); err != nil {
 			t.Fatal(err)
 		}
@@ -148,6 +159,14 @@ func assertAppRuntimeLogSourcesSchema(t *testing.T, ctx context.Context, conn *p
 		wantTable, wantIndex, wantConstraints = 1, 1, 5
 	}
 	if table != wantTable || index != wantIndex || constraints != wantConstraints {
-		t.Fatalf("App runtime log schema objects table:%d index:%d constraints:%d, want %d/%d/%d", table, index, constraints, wantTable, wantIndex, wantConstraints)
+		t.Fatalf(
+			"App runtime log schema objects table:%d index:%d constraints:%d, want %d/%d/%d",
+			table,
+			index,
+			constraints,
+			wantTable,
+			wantIndex,
+			wantConstraints,
+		)
 	}
 }

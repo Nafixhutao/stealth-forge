@@ -70,7 +70,15 @@ func TestProjectRealtimeSSEIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"project"`
 	}{}
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects", map[string]string{"name": "realtime-" + ownerID.String()[:8]}, http.StatusCreated, &project)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects",
+		map[string]string{"name": "realtime-" + ownerID.String()[:8]},
+		http.StatusCreated,
+		&project,
+	)
 	projectURL := server.URL + "/v1/projects/" + project.Project.ID
 
 	// The project event is retained even though no webhook is configured. It
@@ -91,7 +99,12 @@ func TestProjectRealtimeSSEIntegration(t *testing.T) {
 	}
 	realtimeRepo := repository.New(pool)
 	targetProjectID := uuid.MustParse(project.Project.ID)
-	claimed, err := realtimeRepo.ClaimNextRealtimeEventForProject(ctx, targetProjectID, "integration-publisher-a", time.Minute)
+	claimed, err := realtimeRepo.ClaimNextRealtimeEventForProject(
+		ctx,
+		targetProjectID,
+		"integration-publisher-a",
+		time.Minute,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +148,12 @@ func TestProjectRealtimeSSEIntegration(t *testing.T) {
 
 	streamContext, streamCancel := context.WithTimeout(context.Background(), 12*time.Second)
 	defer streamCancel()
-	request, err := http.NewRequestWithContext(streamContext, http.MethodGet, projectURL+"/realtime?events=project_api_key.create", nil)
+	request, err := http.NewRequestWithContext(
+		streamContext,
+		http.MethodGet,
+		projectURL+"/realtime?events=project_api_key.create",
+		nil,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +162,8 @@ func TestProjectRealtimeSSEIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK || !strings.HasPrefix(response.Header.Get("Content-Type"), "text/event-stream") {
+	if response.StatusCode != http.StatusOK ||
+		!strings.HasPrefix(response.Header.Get("Content-Type"), "text/event-stream") {
 		t.Fatalf("SSE response status=%d content-type=%q", response.StatusCode, response.Header.Get("Content-Type"))
 	}
 	reader := bufio.NewReader(response.Body)
@@ -162,7 +181,14 @@ func TestProjectRealtimeSSEIntegration(t *testing.T) {
 	newEvent := latestEventID("project_api_key.create")
 	receivedID, receivedType := readRealtimeSSEEvent(t, reader)
 	if receivedID != newEvent.String() || receivedType != "project_api_key.create" {
-		t.Fatalf("initial SSE event = id %q type %q, want id %q and project_api_key.create; old ids were %s and %s", receivedID, receivedType, newEvent, oldA, oldB)
+		t.Fatalf(
+			"initial SSE event = id %q type %q, want id %q and project_api_key.create; old ids were %s and %s",
+			receivedID,
+			receivedType,
+			newEvent,
+			oldA,
+			oldB,
+		)
 	}
 	if receivedID == oldA.String() || receivedID == oldB.String() {
 		t.Fatal("initial SSE connection replayed a retained historical event")
@@ -178,7 +204,12 @@ func TestProjectRealtimeSSEIntegration(t *testing.T) {
 	resumeC := latestEventID("project_api_key.create")
 	reconnectContext, reconnectCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer reconnectCancel()
-	reconnectRequest, err := http.NewRequestWithContext(reconnectContext, http.MethodGet, projectURL+"/realtime?events=project_api_key.create", nil)
+	reconnectRequest, err := http.NewRequestWithContext(
+		reconnectContext,
+		http.MethodGet,
+		projectURL+"/realtime?events=project_api_key.create",
+		nil,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +241,12 @@ func TestProjectRealtimeSSEIntegration(t *testing.T) {
 	if _, err := pool.Exec(ctx, `INSERT INTO webhook_events (id,project_id,organization_id,event_name,target_type,payload,created_at,expires_at) VALUES ($1,$2,$3,'realtime.test.expired','realtime_test','{}'::jsonb,$4,$5)`, expiredCursor, targetProjectID, registration.Organization.ID, createdAt, expiresAt); err != nil {
 		t.Fatal(err)
 	}
-	startCursor, err := realtimeRepo.ResolveRealtimeStartCursor(ctx, targetProjectID, repository.DatabaseActor{Kind: repository.DatabaseConsoleActor, AccountID: uuid.MustParse(registration.Account.ID)}, &expiredCursor)
+	startCursor, err := realtimeRepo.ResolveRealtimeStartCursor(
+		ctx,
+		targetProjectID,
+		repository.DatabaseActor{Kind: repository.DatabaseConsoleActor, AccountID: uuid.MustParse(registration.Account.ID)},
+		&expiredCursor,
+	)
 	if err != nil || startCursor == nil || *startCursor == expiredCursor {
 		t.Fatalf("expired realtime cursor = %v, err = %v; expected reset to retained tail", startCursor, err)
 	}
@@ -260,9 +296,22 @@ func TestProjectRealtimeSSEIntegration(t *testing.T) {
 	key := struct {
 		Secret string `json:"secret"`
 	}{}
-	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/api-keys", map[string]any{"name": "realtime-reader", "scopes": []string{"realtime.read"}}, http.StatusCreated, &key)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/api-keys",
+		map[string]any{"name": "realtime-reader", "scopes": []string{"realtime.read"}},
+		http.StatusCreated,
+		&key,
+	)
 	keyContext, keyCancel := context.WithTimeout(context.Background(), 2*time.Second)
-	keyRequest, err := http.NewRequestWithContext(keyContext, http.MethodGet, projectURL+"/realtime?events=project.create", nil)
+	keyRequest, err := http.NewRequestWithContext(
+		keyContext,
+		http.MethodGet,
+		projectURL+"/realtime?events=project.create",
+		nil,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -279,8 +328,24 @@ func TestProjectRealtimeSSEIntegration(t *testing.T) {
 	limitedKey := struct {
 		Secret string `json:"secret"`
 	}{}
-	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/api-keys", map[string]any{"name": "database-only", "scopes": []string{"databases.read"}}, http.StatusCreated, &limitedKey)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, projectURL+"/realtime", nil, http.StatusForbidden, map[string]string{"X-Stealth-Key": limitedKey.Secret})
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/api-keys",
+		map[string]any{"name": "database-only", "scopes": []string{"databases.read"}},
+		http.StatusCreated,
+		&limitedKey,
+	)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		projectURL+"/realtime",
+		nil,
+		http.StatusForbidden,
+		map[string]string{"X-Stealth-Key": limitedKey.Secret},
+	)
 
 	// A valid Console session from another organization must not turn a
 	// project identifier into a cross-tenant subscription capability.
@@ -303,12 +368,28 @@ func TestProjectRealtimeSSEIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"project"`
 	}{}
-	requestJSON(t, otherClient, http.MethodPost, server.URL+"/v1/organizations/"+otherRegistration.Organization.ID+"/projects", map[string]string{"name": "other-realtime-" + otherOwnerID.String()[:8]}, http.StatusCreated, &otherProject)
+	requestJSON(
+		t,
+		otherClient,
+		http.MethodPost,
+		server.URL+"/v1/organizations/"+otherRegistration.Organization.ID+"/projects",
+		map[string]string{"name": "other-realtime-" + otherOwnerID.String()[:8]},
+		http.StatusCreated,
+		&otherProject,
+	)
 	t.Cleanup(func() {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM organizations WHERE id=$1`, otherRegistration.Organization.ID)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM accounts WHERE id=$1`, otherRegistration.Account.ID)
 	})
-	requestJSONWithHeaders(t, ownerClient, http.MethodGet, server.URL+"/v1/projects/"+otherProject.Project.ID+"/realtime", nil, http.StatusNotFound, nil)
+	requestJSONWithHeaders(
+		t,
+		ownerClient,
+		http.MethodGet,
+		server.URL+"/v1/projects/"+otherProject.Project.ID+"/realtime",
+		nil,
+		http.StatusNotFound,
+		nil,
+	)
 }
 
 func readRealtimeSSEEvent(t *testing.T, reader *bufio.Reader) (string, string) {

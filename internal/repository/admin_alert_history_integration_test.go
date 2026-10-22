@@ -148,7 +148,13 @@ func (f adminAlertHistoryFixture) assertHistoricalEvent(t *testing.T, eventID uu
 		FROM admin_alert_events WHERE id=$1`, eventID).Scan(&liveRuleID, &ruleIDSnapshot, &name, &kind, &severity, &state, &conditionSnapshotted); err != nil {
 		t.Fatal(err)
 	}
-	if liveRuleID != nil || ruleIDSnapshot != f.ruleID || name != "Delete history regression" || kind != "metric_threshold" || severity != "critical" || state != wantState || !conditionSnapshotted {
+	if liveRuleID != nil ||
+		ruleIDSnapshot != f.ruleID ||
+		name != "Delete history regression" ||
+		kind != "metric_threshold" ||
+		severity != "critical" ||
+		state != wantState ||
+		!conditionSnapshotted {
 		t.Fatalf("event history snapshot does not match the deleted rule")
 	}
 }
@@ -221,7 +227,13 @@ func TestDeleteAlertRuleAfterNotificationDeliveryIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(events) != 1 || events[0].ID != eventID.String() || events[0].RuleID != fixture.ruleID.String() || events[0].RuleName != "Delete history regression" || events[0].RuleKind != "metric_threshold" || events[0].Severity != "critical" || events[0].SourceRuleExists {
+	if len(events) != 1 ||
+		events[0].ID != eventID.String() ||
+		events[0].RuleID != fixture.ruleID.String() ||
+		events[0].RuleName != "Delete history regression" ||
+		events[0].RuleKind != "metric_threshold" ||
+		events[0].Severity != "critical" ||
+		events[0].SourceRuleExists {
 		t.Fatalf("historical event query = %#v, want retained event for %s", events, fixture.ruleID)
 	}
 }
@@ -281,7 +293,10 @@ func TestDeleteAlertRuleRetainsCompletedAndRetryableDeliveriesIntegration(t *tes
 		eventID := fixture.fire(t)
 		fixture.deleteRule(t)
 		job := fixture.claimFixtureDelivery(t, eventID)
-		if job.RuleName != "Delete history regression" || job.Severity != "critical" || job.AlertEventID == nil || *job.AlertEventID != eventID {
+		if job.RuleName != "Delete history regression" ||
+			job.Severity != "critical" ||
+			job.AlertEventID == nil ||
+			*job.AlertEventID != eventID {
 			t.Fatalf("delivery job after deletion did not retain the event snapshot")
 		}
 		retryAt := time.Unix(0, 0).UTC()
@@ -290,7 +305,9 @@ func TestDeleteAlertRuleRetainsCompletedAndRetryableDeliveriesIntegration(t *tes
 		}
 		fixture.assertHistoricalDeliveries(t, eventID, 1, "pending")
 		retryJob := fixture.claimFixtureDelivery(t, eventID)
-		if retryJob.DeliveryID != job.DeliveryID || retryJob.RuleName != "Delete history regression" || retryJob.Severity != "critical" {
+		if retryJob.DeliveryID != job.DeliveryID ||
+			retryJob.RuleName != "Delete history regression" ||
+			retryJob.Severity != "critical" {
 			t.Fatal("retried delivery did not preserve its historical alert snapshot")
 		}
 		if err := fixture.repo.FinishAdminNotificationDelivery(context.Background(), retryJob.DeliveryID, "alert-history-worker", true, "", nil); err != nil {
@@ -328,7 +345,13 @@ func TestEvaluateAndDeleteAdminAlertRuleRaceProducesValidHistoryIntegration(t *t
 	deleteErr := make(chan error, 1)
 	go func() {
 		value := 91.0
-		evaluateErr <- fixture.repo.EvaluateAdminAlert(ctx, fixture.ruleID, true, &value, "Delete history regression is firing")
+		evaluateErr <- fixture.repo.EvaluateAdminAlert(
+			ctx,
+			fixture.ruleID,
+			true,
+			&value,
+			"Delete history regression is firing",
+		)
 	}()
 	go func() {
 		deleteErr <- fixture.repo.DeleteAdminAlertRule(ctx, fixture.accountID, fixture.ruleID)

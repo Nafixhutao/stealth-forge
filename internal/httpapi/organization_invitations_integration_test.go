@@ -44,7 +44,15 @@ func TestOrganizationInvitationIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"organization"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/account/registrations", map[string]string{"email": ownerEmail, "password": password}, http.StatusCreated, &owner)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/account/registrations",
+		map[string]string{"email": ownerEmail, "password": password},
+		http.StatusCreated,
+		&owner,
+	)
 	t.Cleanup(func() {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM audit_events WHERE actor_account_id=$1 OR organization_id=$2`, owner.Account.ID, owner.Organization.ID)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM organizations WHERE id=$1`, owner.Organization.ID)
@@ -63,7 +71,15 @@ func TestOrganizationInvitationIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"organization"`
 	}
-	requestJSON(t, recipientClient, http.MethodPost, server.URL+"/v1/account/registrations", map[string]string{"email": recipientEmail, "password": password}, http.StatusCreated, &recipientRaw)
+	requestJSON(
+		t,
+		recipientClient,
+		http.MethodPost,
+		server.URL+"/v1/account/registrations",
+		map[string]string{"email": recipientEmail, "password": password},
+		http.StatusCreated,
+		&recipientRaw,
+	)
 	t.Cleanup(func() {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM audit_events WHERE actor_account_id=$1 OR organization_id=$2`, recipientRaw.Account.ID, recipientRaw.Organization.ID)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM organizations WHERE id=$1`, recipientRaw.Organization.ID)
@@ -79,8 +95,19 @@ func TestOrganizationInvitationIntegration(t *testing.T) {
 		} `json:"invitation"`
 		Delivery string `json:"delivery"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/organizations/"+owner.Organization.ID+"/invitations", map[string]string{"email": recipientEmail, "role": "developer"}, http.StatusCreated, &created)
-	if created.Invitation.Email != recipientEmail || created.Invitation.Role != "developer" || created.Invitation.Status != "pending" || created.Delivery != "sent" {
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/organizations/"+owner.Organization.ID+"/invitations",
+		map[string]string{"email": recipientEmail, "role": "developer"},
+		http.StatusCreated,
+		&created,
+	)
+	if created.Invitation.Email != recipientEmail ||
+		created.Invitation.Role != "developer" ||
+		created.Invitation.Status != "pending" ||
+		created.Delivery != "sent" {
 		t.Fatalf("created invitation = %+v", created)
 	}
 	message, ok := recorder.latestFor("You are invited to a Stealth organization", "")
@@ -99,8 +126,19 @@ func TestOrganizationInvitationIntegration(t *testing.T) {
 		} `json:"invitations"`
 		CanManage bool `json:"can_manage"`
 	}
-	requestJSON(t, ownerClient, http.MethodGet, server.URL+"/v1/organizations/"+owner.Organization.ID+"/invitations", nil, http.StatusOK, &listed)
-	if !listed.CanManage || len(listed.Invitations) != 1 || listed.Invitations[0].ID != created.Invitation.ID || listed.Invitations[0].Status != "pending" {
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		server.URL+"/v1/organizations/"+owner.Organization.ID+"/invitations",
+		nil,
+		http.StatusOK,
+		&listed,
+	)
+	if !listed.CanManage ||
+		len(listed.Invitations) != 1 ||
+		listed.Invitations[0].ID != created.Invitation.ID ||
+		listed.Invitations[0].Status != "pending" {
 		t.Fatalf("listed invitations = %+v", listed)
 	}
 
@@ -111,12 +149,38 @@ func TestOrganizationInvitationIntegration(t *testing.T) {
 			Role           string `json:"role"`
 		} `json:"membership"`
 	}
-	requestJSON(t, recipientClient, http.MethodPost, server.URL+"/v1/organization-invitations/accept", map[string]string{"token": token}, http.StatusOK, &accepted)
-	if accepted.Membership.OrganizationID != owner.Organization.ID || accepted.Membership.AccountID != recipientRaw.Account.ID || accepted.Membership.Role != "developer" {
+	requestJSON(
+		t,
+		recipientClient,
+		http.MethodPost,
+		server.URL+"/v1/organization-invitations/accept",
+		map[string]string{"token": token},
+		http.StatusOK,
+		&accepted,
+	)
+	if accepted.Membership.OrganizationID != owner.Organization.ID ||
+		accepted.Membership.AccountID != recipientRaw.Account.ID ||
+		accepted.Membership.Role != "developer" {
 		t.Fatalf("accepted membership = %+v", accepted.Membership)
 	}
-	requestJSON(t, recipientClient, http.MethodPost, server.URL+"/v1/organization-invitations/accept", map[string]string{"token": token}, http.StatusUnprocessableEntity, nil)
-	requestJSON(t, ownerClient, http.MethodGet, server.URL+"/v1/organizations/"+owner.Organization.ID+"/invitations", nil, http.StatusOK, &listed)
+	requestJSON(
+		t,
+		recipientClient,
+		http.MethodPost,
+		server.URL+"/v1/organization-invitations/accept",
+		map[string]string{"token": token},
+		http.StatusUnprocessableEntity,
+		nil,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		server.URL+"/v1/organizations/"+owner.Organization.ID+"/invitations",
+		nil,
+		http.StatusOK,
+		&listed,
+	)
 	if len(listed.Invitations) != 0 {
 		t.Fatalf("accepted invitation remained pending: %+v", listed.Invitations)
 	}

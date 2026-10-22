@@ -12,7 +12,18 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (r *Repository) ListDatabaseRows(ctx context.Context, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor, query RowQuery) ([]domain.DatabaseRow, string, error) {
+func (r *Repository) ListDatabaseRows(
+	ctx context.Context,
+	projectID,
+	databaseID,
+	tableID uuid.UUID,
+	actor DatabaseActor,
+	query RowQuery,
+) (
+	[]domain.DatabaseRow,
+	string,
+	error,
+) {
 	if _, err := r.requireDatabaseRead(ctx, projectID, actor); err != nil && actor.IsManagement() {
 		return nil, "", err
 	}
@@ -127,7 +138,18 @@ func (r *Repository) ListDatabaseRows(ctx context.Context, projectID, databaseID
 // table and row permission rules as ListDatabaseRows. The callback runs while
 // the PostgreSQL cursor is open, so callers can write an export without first
 // materialising the entire table in memory.
-func (r *Repository) StreamDatabaseRows(ctx context.Context, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor, limit int, emit func(domain.DatabaseRow) error) (int, error) {
+func (r *Repository) StreamDatabaseRows(
+	ctx context.Context,
+	projectID,
+	databaseID,
+	tableID uuid.UUID,
+	actor DatabaseActor,
+	limit int,
+	emit func(domain.DatabaseRow) error,
+) (
+	int,
+	error,
+) {
 	if limit < 1 || limit > DatabaseRowExportMaxLimit {
 		return 0, fmt.Errorf("%w: export limit must be between 1 and %d", ErrInvalidQuery, DatabaseRowExportMaxLimit)
 	}
@@ -174,7 +196,17 @@ func (r *Repository) StreamDatabaseRows(ctx context.Context, projectID, database
 	return count, nil
 }
 
-func (r *Repository) GetDatabaseRow(ctx context.Context, projectID, databaseID, tableID, rowID uuid.UUID, actor DatabaseActor) (domain.DatabaseRow, error) {
+func (r *Repository) GetDatabaseRow(
+	ctx context.Context,
+	projectID,
+	databaseID,
+	tableID,
+	rowID uuid.UUID,
+	actor DatabaseActor,
+) (
+	domain.DatabaseRow,
+	error,
+) {
 	if _, err := r.requireDatabaseRead(ctx, projectID, actor); err != nil && actor.IsManagement() {
 		return domain.DatabaseRow{}, err
 	}

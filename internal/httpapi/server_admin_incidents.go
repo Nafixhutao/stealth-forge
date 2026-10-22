@@ -86,7 +86,13 @@ func (s *Server) addAdminIncidentEvent(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	event, err := s.repo.AddAdminIncidentEvent(r.Context(), mustUUID(accountFrom(r).ID), id, eventID, repository.AdminIncidentEventInput{Kind: request.Kind, Message: request.Message})
+	event, err := s.repo.AddAdminIncidentEvent(
+		r.Context(),
+		mustUUID(accountFrom(r).ID),
+		id,
+		eventID,
+		repository.AdminIncidentEventInput{Kind: request.Kind, Message: request.Message},
+	)
 	if err != nil {
 		adminControlError(s, w, err)
 		return

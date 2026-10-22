@@ -86,7 +86,16 @@ func (r *Repository) CreateProjectUser(
 		INSERT INTO project_users (id,project_id,email,display_name,password_hash)
 		VALUES ($1,$2,$3,$4,$5)
 		RETURNING id,project_id,email,display_name,status,email_verified,created_at,updated_at`, id, projectID, email, name, passwordHash).
-		Scan(&item.ID, &item.ProjectID, &item.Email, &item.Name, &item.Status, &item.EmailVerified, &item.CreatedAt, &item.UpdatedAt)
+		Scan(
+			&item.ID,
+			&item.ProjectID,
+			&item.Email,
+			&item.Name,
+			&item.Status,
+			&item.EmailVerified,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+		)
 	if err != nil {
 		return domain.ApplicationUser{}, mapError(err)
 	}
@@ -182,7 +191,16 @@ func (r *Repository) RegisterProjectUser(
 		INSERT INTO project_users (id,project_id,email,display_name,password_hash)
 		VALUES ($1,$2,$3,$4,$5)
 		RETURNING id,project_id,email,display_name,status,email_verified,created_at,updated_at`, userID, projectID, email, name, passwordHash).
-		Scan(&item.ID, &item.ProjectID, &item.Email, &item.Name, &item.Status, &item.EmailVerified, &item.CreatedAt, &item.UpdatedAt)
+		Scan(
+			&item.ID,
+			&item.ProjectID,
+			&item.Email,
+			&item.Name,
+			&item.Status,
+			&item.EmailVerified,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+		)
 	if err != nil {
 		return domain.ApplicationUser{}, mapError(err)
 	}
@@ -254,7 +272,17 @@ func (r *Repository) ApplicationUserBySession(
 		FROM project_user_sessions s
 		JOIN project_users u ON u.id=s.project_user_id AND u.project_id=s.project_id
 		WHERE s.project_id=$1 AND s.token_hash=$2 AND s.expires_at>now() AND u.status='active'`, projectID, tokenHash).
-		Scan(&item.ID, &item.ProjectID, &item.Email, &item.Name, &item.Status, &item.EmailVerified, &item.CreatedAt, &item.UpdatedAt, &sessionID)
+		Scan(
+			&item.ID,
+			&item.ProjectID,
+			&item.Email,
+			&item.Name,
+			&item.Status,
+			&item.EmailVerified,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+			&sessionID,
+		)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ApplicationUser{}, uuid.Nil, ErrNotFound
 	}
@@ -285,7 +313,16 @@ func (r *Repository) UpdateProjectUserStatus(
 		FROM project_users
 		WHERE project_id=$1 AND id=$2
 		FOR UPDATE`, projectID, userID).
-		Scan(&item.ID, &item.ProjectID, &item.Email, &item.Name, &item.Status, &item.EmailVerified, &item.CreatedAt, &item.UpdatedAt)
+		Scan(
+			&item.ID,
+			&item.ProjectID,
+			&item.Email,
+			&item.Name,
+			&item.Status,
+			&item.EmailVerified,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+		)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ApplicationUser{}, ErrNotFound
 	}
@@ -299,7 +336,16 @@ func (r *Repository) UpdateProjectUserStatus(
 			SET status=$3,updated_at=now()
 			WHERE project_id=$1 AND id=$2
 			RETURNING id,project_id,email,display_name,status,email_verified,created_at,updated_at`, projectID, userID, status).
-			Scan(&item.ID, &item.ProjectID, &item.Email, &item.Name, &item.Status, &item.EmailVerified, &item.CreatedAt, &item.UpdatedAt)
+			Scan(
+				&item.ID,
+				&item.ProjectID,
+				&item.Email,
+				&item.Name,
+				&item.Status,
+				&item.EmailVerified,
+				&item.CreatedAt,
+				&item.UpdatedAt,
+			)
 		if err != nil {
 			return domain.ApplicationUser{}, err
 		}

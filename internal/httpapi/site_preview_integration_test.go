@@ -97,7 +97,15 @@ func TestSiteDeploymentPreviewIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"site"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/sites", map[string]string{"name": "preview-site"}, http.StatusCreated, &site)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/sites",
+		map[string]string{"name": "preview-site"},
+		http.StatusCreated,
+		&site,
+	)
 	siteID := uuid.MustParse(site.Site.ID)
 	var oversizedBody bytes.Buffer
 	oversizedWriter := multipart.NewWriter(&oversizedBody)
@@ -111,7 +119,11 @@ func TestSiteDeploymentPreviewIntegration(t *testing.T) {
 	if err := oversizedWriter.Close(); err != nil {
 		t.Fatal(err)
 	}
-	oversizedRequest, err := http.NewRequest(http.MethodPost, projectURL+"/sites/"+site.Site.ID+"/deployments", &oversizedBody)
+	oversizedRequest, err := http.NewRequest(
+		http.MethodPost,
+		projectURL+"/sites/"+site.Site.ID+"/deployments",
+		&oversizedBody,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,8 +137,13 @@ func TestSiteDeploymentPreviewIntegration(t *testing.T) {
 	if closeErr != nil || readErr != nil {
 		t.Fatalf("read oversized site response: read=%v close=%v", readErr, closeErr)
 	}
-	if oversizedResponse.StatusCode != http.StatusRequestEntityTooLarge || !bytes.Contains(oversizedResponseBody, []byte("payload_too_large")) {
-		t.Fatalf("oversized site upload status=%d body=%s, want 413 payload_too_large", oversizedResponse.StatusCode, oversizedResponseBody)
+	if oversizedResponse.StatusCode != http.StatusRequestEntityTooLarge ||
+		!bytes.Contains(oversizedResponseBody, []byte("payload_too_large")) {
+		t.Fatalf(
+			"oversized site upload status=%d body=%s, want 413 payload_too_large",
+			oversizedResponse.StatusCode,
+			oversizedResponseBody,
+		)
 	}
 	var rejectedDeployments int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM site_deployments WHERE site_id=$1`, siteID).Scan(&rejectedDeployments); err != nil {
@@ -195,7 +212,15 @@ func TestSiteDeploymentPreviewIntegration(t *testing.T) {
 		t.Fatalf("inactive Site response = %d, want 404", activeResponse.StatusCode)
 	}
 
-	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/sites/"+site.Site.ID+"/deployments/"+deployment.ID+"/activate", nil, http.StatusOK, &struct{}{})
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/sites/"+site.Site.ID+"/deployments/"+deployment.ID+"/activate",
+		nil,
+		http.StatusOK,
+		&struct{}{},
+	)
 	activeResponse, err = newIntegrationClient(t).Get(server.URL + "/v1/sites/" + site.Site.ID + "/index.html")
 	if err != nil {
 		t.Fatal(err)
@@ -209,7 +234,15 @@ func TestSiteDeploymentPreviewIntegration(t *testing.T) {
 		t.Fatalf("active response = %d %q", activeResponse.StatusCode, activeBody)
 	}
 
-	requestJSON(t, ownerClient, http.MethodPatch, projectURL+"/sites/"+site.Site.ID, map[string]bool{"enabled": false}, http.StatusOK, &struct{}{})
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPatch,
+		projectURL+"/sites/"+site.Site.ID,
+		map[string]bool{"enabled": false},
+		http.StatusOK,
+		&struct{}{},
+	)
 	disabledPreview, err := newIntegrationClient(t).Get(previewURL)
 	if err != nil {
 		t.Fatal(err)

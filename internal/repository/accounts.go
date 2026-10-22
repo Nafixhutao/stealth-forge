@@ -140,7 +140,14 @@ func scanAccount(row pgx.Row) (domain.Account, error) {
 // AccountByProviderIdentity resolves an external login identity to its account.
 // An unlinked identity is ErrNotFound: external login only signs in accounts
 // that already exist and were linked deliberately.
-func (r *Repository) AccountByProviderIdentity(ctx context.Context, provider, providerUserID string) (domain.Account, error) {
+func (r *Repository) AccountByProviderIdentity(
+	ctx context.Context,
+	provider,
+	providerUserID string,
+) (
+	domain.Account,
+	error,
+) {
 	account, err := scanAccount(r.pool.QueryRow(ctx, `
 		SELECT `+accountSelectColumns+`
 		FROM accounts a

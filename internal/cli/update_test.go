@@ -33,7 +33,15 @@ func (runner updateTestRunner) Run(context.Context, string, io.Writer, io.Writer
 	return runner.err
 }
 
-func (runner updateTestRunner) RunWithEnv(ctx context.Context, dir string, _ []string, stdout, stderr io.Writer, name string, args ...string) error {
+func (runner updateTestRunner) RunWithEnv(
+	ctx context.Context,
+	dir string,
+	_ []string,
+	stdout,
+	stderr io.Writer,
+	name string,
+	args ...string,
+) error {
 	return runner.Run(ctx, dir, stdout, stderr, name, args...)
 }
 
@@ -118,7 +126,16 @@ func newUpdateTestServer(t *testing.T, archive []byte, checksums string) *update
 	return state
 }
 
-func newUpdateTestApp(t *testing.T, state *updateTestServer, current, target string) (*App, *bytes.Buffer, *bytes.Buffer) {
+func newUpdateTestApp(
+	t *testing.T,
+	state *updateTestServer,
+	current,
+	target string,
+) (
+	*App,
+	*bytes.Buffer,
+	*bytes.Buffer,
+) {
 	t.Helper()
 	// Keep release comparisons isolated from a real installation in the test
 	// runner's home directory.
@@ -200,7 +217,8 @@ func TestRunUpdateSuccessfullyReplacesBinary(t *testing.T) {
 	if string(contents) != string(newContents) {
 		t.Fatalf("updated binary = %q, want %q", contents, newContents)
 	}
-	if !strings.Contains(output.String(), "SHA-256 checksum verified") || !strings.Contains(output.String(), "v0.1.0 → v0.2.0") {
+	if !strings.Contains(output.String(), "SHA-256 checksum verified") ||
+		!strings.Contains(output.String(), "v0.1.0 → v0.2.0") {
 		t.Fatalf("success output = %q", output.String())
 	}
 	state.mu.Lock()
@@ -375,7 +393,8 @@ func TestV025BridgeTransitionLeavesStackUntilBridgeReconciliation(t *testing.T) 
 		strings.Contains(string(got), "telemetry-docker-logs:") {
 		t.Fatalf("bridge reconciliation Compose = %q, %v", got, err)
 	}
-	if got, err := os.ReadFile(layout.EnvFile); err != nil || !bytes.Contains(got, []byte("POSTGRES_PASSWORD=bridge-preserved-secret")) {
+	if got, err := os.ReadFile(layout.EnvFile); err != nil ||
+		!bytes.Contains(got, []byte("POSTGRES_PASSWORD=bridge-preserved-secret")) {
 		t.Fatalf("bridge reconciliation changed config.env = %q, %v", got, err)
 	}
 	if !bytes.Contains(originalEnv, []byte("POSTGRES_PASSWORD=bridge-preserved-secret")) {
@@ -494,13 +513,18 @@ func TestRunUpdateAlreadyCurrentDoesNotDownload(t *testing.T) {
 	if code := app.run([]string{"update"}); code != 0 {
 		t.Fatalf("update exit code = %d, stderr = %s", code, errorsOutput.String())
 	}
-	if !strings.Contains(output.String(), "Stealth is already up to date") || !strings.Contains(output.String(), "v0.2.0") {
+	if !strings.Contains(output.String(), "Stealth is already up to date") ||
+		!strings.Contains(output.String(), "v0.2.0") {
 		t.Fatalf("output = %q", output.String())
 	}
 	state.mu.Lock()
 	defer state.mu.Unlock()
 	if state.archiveRequestCount != 0 || state.checksumRequestCount != 0 {
-		t.Fatalf("already-current update downloaded assets: archive %d, checksum %d", state.archiveRequestCount, state.checksumRequestCount)
+		t.Fatalf(
+			"already-current update downloaded assets: archive %d, checksum %d",
+			state.archiveRequestCount,
+			state.checksumRequestCount,
+		)
 	}
 }
 
@@ -531,7 +555,8 @@ func TestRunUpdateDevelopmentBuildIsHandled(t *testing.T) {
 	if code := app.run([]string{"update", "--check"}); code != 1 {
 		t.Fatalf("development check exit code = %d, stderr = %s", code, errorsOutput.String())
 	}
-	if !strings.Contains(output.String(), "Current version   dev") || !strings.Contains(output.String(), "Update available.") {
+	if !strings.Contains(output.String(), "Current version   dev") ||
+		!strings.Contains(output.String(), "Update available.") {
 		t.Fatalf("output = %q", output.String())
 	}
 	state.mu.Lock()
@@ -550,7 +575,9 @@ func TestRunUpdateCheckExitBehavior(t *testing.T) {
 	if code := app.run([]string{"update", "--check"}); code != 1 {
 		t.Fatalf("check exit code = %d, stderr = %s", code, errorsOutput.String())
 	}
-	if !strings.Contains(output.String(), "Current version   v0.1.0") || !strings.Contains(output.String(), "Latest version    v0.2.0") || !strings.Contains(output.String(), "Update available.") {
+	if !strings.Contains(output.String(), "Current version   v0.1.0") ||
+		!strings.Contains(output.String(), "Latest version    v0.2.0") ||
+		!strings.Contains(output.String(), "Update available.") {
 		t.Fatalf("output = %q", output.String())
 	}
 	contents, err := os.ReadFile(target)
@@ -817,7 +844,14 @@ func TestCompareReleaseVersions(t *testing.T) {
 	} {
 		got, comparable := compareReleaseVersions(test.current, test.latest)
 		if !comparable || got != test.want {
-			t.Fatalf("compareReleaseVersions(%q, %q) = %d, %v; want %d, true", test.current, test.latest, got, comparable, test.want)
+			t.Fatalf(
+				"compareReleaseVersions(%q, %q) = %d, %v; want %d, true",
+				test.current,
+				test.latest,
+				got,
+				comparable,
+				test.want,
+			)
 		}
 	}
 	if _, comparable := compareReleaseVersions("dev", "v0.2.0"); comparable {
@@ -831,7 +865,8 @@ func TestAppendReleasePathRejectsPathInjection(t *testing.T) {
 			t.Fatalf("path component %q was accepted", component)
 		}
 	}
-	if got, err := appendReleasePath("https://github.example.test/releases/download", "v0.2.0", "checksums.txt"); err != nil || !strings.HasSuffix(got, "/v0.2.0/checksums.txt") {
+	if got, err := appendReleasePath("https://github.example.test/releases/download", "v0.2.0", "checksums.txt"); err != nil ||
+		!strings.HasSuffix(got, "/v0.2.0/checksums.txt") {
 		t.Fatalf("appendReleasePath = %q, %v", got, err)
 	}
 }
@@ -892,7 +927,8 @@ func TestRunUpdateRateLimitIsActionable(t *testing.T) {
 	app.httpClient = state.server.Client()
 	app.releaseAPIBase = state.server.URL
 	app.currentVersion = func() string { return "v0.1.0" }
-	if _, err := app.latestStableRelease(context.Background()); err == nil || !strings.Contains(err.Error(), "rate limited") {
+	if _, err := app.latestStableRelease(context.Background()); err == nil ||
+		!strings.Contains(err.Error(), "rate limited") {
 		t.Fatalf("rate-limit error = %v", err)
 	}
 }

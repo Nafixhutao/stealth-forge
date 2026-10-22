@@ -120,7 +120,9 @@ func unknownLayoutEntries(layout InstallLayout) []string {
 			}
 			for _, dynamicEntry := range dynamicEntries {
 				switch dynamicEntry.Name() {
-				case filepath.Base(layout.TraefikCore), filepath.Base(layout.TraefikGenerated), filepath.Base(layout.TraefikReloadMarker):
+				case filepath.Base(layout.TraefikCore),
+					filepath.Base(layout.TraefikGenerated),
+					filepath.Base(layout.TraefikReloadMarker):
 				default:
 					unknown = append(unknown, filepath.Join(dynamicDir, dynamicEntry.Name()))
 				}
@@ -139,7 +141,10 @@ func unknownLayoutEntries(layout InstallLayout) []string {
 				for _, generatedEntry := range generatedEntries {
 					generatedPath := filepath.Join(layout.TraefikGenerated, generatedEntry.Name())
 					generatedInfo, statErr := os.Lstat(generatedPath)
-					if generatedEntry.Name() != ".gitkeep" || statErr != nil || generatedInfo.Mode()&os.ModeSymlink != 0 || !generatedInfo.Mode().IsRegular() {
+					if generatedEntry.Name() != ".gitkeep" ||
+						statErr != nil ||
+						generatedInfo.Mode()&os.ModeSymlink != 0 ||
+						!generatedInfo.Mode().IsRegular() {
 						// Generated route files are host/control-plane state, not
 						// release assets. Keep purge from deleting them implicitly.
 						unknown = append(unknown, generatedPath)

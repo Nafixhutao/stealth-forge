@@ -87,7 +87,19 @@ func scanMessagingMessage(row messagingMessageScanner) (domain.MessagingMessage,
 	var item domain.MessagingMessage
 	var id, projectID uuid.UUID
 	var topicID *uuid.UUID
-	err := row.Scan(&id, &projectID, &topicID, &item.Channel, &item.Status, &item.RecipientCount, &item.SucceededCount, &item.FailedCount, &item.CancelledAt, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&id,
+		&projectID,
+		&topicID,
+		&item.Channel,
+		&item.Status,
+		&item.RecipientCount,
+		&item.SucceededCount,
+		&item.FailedCount,
+		&item.CancelledAt,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	item.ID = id.String()
 	item.ProjectID = projectID.String()
 	if topicID != nil {
@@ -101,7 +113,22 @@ func scanMessagingDelivery(row messagingDeliveryScanner) (domain.MessagingDelive
 	var item domain.MessagingDelivery
 	var id, projectID, messageID uuid.UUID
 	var subscriberID, providerID *uuid.UUID
-	err := row.Scan(&id, &projectID, &messageID, &subscriberID, &providerID, &item.Channel, &item.AddressPreview, &item.Status, &item.AttemptCount, &item.LastStatusCode, &item.LastError, &item.DeliveredAt, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&id,
+		&projectID,
+		&messageID,
+		&subscriberID,
+		&providerID,
+		&item.Channel,
+		&item.AddressPreview,
+		&item.Status,
+		&item.AttemptCount,
+		&item.LastStatusCode,
+		&item.LastError,
+		&item.DeliveredAt,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	item.ID = id.String()
 	item.ProjectID = projectID.String()
 	item.MessageID = messageID.String()
@@ -126,7 +153,10 @@ func normalizeMessagingMessageInput(input MessagingMessageInput) (string, Messag
 		return "", MessagingMessagePayload{}, nil, fmt.Errorf("%w: subject is invalid", ErrInvalidMessaging)
 	}
 	body := input.Body
-	if len(body) == 0 || len(body) > maxMessagingMessageBody || strings.ContainsRune(body, '\x00') || strings.TrimSpace(body) == "" {
+	if len(body) == 0 ||
+		len(body) > maxMessagingMessageBody ||
+		strings.ContainsRune(body, '\x00') ||
+		strings.TrimSpace(body) == "" {
 		return "", MessagingMessagePayload{}, nil, fmt.Errorf("%w: body is invalid", ErrInvalidMessaging)
 	}
 	if channel == "email" && subject == "" {
@@ -159,7 +189,9 @@ func normalizeMessagingMessageData(raw map[string]string) (map[string]string, er
 	}
 	data := make(map[string]string, len(raw))
 	for key, value := range raw {
-		if !messagingCredentialKeyPattern.MatchString(key) || len(value) > maxMessagingMessageDataValue || strings.ContainsAny(value, "\x00\r\n") {
+		if !messagingCredentialKeyPattern.MatchString(key) ||
+			len(value) > maxMessagingMessageDataValue ||
+			strings.ContainsAny(value, "\x00\r\n") {
 			return nil, fmt.Errorf("%w: message data fields are invalid", ErrInvalidMessaging)
 		}
 		data[key] = value

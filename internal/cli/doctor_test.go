@@ -199,7 +199,15 @@ func TestWaitForRequiredServicesRetriesAndReturnsSafeBoundedFailure(t *testing.T
 	}
 }
 
-func doctorAppForTest(t *testing.T, layout InstallLayout, runner *doctorCommandRunner) (*App, *httptest.Server, *strings.Builder) {
+func doctorAppForTest(
+	t *testing.T,
+	layout InstallLayout,
+	runner *doctorCommandRunner,
+) (
+	*App,
+	*httptest.Server,
+	*strings.Builder,
+) {
 	t.Helper()
 	t.Setenv("STEALTH_INSTALL_DIR", layout.Root)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -368,7 +376,8 @@ func TestRunDoctorSetupModeSkipsBuildKitAndAppRuntime(t *testing.T) {
 	if code := app.runDoctorCommand(nil); code != 0 {
 		t.Fatalf("runDoctorCommand() = %d; output=%s", code, output.String())
 	}
-	if strings.Contains(output.String(), "BuildKit mTLS") || !strings.Contains(output.String(), "not started in setup mode") {
+	if strings.Contains(output.String(), "BuildKit mTLS") ||
+		!strings.Contains(output.String(), "not started in setup mode") {
 		t.Fatalf("setup-mode diagnostics are incorrect: %q", output.String())
 	}
 }
@@ -396,7 +405,11 @@ func TestStatusServiceTargetsMarkExternalDependenciesWithoutExposingURLs(t *test
 }
 
 func TestComposeArgsAndServiceTargetsEnableConfiguredCloudflareTunnel(t *testing.T) {
-	layout, config := doctorFixture(t, false, map[string]string{"CLOUDFLARE_TUNNEL_TOKEN_FILE": "./state/cloudflare-tunnel-token"})
+	layout, config := doctorFixture(
+		t,
+		false,
+		map[string]string{"CLOUDFLARE_TUNNEL_TOKEN_FILE": "./state/cloudflare-tunnel-token"},
+	)
 	if err := installengine.WritePrivateFile(filepath.Join(layout.StateDir, "cloudflare-tunnel-token"), "tunnel-secret-sentinel\n"); err != nil {
 		t.Fatal(err)
 	}

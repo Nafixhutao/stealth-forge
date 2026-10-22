@@ -122,7 +122,13 @@ func TestRuntimeEnvironmentFileIsTemporaryAndValuesStayOutOfDockerArgv(t *testin
 	if string(contents) != "MODE=test\nTOKEN="+secret+"\n" {
 		t.Fatalf("environment file contents = %q", contents)
 	}
-	args, err := containerCreateArgsWithEnvironmentFile(job, "stealth-app/test:runtime", "stealth_app_runtime", RuntimeSecurityProfile{}, path)
+	args, err := containerCreateArgsWithEnvironmentFile(
+		job,
+		"stealth-app/test:runtime",
+		"stealth_app_runtime",
+		RuntimeSecurityProfile{},
+		path,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,7 +197,12 @@ func TestExecCommandRunnerPassesArgvWithoutShellExpansionAndBoundsOutput(t *test
 }
 
 func TestEnsureNetworkRejectsForeignNameWithoutMutation(t *testing.T) {
-	foreign := NetworkInspect{Name: "stealth_app_runtime", Driver: "bridge", Scope: "local", Labels: map[string]string{"owner": "someone-else"}}
+	foreign := NetworkInspect{
+		Name:   "stealth_app_runtime",
+		Driver: "bridge",
+		Scope:  "local",
+		Labels: map[string]string{"owner": "someone-else"},
+	}
 	runner := &scriptedRuntimeRunner{results: []CommandResult{{Stdout: mustJSON([]NetworkInspect{foreign})}}}
 	moby, err := NewMoby(runner, "stealth_app_runtime", 30*time.Second, 10*time.Minute)
 	if err != nil {
@@ -201,7 +212,8 @@ func TestEnsureNetworkRejectsForeignNameWithoutMutation(t *testing.T) {
 	if !errors.Is(err, ErrRuntimeNetworkConflict) {
 		t.Fatalf("EnsureNetwork error = %v, want ownership conflict", err)
 	}
-	if len(runner.calls) != 1 || !slices.Equal(runner.calls[0].args, []string{"network", "inspect", "stealth_app_runtime"}) {
+	if len(runner.calls) != 1 ||
+		!slices.Equal(runner.calls[0].args, []string{"network", "inspect", "stealth_app_runtime"}) {
 		t.Fatalf("foreign network was mutated or command sequence changed: %#v", runner.calls)
 	}
 }
@@ -570,7 +582,12 @@ func TestEnsureImageIsIdempotentAndRepairsOnlyExpectedTag(t *testing.T) {
 	configID := "sha256:" + strings.Repeat("b", 64)
 	otherID := "sha256:" + strings.Repeat("c", 64)
 	manifestDigest := "sha256:" + strings.Repeat("d", 64)
-	info := ociartifact.ImageInfo{ManifestDigest: manifestDigest, ConfigDigest: configID, OS: "linux", Architecture: "amd64"}
+	info := ociartifact.ImageInfo{
+		ManifestDigest: manifestDigest,
+		ConfigDigest:   configID,
+		OS:             "linux",
+		Architecture:   "amd64",
+	}
 	tag := "stealth-app/33333333-3333-4333-8333-333333333333:runtime"
 	image := func(id string) []byte {
 		return mustJSON([]map[string]any{{
@@ -661,7 +678,9 @@ func TestEnsureImageIsIdempotentAndRepairsOnlyExpectedTag(t *testing.T) {
 		if err := json.Unmarshal(loadManifest, &loadedImages); err != nil || len(loadedImages) != 1 {
 			t.Fatalf("image load stream lacks Docker compatibility manifest: %s", loadManifest)
 		}
-		if loadedImages[0].Config != "blobs/sha256/"+strings.TrimPrefix(configID, "sha256:") || len(loadedImages[0].RepoTags) != 0 || len(loadedImages[0].Layers) != 0 {
+		if loadedImages[0].Config != "blobs/sha256/"+strings.TrimPrefix(configID, "sha256:") ||
+			len(loadedImages[0].RepoTags) != 0 ||
+			len(loadedImages[0].Layers) != 0 {
 			t.Fatalf("Docker load manifest = %+v", loadedImages[0])
 		}
 		if !slices.Equal(runner.calls[5].args, []string{"image", "tag", engineID, tag}) {
@@ -703,7 +722,8 @@ func TestContainerInspectionRejectsMalformedOrOversizedOutput(t *testing.T) {
 	} {
 		runner := &scriptedRuntimeRunner{results: []CommandResult{{Stdout: []byte(strings.Repeat("a", 64) + "\n")}, result}}
 		moby, _ := NewMoby(runner, "stealth_app_runtime", 30*time.Second, time.Minute)
-		if _, found, err := moby.InspectApp(context.Background(), uuid.MustParse(runtimeTestJob().App.ID)); found || !errors.Is(err, ErrContainerInspection) {
+		if _, found, err := moby.InspectApp(context.Background(), uuid.MustParse(runtimeTestJob().App.ID)); found ||
+			!errors.Is(err, ErrContainerInspection) {
 			t.Fatalf("malformed Docker inspect accepted: found=%v err=%v output=%q", found, err, result.Stdout)
 		}
 	}
@@ -734,7 +754,12 @@ func TestMobyRenameRotatesManagedContainerDNSIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 	if renamed.ID != containerID || renamed.Name != "/"+job.ContainerName || oldJob.ContainerName == job.ContainerName {
-		t.Fatalf("rename did not establish a distinct process target: old=%q new=%q container=%+v", oldJob.ContainerName, job.ContainerName, renamed)
+		t.Fatalf(
+			"rename did not establish a distinct process target: old=%q new=%q container=%+v",
+			oldJob.ContainerName,
+			job.ContainerName,
+			renamed,
+		)
 	}
 	if !slices.Equal(runner.calls[1].args, []string{"container", "rename", containerID, job.ContainerName}) {
 		t.Fatalf("Docker rename args = %#v", runner.calls[1].args)
@@ -752,7 +777,8 @@ func TestMobyRenameReportsMissingContainerAsDockerNotFound(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := moby.RenameApp(context.Background(), job, containerID, job.ContainerName); !errors.Is(err, ErrDockerObjectNotFound) || errors.Is(err, ErrRuntimeOwnershipConflict) {
+	if _, err := moby.RenameApp(context.Background(), job, containerID, job.ContainerName); !errors.Is(err, ErrDockerObjectNotFound) ||
+		errors.Is(err, ErrRuntimeOwnershipConflict) {
 		t.Fatalf("RenameApp() = %v, want a distinct Docker not-found result", err)
 	}
 }
@@ -869,7 +895,13 @@ func runtimeContainerJSON(job repository.AppRuntimeJob, id string, labels map[st
 	return runtimeContainerJSONWithName(job, id, labels, running, "/"+job.ContainerName)
 }
 
-func runtimeContainerJSONWithName(job repository.AppRuntimeJob, id string, labels map[string]string, running bool, name string) []byte {
+func runtimeContainerJSONWithName(
+	job repository.AppRuntimeJob,
+	id string,
+	labels map[string]string,
+	running bool,
+	name string,
+) []byte {
 	state := "created"
 	if running {
 		state = "running"

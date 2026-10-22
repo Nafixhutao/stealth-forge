@@ -112,6 +112,14 @@ func assertAppRouteIncarnationSchema(t *testing.T, ctx context.Context, conn *pg
 		wantColumns, wantConstraints, wantIndexes = 2, 3, 2
 	}
 	if columns != wantColumns || constraints != wantConstraints || indexes != wantIndexes {
-		t.Fatalf("route-incarnation schema objects = columns:%d constraints:%d indexes:%d, want columns:%d constraints:%d indexes:%d", columns, constraints, indexes, wantColumns, wantConstraints, wantIndexes)
+		t.Fatalf(
+			"route-incarnation schema objects = columns:%d constraints:%d indexes:%d, want columns:%d constraints:%d indexes:%d",
+			columns,
+			constraints,
+			indexes,
+			wantColumns,
+			wantConstraints,
+			wantIndexes,
+		)
 	}
 }

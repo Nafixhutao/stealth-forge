@@ -13,7 +13,11 @@ func TestLoadSiteSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if settings.maxArtifactSize != 8<<20 || settings.defaultQuotaBytes != 64<<20 || settings.maxExpandedBytes != 32<<20 || settings.maxFiles != 128 || settings.gitFetchConcurrency != 6 {
+	if settings.maxArtifactSize != 8<<20 ||
+		settings.defaultQuotaBytes != 64<<20 ||
+		settings.maxExpandedBytes != 32<<20 ||
+		settings.maxFiles != 128 ||
+		settings.gitFetchConcurrency != 6 {
 		t.Fatalf("unexpected site settings: %+v", settings)
 	}
 	var config Config
@@ -26,7 +30,11 @@ func TestLoadSiteSettings(t *testing.T) {
 func TestApplySiteDefaultsUsesStorageLimits(t *testing.T) {
 	config := Config{StorageMaxFileSize: 8 << 20, StorageDefaultQuotaBytes: 64 << 20}
 	config.applySiteDefaults()
-	if config.SitesMaxArtifactSize != 8<<20 || config.SitesDefaultQuotaBytes != 64<<20 || config.SitesMaxExpandedBytes != 64<<20 || config.SitesMaxFiles != 4096 || config.SitesGitFetchConcurrency != 4 {
+	if config.SitesMaxArtifactSize != 8<<20 ||
+		config.SitesDefaultQuotaBytes != 64<<20 ||
+		config.SitesMaxExpandedBytes != 64<<20 ||
+		config.SitesMaxFiles != 4096 ||
+		config.SitesGitFetchConcurrency != 4 {
 		t.Fatalf("unexpected site defaults: %+v", config)
 	}
 }

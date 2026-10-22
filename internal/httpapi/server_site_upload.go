@@ -56,7 +56,12 @@ func (s *Server) uploadSiteDeployment(w http.ResponseWriter, r *http.Request) {
 		}
 		if nextErr != nil {
 			if isMaxBytesError(nextErr) {
-				writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "request body exceeds the configured upload limit")
+				writeError(
+					w,
+					http.StatusRequestEntityTooLarge,
+					"payload_too_large",
+					"request body exceeds the configured upload limit",
+				)
 			} else {
 				writeError(w, http.StatusBadRequest, "invalid_request", "invalid multipart upload")
 			}
@@ -78,10 +83,22 @@ func (s *Server) uploadSiteDeployment(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			}
-			prepared, err = s.siteArchives.BeginUploadWithLimit(r.Context(), projectID, siteID, deploymentID, part, s.config.SitesMaxArtifactSize)
+			prepared, err = s.siteArchives.BeginUploadWithLimit(
+				r.Context(),
+				projectID,
+				siteID,
+				deploymentID,
+				part,
+				s.config.SitesMaxArtifactSize,
+			)
 			_ = part.Close()
 			if errors.Is(err, functionstore.ErrTooLarge) {
-				writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "site archive exceeds the configured maximum size")
+				writeError(
+					w,
+					http.StatusRequestEntityTooLarge,
+					"payload_too_large",
+					"site archive exceeds the configured maximum size",
+				)
 				return
 			}
 			if err != nil {
@@ -245,7 +262,12 @@ func (s *Server) uploadSiteDeployment(w http.ResponseWriter, r *http.Request) {
 			s.sites.CleanupStaging(staging)
 		}
 	}()
-	limits := functionrunner.ArchiveLimits{MaxBytes: s.config.SitesMaxExpandedBytes, MaxFiles: s.config.SitesMaxFiles, MaxEntry: s.config.SitesMaxExpandedBytes, MaxCompressed: s.config.SitesMaxArtifactSize}
+	limits := functionrunner.ArchiveLimits{
+		MaxBytes:      s.config.SitesMaxExpandedBytes,
+		MaxFiles:      s.config.SitesMaxFiles,
+		MaxEntry:      s.config.SitesMaxExpandedBytes,
+		MaxCompressed: s.config.SitesMaxArtifactSize,
+	}
 	stats, extractErr := functionrunner.Extract(r.Context(), archive, sourceName, staging, limits)
 	closeErr := archive.Close()
 	if extractErr != nil {
@@ -261,7 +283,12 @@ func (s *Server) uploadSiteDeployment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := sitestore.ValidateEntrypoint(staging, "index.html"); err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "site archive must contain a regular index.html at its root")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"site archive must contain a regular index.html at its root",
+		)
 		return
 	}
 	publishCleanup := repository.ArtifactCleanupInput{
@@ -284,7 +311,14 @@ func (s *Server) uploadSiteDeployment(w http.ResponseWriter, r *http.Request) {
 	if actor.Kind == repository.SiteConsoleActor && actor.AccountID != uuid.Nil {
 		createdBy = &actor.AccountID
 	}
-	item, err := s.repo.CreateSiteDeployment(r.Context(), deploymentID, projectID, siteID, actor, repository.SiteDeploymentInput{Source: "upload", SourceName: &sourceName, SizeBytes: stats.Bytes, ArchiveSizeBytes: prepared.Size, ChecksumSHA256: prepared.Checksum, ArtifactPath: artifactPath, CreatedByAccountID: createdBy, Activate: activate, PublishCleanup: &publishCleanup})
+	item, err := s.repo.CreateSiteDeployment(
+		r.Context(),
+		deploymentID,
+		projectID,
+		siteID,
+		actor,
+		repository.SiteDeploymentInput{Source: "upload", SourceName: &sourceName, SizeBytes: stats.Bytes, ArchiveSizeBytes: prepared.Size, ChecksumSHA256: prepared.Checksum, ArtifactPath: artifactPath, CreatedByAccountID: createdBy, Activate: activate, PublishCleanup: &publishCleanup},
+	)
 	if siteResourceError(w, err) {
 		return
 	}

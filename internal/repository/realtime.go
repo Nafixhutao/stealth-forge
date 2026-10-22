@@ -81,19 +81,19 @@ func (r *Repository) ListRealtimeEvents(
 		}
 		lastID := id
 		nextCursor = &lastID
-		event, err := decodeRealtimeEventWithMetadata(
-			id,
-			eventProjectID,
-			organizationID,
-			eventName,
-			targetType,
-			targetID,
-			version,
-			correlationID,
-			payload,
-			occurredAt,
-			createdAt,
-		)
+		event, err := decodeRealtimeEventWithMetadata(realtimeEventRow{
+			ID:             id,
+			ProjectID:      eventProjectID,
+			OrganizationID: organizationID,
+			EventName:      eventName,
+			TargetType:     targetType,
+			TargetID:       targetID,
+			Version:        version,
+			CorrelationID:  correlationID,
+			Payload:        payload,
+			OccurredAt:     occurredAt,
+			CreatedAt:      createdAt,
+		})
 		if err != nil {
 			return nil, nil, err
 		}
@@ -379,30 +379,41 @@ func decodeRealtimeEvent(
 	payload []byte,
 	createdAt time.Time,
 ) (domain.RealtimeEvent, error) {
-	return decodeRealtimeEventWithMetadata(
-		id,
-		projectID,
-		uuid.Nil,
-		eventName,
-		targetType,
-		targetID,
-		1,
-		nil,
-		payload,
-		createdAt,
-		createdAt,
-	)
+	return decodeRealtimeEventWithMetadata(realtimeEventRow{
+		ID:         id,
+		ProjectID:  projectID,
+		EventName:  eventName,
+		TargetType: targetType,
+		TargetID:   targetID,
+		Version:    1,
+		Payload:    payload,
+		OccurredAt: createdAt,
+		CreatedAt:  createdAt,
+	})
 }
 
-func decodeRealtimeEventWithMetadata(
-	id, projectID, organizationID uuid.UUID,
-	eventName, targetType string,
-	targetID *uuid.UUID,
-	version int,
-	correlationID *string,
-	payload []byte,
-	occurredAt, createdAt time.Time,
-) (domain.RealtimeEvent, error) {
+// realtimeEventRow is the stored shape of one realtime event, including the
+// metadata columns only trusted readers select. Grouping it keeps the scan list
+// and the decoder signature aligned as columns are added.
+type realtimeEventRow struct {
+	ID             uuid.UUID
+	ProjectID      uuid.UUID
+	OrganizationID uuid.UUID
+	EventName      string
+	TargetType     string
+	TargetID       *uuid.UUID
+	Version        int
+	CorrelationID  *string
+	Payload        []byte
+	OccurredAt     time.Time
+	CreatedAt      time.Time
+}
+
+func decodeRealtimeEventWithMetadata(row realtimeEventRow) (domain.RealtimeEvent, error) {
+	id, projectID, organizationID := row.ID, row.ProjectID, row.OrganizationID
+	eventName, targetType := row.EventName, row.TargetType
+	targetID, version, correlationID := row.TargetID, row.Version, row.CorrelationID
+	payload, occurredAt, createdAt := row.Payload, row.OccurredAt, row.CreatedAt
 	var envelope struct {
 		ID             string  `json:"id"`
 		Event          string  `json:"event"`

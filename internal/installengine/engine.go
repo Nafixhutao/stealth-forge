@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -55,7 +56,14 @@ type InputCommandRunner interface {
 // It is intentionally small so tests can assert the exact command surface.
 type OSCommandRunner struct{}
 
-func (OSCommandRunner) Run(ctx context.Context, dir string, stdout, stderr io.Writer, name string, args ...string) error {
+func (OSCommandRunner) Run(
+	ctx context.Context,
+	dir string,
+	stdout,
+	stderr io.Writer,
+	name string,
+	args ...string,
+) error {
 	command := exec.CommandContext(ctx, name, args...)
 	command.Dir = dir
 	command.Stdout = stdout
@@ -63,7 +71,15 @@ func (OSCommandRunner) Run(ctx context.Context, dir string, stdout, stderr io.Wr
 	return command.Run()
 }
 
-func (OSCommandRunner) RunWithEnv(ctx context.Context, dir string, env []string, stdout, stderr io.Writer, name string, args ...string) error {
+func (OSCommandRunner) RunWithEnv(
+	ctx context.Context,
+	dir string,
+	env []string,
+	stdout,
+	stderr io.Writer,
+	name string,
+	args ...string,
+) error {
 	command := exec.CommandContext(ctx, name, args...)
 	command.Dir = dir
 	command.Env = append(os.Environ(), env...)
@@ -72,7 +88,15 @@ func (OSCommandRunner) RunWithEnv(ctx context.Context, dir string, env []string,
 	return command.Run()
 }
 
-func (OSCommandRunner) RunInput(ctx context.Context, dir string, stdin io.Reader, stdout, stderr io.Writer, name string, args ...string) error {
+func (OSCommandRunner) RunInput(
+	ctx context.Context,
+	dir string,
+	stdin io.Reader,
+	stdout,
+	stderr io.Writer,
+	name string,
+	args ...string,
+) error {
 	command := exec.CommandContext(ctx, name, args...)
 	command.Dir = dir
 	command.Stdin = stdin
@@ -261,7 +285,7 @@ func (e *Engine) RunStep(ctx context.Context, plan Plan, step Step) error {
 			}
 			if err := e.runComposeFileWithEnv(ctx, plan, composePath, plan.Layout.Root, stageEnvFile,
 				"run", "--rm", "--no-deps",
-				"-e", fmt.Sprintf("STEALTH_TRAEFIK_HOST_UID=%d", os.Geteuid()),
+				"-e", "STEALTH_TRAEFIK_HOST_UID="+strconv.Itoa(os.Geteuid()),
 				"traefik-state-init"); err != nil {
 				return prepared.failCommit(err)
 			}

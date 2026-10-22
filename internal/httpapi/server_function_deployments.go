@@ -30,7 +30,14 @@ func (s *Server) listFunctionDeployments(w http.ResponseWriter, r *http.Request)
 		parsed := mustUUID(cursor)
 		cursorID = &parsed
 	}
-	items, next, canManage, err := s.repo.ListFunctionDeployments(r.Context(), projectID, functionID, functionActorFrom(r), limit, cursorID)
+	items, next, canManage, err := s.repo.ListFunctionDeployments(
+		r.Context(),
+		projectID,
+		functionID,
+		functionActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if functionResourceError(w, err) {
 		return
 	}
@@ -38,7 +45,11 @@ func (s *Server) listFunctionDeployments(w http.ResponseWriter, r *http.Request)
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"deployments": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"deployments": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) getFunctionDeployment(w http.ResponseWriter, r *http.Request) {
@@ -89,7 +100,12 @@ func (s *Server) uploadFunctionDeployment(w http.ResponseWriter, r *http.Request
 		}
 		if nextErr != nil {
 			if isMaxBytesError(nextErr) {
-				writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "request body exceeds the configured upload limit")
+				writeError(
+					w,
+					http.StatusRequestEntityTooLarge,
+					"payload_too_large",
+					"request body exceeds the configured upload limit",
+				)
 			} else {
 				writeError(w, http.StatusBadRequest, "invalid_request", "invalid multipart upload")
 			}
@@ -112,10 +128,22 @@ func (s *Server) uploadFunctionDeployment(w http.ResponseWriter, r *http.Request
 					return
 				}
 			}
-			prepared, err = s.functions.BeginUploadWithLimit(r.Context(), projectID, functionID, deploymentID, part, s.config.FunctionsMaxArtifactSize)
+			prepared, err = s.functions.BeginUploadWithLimit(
+				r.Context(),
+				projectID,
+				functionID,
+				deploymentID,
+				part,
+				s.config.FunctionsMaxArtifactSize,
+			)
 			_ = part.Close()
 			if errors.Is(err, functionstore.ErrTooLarge) {
-				writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "source artifact exceeds the configured maximum size")
+				writeError(
+					w,
+					http.StatusRequestEntityTooLarge,
+					"payload_too_large",
+					"source artifact exceeds the configured maximum size",
+				)
 				return
 			}
 			if err != nil {
@@ -191,7 +219,14 @@ func (s *Server) uploadFunctionDeployment(w http.ResponseWriter, r *http.Request
 	if actor.Kind == repository.FunctionConsoleActor && actor.AccountID != uuid.Nil {
 		createdBy = &actor.AccountID
 	}
-	item, err := s.repo.CreateFunctionDeployment(r.Context(), deploymentID, projectID, functionID, actor, repository.FunctionDeploymentInput{Source: "upload", SourceName: &name, SizeBytes: prepared.Size, ChecksumSHA256: prepared.Checksum, SourcePath: prepared.RelativePath, CreatedByAccountID: createdBy, Activate: activate, PublishCleanup: &publishCleanup})
+	item, err := s.repo.CreateFunctionDeployment(
+		r.Context(),
+		deploymentID,
+		projectID,
+		functionID,
+		actor,
+		repository.FunctionDeploymentInput{Source: "upload", SourceName: &name, SizeBytes: prepared.Size, ChecksumSHA256: prepared.Checksum, SourcePath: prepared.RelativePath, CreatedByAccountID: createdBy, Activate: activate, PublishCleanup: &publishCleanup},
+	)
 	if functionResourceError(w, err) {
 		return
 	}
@@ -221,7 +256,13 @@ func (s *Server) deleteFunctionDeployment(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
-	_, err := s.repo.DeleteFunctionDeploymentWithArtifacts(r.Context(), projectID, functionID, deploymentID, functionActorFrom(r))
+	_, err := s.repo.DeleteFunctionDeploymentWithArtifacts(
+		r.Context(),
+		projectID,
+		functionID,
+		deploymentID,
+		functionActorFrom(r),
+	)
 	if functionResourceError(w, err) {
 		return
 	}

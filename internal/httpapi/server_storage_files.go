@@ -32,7 +32,14 @@ func (s *Server) listStorageFiles(w http.ResponseWriter, r *http.Request) {
 		parsed := mustUUID(cursor)
 		cursorID = &parsed
 	}
-	items, next, canManage, err := s.repo.ListStorageFiles(r.Context(), projectID, bucketID, storageActorFrom(r), limit, cursorID)
+	items, next, canManage, err := s.repo.ListStorageFiles(
+		r.Context(),
+		projectID,
+		bucketID,
+		storageActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if storageResourceError(w, err) {
 		return
 	}
@@ -40,7 +47,11 @@ func (s *Server) listStorageFiles(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"files": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"files": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) uploadStorageFile(w http.ResponseWriter, r *http.Request) {
@@ -85,7 +96,12 @@ func (s *Server) uploadStorageFile(w http.ResponseWriter, r *http.Request) {
 		if nextErr != nil {
 			cleanupPrepared(s.storage, &prepared)
 			if isMaxBytesError(nextErr) {
-				writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "request body exceeds the configured upload limit")
+				writeError(
+					w,
+					http.StatusRequestEntityTooLarge,
+					"payload_too_large",
+					"request body exceeds the configured upload limit",
+				)
 			} else {
 				writeError(w, http.StatusBadRequest, "invalid_request", "multipart body is invalid")
 			}
@@ -115,7 +131,15 @@ func (s *Server) uploadStorageFile(w http.ResponseWriter, r *http.Request) {
 				partFilename = filename
 			}
 			declaredType := part.Header.Get("Content-Type")
-			prepared, err = s.storage.BeginUploadWithLimit(r.Context(), projectID, bucketID, fileID, part, declaredType, bucket.MaxFileSizeBytes)
+			prepared, err = s.storage.BeginUploadWithLimit(
+				r.Context(),
+				projectID,
+				bucketID,
+				fileID,
+				part,
+				declaredType,
+				bucket.MaxFileSizeBytes,
+			)
 			if err != nil {
 				cleanupPrepared(s.storage, &prepared)
 				if isMaxBytesError(err) || errors.Is(err, storage.ErrTooLarge) {
@@ -179,7 +203,12 @@ func (s *Server) uploadStorageFile(w http.ResponseWriter, r *http.Request) {
 	}
 	if actor.Kind == repository.StorageAnonymousActor && (readPermissions == nil || updatePermissions == nil || deletePermissions == nil) {
 		cleanupPrepared(s.storage, &prepared)
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "anonymous uploads must specify read_permissions, update_permissions, and delete_permissions")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"anonymous uploads must specify read_permissions, update_permissions, and delete_permissions",
+		)
 		return
 	}
 	publishCleanup := repository.ArtifactCleanupInput{
@@ -205,7 +234,14 @@ func (s *Server) uploadStorageFile(w http.ResponseWriter, r *http.Request) {
 		creatorID := actor.ProjectUserID
 		creator = &creatorID
 	}
-	item, err := s.repo.CreateStorageFile(r.Context(), fileID, projectID, bucketID, actor, repository.StorageFileInput{Name: filenameField, MimeType: prepared.ContentType, SizeBytes: prepared.Size, ChecksumSHA256: prepared.Checksum, StoragePath: prepared.RelativePath, ReadPermissions: readPermissions, UpdatePermissions: updatePermissions, DeletePermissions: deletePermissions, CreatorProjectUserID: creator, PublishCleanup: &publishCleanup})
+	item, err := s.repo.CreateStorageFile(
+		r.Context(),
+		fileID,
+		projectID,
+		bucketID,
+		actor,
+		repository.StorageFileInput{Name: filenameField, MimeType: prepared.ContentType, SizeBytes: prepared.Size, ChecksumSHA256: prepared.Checksum, StoragePath: prepared.RelativePath, ReadPermissions: readPermissions, UpdatePermissions: updatePermissions, DeletePermissions: deletePermissions, CreatorProjectUserID: creator, PublishCleanup: &publishCleanup},
+	)
 	if storageResourceError(w, err) {
 		// The quota check runs before the metadata transaction can commit, so
 		// this typed failure has an unambiguous rollback. Other metadata errors

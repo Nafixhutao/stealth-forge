@@ -78,7 +78,10 @@ func validDNSName(value string) bool {
 			return false
 		}
 		for _, character := range label {
-			if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') || character == '-' {
+			if (character >= 'a' && character <= 'z') ||
+				(character >= 'A' && character <= 'Z') ||
+				(character >= '0' && character <= '9') ||
+				character == '-' {
 				continue
 			}
 			return false

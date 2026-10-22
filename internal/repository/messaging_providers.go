@@ -9,7 +9,16 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (r *Repository) CreateMessagingProvider(ctx context.Context, id, projectID uuid.UUID, actor MessagingActor, input MessagingProviderInput) (domain.MessagingProvider, error) {
+func (r *Repository) CreateMessagingProvider(
+	ctx context.Context,
+	id,
+	projectID uuid.UUID,
+	actor MessagingActor,
+	input MessagingProviderInput,
+) (
+	domain.MessagingProvider,
+	error,
+) {
 	name, err := normalizeMessagingName(input.Name, "name")
 	if err != nil {
 		return domain.MessagingProvider{}, err
@@ -35,7 +44,16 @@ func (r *Repository) CreateMessagingProvider(ctx context.Context, id, projectID 
 		return domain.MessagingProvider{}, err
 	}
 	item, err := scanMessagingProvider(tx.QueryRow(ctx, `
-		INSERT INTO project_messaging_providers (id,project_id,name,channel,provider,credentials_ciphertext,credentials_present,enabled)
+				INSERT INTO project_messaging_providers (
+			id,
+			project_id,
+			name,
+			channel,
+			provider,
+			credentials_ciphertext,
+			credentials_present,
+			enabled,
+		)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
 		RETURNING `+messagingProviderProjection, id, projectID, name, channel, provider, ciphertext, credentialsPresent, input.Enabled))
 	if err != nil {
@@ -52,7 +70,18 @@ func (r *Repository) CreateMessagingProvider(ctx context.Context, id, projectID 
 	return item, nil
 }
 
-func (r *Repository) ListMessagingProviders(ctx context.Context, projectID uuid.UUID, actor MessagingActor, limit int, cursor *uuid.UUID) ([]domain.MessagingProvider, string, bool, error) {
+func (r *Repository) ListMessagingProviders(
+	ctx context.Context,
+	projectID uuid.UUID,
+	actor MessagingActor,
+	limit int,
+	cursor *uuid.UUID,
+) (
+	[]domain.MessagingProvider,
+	string,
+	bool,
+	error,
+) {
 	canManage, err := r.requireMessagingRead(ctx, projectID, actor)
 	if err != nil {
 		return nil, "", false, err
@@ -84,7 +113,15 @@ func (r *Repository) ListMessagingProviders(ctx context.Context, projectID uuid.
 	return items, next, canManage, nil
 }
 
-func (r *Repository) GetMessagingProvider(ctx context.Context, projectID, providerID uuid.UUID, actor MessagingActor) (domain.MessagingProvider, error) {
+func (r *Repository) GetMessagingProvider(
+	ctx context.Context,
+	projectID,
+	providerID uuid.UUID,
+	actor MessagingActor,
+) (
+	domain.MessagingProvider,
+	error,
+) {
 	if _, err := r.requireMessagingRead(ctx, projectID, actor); err != nil {
 		return domain.MessagingProvider{}, err
 	}
@@ -95,7 +132,16 @@ func (r *Repository) GetMessagingProvider(ctx context.Context, projectID, provid
 	return item, err
 }
 
-func (r *Repository) UpdateMessagingProvider(ctx context.Context, projectID, providerID uuid.UUID, actor MessagingActor, patch MessagingProviderPatch) (domain.MessagingProvider, error) {
+func (r *Repository) UpdateMessagingProvider(
+	ctx context.Context,
+	projectID,
+	providerID uuid.UUID,
+	actor MessagingActor,
+	patch MessagingProviderPatch,
+) (
+	domain.MessagingProvider,
+	error,
+) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.MessagingProvider{}, err
@@ -183,7 +229,12 @@ func (r *Repository) UpdateMessagingProvider(ctx context.Context, projectID, pro
 	return item, nil
 }
 
-func (r *Repository) DeleteMessagingProvider(ctx context.Context, projectID, providerID uuid.UUID, actor MessagingActor) error {
+func (r *Repository) DeleteMessagingProvider(
+	ctx context.Context,
+	projectID,
+	providerID uuid.UUID,
+	actor MessagingActor,
+) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err

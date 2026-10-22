@@ -335,7 +335,16 @@ func (r *Repository) CreateApp(
 			continue
 		}
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO project_apps (id,project_id,name,platform_label,enabled,workload_spec,workload_spec_sha256,artifact_quota_bytes)
+						INSERT INTO project_apps (
+				id,
+				project_id,
+				name,
+				platform_label,
+				enabled,
+				workload_spec,
+				workload_spec_sha256,
+				artifact_quota_bytes,
+			)
 			VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8)`, id, projectID, name, platformLabel, input.Enabled, canonical, digest, quotaBytes); err != nil {
 			return domain.App{}, mapError(err)
 		}

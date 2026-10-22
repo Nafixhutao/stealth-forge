@@ -157,8 +157,11 @@ func (a *App) runSetupWithContext(ctx context.Context) int {
 		}
 		return a.runWebBootstrap(ctx, a.systemChecks(ctx, layout.Root), layout, version, true)
 	}
-	if statePath := strings.TrimSpace(values["STEALTH_SETUP_STATE_FILE"]); statePath != "" && installengine.FileExists(statePath) {
-		if state, stateErr := a.loadSetupState(values); stateErr == nil && state.InstallRunID != "" && state.Phase != setupstate.PhaseComplete {
+	if statePath := strings.TrimSpace(values["STEALTH_SETUP_STATE_FILE"]); statePath != "" &&
+		installengine.FileExists(statePath) {
+		if state, stateErr := a.loadSetupState(values); stateErr == nil &&
+			state.InstallRunID != "" &&
+			state.Phase != setupstate.PhaseComplete {
 			version := readVersion(layout)
 			if version == "" {
 				version, err = imageVersion(values["STEALTH_API_IMAGE"])
@@ -200,7 +203,16 @@ func (a *App) runSetupWithContext(ctx context.Context) int {
 func signalContext() (context.Context, context.CancelFunc) {
 	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 }
-func (a *App) prepareSetup(ctx context.Context, layout InstallLayout, values map[string]string, apiURL, localURL, containerName, existingTunnelURL string, tunnelState *setupTunnelState) setupPreparedMessage {
+func (a *App) prepareSetup(
+	ctx context.Context,
+	layout InstallLayout,
+	values map[string]string,
+	apiURL,
+	localURL,
+	containerName,
+	existingTunnelURL string,
+	tunnelState *setupTunnelState,
+) setupPreparedMessage {
 	status, err := a.bootstrapStatus(ctx, apiURL+"/v1/bootstrap/status")
 	if err != nil {
 		if isBootstrapComplete(err) {

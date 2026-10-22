@@ -65,13 +65,13 @@ func MergeEnv(base map[string]string, updates map[string]string) (string, error)
 	values := make(map[string]string, len(base)+len(updates))
 	for key, value := range base {
 		if !ValidEnvKey(key) || strings.ContainsAny(value, "\r\n\x00") {
-			return "", fmt.Errorf("invalid configuration value for %s", key)
+			return "", fmt.Errorf("invalid configuration value for %q", key)
 		}
 		values[key] = value
 	}
 	for key, value := range updates {
 		if !ValidEnvKey(key) || strings.ContainsAny(value, "\r\n\x00") {
-			return "", fmt.Errorf("invalid configuration value for %s", key)
+			return "", fmt.Errorf("invalid configuration value for %q", key)
 		}
 		values[key] = value
 	}

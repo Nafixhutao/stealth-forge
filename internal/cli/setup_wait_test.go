@@ -122,7 +122,8 @@ func TestObserveBrowserSetupInstallerErrorBeforeTerminalStateStopsWithoutRetry(t
 	if invocations != 1 {
 		t.Fatalf("installer invocation count = %d, want 1", invocations)
 	}
-	if !strings.Contains(errorsOutput.String(), "Host installation failed before a terminal failure state was persisted.") || !strings.Contains(errorsOutput.String(), "stealth install --repair") {
+	if !strings.Contains(errorsOutput.String(), "Host installation failed before a terminal failure state was persisted.") ||
+		!strings.Contains(errorsOutput.String(), "stealth install --repair") {
 		t.Fatalf("actionable failure output = %q", errorsOutput.String())
 	}
 }
@@ -148,13 +149,17 @@ func TestObserveBrowserSetupInstallerPersistedFailureUsesNormalStatePath(t *test
 		return errors.New("compose execution failed")
 	})
 
-	if result.exitCode != 1 || result.cancelled || result.err != nil || result.lastObservedPhase != setupstate.PhaseFailed {
+	if result.exitCode != 1 ||
+		result.cancelled ||
+		result.err != nil ||
+		result.lastObservedPhase != setupstate.PhaseFailed {
 		t.Fatalf("persisted failure result = %#v", result)
 	}
 	if invocations != 1 {
 		t.Fatalf("installer invocation count = %d, want 1", invocations)
 	}
-	if !strings.Contains(errorsOutput.String(), "Installation failed.") || !strings.Contains(errorsOutput.String(), "Docker Compose could not start") {
+	if !strings.Contains(errorsOutput.String(), "Installation failed.") ||
+		!strings.Contains(errorsOutput.String(), "Docker Compose could not start") {
 		t.Fatalf("normal failure output = %q", errorsOutput.String())
 	}
 	if strings.Contains(errorsOutput.String(), "Host installation failed before a terminal failure state was persisted.") {
@@ -331,7 +336,8 @@ func TestCleanupUnrequestedSetupReportsRunnerFailure(t *testing.T) {
 	runner := &setupRunner{runErr: errors.New("docker cleanup failed")}
 	app := NewApp(strings.NewReader(""), io.Discard, io.Discard)
 	app.runner = runner
-	if err := app.cleanupUnrequestedSetup(context.Background(), newInstallLayout(root+"/install"), store, ""); err == nil || !strings.Contains(err.Error(), "docker cleanup failed") {
+	if err := app.cleanupUnrequestedSetup(context.Background(), newInstallLayout(root+"/install"), store, ""); err == nil ||
+		!strings.Contains(err.Error(), "docker cleanup failed") {
 		t.Fatalf("cleanup failure = %v", err)
 	}
 }

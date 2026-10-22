@@ -532,7 +532,19 @@ func (r *Repository) UpdateFunctionVariable(
 	var existing domain.FunctionVariable
 	var oldCiphertext []byte
 	err = tx.QueryRow(ctx, `SELECT `+functionVariableProjection+`,value_ciphertext FROM function_variables WHERE project_id=$1 AND function_id=$2 AND id=$3 FOR UPDATE`, projectID, functionID, variableID).
-		Scan(&existing.ID, &existing.FunctionID, &existing.ProjectID, &existing.Key, &existing.Kind, &existing.IsSecret, &existing.HasValue, &existing.Description, &existing.CreatedAt, &existing.UpdatedAt, &oldCiphertext)
+		Scan(
+			&existing.ID,
+			&existing.FunctionID,
+			&existing.ProjectID,
+			&existing.Key,
+			&existing.Kind,
+			&existing.IsSecret,
+			&existing.HasValue,
+			&existing.Description,
+			&existing.CreatedAt,
+			&existing.UpdatedAt,
+			&oldCiphertext,
+		)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.FunctionVariable{}, ErrNotFound
 	}

@@ -90,7 +90,8 @@ func TestBuildKitReadinessUsesClientProbeAndFailsClosed(t *testing.T) {
 		t.Fatalf("Readiness error = %v", err)
 	}
 	runner.stderr = "transport: authentication handshake failed: tls: failed to verify certificate"
-	if err := client.Ready(context.Background()); !errors.Is(err, ErrBuildKitAuthenticationFailed) || !errors.Is(err, ErrBuildKitUnavailable) {
+	if err := client.Ready(context.Background()); !errors.Is(err, ErrBuildKitAuthenticationFailed) ||
+		!errors.Is(err, ErrBuildKitUnavailable) {
 		t.Fatalf("TLS rejection was not classified safely: %v", err)
 	}
 }
@@ -108,7 +109,8 @@ func TestBuildKitClientRequiresCompleteMutualTLSConfig(t *testing.T) {
 			runner := &recordingRunner{}
 			client := testBuildKitClient(runner)
 			mutate(client)
-			if err := client.Ready(context.Background()); !errors.Is(err, ErrBuildKitTLSConfig) || !errors.Is(err, ErrBuildKitUnavailable) {
+			if err := client.Ready(context.Background()); !errors.Is(err, ErrBuildKitTLSConfig) ||
+				!errors.Is(err, ErrBuildKitUnavailable) {
 				t.Fatalf("Ready error = %v", err)
 			}
 			if runner.program != "" {

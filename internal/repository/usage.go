@@ -51,7 +51,15 @@ func incrementUsageTx(ctx context.Context, tx interface {
 	_, err := tx.Exec(
 		ctx,
 		`
-		INSERT INTO project_usage_daily (project_id,usage_date,api_request_count,api_egress_bytes,function_invocation_count,function_failure_count,function_compute_ms)
+				INSERT INTO project_usage_daily (
+			project_id,
+			usage_date,
+			api_request_count,
+			api_egress_bytes,
+			function_invocation_count,
+			function_failure_count,
+			function_compute_ms,
+		)
 		VALUES ($1,$2::date,$3,$4,$5,$6,$7)
 		ON CONFLICT (project_id,usage_date) DO UPDATE SET
 			api_request_count=project_usage_daily.api_request_count+EXCLUDED.api_request_count,

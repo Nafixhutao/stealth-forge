@@ -23,7 +23,14 @@ func (s *Server) listSiteDeployments(w http.ResponseWriter, r *http.Request) {
 		parsed := mustUUID(cursor)
 		cursorID = &parsed
 	}
-	items, next, canManage, err := s.repo.ListSiteDeployments(r.Context(), projectID, siteID, siteActorFrom(r), limit, cursorID)
+	items, next, canManage, err := s.repo.ListSiteDeployments(
+		r.Context(),
+		projectID,
+		siteID,
+		siteActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if siteResourceError(w, err) {
 		return
 	}
@@ -31,7 +38,11 @@ func (s *Server) listSiteDeployments(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"deployments": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"deployments": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) listSiteBuildLogs(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +79,11 @@ func (s *Server) listSiteBuildLogs(w http.ResponseWriter, r *http.Request) {
 	if next != "" {
 		nextCursor = &next
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"logs": items, "pagination": pagination{Limit: limit, NextCursor: nextCursor}})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"logs": items, "pagination": pagination{Limit: limit, NextCursor: nextCursor}},
+	)
 }
 
 func (s *Server) getSiteDeployment(w http.ResponseWriter, r *http.Request) {

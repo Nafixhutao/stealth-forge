@@ -175,7 +175,13 @@ func validateSetupStorageTest(state setupstate.State, request setupTestRequest) 
 	if request.PathStyle != nil {
 		pathStyle = *request.PathStyle
 	}
-	if endpoint != state.Draft.StorageS3Endpoint || region != state.Draft.StorageS3Region || bucket != state.Draft.StorageS3Bucket || accessKey != credentials.StorageS3AccessKey || secretKey != credentials.StorageS3SecretKey || useSSL != state.Draft.StorageS3UseSSL || pathStyle != state.Draft.StorageS3PathStyle {
+	if endpoint != state.Draft.StorageS3Endpoint ||
+		region != state.Draft.StorageS3Region ||
+		bucket != state.Draft.StorageS3Bucket ||
+		accessKey != credentials.StorageS3AccessKey ||
+		secretKey != credentials.StorageS3SecretKey ||
+		useSSL != state.Draft.StorageS3UseSSL ||
+		pathStyle != state.Draft.StorageS3PathStyle {
 		return errors.New("test the saved S3-compatible storage settings before installing")
 	}
 	return nil
@@ -211,7 +217,18 @@ func (s *Server) pingSetupStorage(ctx context.Context, state setupstate.State, r
 	if request.PathStyle != nil {
 		pathStyle = *request.PathStyle
 	}
-	store, err := storage.NewS3(storage.S3Options{Endpoint: endpoint, Region: region, Bucket: bucket, AccessKey: accessKey, SecretKey: secretKey, UseSSL: useSSL, ForcePathStyle: pathStyle, Prefix: state.Draft.StorageS3Prefix, StagingRoot: filepath.Join(s.config.StorageRoot, "setup-staging")}, s.config.StorageMaxFileSize)
+	options := storage.S3Options{
+		Endpoint:       endpoint,
+		Region:         region,
+		Bucket:         bucket,
+		AccessKey:      accessKey,
+		SecretKey:      secretKey,
+		UseSSL:         useSSL,
+		ForcePathStyle: pathStyle,
+		Prefix:         state.Draft.StorageS3Prefix,
+		StagingRoot:    filepath.Join(s.config.StorageRoot, "setup-staging"),
+	}
+	store, err := storage.NewS3(options, s.config.StorageMaxFileSize)
 	if err != nil {
 		return err
 	}

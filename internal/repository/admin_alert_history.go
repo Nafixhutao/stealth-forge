@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 
@@ -117,7 +118,7 @@ func (r *Repository) QueryAdminAlertEvents(
 	args := make([]any, 0, 7)
 	addArg := func(value any) string {
 		args = append(args, value)
-		return fmt.Sprintf("$%d", len(args))
+		return "$" + strconv.Itoa(len(args))
 	}
 	if query.RuleID != nil {
 		conditions = append(conditions, "e.rule_id_snapshot="+addArg(*query.RuleID)+"::uuid")

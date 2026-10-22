@@ -61,7 +61,8 @@ func TestLoadAppBuildSettingsRequiresCacheTargetBelowMaximum(t *testing.T) {
 	clearAppRuntimeEnv(t)
 	t.Setenv("APPS_RUNTIME_IMAGE_CACHE_MAX_BYTES", "4GiB")
 	t.Setenv("APPS_RUNTIME_IMAGE_CACHE_TARGET_BYTES", "4GiB")
-	if _, err := loadAppBuildSettings(); err == nil || !strings.Contains(err.Error(), "APPS_RUNTIME_IMAGE_CACHE_TARGET_BYTES") {
+	if _, err := loadAppBuildSettings(); err == nil ||
+		!strings.Contains(err.Error(), "APPS_RUNTIME_IMAGE_CACHE_TARGET_BYTES") {
 		t.Fatalf("invalid equal cache target/max returned %v", err)
 	}
 }

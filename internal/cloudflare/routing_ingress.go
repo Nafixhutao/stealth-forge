@@ -41,8 +41,19 @@ func consoleIngressRule(hostname, origin string) IngressRule {
 	return IngressRule{Hostname: hostname, Service: consoleOriginService(origin)}
 }
 
-func patchConsoleIngress(rules []IngressRule, consoleHostname, workloadHostname, desiredOrigin string) ([]IngressRule, string, error) {
-	if len(rules) == 0 || len(rules) > 64 || (desiredOrigin != ConsoleOriginProxy && desiredOrigin != ConsoleOriginTraefik) {
+func patchConsoleIngress(
+	rules []IngressRule,
+	consoleHostname,
+	workloadHostname,
+	desiredOrigin string,
+) (
+	[]IngressRule,
+	string,
+	error,
+) {
+	if len(rules) == 0 ||
+		len(rules) > 64 ||
+		(desiredOrigin != ConsoleOriginProxy && desiredOrigin != ConsoleOriginTraefik) {
 		return nil, "", errors.New("Cloudflare Tunnel ingress is structurally invalid for a Console-origin change")
 	}
 	consoleName, err := domainname.NormalizeHostname(consoleHostname)
@@ -123,7 +134,10 @@ func sameTunnelRules(left, right []IngressRule) bool {
 		return false
 	}
 	for i := range left {
-		if !sameIngressHostname(left[i].Hostname, right[i].Hostname) || left[i].Service != right[i].Service || !sameJSON(left[i].Origin, right[i].Origin) || !sameExtra(left[i].Extra, right[i].Extra) {
+		if !sameIngressHostname(left[i].Hostname, right[i].Hostname) ||
+			left[i].Service != right[i].Service ||
+			!sameJSON(left[i].Origin, right[i].Origin) ||
+			!sameExtra(left[i].Extra, right[i].Extra) {
 			return false
 		}
 	}
@@ -186,7 +200,8 @@ func sameIngress(left, right []IngressRule) bool {
 		return false
 	}
 	for i := range left {
-		if domainname.Canonical(left[i].Hostname) != domainname.Canonical(right[i].Hostname) || left[i].Service != right[i].Service {
+		if domainname.Canonical(left[i].Hostname) != domainname.Canonical(right[i].Hostname) ||
+			left[i].Service != right[i].Service {
 			return false
 		}
 	}

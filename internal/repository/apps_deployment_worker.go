@@ -41,14 +41,21 @@ func (r *Repository) ClaimNextAppDeployment(ctx context.Context, workerID string
 	if err != nil {
 		return AppBuildJob{}, err
 	}
-	deployment, sourcePath, _, _, _, _, _, err := appDeploymentByID(ctx, tx, projectID, appID, deploymentID, false, true)
+	fields, err := appDeploymentByID(ctx, tx, projectID, appID, deploymentID, false, true)
+	deployment, sourcePath := fields.Item, fields.SourcePath
 	if err != nil {
 		return AppBuildJob{}, err
 	}
 	if strings.TrimSpace(sourcePath) == "" {
 		return AppBuildJob{}, ErrInvalidAppDeployment
 	}
-	if err := r.enqueueWebhookEventTx(ctx, tx, projectID, "app_deployment.updated", "app_deployment", deploymentID, map[string]any{"app_id": appID.String(), "version": deployment.Version, "status": deployment.Status, "build_status": deployment.BuildStatus}); err != nil {
+	metadata := map[string]any{
+		"app_id":       appID.String(),
+		"version":      deployment.Version,
+		"status":       deployment.Status,
+		"build_status": deployment.BuildStatus,
+	}
+	if err := r.enqueueWebhookEventTx(ctx, tx, projectID, "app_deployment.updated", "app_deployment", deploymentID, metadata); err != nil {
 		return AppBuildJob{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -97,7 +104,8 @@ func (r *Repository) RequeueStaleAppDeployments(ctx context.Context, maxAge time
 		} else if err != nil {
 			return 0, err
 		}
-		_, _, _, _, _, _, reserved, err := appDeploymentByID(ctx, tx, item.projectID, item.appID, item.deploymentID, true, true)
+		fields, err := appDeploymentByID(ctx, tx, item.projectID, item.appID, item.deploymentID, true, true)
+		reserved := fields.ReservedBytes
 		if errors.Is(err, ErrNotFound) {
 			continue
 		}
@@ -152,7 +160,14 @@ func (r *Repository) RequeueStaleAppDeployments(ctx context.Context, maxAge time
 // DeferAppDeploymentBuild releases the current lease without making a
 // terminal claim when the dedicated BuildKit daemon became unavailable after
 // the readiness check. The same immutable build input remains queued.
-func (r *Repository) DeferAppDeploymentBuild(ctx context.Context, projectID, appID, deploymentID uuid.UUID, workerID, diagnostic string) error {
+func (r *Repository) DeferAppDeploymentBuild(
+	ctx context.Context,
+	projectID,
+	appID,
+	deploymentID uuid.UUID,
+	workerID,
+	diagnostic string,
+) error {
 	if !validFunctionWorkerID(workerID) {
 		return ErrInvalidAppDeployment
 	}
@@ -168,7 +183,8 @@ func (r *Repository) DeferAppDeploymentBuild(ctx context.Context, projectID, app
 	if _, err := appByID(ctx, tx, projectID, appID, true); err != nil {
 		return err
 	}
-	_, _, _, claimedBy, _, _, reserved, err := appDeploymentByID(ctx, tx, projectID, appID, deploymentID, true, true)
+	fields, err := appDeploymentByID(ctx, tx, projectID, appID, deploymentID, true, true)
+	claimedBy, reserved := fields.WorkerID, fields.ReservedBytes
 	if err != nil {
 		return err
 	}
@@ -221,8 +237,21 @@ func (r *Repository) DeferAppDeploymentBuild(ctx context.Context, projectID, app
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) ReserveAppImagePublish(ctx context.Context, projectID, appID, deploymentID uuid.UUID, workerID string, imageSize int64, cleanup ArtifactCleanupInput) error {
-	if !validFunctionWorkerID(workerID) || imageSize <= 0 || cleanup.ProjectID != projectID || cleanup.StoreKind != ArtifactCleanupAppImages || cleanup.Operation != ArtifactCleanupRelative || !validAppArtifactPath(cleanup.RelativePath) {
+func (r *Repository) ReserveAppImagePublish(
+	ctx context.Context,
+	projectID,
+	appID,
+	deploymentID uuid.UUID,
+	workerID string,
+	imageSize int64,
+	cleanup ArtifactCleanupInput,
+) error {
+	if !validFunctionWorkerID(workerID) ||
+		imageSize <= 0 ||
+		cleanup.ProjectID != projectID ||
+		cleanup.StoreKind != ArtifactCleanupAppImages ||
+		cleanup.Operation != ArtifactCleanupRelative ||
+		!validAppArtifactPath(cleanup.RelativePath) {
 		return ErrInvalidAppDeployment
 	}
 	tx, err := r.pool.Begin(ctx)
@@ -233,7 +262,8 @@ func (r *Repository) ReserveAppImagePublish(ctx context.Context, projectID, appI
 	if _, err := appByID(ctx, tx, projectID, appID, true); err != nil {
 		return err
 	}
-	_, _, _, claimedBy, _, _, reserved, err := appDeploymentByID(ctx, tx, projectID, appID, deploymentID, true, true)
+	fields, err := appDeploymentByID(ctx, tx, projectID, appID, deploymentID, true, true)
+	claimedBy, reserved := fields.WorkerID, fields.ReservedBytes
 	if err != nil {
 		return err
 	}
@@ -275,8 +305,31 @@ func (r *Repository) ReserveAppImagePublish(ctx context.Context, projectID, appI
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) CompleteAppDeploymentBuildWithCleanup(ctx context.Context, projectID, appID, deploymentID uuid.UUID, workerID, imageDigest, imagePath, archiveChecksum string, imageSize int64, cleanup ArtifactCleanupInput) (domain.AppDeployment, error) {
-	if !validFunctionWorkerID(workerID) || !buildkitmetadata.ValidDigest(imageDigest) || !validAppSHA256(archiveChecksum) || !validAppArtifactPath(imagePath) || imageSize <= 0 || cleanup.ProjectID != projectID || cleanup.StoreKind != ArtifactCleanupAppImages || cleanup.Operation != ArtifactCleanupRelative || cleanup.RelativePath != imagePath {
+func (r *Repository) CompleteAppDeploymentBuildWithCleanup(
+	ctx context.Context,
+	projectID,
+	appID,
+	deploymentID uuid.UUID,
+	workerID,
+	imageDigest,
+	imagePath,
+	archiveChecksum string,
+	imageSize int64,
+	cleanup ArtifactCleanupInput,
+) (
+	domain.AppDeployment,
+	error,
+) {
+	identityOK := validFunctionWorkerID(workerID)
+	artifactOK := buildkitmetadata.ValidDigest(imageDigest) &&
+		validAppSHA256(archiveChecksum) &&
+		validAppArtifactPath(imagePath) &&
+		imageSize > 0
+	cleanupOK := cleanup.ProjectID == projectID &&
+		cleanup.StoreKind == ArtifactCleanupAppImages &&
+		cleanup.Operation == ArtifactCleanupRelative &&
+		cleanup.RelativePath == imagePath
+	if !identityOK || !artifactOK || !cleanupOK {
 		return domain.AppDeployment{}, ErrInvalidAppDeployment
 	}
 	tx, err := r.pool.Begin(ctx)
@@ -288,7 +341,9 @@ func (r *Repository) CompleteAppDeploymentBuildWithCleanup(ctx context.Context, 
 	if err != nil {
 		return domain.AppDeployment{}, err
 	}
-	item, _, _, claimedBy, selectRequested, selectionBaseDeploymentID, reserved, err := appDeploymentByID(ctx, tx, projectID, appID, deploymentID, true, true)
+	fields, err := appDeploymentByID(ctx, tx, projectID, appID, deploymentID, true, true)
+	item, claimedBy := fields.Item, fields.WorkerID
+	selectRequested, selectionBaseDeploymentID, reserved := fields.SelectRequested, fields.SelectionBaseDeploymentID, fields.ReservedBytes
 	if err != nil {
 		return domain.AppDeployment{}, err
 	}
@@ -321,7 +376,9 @@ func (r *Repository) CompleteAppDeploymentBuildWithCleanup(ctx context.Context, 
 		return domain.AppDeployment{}, err
 	}
 	autoSelected := false
-	if selectRequested && sameOptionalID(app.DesiredDeploymentID, selectionBaseDeploymentID) && app.DesiredGeneration < math.MaxInt64 {
+	if selectRequested &&
+		optionalStringEqual(app.DesiredDeploymentID, selectionBaseDeploymentID) &&
+		app.DesiredGeneration < math.MaxInt64 {
 		if _, err := tx.Exec(ctx, `UPDATE project_apps SET desired_deployment_id=$3,desired_generation=desired_generation+1,runtime_status='pending',runtime_error=NULL,updated_at=now() WHERE project_id=$1 AND id=$2 AND desired_generation=$4`, projectID, appID, deploymentID, app.DesiredGeneration); err != nil {
 			return domain.AppDeployment{}, err
 		}
@@ -330,7 +387,8 @@ func (r *Repository) CompleteAppDeploymentBuildWithCleanup(ctx context.Context, 
 		}
 		autoSelected = true
 	}
-	item, _, _, _, _, _, _, err = appDeploymentByID(ctx, tx, projectID, appID, deploymentID, false, false)
+	fields, err = appDeploymentByID(ctx, tx, projectID, appID, deploymentID, false, false)
+	item = fields.Item
 	if err != nil {
 		return domain.AppDeployment{}, err
 	}
@@ -351,14 +409,17 @@ func (r *Repository) CompleteAppDeploymentBuildWithCleanup(ctx context.Context, 
 	return item, nil
 }
 
-func sameOptionalID(left, right *string) bool {
-	if left == nil || right == nil {
-		return left == nil && right == nil
-	}
-	return *left == *right
-}
-
-func (r *Repository) FailAppDeploymentBuild(ctx context.Context, projectID, appID, deploymentID uuid.UUID, workerID, message string) (domain.AppDeployment, error) {
+func (r *Repository) FailAppDeploymentBuild(
+	ctx context.Context,
+	projectID,
+	appID,
+	deploymentID uuid.UUID,
+	workerID,
+	message string,
+) (
+	domain.AppDeployment,
+	error,
+) {
 	if !validFunctionWorkerID(workerID) {
 		return domain.AppDeployment{}, ErrInvalidAppDeployment
 	}
@@ -377,7 +438,8 @@ func (r *Repository) FailAppDeploymentBuild(ctx context.Context, projectID, appI
 	if _, err := appByID(ctx, tx, projectID, appID, true); err != nil {
 		return domain.AppDeployment{}, err
 	}
-	item, _, _, claimedBy, _, _, reserved, err := appDeploymentByID(ctx, tx, projectID, appID, deploymentID, true, true)
+	fields, err := appDeploymentByID(ctx, tx, projectID, appID, deploymentID, true, true)
+	item, claimedBy, reserved := fields.Item, fields.WorkerID, fields.ReservedBytes
 	if err != nil {
 		return domain.AppDeployment{}, err
 	}
@@ -406,7 +468,8 @@ func (r *Repository) FailAppDeploymentBuild(ctx context.Context, projectID, appI
 	if _, err := tx.Exec(ctx, `UPDATE app_deployments SET status='failed',build_status='failed',build_worker_id=NULL,reserved_image_bytes=0,reserved_image_path=NULL,error_message=$4,finished_at=now(),updated_at=now() WHERE project_id=$1 AND app_id=$2 AND id=$3 AND build_worker_id=$5 AND status='building' AND build_status='running'`, projectID, appID, deploymentID, message, workerID); err != nil {
 		return domain.AppDeployment{}, err
 	}
-	item, _, _, _, _, _, _, err = appDeploymentByID(ctx, tx, projectID, appID, deploymentID, false, false)
+	fields, err = appDeploymentByID(ctx, tx, projectID, appID, deploymentID, false, false)
+	item = fields.Item
 	if err != nil {
 		return domain.AppDeployment{}, err
 	}
@@ -424,15 +487,25 @@ func (r *Repository) FailAppDeploymentBuild(ctx context.Context, projectID, appI
 	return item, nil
 }
 
-func (r *Repository) AppendAppBuildLog(ctx context.Context, projectID, appID, deploymentID uuid.UUID, workerID string, id uuid.UUID, level, message string) (domain.AppBuildLog, error) {
-	if !validFunctionWorkerID(workerID) || id == uuid.Nil || id.Version() != uuid.Version(7) {
+func (r *Repository) AppendAppBuildLog(
+	ctx context.Context,
+	projectID,
+	appID,
+	deploymentID uuid.UUID,
+	workerID string,
+	entry BuildLogEntry,
+) (
+	domain.AppBuildLog,
+	error,
+) {
+	if !validFunctionWorkerID(workerID) || entry.ID == uuid.Nil || entry.ID.Version() != uuid.Version(7) {
 		return domain.AppBuildLog{}, ErrInvalidAppDeployment
 	}
-	level = strings.ToLower(strings.TrimSpace(level))
+	level := strings.ToLower(strings.TrimSpace(entry.Level))
 	if level != "info" && level != "warn" && level != "error" {
 		return domain.AppBuildLog{}, ErrInvalidAppDeployment
 	}
-	message = normalizeAppBuildLogMessage(message)
+	message := normalizeAppBuildLogMessage(entry.Message)
 	if message == "" {
 		return domain.AppBuildLog{}, ErrInvalidAppDeployment
 	}
@@ -441,7 +514,8 @@ func (r *Repository) AppendAppBuildLog(ctx context.Context, projectID, appID, de
 		return domain.AppBuildLog{}, err
 	}
 	defer tx.Rollback(ctx)
-	_, _, _, claimedBy, _, _, _, err := appDeploymentByID(ctx, tx, projectID, appID, deploymentID, true, true)
+	fields, err := appDeploymentByID(ctx, tx, projectID, appID, deploymentID, true, true)
+	claimedBy := fields.WorkerID
 	if err != nil {
 		return domain.AppBuildLog{}, err
 	}
@@ -452,7 +526,7 @@ func (r *Repository) AppendAppBuildLog(ctx context.Context, projectID, appID, de
 	if claimedBy == nil || *claimedBy != workerID || status != "building" || buildStatus != "running" {
 		return domain.AppBuildLog{}, ErrAppBuildNotOwned
 	}
-	item, err := appendAppBuildLogTxWithID(ctx, tx, projectID, appID, deploymentID, id, level, message)
+	item, err := appendAppBuildLogTxWithID(ctx, tx, projectID, appID, deploymentID, entry.ID, level, message)
 	if err != nil {
 		return domain.AppBuildLog{}, err
 	}
@@ -462,7 +536,18 @@ func (r *Repository) AppendAppBuildLog(ctx context.Context, projectID, appID, de
 	return item, nil
 }
 
-func appendAppBuildLogTx(ctx context.Context, tx pgx.Tx, projectID, appID, deploymentID uuid.UUID, level, message string) (domain.AppBuildLog, error) {
+func appendAppBuildLogTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID,
+	appID,
+	deploymentID uuid.UUID,
+	level,
+	message string,
+) (
+	domain.AppBuildLog,
+	error,
+) {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return domain.AppBuildLog{}, err
@@ -470,7 +555,19 @@ func appendAppBuildLogTx(ctx context.Context, tx pgx.Tx, projectID, appID, deplo
 	return appendAppBuildLogTxWithID(ctx, tx, projectID, appID, deploymentID, id, level, message)
 }
 
-func appendAppBuildLogTxWithID(ctx context.Context, tx pgx.Tx, projectID, appID, deploymentID, id uuid.UUID, level, message string) (domain.AppBuildLog, error) {
+func appendAppBuildLogTxWithID(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID,
+	appID,
+	deploymentID,
+	id uuid.UUID,
+	level,
+	message string,
+) (
+	domain.AppBuildLog,
+	error,
+) {
 	level = strings.ToLower(strings.TrimSpace(level))
 	if level != "info" && level != "warn" && level != "error" {
 		return domain.AppBuildLog{}, ErrInvalidAppDeployment

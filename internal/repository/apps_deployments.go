@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 
 	"github.com/Nafixhutao/stealth-forge/internal/appbuildspec"
 	"github.com/Nafixhutao/stealth-forge/internal/domain"
@@ -63,15 +64,37 @@ type AppBuildJob struct {
 
 type appDeploymentScanner interface{ Scan(...any) error }
 
+// BuildLogEntry is one worker-emitted build log line. The id, level, and
+// message travel together, so grouping them removes the positional swap hazard
+// between adjacent same-typed arguments.
+type BuildLogEntry struct {
+	ID      uuid.UUID
+	Level   string
+	Message string
+}
+
+// appDeploymentFields carries the private build and artifact columns that only
+// trusted worker queries select. Grouping them keeps the projection scannable
+// without an eight-value return that every caller has to destructure.
+type appDeploymentFields struct {
+	Item                      domain.AppDeployment
+	SourcePath                string
+	ImagePath                 *string
+	WorkerID                  *string
+	SelectRequested           bool
+	SelectionBaseDeploymentID *string
+	ReservedBytes             int64
+}
+
 const appDeploymentProjection = `d.id::text,d.app_id::text,d.project_id::text,d.version,d.source,d.source_name,d.source_size_bytes,d.source_checksum_sha256,d.dockerfile_path,d.context_directory,d.target,d.platform,d.workload_spec,d.workload_spec_sha256,d.status,d.build_status,d.error_message,d.image_digest,d.image_archive_sha256,d.image_size_bytes,COALESCE(a.desired_deployment_id=d.id,false),d.created_by_account_id,d.queued_at,d.build_started_at,d.built_at,d.finished_at,d.created_at,d.updated_at`
 const appBuildLogProjection = `id,deployment_id,app_id,project_id,sequence,level,message,created_at`
 
 func scanAppDeployment(row appDeploymentScanner) (domain.AppDeployment, error) {
-	item, _, _, _, _, _, _, err := scanAppDeploymentFields(row, false)
-	return item, err
+	fields, err := scanAppDeploymentFields(row, false)
+	return fields.Item, err
 }
 
-func scanAppDeploymentFields(row appDeploymentScanner, includePrivate bool) (domain.AppDeployment, string, *string, *string, bool, *string, int64, error) {
+func scanAppDeploymentFields(row appDeploymentScanner, includePrivate bool) (appDeploymentFields, error) {
 	var item domain.AppDeployment
 	var rawSpec []byte
 	var sourceName, target, errorMessage, imageDigest, archiveChecksum *string
@@ -93,7 +116,7 @@ func scanAppDeploymentFields(row appDeploymentScanner, includePrivate bool) (dom
 		args = append(args, &sourcePath, &imagePath, &workerID, &selectRequested, &selectionBaseDeploymentID, &reservedBytes)
 	}
 	if err := row.Scan(args...); err != nil {
-		return domain.AppDeployment{}, "", nil, nil, false, nil, 0, err
+		return appDeploymentFields{}, err
 	}
 	item.SourceName = sourceName
 	item.Target = target
@@ -107,19 +130,31 @@ func scanAppDeploymentFields(row appDeploymentScanner, includePrivate bool) (dom
 	}
 	spec, err := workloadspec.Decode(rawSpec)
 	if err != nil {
-		return domain.AppDeployment{}, "", nil, nil, false, nil, 0, fmt.Errorf("%w: stored AppDeployment WorkloadSpec: %v", ErrAppDeploymentSnapshotInvalid, err)
+		return appDeploymentFields{}, fmt.Errorf(
+			"%w: stored AppDeployment WorkloadSpec: %v",
+			ErrAppDeploymentSnapshotInvalid,
+			err,
+		)
 	}
 	digest, err := workloadspec.Digest(spec)
 	if err != nil || digest != item.WorkloadSpecSHA256 {
-		return domain.AppDeployment{}, "", nil, nil, false, nil, 0, ErrAppDeploymentSnapshotInvalid
+		return appDeploymentFields{}, ErrAppDeploymentSnapshotInvalid
 	}
 	item.WorkloadSnapshot = spec
-	return item, sourcePath, imagePath, workerID, selectRequested, selectionBaseDeploymentID, reservedBytes, nil
+	return appDeploymentFields{
+		Item:                      item,
+		SourcePath:                sourcePath,
+		ImagePath:                 imagePath,
+		WorkerID:                  workerID,
+		SelectRequested:           selectRequested,
+		SelectionBaseDeploymentID: selectionBaseDeploymentID,
+		ReservedBytes:             reservedBytes,
+	}, nil
 }
 
 func appDeploymentByID(ctx context.Context, query interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
-}, projectID, appID, deploymentID uuid.UUID, lock, includePrivate bool) (domain.AppDeployment, string, *string, *string, bool, *string, int64, error) {
+}, projectID, appID, deploymentID uuid.UUID, lock, includePrivate bool) (appDeploymentFields, error) {
 	suffix := ""
 	if lock {
 		suffix = " FOR UPDATE OF d"
@@ -133,26 +168,58 @@ func appDeploymentByID(ctx context.Context, query interface {
 			FROM app_deployments d JOIN project_apps a ON a.id=d.app_id AND a.project_id=d.project_id
 			WHERE d.project_id=$1 AND d.app_id=$2 AND d.id=$3`+suffix,
 		projectID, appID, deploymentID)
-	item, sourcePath, imagePath, workerID, selectRequested, selectionBaseDeploymentID, reservedBytes, err := scanAppDeploymentFields(row, includePrivate)
+	fields, err := scanAppDeploymentFields(row, includePrivate)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.AppDeployment{}, "", nil, nil, false, nil, 0, ErrNotFound
+		return appDeploymentFields{}, ErrNotFound
 	}
-	return item, sourcePath, imagePath, workerID, selectRequested, selectionBaseDeploymentID, reservedBytes, err
+	return fields, err
 }
 
-func (r *Repository) CreateAppDeployment(ctx context.Context, id, projectID, appID uuid.UUID, actor AppActor, input AppDeploymentInput) (domain.AppDeployment, error) {
+func (r *Repository) CreateAppDeployment(
+	ctx context.Context,
+	id,
+	projectID,
+	appID uuid.UUID,
+	actor AppActor,
+	input AppDeploymentInput,
+) (
+	domain.AppDeployment,
+	error,
+) {
 	buildSpec, err := appbuildspec.Normalize(input.BuildSpec)
-	if err != nil || id == uuid.Nil || id.Version() != uuid.Version(7) || input.SourceSizeBytes <= 0 || !validAppSHA256(input.SourceChecksum) || !validAppArtifactPath(input.SourcePath) || storage.ValidateFilename(input.SourceName) != nil {
+	if err != nil ||
+		id == uuid.Nil ||
+		id.Version() != uuid.Version(7) ||
+		input.SourceSizeBytes <= 0 ||
+		!validAppSHA256(input.SourceChecksum) ||
+		!validAppArtifactPath(input.SourcePath) ||
+		storage.ValidateFilename(input.SourceName) != nil {
 		return domain.AppDeployment{}, ErrInvalidAppDeployment
 	}
-	cleanup := ArtifactCleanupInput{ProjectID: projectID, StoreKind: ArtifactCleanupAppSources, Operation: ArtifactCleanupRelative, RelativePath: input.SourcePath}
+	cleanup := ArtifactCleanupInput{
+		ProjectID:    projectID,
+		StoreKind:    ArtifactCleanupAppSources,
+		Operation:    ArtifactCleanupRelative,
+		RelativePath: input.SourcePath,
+	}
 	if input.PublishCleanup == nil || *input.PublishCleanup != cleanup {
 		return domain.AppDeployment{}, ErrInvalidAppDeployment
 	}
 	return r.createAppDeployment(ctx, id, projectID, appID, actor, input, buildSpec)
 }
 
-func (r *Repository) createAppDeployment(ctx context.Context, id, projectID, appID uuid.UUID, actor AppActor, input AppDeploymentInput, buildSpec appbuildspec.Spec) (domain.AppDeployment, error) {
+func (r *Repository) createAppDeployment(
+	ctx context.Context,
+	id,
+	projectID,
+	appID uuid.UUID,
+	actor AppActor,
+	input AppDeploymentInput,
+	buildSpec appbuildspec.Spec,
+) (
+	domain.AppDeployment,
+	error,
+) {
 	cleanup := *input.PublishCleanup
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -219,7 +286,8 @@ func (r *Repository) createAppDeployment(ctx context.Context, id, projectID, app
 	if quotaUpdate.RowsAffected() != 1 {
 		return domain.AppDeployment{}, ErrAppArtifactQuotaExceeded
 	}
-	item, _, _, _, _, _, _, err := appDeploymentByID(ctx, tx, projectID, appID, id, false, false)
+	fields, err := appDeploymentByID(ctx, tx, projectID, appID, id, false, false)
+	item := fields.Item
 	if err != nil {
 		return domain.AppDeployment{}, err
 	}
@@ -237,7 +305,13 @@ func (r *Repository) createAppDeployment(ctx context.Context, id, projectID, app
 	return item, nil
 }
 
-func consumeAppSourceUploadReservationTx(ctx context.Context, tx pgx.Tx, cleanup ArtifactCleanupInput, appID uuid.UUID, size int64) error {
+func consumeAppSourceUploadReservationTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	cleanup ArtifactCleanupInput,
+	appID uuid.UUID,
+	size int64,
+) error {
 	var reservedAppID *uuid.UUID
 	var reservedBytes int64
 	err := tx.QueryRow(ctx, `SELECT quota_app_id,quota_reserved_bytes FROM artifact_cleanup_jobs WHERE project_id=$1 AND store_kind=$2 AND operation=$3 AND relative_path=$4 AND status='reserved' AND leased_at IS NULL FOR UPDATE`, cleanup.ProjectID, cleanup.StoreKind, cleanup.Operation, cleanup.RelativePath).Scan(&reservedAppID, &reservedBytes)
@@ -263,7 +337,14 @@ func consumeAppSourceUploadReservationTx(ctx context.Context, tx pgx.Tx, cleanup
 // promoteAppImagePublishCleanupTx releases an image publish reservation when
 // its owning build fails or becomes stale. The immutable path is tied to the
 // deployment row so one build cannot consume another build's quota reservation.
-func promoteAppImagePublishCleanupTx(ctx context.Context, tx pgx.Tx, projectID, appID uuid.UUID, imagePath string, reserved int64) error {
+func promoteAppImagePublishCleanupTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID,
+	appID uuid.UUID,
+	imagePath string,
+	reserved int64,
+) error {
 	if !validAppArtifactPath(imagePath) || reserved <= 0 {
 		return ErrArtifactPublishLost
 	}
@@ -282,7 +363,19 @@ func promoteAppImagePublishCleanupTx(ctx context.Context, tx pgx.Tx, projectID, 
 	return nil
 }
 
-func (r *Repository) ListAppDeployments(ctx context.Context, projectID, appID uuid.UUID, actor AppActor, limit int, cursor *int64) ([]domain.AppDeployment, string, bool, error) {
+func (r *Repository) ListAppDeployments(
+	ctx context.Context,
+	projectID,
+	appID uuid.UUID,
+	actor AppActor,
+	limit int,
+	cursor *int64,
+) (
+	[]domain.AppDeployment,
+	string,
+	bool,
+	error,
+) {
 	if limit < 1 || limit > 100 {
 		return nil, "", false, ErrInvalidAppDeployment
 	}
@@ -315,13 +408,22 @@ func (r *Repository) ListAppDeployments(ctx context.Context, projectID, appID uu
 	}
 	next := ""
 	if len(items) > limit {
-		next = fmt.Sprint(items[limit-1].Version)
+		next = strconv.FormatInt(items[limit-1].Version, 10)
 		items = items[:limit]
 	}
 	return items, next, canManage, nil
 }
 
-func (r *Repository) GetAppDeployment(ctx context.Context, projectID, appID, deploymentID uuid.UUID, actor AppActor) (domain.AppDeployment, error) {
+func (r *Repository) GetAppDeployment(
+	ctx context.Context,
+	projectID,
+	appID,
+	deploymentID uuid.UUID,
+	actor AppActor,
+) (
+	domain.AppDeployment,
+	error,
+) {
 	if _, err := r.requireAppRead(ctx, projectID, actor); err != nil {
 		return domain.AppDeployment{}, err
 	}
@@ -331,11 +433,23 @@ func (r *Repository) GetAppDeployment(ctx context.Context, projectID, appID, dep
 func publicAppDeploymentByID(ctx context.Context, query interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }, projectID, appID, deploymentID uuid.UUID) (domain.AppDeployment, error) {
-	item, _, _, _, _, _, _, err := appDeploymentByID(ctx, query, projectID, appID, deploymentID, false, false)
+	fields, err := appDeploymentByID(ctx, query, projectID, appID, deploymentID, false, false)
+	item := fields.Item
 	return item, err
 }
 
-func (r *Repository) ListAppBuildLogs(ctx context.Context, projectID, appID, deploymentID uuid.UUID, actor AppActor, limit int, after int64) ([]domain.AppBuildLog, error) {
+func (r *Repository) ListAppBuildLogs(
+	ctx context.Context,
+	projectID,
+	appID,
+	deploymentID uuid.UUID,
+	actor AppActor,
+	limit int,
+	after int64,
+) (
+	[]domain.AppBuildLog,
+	error,
+) {
 	if limit < 1 || limit > 1000 || after < 0 {
 		return nil, ErrInvalidAppDeployment
 	}
@@ -364,7 +478,16 @@ func (r *Repository) ListAppBuildLogs(ctx context.Context, projectID, appID, dep
 	return items, rows.Err()
 }
 
-func (r *Repository) SelectAppDeployment(ctx context.Context, projectID, appID, deploymentID uuid.UUID, actor AppActor) (domain.AppDeployment, error) {
+func (r *Repository) SelectAppDeployment(
+	ctx context.Context,
+	projectID,
+	appID,
+	deploymentID uuid.UUID,
+	actor AppActor,
+) (
+	domain.AppDeployment,
+	error,
+) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.AppDeployment{}, err
@@ -377,11 +500,17 @@ func (r *Repository) SelectAppDeployment(ctx context.Context, projectID, appID, 
 	if err != nil {
 		return domain.AppDeployment{}, err
 	}
-	item, _, imagePath, _, _, _, _, err := appDeploymentByID(ctx, tx, projectID, appID, deploymentID, true, true)
+	fields, err := appDeploymentByID(ctx, tx, projectID, appID, deploymentID, true, true)
+	item, imagePath := fields.Item, fields.ImagePath
 	if err != nil {
 		return domain.AppDeployment{}, err
 	}
-	if item.BuildStatus != "succeeded" || item.Status != "ready" || item.ImageDigest == nil || item.ImageArchiveSHA256 == nil || item.ImageSizeBytes == nil || imagePath == nil {
+	if item.BuildStatus != "succeeded" ||
+		item.Status != "ready" ||
+		item.ImageDigest == nil ||
+		item.ImageArchiveSHA256 == nil ||
+		item.ImageSizeBytes == nil ||
+		imagePath == nil {
 		return domain.AppDeployment{}, ErrAppDeploymentNotReady
 	}
 	if app.DesiredDeploymentID == nil || *app.DesiredDeploymentID != deploymentID.String() {
@@ -400,7 +529,8 @@ func (r *Repository) SelectAppDeployment(ctx context.Context, projectID, appID, 
 			return domain.AppDeployment{}, err
 		}
 	}
-	item, _, _, _, _, _, _, err = appDeploymentByID(ctx, tx, projectID, appID, deploymentID, false, false)
+	fields, err = appDeploymentByID(ctx, tx, projectID, appID, deploymentID, false, false)
+	item = fields.Item
 	if err != nil {
 		return domain.AppDeployment{}, err
 	}
@@ -410,7 +540,13 @@ func (r *Repository) SelectAppDeployment(ctx context.Context, projectID, appID, 
 	return item, nil
 }
 
-func (r *Repository) DeleteAppDeployment(ctx context.Context, projectID, appID, deploymentID uuid.UUID, actor AppActor) error {
+func (r *Repository) DeleteAppDeployment(
+	ctx context.Context,
+	projectID,
+	appID,
+	deploymentID uuid.UUID,
+	actor AppActor,
+) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -423,7 +559,8 @@ func (r *Repository) DeleteAppDeployment(ctx context.Context, projectID, appID, 
 	if err != nil {
 		return err
 	}
-	item, sourcePath, imagePath, _, _, _, reserved, err := appDeploymentByID(ctx, tx, projectID, appID, deploymentID, true, true)
+	fields, err := appDeploymentByID(ctx, tx, projectID, appID, deploymentID, true, true)
+	item, sourcePath, imagePath, reserved := fields.Item, fields.SourcePath, fields.ImagePath, fields.ReservedBytes
 	if err != nil {
 		return err
 	}

@@ -64,7 +64,15 @@ func TestConsoleIdentityFlowIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"organization"`
 	}
-	requestJSON(t, client, http.MethodPost, server.URL+"/v1/account/registrations", map[string]string{"email": email, "password": password}, http.StatusCreated, &registration)
+	requestJSON(
+		t,
+		client,
+		http.MethodPost,
+		server.URL+"/v1/account/registrations",
+		map[string]string{"email": email, "password": password},
+		http.StatusCreated,
+		&registration,
+	)
 	t.Cleanup(func() {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM audit_events WHERE actor_account_id=$1 OR organization_id=$2`, registration.Account.ID, registration.Organization.ID)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM organizations WHERE id=$1`, registration.Organization.ID)
@@ -85,7 +93,15 @@ func TestConsoleIdentityFlowIntegration(t *testing.T) {
 	// exposes only safe session metadata and lets the first browser revoke the
 	// other one without invalidating its own current session.
 	secondSessionClient := newIntegrationClient(t)
-	requestJSON(t, secondSessionClient, http.MethodPost, server.URL+"/v1/sessions/email-password", map[string]string{"email": email, "password": password}, http.StatusNoContent, nil)
+	requestJSON(
+		t,
+		secondSessionClient,
+		http.MethodPost,
+		server.URL+"/v1/sessions/email-password",
+		map[string]string{"email": email, "password": password},
+		http.StatusNoContent,
+		nil,
+	)
 	var sessions struct {
 		Sessions []struct {
 			ID        string `json:"id"`
@@ -108,12 +124,28 @@ func TestConsoleIdentityFlowIntegration(t *testing.T) {
 	if currentCount != 1 || otherSessionID == "" {
 		t.Fatalf("session current markers = %+v", sessions.Sessions)
 	}
-	requestJSON(t, client, http.MethodDelete, server.URL+"/v1/account/sessions/"+otherSessionID, nil, http.StatusNoContent, nil)
+	requestJSON(
+		t,
+		client,
+		http.MethodDelete,
+		server.URL+"/v1/account/sessions/"+otherSessionID,
+		nil,
+		http.StatusNoContent,
+		nil,
+	)
 	requestJSON(t, secondSessionClient, http.MethodGet, server.URL+"/v1/account", nil, http.StatusUnauthorized, nil)
 
 	// Re-authenticate the second browser and exercise the bulk action. It
 	// preserves the caller's current session and reports the number revoked.
-	requestJSON(t, secondSessionClient, http.MethodPost, server.URL+"/v1/sessions/email-password", map[string]string{"email": email, "password": password}, http.StatusNoContent, nil)
+	requestJSON(
+		t,
+		secondSessionClient,
+		http.MethodPost,
+		server.URL+"/v1/sessions/email-password",
+		map[string]string{"email": email, "password": password},
+		http.StatusNoContent,
+		nil,
+	)
 	var revoked struct {
 		Count int64 `json:"revoked"`
 	}
@@ -142,8 +174,18 @@ func TestConsoleIdentityFlowIntegration(t *testing.T) {
 			Slug string `json:"slug"`
 		} `json:"organization"`
 	}
-	requestJSON(t, client, http.MethodPatch, server.URL+"/v1/organizations/"+registration.Organization.ID, map[string]string{"name": updatedOrganizationName, "slug": updatedOrganizationSlug}, http.StatusOK, &updatedOrganization)
-	if updatedOrganization.Organization.ID != registration.Organization.ID || updatedOrganization.Organization.Name != updatedOrganizationName || updatedOrganization.Organization.Slug != updatedOrganizationSlug {
+	requestJSON(
+		t,
+		client,
+		http.MethodPatch,
+		server.URL+"/v1/organizations/"+registration.Organization.ID,
+		map[string]string{"name": updatedOrganizationName, "slug": updatedOrganizationSlug},
+		http.StatusOK,
+		&updatedOrganization,
+	)
+	if updatedOrganization.Organization.ID != registration.Organization.ID ||
+		updatedOrganization.Organization.Name != updatedOrganizationName ||
+		updatedOrganization.Organization.Slug != updatedOrganizationSlug {
 		t.Fatalf("updated organization = %+v", updatedOrganization.Organization)
 	}
 
@@ -154,7 +196,15 @@ func TestConsoleIdentityFlowIntegration(t *testing.T) {
 			Metadata   map[string]any `json:"metadata"`
 		} `json:"events"`
 	}
-	requestJSON(t, client, http.MethodGet, server.URL+"/v1/organizations/"+registration.Organization.ID+"/audit-events", nil, http.StatusOK, &auditEvents)
+	requestJSON(
+		t,
+		client,
+		http.MethodGet,
+		server.URL+"/v1/organizations/"+registration.Organization.ID+"/audit-events",
+		nil,
+		http.StatusOK,
+		&auditEvents,
+	)
 	if len(auditEvents.Events) == 0 {
 		t.Fatal("organization audit events missing")
 	}
@@ -167,14 +217,30 @@ func TestConsoleIdentityFlowIntegration(t *testing.T) {
 	var ownerMemberships struct {
 		CanManage bool `json:"can_manage"`
 	}
-	requestJSON(t, client, http.MethodGet, server.URL+"/v1/organizations/"+registration.Organization.ID+"/memberships", nil, http.StatusOK, &ownerMemberships)
+	requestJSON(
+		t,
+		client,
+		http.MethodGet,
+		server.URL+"/v1/organizations/"+registration.Organization.ID+"/memberships",
+		nil,
+		http.StatusOK,
+		&ownerMemberships,
+	)
 	if !ownerMemberships.CanManage {
 		t.Fatal("organization owner should have can_manage capability")
 	}
 	var ownerProjects struct {
 		CanManage bool `json:"can_manage"`
 	}
-	requestJSON(t, client, http.MethodGet, server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects", nil, http.StatusOK, &ownerProjects)
+	requestJSON(
+		t,
+		client,
+		http.MethodGet,
+		server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects",
+		nil,
+		http.StatusOK,
+		&ownerProjects,
+	)
 	if !ownerProjects.CanManage {
 		t.Fatal("organization owner should have project creation capability")
 	}
@@ -185,7 +251,15 @@ func TestConsoleIdentityFlowIntegration(t *testing.T) {
 		} `json:"project"`
 	}
 	createdName := "integration-project-" + uniqueID.String()[:8]
-	requestJSON(t, client, http.MethodPost, server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects", map[string]string{"name": createdName}, http.StatusCreated, &project)
+	requestJSON(
+		t,
+		client,
+		http.MethodPost,
+		server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects",
+		map[string]string{"name": createdName},
+		http.StatusCreated,
+		&project,
+	)
 	requestJSON(t, client, http.MethodGet, server.URL+"/v1/projects/"+project.Project.ID, nil, http.StatusOK, &struct{}{})
 	var projectAudit struct {
 		Events []struct {
@@ -193,7 +267,15 @@ func TestConsoleIdentityFlowIntegration(t *testing.T) {
 			Metadata map[string]any `json:"metadata"`
 		} `json:"events"`
 	}
-	requestJSON(t, client, http.MethodGet, server.URL+"/v1/projects/"+project.Project.ID+"/audit-events", nil, http.StatusOK, &projectAudit)
+	requestJSON(
+		t,
+		client,
+		http.MethodGet,
+		server.URL+"/v1/projects/"+project.Project.ID+"/audit-events",
+		nil,
+		http.StatusOK,
+		&projectAudit,
+	)
 	if len(projectAudit.Events) == 0 || projectAudit.Events[0].Action != "project.create" {
 		t.Fatalf("project audit events = %+v", projectAudit.Events)
 	}
@@ -208,7 +290,15 @@ func TestConsoleIdentityFlowIntegration(t *testing.T) {
 			Name string `json:"name"`
 		} `json:"project"`
 	}
-	requestJSON(t, client, http.MethodPatch, server.URL+"/v1/projects/"+project.Project.ID, map[string]string{"name": updatedName}, http.StatusOK, &updatedProject)
+	requestJSON(
+		t,
+		client,
+		http.MethodPatch,
+		server.URL+"/v1/projects/"+project.Project.ID,
+		map[string]string{"name": updatedName},
+		http.StatusOK,
+		&updatedProject,
+	)
 	if updatedProject.Project.ID != project.Project.ID || updatedProject.Project.Name != updatedName {
 		t.Fatalf("updated project = %+v", updatedProject.Project)
 	}
@@ -218,7 +308,15 @@ func TestConsoleIdentityFlowIntegration(t *testing.T) {
 			Metadata map[string]any `json:"metadata"`
 		} `json:"events"`
 	}
-	requestJSON(t, client, http.MethodGet, server.URL+"/v1/projects/"+project.Project.ID+"/audit-events", nil, http.StatusOK, &updateAudit)
+	requestJSON(
+		t,
+		client,
+		http.MethodGet,
+		server.URL+"/v1/projects/"+project.Project.ID+"/audit-events",
+		nil,
+		http.StatusOK,
+		&updateAudit,
+	)
 	var updateEvent *struct {
 		Action   string         `json:"action"`
 		Metadata map[string]any `json:"metadata"`
@@ -251,16 +349,56 @@ func TestConsoleIdentityFlowIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"organization"`
 	}
-	requestJSON(t, secondClient, http.MethodPost, server.URL+"/v1/account/registrations", map[string]string{"email": fmt.Sprintf("integration-%s@example.test", secondID.String()), "password": password}, http.StatusCreated, &secondRegistration)
+	requestJSON(
+		t,
+		secondClient,
+		http.MethodPost,
+		server.URL+"/v1/account/registrations",
+		map[string]string{"email": fmt.Sprintf("integration-%s@example.test", secondID.String()), "password": password},
+		http.StatusCreated,
+		&secondRegistration,
+	)
 	t.Cleanup(func() {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM audit_events WHERE actor_account_id=$1 OR organization_id=$2`, secondRegistration.Account.ID, secondRegistration.Organization.ID)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM organizations WHERE id=$1`, secondRegistration.Organization.ID)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM accounts WHERE id=$1`, secondRegistration.Account.ID)
 	})
-	requestJSON(t, secondClient, http.MethodGet, server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects", nil, http.StatusForbidden, nil)
-	requestJSON(t, secondClient, http.MethodGet, server.URL+"/v1/organizations/"+registration.Organization.ID+"/memberships", nil, http.StatusForbidden, nil)
-	requestJSON(t, secondClient, http.MethodPatch, server.URL+"/v1/organizations/"+registration.Organization.ID, map[string]string{"name": "not-authorized", "slug": "not-authorized"}, http.StatusForbidden, nil)
-	requestJSON(t, secondClient, http.MethodGet, server.URL+"/v1/projects/"+project.Project.ID, nil, http.StatusNotFound, nil)
+	requestJSON(
+		t,
+		secondClient,
+		http.MethodGet,
+		server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects",
+		nil,
+		http.StatusForbidden,
+		nil,
+	)
+	requestJSON(
+		t,
+		secondClient,
+		http.MethodGet,
+		server.URL+"/v1/organizations/"+registration.Organization.ID+"/memberships",
+		nil,
+		http.StatusForbidden,
+		nil,
+	)
+	requestJSON(
+		t,
+		secondClient,
+		http.MethodPatch,
+		server.URL+"/v1/organizations/"+registration.Organization.ID,
+		map[string]string{"name": "not-authorized", "slug": "not-authorized"},
+		http.StatusForbidden,
+		nil,
+	)
+	requestJSON(
+		t,
+		secondClient,
+		http.MethodGet,
+		server.URL+"/v1/projects/"+project.Project.ID,
+		nil,
+		http.StatusNotFound,
+		nil,
+	)
 	var addedMembership struct {
 		Membership struct {
 			AccountID string `json:"account_id"`
@@ -268,32 +406,106 @@ func TestConsoleIdentityFlowIntegration(t *testing.T) {
 			Role      string `json:"role"`
 		} `json:"membership"`
 	}
-	requestJSON(t, client, http.MethodPost, server.URL+"/v1/organizations/"+registration.Organization.ID+"/memberships", map[string]string{"email": secondRegistration.Account.Email, "role": "viewer"}, http.StatusCreated, &addedMembership)
-	if addedMembership.Membership.AccountID != secondRegistration.Account.ID || addedMembership.Membership.Email != secondRegistration.Account.Email || addedMembership.Membership.Role != "viewer" {
+	requestJSON(
+		t,
+		client,
+		http.MethodPost,
+		server.URL+"/v1/organizations/"+registration.Organization.ID+"/memberships",
+		map[string]string{"email": secondRegistration.Account.Email, "role": "viewer"},
+		http.StatusCreated,
+		&addedMembership,
+	)
+	if addedMembership.Membership.AccountID != secondRegistration.Account.ID ||
+		addedMembership.Membership.Email != secondRegistration.Account.Email ||
+		addedMembership.Membership.Role != "viewer" {
 		t.Fatalf("added membership = %+v", addedMembership.Membership)
 	}
-	requestJSON(t, client, http.MethodPatch, server.URL+"/v1/organizations/"+registration.Organization.ID+"/memberships/"+secondRegistration.Account.ID, map[string]string{"role": "developer"}, http.StatusOK, &struct{}{})
-	requestJSON(t, client, http.MethodPatch, server.URL+"/v1/organizations/"+registration.Organization.ID+"/memberships/"+secondRegistration.Account.ID, map[string]string{"role": "viewer"}, http.StatusOK, &struct{}{})
+	requestJSON(
+		t,
+		client,
+		http.MethodPatch,
+		server.URL+"/v1/organizations/"+registration.Organization.ID+"/memberships/"+secondRegistration.Account.ID,
+		map[string]string{"role": "developer"},
+		http.StatusOK,
+		&struct{}{},
+	)
+	requestJSON(
+		t,
+		client,
+		http.MethodPatch,
+		server.URL+"/v1/organizations/"+registration.Organization.ID+"/memberships/"+secondRegistration.Account.ID,
+		map[string]string{"role": "viewer"},
+		http.StatusOK,
+		&struct{}{},
+	)
 	var viewerMemberships struct {
 		CanManage bool `json:"can_manage"`
 	}
-	requestJSON(t, secondClient, http.MethodGet, server.URL+"/v1/organizations/"+registration.Organization.ID+"/memberships", nil, http.StatusOK, &viewerMemberships)
+	requestJSON(
+		t,
+		secondClient,
+		http.MethodGet,
+		server.URL+"/v1/organizations/"+registration.Organization.ID+"/memberships",
+		nil,
+		http.StatusOK,
+		&viewerMemberships,
+	)
 	if viewerMemberships.CanManage {
 		t.Fatal("viewer should not have can_manage capability")
 	}
 	var viewerProjects struct {
 		CanManage bool `json:"can_manage"`
 	}
-	requestJSON(t, secondClient, http.MethodGet, server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects", nil, http.StatusOK, &viewerProjects)
+	requestJSON(
+		t,
+		secondClient,
+		http.MethodGet,
+		server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects",
+		nil,
+		http.StatusOK,
+		&viewerProjects,
+	)
 	if viewerProjects.CanManage {
 		t.Fatal("viewer should not have project creation capability")
 	}
-	requestJSON(t, secondClient, http.MethodPost, server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects", map[string]string{"name": "viewer-must-not-write"}, http.StatusForbidden, nil)
-	requestJSON(t, secondClient, http.MethodPatch, server.URL+"/v1/projects/"+project.Project.ID, map[string]string{"name": "viewer-must-not-rename"}, http.StatusForbidden, nil)
-	requestJSON(t, client, http.MethodDelete, server.URL+"/v1/organizations/"+registration.Organization.ID+"/memberships/"+secondRegistration.Account.ID, nil, http.StatusNoContent, nil)
+	requestJSON(
+		t,
+		secondClient,
+		http.MethodPost,
+		server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects",
+		map[string]string{"name": "viewer-must-not-write"},
+		http.StatusForbidden,
+		nil,
+	)
+	requestJSON(
+		t,
+		secondClient,
+		http.MethodPatch,
+		server.URL+"/v1/projects/"+project.Project.ID,
+		map[string]string{"name": "viewer-must-not-rename"},
+		http.StatusForbidden,
+		nil,
+	)
+	requestJSON(
+		t,
+		client,
+		http.MethodDelete,
+		server.URL+"/v1/organizations/"+registration.Organization.ID+"/memberships/"+secondRegistration.Account.ID,
+		nil,
+		http.StatusNoContent,
+		nil,
+	)
 
 	requestJSON(t, client, http.MethodDelete, server.URL+"/v1/session", nil, http.StatusNoContent, nil)
-	requestJSON(t, client, http.MethodPost, server.URL+"/v1/sessions/email-password", map[string]string{"email": email, "password": password}, http.StatusNoContent, nil)
+	requestJSON(
+		t,
+		client,
+		http.MethodPost,
+		server.URL+"/v1/sessions/email-password",
+		map[string]string{"email": email, "password": password},
+		http.StatusNoContent,
+		nil,
+	)
 }
 
 func TestConsolePasswordUpdateIntegration(t *testing.T) {
@@ -329,24 +541,72 @@ func TestConsolePasswordUpdateIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"organization"`
 	}{}
-	requestJSON(t, client, http.MethodPost, server.URL+"/v1/account/registrations", map[string]string{"email": email, "password": oldPassword}, http.StatusCreated, &registration)
+	requestJSON(
+		t,
+		client,
+		http.MethodPost,
+		server.URL+"/v1/account/registrations",
+		map[string]string{"email": email, "password": oldPassword},
+		http.StatusCreated,
+		&registration,
+	)
 	t.Cleanup(func() {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM audit_events WHERE actor_account_id=$1 OR organization_id=$2`, registration.Account.ID, registration.Organization.ID)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM organizations WHERE id=$1`, registration.Organization.ID)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM accounts WHERE id=$1`, registration.Account.ID)
 	})
-	requestJSON(t, otherClient, http.MethodPost, server.URL+"/v1/sessions/email-password", map[string]string{"email": email, "password": oldPassword}, http.StatusNoContent, nil)
-	requestJSON(t, client, http.MethodPatch, server.URL+"/v1/account/password", map[string]string{"current_password": "wrong-current-password", "password": newPassword}, http.StatusUnauthorized, nil)
+	requestJSON(
+		t,
+		otherClient,
+		http.MethodPost,
+		server.URL+"/v1/sessions/email-password",
+		map[string]string{"email": email, "password": oldPassword},
+		http.StatusNoContent,
+		nil,
+	)
+	requestJSON(
+		t,
+		client,
+		http.MethodPatch,
+		server.URL+"/v1/account/password",
+		map[string]string{"current_password": "wrong-current-password", "password": newPassword},
+		http.StatusUnauthorized,
+		nil,
+	)
 	var update struct {
 		Revoked int64 `json:"sessions_revoked"`
 	}
-	requestJSON(t, client, http.MethodPatch, server.URL+"/v1/account/password", map[string]string{"current_password": oldPassword, "password": newPassword}, http.StatusOK, &update)
+	requestJSON(
+		t,
+		client,
+		http.MethodPatch,
+		server.URL+"/v1/account/password",
+		map[string]string{"current_password": oldPassword, "password": newPassword},
+		http.StatusOK,
+		&update,
+	)
 	if update.Revoked != 1 {
 		t.Fatalf("sessions revoked = %d, want 1", update.Revoked)
 	}
 	requestJSON(t, otherClient, http.MethodGet, server.URL+"/v1/account", nil, http.StatusUnauthorized, nil)
-	requestJSON(t, client, http.MethodPost, server.URL+"/v1/sessions/email-password", map[string]string{"email": email, "password": oldPassword}, http.StatusUnauthorized, nil)
-	requestJSON(t, client, http.MethodPost, server.URL+"/v1/sessions/email-password", map[string]string{"email": email, "password": newPassword}, http.StatusNoContent, nil)
+	requestJSON(
+		t,
+		client,
+		http.MethodPost,
+		server.URL+"/v1/sessions/email-password",
+		map[string]string{"email": email, "password": oldPassword},
+		http.StatusUnauthorized,
+		nil,
+	)
+	requestJSON(
+		t,
+		client,
+		http.MethodPost,
+		server.URL+"/v1/sessions/email-password",
+		map[string]string{"email": email, "password": newPassword},
+		http.StatusNoContent,
+		nil,
+	)
 }
 
 func TestProjectApplicationUsersIntegration(t *testing.T) {
@@ -380,14 +640,30 @@ func TestProjectApplicationUsersIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"organization"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/account/registrations", map[string]string{"email": ownerEmail, "password": "correct-horse-battery-staple"}, http.StatusCreated, &ownerRegistration)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/account/registrations",
+		map[string]string{"email": ownerEmail, "password": "correct-horse-battery-staple"},
+		http.StatusCreated,
+		&ownerRegistration,
+	)
 
 	var project struct {
 		Project struct {
 			ID string `json:"id"`
 		} `json:"project"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/organizations/"+ownerRegistration.Organization.ID+"/projects", map[string]string{"name": "project-users-" + ownerID.String()[:8]}, http.StatusCreated, &project)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/organizations/"+ownerRegistration.Organization.ID+"/projects",
+		map[string]string{"name": "project-users-" + ownerID.String()[:8]},
+		http.StatusCreated,
+		&project,
+	)
 
 	viewerClient := newIntegrationClient(t)
 	viewerID := uuid.Must(uuid.NewV7())
@@ -399,7 +675,15 @@ func TestProjectApplicationUsersIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"organization"`
 	}
-	requestJSON(t, viewerClient, http.MethodPost, server.URL+"/v1/account/registrations", map[string]string{"email": fmt.Sprintf("project-users-viewer-%s@example.test", viewerID), "password": "correct-horse-battery-staple"}, http.StatusCreated, &viewerRegistration)
+	requestJSON(
+		t,
+		viewerClient,
+		http.MethodPost,
+		server.URL+"/v1/account/registrations",
+		map[string]string{"email": fmt.Sprintf("project-users-viewer-%s@example.test", viewerID), "password": "correct-horse-battery-staple"},
+		http.StatusCreated,
+		&viewerRegistration,
+	)
 
 	t.Cleanup(func() {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM audit_events WHERE target_id IN (SELECT id FROM project_users WHERE project_id=$1) OR actor_account_id IN ($2,$3) OR organization_id IN ($4,$5)`, project.Project.ID, ownerRegistration.Account.ID, viewerRegistration.Account.ID, ownerRegistration.Organization.ID, viewerRegistration.Organization.ID)
@@ -414,11 +698,27 @@ func TestProjectApplicationUsersIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"project"`
 	}
-	requestJSON(t, viewerClient, http.MethodPost, server.URL+"/v1/organizations/"+viewerRegistration.Organization.ID+"/projects", map[string]string{"name": "other-tenant-" + viewerID.String()[:8]}, http.StatusCreated, &otherProject)
+	requestJSON(
+		t,
+		viewerClient,
+		http.MethodPost,
+		server.URL+"/v1/organizations/"+viewerRegistration.Organization.ID+"/projects",
+		map[string]string{"name": "other-tenant-" + viewerID.String()[:8]},
+		http.StatusCreated,
+		&otherProject,
+	)
 
 	firstEmail := "USER@Example.Test"
-	firstBody := requestJSONRaw(t, ownerClient, http.MethodPost, server.URL+"/v1/projects/"+project.Project.ID+"/users", map[string]string{"email": firstEmail, "password": "application-user-password-1", "name": "First User"}, http.StatusCreated)
-	if bytes.Contains(firstBody, []byte("application-user-password-1")) || bytes.Contains(firstBody, []byte("password_hash")) {
+	firstBody := requestJSONRaw(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/projects/"+project.Project.ID+"/users",
+		map[string]string{"email": firstEmail, "password": "application-user-password-1", "name": "First User"},
+		http.StatusCreated,
+	)
+	if bytes.Contains(firstBody, []byte("application-user-password-1")) ||
+		bytes.Contains(firstBody, []byte("password_hash")) {
 		t.Fatalf("unsafe application-user response: %s", firstBody)
 	}
 	var firstResponse struct {
@@ -433,7 +733,11 @@ func TestProjectApplicationUsersIntegration(t *testing.T) {
 	if err := json.Unmarshal(firstBody, &firstResponse); err != nil {
 		t.Fatal(err)
 	}
-	if firstResponse.User.Email != "user@example.test" || firstResponse.User.Name == nil || *firstResponse.User.Name != "First User" || firstResponse.User.Status != "active" || firstResponse.User.EmailVerified {
+	if firstResponse.User.Email != "user@example.test" ||
+		firstResponse.User.Name == nil ||
+		*firstResponse.User.Name != "First User" ||
+		firstResponse.User.Status != "active" ||
+		firstResponse.User.EmailVerified {
 		t.Fatalf("unexpected first user response: %s", firstBody)
 	}
 	var storedHash string
@@ -444,8 +748,23 @@ func TestProjectApplicationUsersIntegration(t *testing.T) {
 		t.Fatalf("stored application-user password is not an Argon2id hash: %q", storedHash)
 	}
 
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/projects/"+project.Project.ID+"/users", map[string]string{"email": "user@example.test", "password": "application-user-password-2"}, http.StatusConflict, nil)
-	secondBody := requestJSONRaw(t, ownerClient, http.MethodPost, server.URL+"/v1/projects/"+project.Project.ID+"/users", map[string]string{"email": "second@example.test", "password": "application-user-password-2"}, http.StatusCreated)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/projects/"+project.Project.ID+"/users",
+		map[string]string{"email": "user@example.test", "password": "application-user-password-2"},
+		http.StatusConflict,
+		nil,
+	)
+	secondBody := requestJSONRaw(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/projects/"+project.Project.ID+"/users",
+		map[string]string{"email": "second@example.test", "password": "application-user-password-2"},
+		http.StatusCreated,
+	)
 	var secondResponse struct {
 		User struct {
 			ID string `json:"id"`
@@ -464,7 +783,15 @@ func TestProjectApplicationUsersIntegration(t *testing.T) {
 		} `json:"pagination"`
 		CanManage bool `json:"can_manage"`
 	}
-	requestJSON(t, ownerClient, http.MethodGet, server.URL+"/v1/projects/"+project.Project.ID+"/users?limit=1", nil, http.StatusOK, &firstPage)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		server.URL+"/v1/projects/"+project.Project.ID+"/users?limit=1",
+		nil,
+		http.StatusOK,
+		&firstPage,
+	)
 	if len(firstPage.Users) != 1 || firstPage.Pagination.NextCursor == nil || !firstPage.CanManage {
 		t.Fatalf("expected one user and a cursor, got %+v", firstPage)
 	}
@@ -476,8 +803,18 @@ func TestProjectApplicationUsersIntegration(t *testing.T) {
 			NextCursor *string `json:"next_cursor"`
 		} `json:"pagination"`
 	}
-	requestJSON(t, ownerClient, http.MethodGet, server.URL+"/v1/projects/"+project.Project.ID+"/users?limit=1&cursor="+*firstPage.Pagination.NextCursor, nil, http.StatusOK, &secondPage)
-	if len(secondPage.Users) != 1 || secondPage.Pagination.NextCursor != nil || secondPage.Users[0].ID == firstPage.Users[0].ID {
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		server.URL+"/v1/projects/"+project.Project.ID+"/users?limit=1&cursor="+*firstPage.Pagination.NextCursor,
+		nil,
+		http.StatusOK,
+		&secondPage,
+	)
+	if len(secondPage.Users) != 1 ||
+		secondPage.Pagination.NextCursor != nil ||
+		secondPage.Users[0].ID == firstPage.Users[0].ID {
 		t.Fatalf("pagination did not advance: first=%+v second=%+v", firstPage, secondPage)
 	}
 
@@ -486,7 +823,15 @@ func TestProjectApplicationUsersIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"user"`
 	}
-	requestJSON(t, ownerClient, http.MethodGet, server.URL+"/v1/projects/"+project.Project.ID+"/users/"+firstResponse.User.ID, nil, http.StatusOK, &getResponse)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		server.URL+"/v1/projects/"+project.Project.ID+"/users/"+firstResponse.User.ID,
+		nil,
+		http.StatusOK,
+		&getResponse,
+	)
 	if getResponse.User.ID != firstResponse.User.ID {
 		t.Fatalf("got user %q, wanted %q", getResponse.User.ID, firstResponse.User.ID)
 	}
@@ -496,11 +841,27 @@ func TestProjectApplicationUsersIntegration(t *testing.T) {
 			Status string `json:"status"`
 		} `json:"user"`
 	}
-	requestJSON(t, ownerClient, http.MethodPatch, server.URL+"/v1/projects/"+project.Project.ID+"/users/"+firstResponse.User.ID+"/status", map[string]string{"status": "blocked"}, http.StatusOK, &blockedResponse)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPatch,
+		server.URL+"/v1/projects/"+project.Project.ID+"/users/"+firstResponse.User.ID+"/status",
+		map[string]string{"status": "blocked"},
+		http.StatusOK,
+		&blockedResponse,
+	)
 	if blockedResponse.User.Status != "blocked" {
 		t.Fatal("user was not blocked")
 	}
-	requestJSON(t, ownerClient, http.MethodPatch, server.URL+"/v1/projects/"+project.Project.ID+"/users/"+firstResponse.User.ID+"/status", map[string]string{"status": "blocked"}, http.StatusOK, &blockedResponse)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPatch,
+		server.URL+"/v1/projects/"+project.Project.ID+"/users/"+firstResponse.User.ID+"/status",
+		map[string]string{"status": "blocked"},
+		http.StatusOK,
+		&blockedResponse,
+	)
 	var createAuditCount, statusAuditCount int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM audit_events WHERE target_id=$1 AND action='project_user.create'`, firstResponse.User.ID).Scan(&createAuditCount); err != nil {
 		t.Fatal(err)
@@ -518,23 +879,103 @@ func TestProjectApplicationUsersIntegration(t *testing.T) {
 		} `json:"users"`
 		CanManage bool `json:"can_manage"`
 	}
-	requestJSON(t, viewerClient, http.MethodGet, server.URL+"/v1/projects/"+project.Project.ID+"/users", nil, http.StatusOK, &viewerPage)
+	requestJSON(
+		t,
+		viewerClient,
+		http.MethodGet,
+		server.URL+"/v1/projects/"+project.Project.ID+"/users",
+		nil,
+		http.StatusOK,
+		&viewerPage,
+	)
 	if len(viewerPage.Users) != 2 || viewerPage.CanManage {
 		t.Fatalf("viewer could not list project users: %+v", viewerPage)
 	}
-	requestJSON(t, viewerClient, http.MethodPost, server.URL+"/v1/projects/"+project.Project.ID+"/users", map[string]string{"email": "viewer-write@example.test", "password": "application-user-password-3"}, http.StatusForbidden, nil)
-	requestJSON(t, viewerClient, http.MethodPatch, server.URL+"/v1/projects/"+project.Project.ID+"/users/"+firstResponse.User.ID+"/status", map[string]string{"status": "active"}, http.StatusForbidden, nil)
+	requestJSON(
+		t,
+		viewerClient,
+		http.MethodPost,
+		server.URL+"/v1/projects/"+project.Project.ID+"/users",
+		map[string]string{"email": "viewer-write@example.test", "password": "application-user-password-3"},
+		http.StatusForbidden,
+		nil,
+	)
+	requestJSON(
+		t,
+		viewerClient,
+		http.MethodPatch,
+		server.URL+"/v1/projects/"+project.Project.ID+"/users/"+firstResponse.User.ID+"/status",
+		map[string]string{"status": "active"},
+		http.StatusForbidden,
+		nil,
+	)
 
-	requestJSON(t, viewerClient, http.MethodGet, server.URL+"/v1/projects/"+project.Project.ID+"/users/"+firstResponse.User.ID, nil, http.StatusOK, &getResponse)
-	requestJSON(t, ownerClient, http.MethodGet, server.URL+"/v1/projects/"+otherProject.Project.ID+"/users", nil, http.StatusNotFound, nil)
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/projects/"+otherProject.Project.ID+"/users", map[string]string{"email": "cross-tenant@example.test", "password": "application-user-password-4"}, http.StatusNotFound, nil)
-	requestJSON(t, ownerClient, http.MethodPatch, server.URL+"/v1/projects/"+otherProject.Project.ID+"/users/"+firstResponse.User.ID+"/status", map[string]string{"status": "active"}, http.StatusNotFound, nil)
+	requestJSON(
+		t,
+		viewerClient,
+		http.MethodGet,
+		server.URL+"/v1/projects/"+project.Project.ID+"/users/"+firstResponse.User.ID,
+		nil,
+		http.StatusOK,
+		&getResponse,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		server.URL+"/v1/projects/"+otherProject.Project.ID+"/users",
+		nil,
+		http.StatusNotFound,
+		nil,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/projects/"+otherProject.Project.ID+"/users",
+		map[string]string{"email": "cross-tenant@example.test", "password": "application-user-password-4"},
+		http.StatusNotFound,
+		nil,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPatch,
+		server.URL+"/v1/projects/"+otherProject.Project.ID+"/users/"+firstResponse.User.ID+"/status",
+		map[string]string{"status": "active"},
+		http.StatusNotFound,
+		nil,
+	)
 
 	// Owners can permanently remove an application identity. The operation
 	// revokes its sessions/tokens through the database cascade.
-	requestJSON(t, ownerClient, http.MethodDelete, server.URL+"/v1/projects/"+project.Project.ID+"/users/"+secondResponse.User.ID, nil, http.StatusNoContent, nil)
-	requestJSON(t, ownerClient, http.MethodGet, server.URL+"/v1/projects/"+project.Project.ID+"/users/"+secondResponse.User.ID, nil, http.StatusNotFound, nil)
-	requestJSON(t, ownerClient, http.MethodDelete, server.URL+"/v1/projects/"+project.Project.ID+"/users/"+secondResponse.User.ID, nil, http.StatusNotFound, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodDelete,
+		server.URL+"/v1/projects/"+project.Project.ID+"/users/"+secondResponse.User.ID,
+		nil,
+		http.StatusNoContent,
+		nil,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		server.URL+"/v1/projects/"+project.Project.ID+"/users/"+secondResponse.User.ID,
+		nil,
+		http.StatusNotFound,
+		nil,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodDelete,
+		server.URL+"/v1/projects/"+project.Project.ID+"/users/"+secondResponse.User.ID,
+		nil,
+		http.StatusNotFound,
+		nil,
+	)
 }
 
 func TestProjectApplicationAuthSessionsIntegration(t *testing.T) {
@@ -575,20 +1016,44 @@ func TestProjectApplicationAuthSessionsIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"organization"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/account/registrations", map[string]string{"email": ownerEmail, "password": "correct-horse-battery-staple"}, http.StatusCreated, &ownerRegistration)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/account/registrations",
+		map[string]string{"email": ownerEmail, "password": "correct-horse-battery-staple"},
+		http.StatusCreated,
+		&ownerRegistration,
+	)
 
 	var firstProject struct {
 		Project struct {
 			ID string `json:"id"`
 		} `json:"project"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/organizations/"+ownerRegistration.Organization.ID+"/projects", map[string]string{"name": "auth-sessions-" + ownerID.String()[:8]}, http.StatusCreated, &firstProject)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/organizations/"+ownerRegistration.Organization.ID+"/projects",
+		map[string]string{"name": "auth-sessions-" + ownerID.String()[:8]},
+		http.StatusCreated,
+		&firstProject,
+	)
 	var secondProject struct {
 		Project struct {
 			ID string `json:"id"`
 		} `json:"project"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/organizations/"+ownerRegistration.Organization.ID+"/projects", map[string]string{"name": "auth-isolation-" + ownerID.String()[:8]}, http.StatusCreated, &secondProject)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/organizations/"+ownerRegistration.Organization.ID+"/projects",
+		map[string]string{"name": "auth-isolation-" + ownerID.String()[:8]},
+		http.StatusCreated,
+		&secondProject,
+	)
 
 	viewerClient := newIntegrationClient(t)
 	viewerID := uuid.Must(uuid.NewV7())
@@ -600,7 +1065,15 @@ func TestProjectApplicationAuthSessionsIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"organization"`
 	}
-	requestJSON(t, viewerClient, http.MethodPost, server.URL+"/v1/account/registrations", map[string]string{"email": fmt.Sprintf("auth-viewer-%s@example.test", viewerID), "password": "correct-horse-battery-staple"}, http.StatusCreated, &viewerRegistration)
+	requestJSON(
+		t,
+		viewerClient,
+		http.MethodPost,
+		server.URL+"/v1/account/registrations",
+		map[string]string{"email": fmt.Sprintf("auth-viewer-%s@example.test", viewerID), "password": "correct-horse-battery-staple"},
+		http.StatusCreated,
+		&viewerRegistration,
+	)
 	if _, err := pool.Exec(ctx, `INSERT INTO organization_memberships (organization_id, account_id, role) VALUES ($1, $2, 'viewer')`, ownerRegistration.Organization.ID, viewerRegistration.Account.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -625,12 +1098,36 @@ func TestProjectApplicationAuthSessionsIntegration(t *testing.T) {
 	if settings.Settings.RegistrationEnabled || !settings.CanManage {
 		t.Fatalf("unexpected default settings: %+v", settings)
 	}
-	requestJSON(t, ownerClient, http.MethodPost, firstProjectURL+"/account/registrations", map[string]string{"email": "disabled@example.test", "password": "correct-horse-battery-staple"}, http.StatusForbidden, nil)
-	requestJSON(t, ownerClient, http.MethodPatch, firstProjectURL+"/auth/settings", map[string]bool{"registration_enabled": true}, http.StatusOK, &settings)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		firstProjectURL+"/account/registrations",
+		map[string]string{"email": "disabled@example.test", "password": "correct-horse-battery-staple"},
+		http.StatusForbidden,
+		nil,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPatch,
+		firstProjectURL+"/auth/settings",
+		map[string]bool{"registration_enabled": true},
+		http.StatusOK,
+		&settings,
+	)
 	if !settings.Settings.RegistrationEnabled || !settings.CanManage {
 		t.Fatalf("registration setting was not enabled: %+v", settings)
 	}
-	requestJSON(t, ownerClient, http.MethodPatch, firstProjectURL+"/auth/settings", map[string]bool{"registration_enabled": true}, http.StatusOK, &settings)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPatch,
+		firstProjectURL+"/auth/settings",
+		map[string]bool{"registration_enabled": true},
+		http.StatusOK,
+		&settings,
+	)
 	var settingsAuditCount int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM audit_events WHERE organization_id=$1 AND action='project_auth.settings_update' AND target_id=$2`, ownerRegistration.Organization.ID, firstProject.Project.ID).Scan(&settingsAuditCount); err != nil {
 		t.Fatal(err)
@@ -643,13 +1140,30 @@ func TestProjectApplicationAuthSessionsIntegration(t *testing.T) {
 	if settings.CanManage {
 		t.Fatal("viewer received can_manage=true")
 	}
-	requestJSON(t, viewerClient, http.MethodPatch, firstProjectURL+"/auth/settings", map[string]bool{"registration_enabled": false}, http.StatusForbidden, nil)
+	requestJSON(
+		t,
+		viewerClient,
+		http.MethodPatch,
+		firstProjectURL+"/auth/settings",
+		map[string]bool{"registration_enabled": false},
+		http.StatusForbidden,
+		nil,
+	)
 
 	appClient := newIntegrationClient(t)
 	registrationEmail := "New.User@Example.Test"
 	registrationPassword := "application-correct-password"
-	registrationBody := requestJSONRaw(t, appClient, http.MethodPost, firstProjectURL+"/account/registrations", map[string]string{"email": registrationEmail, "password": registrationPassword, "name": "New User"}, http.StatusCreated)
-	if bytes.Contains(registrationBody, []byte(registrationPassword)) || bytes.Contains(registrationBody, []byte("password_hash")) || bytes.Contains(registrationBody, []byte("token")) {
+	registrationBody := requestJSONRaw(
+		t,
+		appClient,
+		http.MethodPost,
+		firstProjectURL+"/account/registrations",
+		map[string]string{"email": registrationEmail, "password": registrationPassword, "name": "New User"},
+		http.StatusCreated,
+	)
+	if bytes.Contains(registrationBody, []byte(registrationPassword)) ||
+		bytes.Contains(registrationBody, []byte("password_hash")) ||
+		bytes.Contains(registrationBody, []byte("token")) {
 		t.Fatalf("unsafe registration response: %s", registrationBody)
 	}
 	var registrationResponse struct {
@@ -662,7 +1176,9 @@ func TestProjectApplicationAuthSessionsIntegration(t *testing.T) {
 	if err := json.Unmarshal(registrationBody, &registrationResponse); err != nil {
 		t.Fatal(err)
 	}
-	if registrationResponse.Account.Email != "new.user@example.test" || registrationResponse.Account.Name == nil || *registrationResponse.Account.Name != "New User" {
+	if registrationResponse.Account.Email != "new.user@example.test" ||
+		registrationResponse.Account.Name == nil ||
+		*registrationResponse.Account.Name != "New User" {
 		t.Fatalf("unexpected registration DTO: %s", registrationBody)
 	}
 	appURL, err := url.Parse(firstProjectURL + "/account")
@@ -670,7 +1186,9 @@ func TestProjectApplicationAuthSessionsIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	appCookies := appClient.Jar.Cookies(appURL)
-	if len(appCookies) != 1 || appCookies[0].Name != "stealth_app_"+strings.ReplaceAll(firstProject.Project.ID, "-", "") || appCookies[0].Path != "" {
+	if len(appCookies) != 1 ||
+		appCookies[0].Name != "stealth_app_"+strings.ReplaceAll(firstProject.Project.ID, "-", "") ||
+		appCookies[0].Path != "" {
 		// CookieJar normalizes the path away from returned request cookies; the
 		// server-side Set-Cookie is checked below for the exact scoped path.
 		if len(appCookies) != 1 || appCookies[0].Name != "stealth_app_"+strings.ReplaceAll(firstProject.Project.ID, "-", "") {
@@ -696,22 +1214,67 @@ func TestProjectApplicationAuthSessionsIntegration(t *testing.T) {
 	requestJSON(t, appClient, http.MethodGet, firstProjectURL+"/account", nil, http.StatusUnauthorized, nil)
 
 	duplicateClient := newIntegrationClient(t)
-	requestJSON(t, duplicateClient, http.MethodPost, firstProjectURL+"/account/registrations", map[string]string{"email": "new.user@example.test", "password": registrationPassword}, http.StatusConflict, nil)
+	requestJSON(
+		t,
+		duplicateClient,
+		http.MethodPost,
+		firstProjectURL+"/account/registrations",
+		map[string]string{"email": "new.user@example.test", "password": registrationPassword},
+		http.StatusConflict,
+		nil,
+	)
 
 	wrongClient := newIntegrationClient(t)
-	wrongBody := requestJSONRaw(t, wrongClient, http.MethodPost, firstProjectURL+"/sessions/email-password", map[string]string{"email": "new.user@example.test", "password": "wrong-password-123"}, http.StatusUnauthorized)
-	unknownBody := requestJSONRaw(t, wrongClient, http.MethodPost, firstProjectURL+"/sessions/email-password", map[string]string{"email": "unknown@example.test", "password": "wrong-password-123"}, http.StatusUnauthorized)
+	wrongBody := requestJSONRaw(
+		t,
+		wrongClient,
+		http.MethodPost,
+		firstProjectURL+"/sessions/email-password",
+		map[string]string{"email": "new.user@example.test", "password": "wrong-password-123"},
+		http.StatusUnauthorized,
+	)
+	unknownBody := requestJSONRaw(
+		t,
+		wrongClient,
+		http.MethodPost,
+		firstProjectURL+"/sessions/email-password",
+		map[string]string{"email": "unknown@example.test", "password": "wrong-password-123"},
+		http.StatusUnauthorized,
+	)
 	if !bytes.Equal(wrongBody, unknownBody) {
 		t.Fatalf("wrong and unknown credentials differ: wrong=%s unknown=%s", wrongBody, unknownBody)
 	}
-	overlongBody := requestJSONRaw(t, wrongClient, http.MethodPost, firstProjectURL+"/sessions/email-password", map[string]string{"email": "new.user@example.test", "password": strings.Repeat("x", 257)}, http.StatusUnauthorized)
+	overlongBody := requestJSONRaw(
+		t,
+		wrongClient,
+		http.MethodPost,
+		firstProjectURL+"/sessions/email-password",
+		map[string]string{"email": "new.user@example.test", "password": strings.Repeat("x", 257)},
+		http.StatusUnauthorized,
+	)
 	if !bytes.Equal(wrongBody, overlongBody) {
 		t.Fatalf("overlong credentials differ: wrong=%s overlong=%s", wrongBody, overlongBody)
 	}
-	requestJSON(t, wrongClient, http.MethodPost, firstProjectURL+"/sessions/email-password", map[string]string{"email": "new.user@example.test", "password": registrationPassword}, http.StatusNoContent, nil)
+	requestJSON(
+		t,
+		wrongClient,
+		http.MethodPost,
+		firstProjectURL+"/sessions/email-password",
+		map[string]string{"email": "new.user@example.test", "password": registrationPassword},
+		http.StatusNoContent,
+		nil,
+	)
 	requestJSON(t, wrongClient, http.MethodGet, firstProjectURL+"/account", nil, http.StatusOK, &registrationResponse)
 
-	requestJSON(t, ownerClient, http.MethodPatch, firstProjectURL+"/users/"+registrationResponse.Account.ID+"/status", map[string]string{"status": "blocked"}, http.StatusOK, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPatch,
+		firstProjectURL+"/users/"+registrationResponse.Account.ID+"/status",
+		map[string]string{"status": "blocked"},
+		http.StatusOK,
+		nil,
+	)
 	requestJSON(t, wrongClient, http.MethodGet, firstProjectURL+"/account", nil, http.StatusUnauthorized, nil)
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM project_user_sessions WHERE project_user_id=$1`, registrationResponse.Account.ID).Scan(&sessionCount); err != nil {
 		t.Fatal(err)
@@ -719,8 +1282,24 @@ func TestProjectApplicationAuthSessionsIntegration(t *testing.T) {
 	if sessionCount != 0 {
 		t.Fatalf("blocking left %d project sessions", sessionCount)
 	}
-	requestJSON(t, ownerClient, http.MethodPatch, firstProjectURL+"/users/"+registrationResponse.Account.ID+"/status", map[string]string{"status": "blocked"}, http.StatusOK, nil)
-	requestJSON(t, wrongClient, http.MethodPost, firstProjectURL+"/sessions/email-password", map[string]string{"email": "new.user@example.test", "password": registrationPassword}, http.StatusUnauthorized, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPatch,
+		firstProjectURL+"/users/"+registrationResponse.Account.ID+"/status",
+		map[string]string{"status": "blocked"},
+		http.StatusOK,
+		nil,
+	)
+	requestJSON(
+		t,
+		wrongClient,
+		http.MethodPost,
+		firstProjectURL+"/sessions/email-password",
+		map[string]string{"email": "new.user@example.test", "password": registrationPassword},
+		http.StatusUnauthorized,
+		nil,
+	)
 	var statusAuditCount int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM audit_events WHERE target_id=$1 AND action='project_user.status_change'`, registrationResponse.Account.ID).Scan(&statusAuditCount); err != nil {
 		t.Fatal(err)
@@ -728,9 +1307,25 @@ func TestProjectApplicationAuthSessionsIntegration(t *testing.T) {
 	if statusAuditCount != 1 {
 		t.Fatalf("idempotent block wrote %d status audits, want 1", statusAuditCount)
 	}
-	requestJSON(t, ownerClient, http.MethodPatch, firstProjectURL+"/users/"+registrationResponse.Account.ID+"/status", map[string]string{"status": "active"}, http.StatusOK, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPatch,
+		firstProjectURL+"/users/"+registrationResponse.Account.ID+"/status",
+		map[string]string{"status": "active"},
+		http.StatusOK,
+		nil,
+	)
 	requestJSON(t, wrongClient, http.MethodGet, firstProjectURL+"/account", nil, http.StatusUnauthorized, nil)
-	requestJSON(t, wrongClient, http.MethodPost, firstProjectURL+"/sessions/email-password", map[string]string{"email": "new.user@example.test", "password": registrationPassword}, http.StatusNoContent, nil)
+	requestJSON(
+		t,
+		wrongClient,
+		http.MethodPost,
+		firstProjectURL+"/sessions/email-password",
+		map[string]string{"email": "new.user@example.test", "password": registrationPassword},
+		http.StatusNoContent,
+		nil,
+	)
 	requestJSON(t, wrongClient, http.MethodGet, firstProjectURL+"/account", nil, http.StatusOK, &registrationResponse)
 
 	// A project session cookie is scoped and namespaced by project. Even if a
@@ -876,7 +1471,10 @@ func TestProjectAPIKeysIntegration(t *testing.T) {
 	if err := json.Unmarshal(firstBody, &firstKey); err != nil {
 		t.Fatal(err)
 	}
-	if firstKey.Secret == "" || len(firstKey.Key.Scopes) != 2 || firstKey.Key.Scopes[0] != "users.read" || firstKey.Key.Scopes[1] != "users.write" {
+	if firstKey.Secret == "" ||
+		len(firstKey.Key.Scopes) != 2 ||
+		firstKey.Key.Scopes[0] != "users.read" ||
+		firstKey.Key.Scopes[1] != "users.write" {
 		t.Fatalf("scopes/secret were not normalized: %+v", firstKey)
 	}
 	if firstKey.Key.Prefix == "" || !strings.HasPrefix(firstKey.Secret, firstKey.Key.Prefix) {
@@ -886,7 +1484,9 @@ func TestProjectAPIKeysIntegration(t *testing.T) {
 	if err := pool.QueryRow(ctx, `SELECT secret_hash FROM project_api_keys WHERE id=$1`, firstKey.Key.ID).Scan(&storedSecretHash); err != nil {
 		t.Fatal(err)
 	}
-	if len(storedSecretHash) != 32 || string(storedSecretHash) == firstKey.Secret || !bytes.Equal(storedSecretHash, apikey.HashSecret(firstKey.Secret)) {
+	if len(storedSecretHash) != 32 ||
+		string(storedSecretHash) == firstKey.Secret ||
+		!bytes.Equal(storedSecretHash, apikey.HashSecret(firstKey.Secret)) {
 		t.Fatalf("stored API key secret is not a SHA-256 digest: %x", storedSecretHash)
 	}
 
@@ -900,7 +1500,9 @@ func TestProjectAPIKeysIntegration(t *testing.T) {
 	}
 
 	listBody := requestJSONRaw(t, ownerClient, http.MethodGet, projectURL+"/api-keys?limit=1", nil, http.StatusOK)
-	if bytes.Contains(listBody, []byte(firstKey.Secret)) || bytes.Contains(listBody, []byte(secondKey.Secret)) || bytes.Contains(listBody, []byte("secret_hash")) {
+	if bytes.Contains(listBody, []byte(firstKey.Secret)) ||
+		bytes.Contains(listBody, []byte(secondKey.Secret)) ||
+		bytes.Contains(listBody, []byte("secret_hash")) {
 		t.Fatalf("list response leaked secret material: %s", listBody)
 	}
 	var firstPage struct {
@@ -916,7 +1518,14 @@ func TestProjectAPIKeysIntegration(t *testing.T) {
 	if len(firstPage.Keys) != 1 || firstPage.Pagination.NextCursor == nil || !firstPage.CanManage {
 		t.Fatalf("unexpected first API key page: %+v", firstPage)
 	}
-	secondPageBody := requestJSONRaw(t, ownerClient, http.MethodGet, projectURL+"/api-keys?limit=1&cursor="+*firstPage.Pagination.NextCursor, nil, http.StatusOK)
+	secondPageBody := requestJSONRaw(
+		t,
+		ownerClient,
+		http.MethodGet,
+		projectURL+"/api-keys?limit=1&cursor="+*firstPage.Pagination.NextCursor,
+		nil,
+		http.StatusOK,
+	)
 	var secondPage struct {
 		Keys       []apiKeyDTO `json:"keys"`
 		Pagination struct {
@@ -926,7 +1535,9 @@ func TestProjectAPIKeysIntegration(t *testing.T) {
 	if err := json.Unmarshal(secondPageBody, &secondPage); err != nil {
 		t.Fatal(err)
 	}
-	if len(secondPage.Keys) != 1 || secondPage.Pagination.NextCursor != nil || secondPage.Keys[0].ID == firstPage.Keys[0].ID {
+	if len(secondPage.Keys) != 1 ||
+		secondPage.Pagination.NextCursor != nil ||
+		secondPage.Keys[0].ID == firstPage.Keys[0].ID {
 		t.Fatalf("API key pagination did not advance: first=%+v second=%+v", firstPage, secondPage)
 	}
 	getBody := requestJSONRaw(t, ownerClient, http.MethodGet, projectURL+"/api-keys/"+firstKey.Key.ID, nil, http.StatusOK)
@@ -938,13 +1549,45 @@ func TestProjectAPIKeysIntegration(t *testing.T) {
 	if bytes.Contains(viewerListBody, []byte(firstKey.Secret)) || !bytes.Contains(viewerListBody, []byte(`"can_manage":false`)) {
 		t.Fatalf("viewer API key list was not read-only: %s", viewerListBody)
 	}
-	requestJSON(t, viewerClient, http.MethodPost, projectURL+"/api-keys", map[string]any{"name": "viewer key", "scopes": []string{"users.read"}}, http.StatusForbidden, nil)
-	requestJSON(t, viewerClient, http.MethodDelete, projectURL+"/api-keys/"+firstKey.Key.ID, nil, http.StatusForbidden, nil)
+	requestJSON(
+		t,
+		viewerClient,
+		http.MethodPost,
+		projectURL+"/api-keys",
+		map[string]any{"name": "viewer key", "scopes": []string{"users.read"}},
+		http.StatusForbidden,
+		nil,
+	)
+	requestJSON(
+		t,
+		viewerClient,
+		http.MethodDelete,
+		projectURL+"/api-keys/"+firstKey.Key.ID,
+		nil,
+		http.StatusForbidden,
+		nil,
+	)
 	requestJSON(t, outsiderClient, http.MethodGet, projectURL+"/api-keys", nil, http.StatusNotFound, nil)
-	requestJSON(t, outsiderClient, http.MethodPost, projectURL+"/api-keys", map[string]any{"name": "outsider key", "scopes": []string{"users.read"}}, http.StatusNotFound, nil)
+	requestJSON(
+		t,
+		outsiderClient,
+		http.MethodPost,
+		projectURL+"/api-keys",
+		map[string]any{"name": "outsider key", "scopes": []string{"users.read"}},
+		http.StatusNotFound,
+		nil,
+	)
 
 	keyClient := newIntegrationClient(t)
-	usersBody := requestJSONRawWithHeaders(t, keyClient, http.MethodGet, projectURL+"/users", nil, http.StatusOK, keyHeaders(firstKey.Secret))
+	usersBody := requestJSONRawWithHeaders(
+		t,
+		keyClient,
+		http.MethodGet,
+		projectURL+"/users",
+		nil,
+		http.StatusOK,
+		keyHeaders(firstKey.Secret),
+	)
 	if bytes.Contains(usersBody, []byte(firstKey.Secret)) || bytes.Contains(usersBody, []byte("password_hash")) || !bytes.Contains(usersBody, []byte(`"can_manage":true`)) {
 		t.Fatalf("API key read response was unsafe: %s", usersBody)
 	}
@@ -953,7 +1596,9 @@ func TestProjectAPIKeysIntegration(t *testing.T) {
 		"password": "application-user-password-1",
 		"name":     "Created by key",
 	}, http.StatusCreated, keyHeaders(firstKey.Secret))
-	if bytes.Contains(createdByKeyBody, []byte("application-user-password-1")) || bytes.Contains(createdByKeyBody, []byte("password_hash")) || bytes.Contains(createdByKeyBody, []byte(firstKey.Secret)) {
+	if bytes.Contains(createdByKeyBody, []byte("application-user-password-1")) ||
+		bytes.Contains(createdByKeyBody, []byte("password_hash")) ||
+		bytes.Contains(createdByKeyBody, []byte(firstKey.Secret)) {
 		t.Fatalf("API key user create response was unsafe: %s", createdByKeyBody)
 	}
 	var createdByKey struct {
@@ -964,8 +1609,24 @@ func TestProjectAPIKeysIntegration(t *testing.T) {
 	if err := json.Unmarshal(createdByKeyBody, &createdByKey); err != nil {
 		t.Fatal(err)
 	}
-	requestJSONWithHeaders(t, keyClient, http.MethodPatch, projectURL+"/users/"+createdByKey.User.ID+"/status", map[string]string{"status": "blocked"}, http.StatusOK, keyHeaders(firstKey.Secret))
-	requestJSONWithHeaders(t, keyClient, http.MethodPatch, projectURL+"/users/"+createdByKey.User.ID+"/status", map[string]string{"status": "blocked"}, http.StatusOK, keyHeaders(firstKey.Secret))
+	requestJSONWithHeaders(
+		t,
+		keyClient,
+		http.MethodPatch,
+		projectURL+"/users/"+createdByKey.User.ID+"/status",
+		map[string]string{"status": "blocked"},
+		http.StatusOK,
+		keyHeaders(firstKey.Secret),
+	)
+	requestJSONWithHeaders(
+		t,
+		keyClient,
+		http.MethodPatch,
+		projectURL+"/users/"+createdByKey.User.ID+"/status",
+		map[string]string{"status": "blocked"},
+		http.StatusOK,
+		keyHeaders(firstKey.Secret),
+	)
 	var keyStatusAudits int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM audit_events WHERE action='project_user.status_change' AND target_id=$1 AND metadata->>'actor'='api_key'`, createdByKey.User.ID).Scan(&keyStatusAudits); err != nil {
 		t.Fatal(err)
@@ -981,16 +1642,63 @@ func TestProjectAPIKeysIntegration(t *testing.T) {
 		t.Fatalf("API-key create audit actor = %q, want %q", actorKeyID, firstKey.Key.ID)
 	}
 
-	writeOnlyBody := requestJSONRaw(t, ownerClient, http.MethodPost, projectURL+"/api-keys", map[string]any{"name": "Write-only server key", "scopes": []string{"users.write"}}, http.StatusCreated)
+	writeOnlyBody := requestJSONRaw(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/api-keys",
+		map[string]any{"name": "Write-only server key", "scopes": []string{"users.write"}},
+		http.StatusCreated,
+	)
 	var writeOnlyKey apiKeyEnvelope
 	if err := json.Unmarshal(writeOnlyBody, &writeOnlyKey); err != nil {
 		t.Fatal(err)
 	}
-	requestJSONWithHeaders(t, keyClient, http.MethodGet, projectURL+"/users", nil, http.StatusForbidden, keyHeaders(writeOnlyKey.Secret))
-	requestJSONWithHeaders(t, keyClient, http.MethodPost, projectURL+"/users", map[string]string{"email": fmt.Sprintf("write-only-%s@example.test", ownerID), "password": "application-user-password-2"}, http.StatusCreated, keyHeaders(writeOnlyKey.Secret))
-	requestJSONWithHeaders(t, keyClient, http.MethodPost, projectURL+"/users", map[string]string{"email": fmt.Sprintf("read-only-write-%s@example.test", ownerID), "password": "application-user-password-2"}, http.StatusForbidden, keyHeaders(secondKey.Secret))
-	requestJSONWithHeaders(t, keyClient, http.MethodGet, projectURL+"/users", nil, http.StatusOK, keyHeaders(secondKey.Secret))
-	requestJSONWithHeaders(t, keyClient, http.MethodPatch, projectURL+"/users/"+createdByKey.User.ID+"/status", map[string]string{"status": "active"}, http.StatusForbidden, keyHeaders(secondKey.Secret))
+	requestJSONWithHeaders(
+		t,
+		keyClient,
+		http.MethodGet,
+		projectURL+"/users",
+		nil,
+		http.StatusForbidden,
+		keyHeaders(writeOnlyKey.Secret),
+	)
+	requestJSONWithHeaders(
+		t,
+		keyClient,
+		http.MethodPost,
+		projectURL+"/users",
+		map[string]string{"email": fmt.Sprintf("write-only-%s@example.test", ownerID), "password": "application-user-password-2"},
+		http.StatusCreated,
+		keyHeaders(writeOnlyKey.Secret),
+	)
+	requestJSONWithHeaders(
+		t,
+		keyClient,
+		http.MethodPost,
+		projectURL+"/users",
+		map[string]string{"email": fmt.Sprintf("read-only-write-%s@example.test", ownerID), "password": "application-user-password-2"},
+		http.StatusForbidden,
+		keyHeaders(secondKey.Secret),
+	)
+	requestJSONWithHeaders(
+		t,
+		keyClient,
+		http.MethodGet,
+		projectURL+"/users",
+		nil,
+		http.StatusOK,
+		keyHeaders(secondKey.Secret),
+	)
+	requestJSONWithHeaders(
+		t,
+		keyClient,
+		http.MethodPatch,
+		projectURL+"/users/"+createdByKey.User.ID+"/status",
+		map[string]string{"status": "active"},
+		http.StatusForbidden,
+		keyHeaders(secondKey.Secret),
+	)
 	limitedServer := httptest.NewServer(httpapi.NewWithDependencies(config.Config{
 		SessionCookieName: "stealth_session",
 		SessionTTL:        time.Hour,
@@ -1001,27 +1709,91 @@ func TestProjectAPIKeysIntegration(t *testing.T) {
 	defer limitedServer.Close()
 	limitedClient := newIntegrationClient(t)
 	limitedProjectURL := limitedServer.URL + "/v1/projects/" + projectResponse.Project.ID
-	requestJSONWithHeaders(t, limitedClient, http.MethodGet, limitedProjectURL+"/users", nil, http.StatusOK, keyHeaders(secondKey.Secret))
-	requestJSONWithHeaders(t, limitedClient, http.MethodGet, limitedProjectURL+"/users", nil, http.StatusOK, keyHeaders(secondKey.Secret))
-	requestJSONWithHeaders(t, limitedClient, http.MethodGet, limitedProjectURL+"/users", nil, http.StatusUnauthorized, keyHeaders("stl_key_invalid"))
-	requestJSONWithHeaders(t, limitedClient, http.MethodGet, limitedProjectURL+"/users", nil, http.StatusTooManyRequests, keyHeaders("stl_key_invalid"))
+	requestJSONWithHeaders(
+		t,
+		limitedClient,
+		http.MethodGet,
+		limitedProjectURL+"/users",
+		nil,
+		http.StatusOK,
+		keyHeaders(secondKey.Secret),
+	)
+	requestJSONWithHeaders(
+		t,
+		limitedClient,
+		http.MethodGet,
+		limitedProjectURL+"/users",
+		nil,
+		http.StatusOK,
+		keyHeaders(secondKey.Secret),
+	)
+	requestJSONWithHeaders(
+		t,
+		limitedClient,
+		http.MethodGet,
+		limitedProjectURL+"/users",
+		nil,
+		http.StatusUnauthorized,
+		keyHeaders("stl_key_invalid"),
+	)
+	requestJSONWithHeaders(
+		t,
+		limitedClient,
+		http.MethodGet,
+		limitedProjectURL+"/users",
+		nil,
+		http.StatusTooManyRequests,
+		keyHeaders("stl_key_invalid"),
+	)
 
 	unknownSecret, _, _, err := apikey.NewSecret()
 	if err != nil {
 		t.Fatal(err)
 	}
-	unknownBody := requestJSONRawWithHeaders(t, keyClient, http.MethodGet, projectURL+"/users", nil, http.StatusUnauthorized, keyHeaders(unknownSecret))
-	malformedBody := requestJSONRawWithHeaders(t, keyClient, http.MethodGet, projectURL+"/users", nil, http.StatusUnauthorized, keyHeaders("stl_key_invalid"))
+	unknownBody := requestJSONRawWithHeaders(
+		t,
+		keyClient,
+		http.MethodGet,
+		projectURL+"/users",
+		nil,
+		http.StatusUnauthorized,
+		keyHeaders(unknownSecret),
+	)
+	malformedBody := requestJSONRawWithHeaders(
+		t,
+		keyClient,
+		http.MethodGet,
+		projectURL+"/users",
+		nil,
+		http.StatusUnauthorized,
+		keyHeaders("stl_key_invalid"),
+	)
 	if !bytes.Equal(unknownBody, malformedBody) {
 		t.Fatalf("invalid API key classes differed: unknown=%s malformed=%s", unknownBody, malformedBody)
 	}
-	requestJSONWithHeaders(t, keyClient, http.MethodGet, server.URL+"/v1/projects/"+uuid.Must(uuid.NewV7()).String()+"/users", nil, http.StatusUnauthorized, keyHeaders(firstKey.Secret))
+	requestJSONWithHeaders(
+		t,
+		keyClient,
+		http.MethodGet,
+		server.URL+"/v1/projects/"+uuid.Must(uuid.NewV7()).String()+"/users",
+		nil,
+		http.StatusUnauthorized,
+		keyHeaders(firstKey.Secret),
+	)
 
 	var lastUsedBefore, lastUsedAfter time.Time
 	if err := pool.QueryRow(ctx, `SELECT last_used_at FROM project_api_keys WHERE id=$1`, secondKey.Key.ID).Scan(&lastUsedBefore); err != nil {
 		t.Fatal(err)
 	}
-	requestJSONWithHeaders(t, keyClient, http.MethodGet, projectURL+"/users", nil, http.StatusOK, keyHeaders(secondKey.Secret))
+	requestJSONWithHeaders(
+		t,
+		keyClient,
+		http.MethodGet,
+		projectURL+"/users",
+		nil,
+		http.StatusOK,
+		keyHeaders(secondKey.Secret),
+	)
 	if err := pool.QueryRow(ctx, `SELECT last_used_at FROM project_api_keys WHERE id=$1`, secondKey.Key.ID).Scan(&lastUsedAfter); err != nil {
 		t.Fatal(err)
 	}
@@ -1031,7 +1803,15 @@ func TestProjectAPIKeysIntegration(t *testing.T) {
 
 	requestJSON(t, ownerClient, http.MethodDelete, projectURL+"/api-keys/"+firstKey.Key.ID, nil, http.StatusNoContent, nil)
 	requestJSON(t, ownerClient, http.MethodDelete, projectURL+"/api-keys/"+firstKey.Key.ID, nil, http.StatusNoContent, nil)
-	requestJSONWithHeaders(t, keyClient, http.MethodGet, projectURL+"/users", nil, http.StatusUnauthorized, keyHeaders(firstKey.Secret))
+	requestJSONWithHeaders(
+		t,
+		keyClient,
+		http.MethodGet,
+		projectURL+"/users",
+		nil,
+		http.StatusUnauthorized,
+		keyHeaders(firstKey.Secret),
+	)
 	var revokeAudits int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM audit_events WHERE action='project_api_key.revoke' AND target_id=$1`, firstKey.Key.ID).Scan(&revokeAudits); err != nil {
 		t.Fatal(err)
@@ -1048,7 +1828,15 @@ func TestProjectAPIKeysIntegration(t *testing.T) {
 	if _, err := pool.Exec(ctx, `INSERT INTO project_api_keys (id,project_id,name,prefix,secret_hash,scopes,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7)`, expiredID, projectResponse.Project.ID, "Expired integration key", expiredPrefix, expiredHash, []string{"users.read"}, time.Now().UTC().Add(-time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	requestJSONWithHeaders(t, keyClient, http.MethodGet, projectURL+"/users", nil, http.StatusUnauthorized, keyHeaders(expiredSecret))
+	requestJSONWithHeaders(
+		t,
+		keyClient,
+		http.MethodGet,
+		projectURL+"/users",
+		nil,
+		http.StatusUnauthorized,
+		keyHeaders(expiredSecret),
+	)
 
 	appCookieClient := newIntegrationClient(t)
 	appRequest, err := http.NewRequest(http.MethodGet, projectURL+"/users", nil)
@@ -1155,12 +1943,28 @@ func requestJSONRaw(t *testing.T, client *http.Client, method, url string, paylo
 	return contents
 }
 
-func requestJSONWithHeaders(t *testing.T, client *http.Client, method, url string, payload any, expectedStatus int, headers map[string]string) {
+func requestJSONWithHeaders(
+	t *testing.T,
+	client *http.Client,
+	method,
+	url string,
+	payload any,
+	expectedStatus int,
+	headers map[string]string,
+) {
 	t.Helper()
 	_ = requestJSONRawWithHeaders(t, client, method, url, payload, expectedStatus, headers)
 }
 
-func requestJSONRawWithHeaders(t *testing.T, client *http.Client, method, url string, payload any, expectedStatus int, headers map[string]string) []byte {
+func requestJSONRawWithHeaders(
+	t *testing.T,
+	client *http.Client,
+	method,
+	url string,
+	payload any,
+	expectedStatus int,
+	headers map[string]string,
+) []byte {
 	t.Helper()
 	var body io.Reader
 	if payload != nil {
@@ -1221,13 +2025,29 @@ func TestProjectDatabasesCoreIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"organization"`
 	}{}
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/account/registrations", map[string]string{"email": "database-owner-" + ownerID.String() + "@example.test", "password": "correct-horse-battery-staple"}, http.StatusCreated, &ownerRegistration)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/account/registrations",
+		map[string]string{"email": "database-owner-" + ownerID.String() + "@example.test", "password": "correct-horse-battery-staple"},
+		http.StatusCreated,
+		&ownerRegistration,
+	)
 	projectResponse := struct {
 		Project struct {
 			ID string `json:"id"`
 		} `json:"project"`
 	}{}
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/organizations/"+ownerRegistration.Organization.ID+"/projects", map[string]string{"name": "database-core-" + ownerID.String()[:8]}, http.StatusCreated, &projectResponse)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/organizations/"+ownerRegistration.Organization.ID+"/projects",
+		map[string]string{"name": "database-core-" + ownerID.String()[:8]},
+		http.StatusCreated,
+		&projectResponse,
+	)
 	projectURL := server.URL + "/v1/projects/" + projectResponse.Project.ID
 	keyHeaders := func(secret string) map[string]string { return map[string]string{"X-Stealth-Key": secret} }
 	t.Cleanup(func() {
@@ -1285,29 +2105,85 @@ func TestProjectDatabasesCoreIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"database"`
 	}{}
-	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/databases", map[string]string{"name": "Primary data"}, http.StatusCreated, &databaseResponse)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/databases",
+		map[string]string{"name": "Primary data"},
+		http.StatusCreated,
+		&databaseResponse,
+	)
 	databaseURLPath := projectURL + "/databases/" + databaseResponse.Database.ID
 	requestJSON(t, viewerClient, http.MethodGet, projectURL+"/databases", nil, http.StatusOK, &struct{}{})
-	requestJSON(t, viewerClient, http.MethodPost, projectURL+"/databases", map[string]string{"name": "Viewer write"}, http.StatusForbidden, nil)
+	requestJSON(
+		t,
+		viewerClient,
+		http.MethodPost,
+		projectURL+"/databases",
+		map[string]string{"name": "Viewer write"},
+		http.StatusForbidden,
+		nil,
+	)
 
 	tableResponse := struct {
 		Table struct {
 			ID string `json:"id"`
 		} `json:"table"`
 	}{}
-	requestJSON(t, ownerClient, http.MethodPost, databaseURLPath+"/tables", map[string]any{"name": "Events", "row_security": true, "create_permissions": []string{}, "read_permissions": []string{}, "update_permissions": []string{}, "delete_permissions": []string{}}, http.StatusCreated, &tableResponse)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		databaseURLPath+"/tables",
+		map[string]any{"name": "Events", "row_security": true, "create_permissions": []string{}, "read_permissions": []string{}, "update_permissions": []string{}, "delete_permissions": []string{}},
+		http.StatusCreated,
+		&tableResponse,
+	)
 	tableURL := databaseURLPath + "/tables/" + tableResponse.Table.ID
 	requestJSON(t, viewerClient, http.MethodGet, databaseURLPath+"/tables", nil, http.StatusOK, &struct{}{})
-	requestJSON(t, viewerClient, http.MethodPost, databaseURLPath+"/tables", map[string]any{"name": "Nope"}, http.StatusForbidden, nil)
+	requestJSON(
+		t,
+		viewerClient,
+		http.MethodPost,
+		databaseURLPath+"/tables",
+		map[string]any{"name": "Nope"},
+		http.StatusForbidden,
+		nil,
+	)
 
 	columnResponse := struct {
 		Column struct {
 			ID string `json:"id"`
 		} `json:"column"`
 	}{}
-	requestJSON(t, ownerClient, http.MethodPost, tableURL+"/columns", map[string]any{"key": "title", "type": "text", "required": true}, http.StatusCreated, &columnResponse)
-	requestJSON(t, ownerClient, http.MethodPost, tableURL+"/columns", map[string]any{"key": "count", "type": "integer", "required": true, "default": 2}, http.StatusCreated, &struct{}{})
-	requestJSON(t, ownerClient, http.MethodPost, tableURL+"/indexes", map[string]any{"name": "title unique", "type": "unique", "column_keys": []string{"title"}, "directions": []string{"asc"}}, http.StatusCreated, &struct{}{})
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		tableURL+"/columns",
+		map[string]any{"key": "title", "type": "text", "required": true},
+		http.StatusCreated,
+		&columnResponse,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		tableURL+"/columns",
+		map[string]any{"key": "count", "type": "integer", "required": true, "default": 2},
+		http.StatusCreated,
+		&struct{}{},
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		tableURL+"/indexes",
+		map[string]any{"name": "title unique", "type": "unique", "column_keys": []string{"title"}, "directions": []string{"asc"}},
+		http.StatusCreated,
+		&struct{}{},
+	)
 
 	rowBody := map[string]any{"data": map[string]any{"title": "first"}}
 	firstRow := struct {
@@ -1333,7 +2209,8 @@ func TestProjectDatabasesCoreIntegration(t *testing.T) {
 		t.Fatalf("JSON export = %#v", exportedRows)
 	}
 	csvExport := requestJSONRaw(t, ownerClient, http.MethodGet, tableURL+"/export?format=csv&limit=10", nil, http.StatusOK)
-	if !bytes.Contains(csvExport, []byte("id,project_id,table_id,created_at,updated_at,title,count")) || !bytes.Contains(csvExport, []byte("first")) {
+	if !bytes.Contains(csvExport, []byte("id,project_id,table_id,created_at,updated_at,title,count")) ||
+		!bytes.Contains(csvExport, []byte("first")) {
 		t.Fatalf("CSV export = %s", csvExport)
 	}
 	var importedRows struct {
@@ -1342,19 +2219,59 @@ func TestProjectDatabasesCoreIntegration(t *testing.T) {
 		} `json:"rows"`
 		Count int `json:"count"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, tableURL+"/rows/import", map[string]any{"rows": []any{map[string]any{"data": map[string]any{"title": "imported"}}}}, http.StatusCreated, &importedRows)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		tableURL+"/rows/import",
+		map[string]any{"rows": []any{map[string]any{"data": map[string]any{"title": "imported"}}}},
+		http.StatusCreated,
+		&importedRows,
+	)
 	if importedRows.Count != 1 || len(importedRows.Rows) != 1 || importedRows.Rows[0].Data["title"] != "imported" {
 		t.Fatalf("bulk import = %#v", importedRows)
 	}
-	requestJSON(t, ownerClient, http.MethodPost, tableURL+"/rows/import", map[string]any{"rows": []any{map[string]any{"data": map[string]any{"title": "atomic"}}, map[string]any{"data": map[string]any{"title": "imported"}}}}, http.StatusConflict, nil)
-	requestJSON(t, ownerClient, http.MethodGet, tableURL+"/rows?search=first&search_column=title", nil, http.StatusUnprocessableEntity, nil)
-	requestJSON(t, ownerClient, http.MethodPost, tableURL+"/indexes", map[string]any{"name": "title fulltext", "type": "fulltext", "column_keys": []string{"title"}}, http.StatusCreated, &struct{}{})
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		tableURL+"/rows/import",
+		map[string]any{"rows": []any{map[string]any{"data": map[string]any{"title": "atomic"}}, map[string]any{"data": map[string]any{"title": "imported"}}}},
+		http.StatusConflict,
+		nil,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		tableURL+"/rows?search=first&search_column=title",
+		nil,
+		http.StatusUnprocessableEntity,
+		nil,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		tableURL+"/indexes",
+		map[string]any{"name": "title fulltext", "type": "fulltext", "column_keys": []string{"title"}},
+		http.StatusCreated,
+		&struct{}{},
+	)
 	var searchPage struct {
 		Rows []struct {
 			Data map[string]any `json:"data"`
 		} `json:"rows"`
 	}
-	requestJSON(t, ownerClient, http.MethodGet, tableURL+"/rows?search=first&search_column=title", nil, http.StatusOK, &searchPage)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		tableURL+"/rows?search=first&search_column=title",
+		nil,
+		http.StatusOK,
+		&searchPage,
+	)
 	if len(searchPage.Rows) != 1 || searchPage.Rows[0].Data["title"] != "first" {
 		t.Fatalf("full-text search = %#v", searchPage)
 	}
@@ -1366,33 +2283,113 @@ func TestProjectDatabasesCoreIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"table"`
 	}{}
-	requestJSON(t, ownerClient, http.MethodPost, databaseURLPath+"/tables", map[string]any{"name": "Event links", "row_security": true, "create_permissions": []string{}, "read_permissions": []string{}, "update_permissions": []string{}, "delete_permissions": []string{}}, http.StatusCreated, &relSourceTable)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		databaseURLPath+"/tables",
+		map[string]any{"name": "Event links", "row_security": true, "create_permissions": []string{}, "read_permissions": []string{}, "update_permissions": []string{}, "delete_permissions": []string{}},
+		http.StatusCreated,
+		&relSourceTable,
+	)
 	relSourceURL := databaseURLPath + "/tables/" + relSourceTable.Table.ID
-	requestJSON(t, ownerClient, http.MethodPost, relSourceURL+"/columns", map[string]any{"key": "event_id", "type": "text"}, http.StatusCreated, &struct{}{})
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		relSourceURL+"/columns",
+		map[string]any{"key": "event_id", "type": "text"},
+		http.StatusCreated,
+		&struct{}{},
+	)
 	relationshipTarget := struct {
 		Row struct {
 			ID string `json:"id"`
 		} `json:"row"`
 	}{}
-	requestJSON(t, ownerClient, http.MethodPost, tableURL+"/rows", map[string]any{"data": map[string]any{"title": "relationship target"}}, http.StatusCreated, &relationshipTarget)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		tableURL+"/rows",
+		map[string]any{"data": map[string]any{"title": "relationship target"}},
+		http.StatusCreated,
+		&relationshipTarget,
+	)
 	relationship := struct {
 		Relationship struct {
 			ID string `json:"id"`
 		} `json:"relationship"`
 	}{}
-	requestJSON(t, ownerClient, http.MethodPost, databaseURLPath+"/relationships", map[string]any{"source_table_id": relSourceTable.Table.ID, "source_column_key": "event_id", "target_table_id": tableResponse.Table.ID}, http.StatusCreated, &relationship)
-	requestJSON(t, ownerClient, http.MethodGet, databaseURLPath+"/relationships/"+relationship.Relationship.ID, nil, http.StatusOK, &struct{}{})
-	requestJSON(t, ownerClient, http.MethodPost, relSourceURL+"/rows", map[string]any{"data": map[string]any{"event_id": "not-a-row-id"}}, http.StatusUnprocessableEntity, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		databaseURLPath+"/relationships",
+		map[string]any{"source_table_id": relSourceTable.Table.ID, "source_column_key": "event_id", "target_table_id": tableResponse.Table.ID},
+		http.StatusCreated,
+		&relationship,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		databaseURLPath+"/relationships/"+relationship.Relationship.ID,
+		nil,
+		http.StatusOK,
+		&struct{}{},
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		relSourceURL+"/rows",
+		map[string]any{"data": map[string]any{"event_id": "not-a-row-id"}},
+		http.StatusUnprocessableEntity,
+		nil,
+	)
 	linkedRow := struct {
 		Row struct {
 			ID string `json:"id"`
 		} `json:"row"`
 	}{}
-	requestJSON(t, ownerClient, http.MethodPost, relSourceURL+"/rows", map[string]any{"data": map[string]any{"event_id": relationshipTarget.Row.ID}}, http.StatusCreated, &linkedRow)
-	requestJSON(t, ownerClient, http.MethodPatch, relSourceURL+"/rows/"+linkedRow.Row.ID, map[string]any{"data": map[string]any{"event_id": "not-a-row-id"}}, http.StatusUnprocessableEntity, nil)
-	requestJSON(t, ownerClient, http.MethodDelete, tableURL+"/rows/"+relationshipTarget.Row.ID, nil, http.StatusConflict, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		relSourceURL+"/rows",
+		map[string]any{"data": map[string]any{"event_id": relationshipTarget.Row.ID}},
+		http.StatusCreated,
+		&linkedRow,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPatch,
+		relSourceURL+"/rows/"+linkedRow.Row.ID,
+		map[string]any{"data": map[string]any{"event_id": "not-a-row-id"}},
+		http.StatusUnprocessableEntity,
+		nil,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodDelete,
+		tableURL+"/rows/"+relationshipTarget.Row.ID,
+		nil,
+		http.StatusConflict,
+		nil,
+	)
 	requestJSON(t, ownerClient, http.MethodDelete, relSourceURL+"/rows/"+linkedRow.Row.ID, nil, http.StatusNoContent, nil)
-	requestJSON(t, ownerClient, http.MethodDelete, tableURL+"/rows/"+relationshipTarget.Row.ID, nil, http.StatusNoContent, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodDelete,
+		tableURL+"/rows/"+relationshipTarget.Row.ID,
+		nil,
+		http.StatusNoContent,
+		nil,
+	)
 	transactionRowID := uuid.Must(uuid.NewV7()).String()
 	var transactionResult struct {
 		Rows []struct {
@@ -1413,7 +2410,15 @@ func TestProjectDatabasesCoreIntegration(t *testing.T) {
 		map[string]any{"action": "delete", "id": uuid.Must(uuid.NewV7()).String()},
 	}}, http.StatusNotFound, nil)
 	requestJSON(t, ownerClient, http.MethodGet, relSourceURL+"/rows/"+transactionRowID, nil, http.StatusOK, &struct{}{})
-	requestJSON(t, ownerClient, http.MethodPost, relSourceURL+"/rows/transaction", map[string]any{"operations": []any{map[string]any{"action": "delete", "id": transactionRowID}}}, http.StatusOK, &transactionResult)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		relSourceURL+"/rows/transaction",
+		map[string]any{"operations": []any{map[string]any{"action": "delete", "id": transactionRowID}}},
+		http.StatusOK,
+		&transactionResult,
+	)
 	if transactionResult.Count != 1 || len(transactionResult.DeletedIDs) != 1 {
 		t.Fatalf("delete transaction result = %#v", transactionResult)
 	}
@@ -1427,7 +2432,15 @@ func TestProjectDatabasesCoreIntegration(t *testing.T) {
 			Checksum  string `json:"checksum_sha256"`
 		} `json:"backup"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, databaseURLPath+"/backups?max_rows=1000", nil, http.StatusCreated, &backupResponse)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		databaseURLPath+"/backups?max_rows=1000",
+		nil,
+		http.StatusCreated,
+		&backupResponse,
+	)
 	if backupResponse.Backup.ID == "" || backupResponse.Backup.SizeBytes < 1 || len(backupResponse.Backup.Checksum) != 64 {
 		t.Fatalf("invalid backup metadata = %#v", backupResponse.Backup)
 	}
@@ -1437,7 +2450,15 @@ func TestProjectDatabasesCoreIntegration(t *testing.T) {
 	if err := json.Unmarshal(backupPayload, &backupSnapshot); err != nil || backupSnapshot["version"] == nil {
 		t.Fatalf("invalid downloaded backup: err=%v payload=%s", err, backupPayload)
 	}
-	requestJSON(t, ownerClient, http.MethodPost, databaseURLPath+"/tables", map[string]any{"name": "Restore me"}, http.StatusCreated, &struct{}{})
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		databaseURLPath+"/tables",
+		map[string]any{"name": "Restore me"},
+		http.StatusCreated,
+		&struct{}{},
+	)
 	var restoreResponse struct {
 		Result struct {
 			Tables        int `json:"tables"`
@@ -1452,7 +2473,15 @@ func TestProjectDatabasesCoreIntegration(t *testing.T) {
 		t.Fatalf("unexpected restore result = %#v", restoreResponse.Result)
 	}
 	requestJSON(t, ownerClient, http.MethodGet, databaseURLPath+"/tables", nil, http.StatusOK, &struct{}{})
-	requestJSON(t, ownerClient, http.MethodGet, databaseURLPath+"/tables/00000000-0000-7000-8000-000000000000", nil, http.StatusNotFound, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		databaseURLPath+"/tables/00000000-0000-7000-8000-000000000000",
+		nil,
+		http.StatusNotFound,
+		nil,
+	)
 	requestJSON(t, ownerClient, http.MethodDelete, backupPath, nil, http.StatusNoContent, nil)
 	requestJSON(t, ownerClient, http.MethodGet, backupPath, nil, http.StatusNotFound, nil)
 	// Cursor values are JSON-encoded before they cross the HTTP boundary. This
@@ -1463,15 +2492,47 @@ func TestProjectDatabasesCoreIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"table"`
 	}{}
-	requestJSON(t, ownerClient, http.MethodPost, databaseURLPath+"/tables", map[string]any{"name": "Cursor strings"}, http.StatusCreated, &cursorTableResponse)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		databaseURLPath+"/tables",
+		map[string]any{"name": "Cursor strings"},
+		http.StatusCreated,
+		&cursorTableResponse,
+	)
 	cursorTableURL := databaseURLPath + "/tables/" + cursorTableResponse.Table.ID
-	requestJSON(t, ownerClient, http.MethodPost, cursorTableURL+"/columns", map[string]any{"key": "value", "type": "text", "required": true}, http.StatusCreated, &struct{}{})
-	requestJSON(t, ownerClient, http.MethodPost, cursorTableURL+"/indexes", map[string]any{"name": "cursor value key", "type": "key", "column_keys": []string{"value"}}, http.StatusCreated, &struct{}{})
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		cursorTableURL+"/columns",
+		map[string]any{"key": "value", "type": "text", "required": true},
+		http.StatusCreated,
+		&struct{}{},
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		cursorTableURL+"/indexes",
+		map[string]any{"name": "cursor value key", "type": "key", "column_keys": []string{"value"}},
+		http.StatusCreated,
+		&struct{}{},
+	)
 	cursorValues := []string{`"abc`, `abc"`, `"abc"`, `"abc"`, `a \"quoted\" value`, "日本語 🚀", ""}
 	expectedCursorCounts := make(map[string]int, len(cursorValues))
 	for _, value := range cursorValues {
 		expectedCursorCounts[value]++
-		requestJSON(t, ownerClient, http.MethodPost, cursorTableURL+"/rows", map[string]any{"data": map[string]any{"value": value}}, http.StatusCreated, &struct{}{})
+		requestJSON(
+			t,
+			ownerClient,
+			http.MethodPost,
+			cursorTableURL+"/rows",
+			map[string]any{"data": map[string]any{"value": value}},
+			http.StatusCreated,
+			&struct{}{},
+		)
 	}
 	for _, direction := range []string{"asc", "desc"} {
 		seenIDs := make(map[string]bool, len(cursorValues))
@@ -1506,11 +2567,26 @@ func TestProjectDatabasesCoreIntegration(t *testing.T) {
 			cursor = *page.Pagination.NextCursor
 		}
 		if len(seenIDs) != len(cursorValues) || !reflect.DeepEqual(seenCounts, expectedCursorCounts) {
-			t.Fatalf("%s cursor pagination returned %d rows/counts %#v, want %d/%#v", direction, len(seenIDs), seenCounts, len(cursorValues), expectedCursorCounts)
+			t.Fatalf(
+				"%s cursor pagination returned %d rows/counts %#v, want %d/%#v",
+				direction,
+				len(seenIDs),
+				seenCounts,
+				len(cursorValues),
+				expectedCursorCounts,
+			)
 		}
 	}
 	requestJSON(t, ownerClient, http.MethodGet, tableURL+"/rows?filter.count=2", nil, http.StatusUnprocessableEntity, nil)
-	requestJSON(t, ownerClient, http.MethodPost, tableURL+"/indexes", map[string]any{"name": "count key", "type": "key", "column_keys": []string{"count"}}, http.StatusCreated, &struct{}{})
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		tableURL+"/indexes",
+		map[string]any{"name": "count key", "type": "key", "column_keys": []string{"count"}},
+		http.StatusCreated,
+		&struct{}{},
+	)
 	var rowsPage struct {
 		Rows []struct {
 			ID string `json:"id"`
@@ -1531,51 +2607,163 @@ func TestProjectDatabasesCoreIntegration(t *testing.T) {
 		} `json:"key"`
 		Secret string `json:"secret"`
 	}{}
-	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/api-keys", map[string]any{"name": "database read", "scopes": []string{"databases.read"}}, http.StatusCreated, &readKey)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, projectURL+"/databases", nil, http.StatusOK, keyHeaders(readKey.Secret))
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodPost, projectURL+"/databases", map[string]string{"name": "read cannot write"}, http.StatusForbidden, keyHeaders(readKey.Secret))
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/api-keys",
+		map[string]any{"name": "database read", "scopes": []string{"databases.read"}},
+		http.StatusCreated,
+		&readKey,
+	)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		projectURL+"/databases",
+		nil,
+		http.StatusOK,
+		keyHeaders(readKey.Secret),
+	)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodPost,
+		projectURL+"/databases",
+		map[string]string{"name": "read cannot write"},
+		http.StatusForbidden,
+		keyHeaders(readKey.Secret),
+	)
 	writeKey := struct {
 		Secret string `json:"secret"`
 	}{}
-	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/api-keys", map[string]any{"name": "database write", "scopes": []string{"databases.write"}}, http.StatusCreated, &writeKey)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodPost, projectURL+"/databases", map[string]string{"name": "write database"}, http.StatusCreated, keyHeaders(writeKey.Secret))
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, projectURL+"/databases", nil, http.StatusForbidden, keyHeaders(writeKey.Secret))
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/api-keys",
+		map[string]any{"name": "database write", "scopes": []string{"databases.write"}},
+		http.StatusCreated,
+		&writeKey,
+	)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodPost,
+		projectURL+"/databases",
+		map[string]string{"name": "write database"},
+		http.StatusCreated,
+		keyHeaders(writeKey.Secret),
+	)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		projectURL+"/databases",
+		nil,
+		http.StatusForbidden,
+		keyHeaders(writeKey.Secret),
+	)
 
 	// Public row grants: table read is empty, so an anonymous caller can only
 	// see the row because its row grant explicitly contains any.
-	requestJSON(t, ownerClient, http.MethodPatch, tableURL, map[string]any{"row_security": true, "create_permissions": []string{"any"}, "read_permissions": []string{}, "update_permissions": []string{}, "delete_permissions": []string{}}, http.StatusOK, &struct{}{})
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPatch,
+		tableURL,
+		map[string]any{"row_security": true, "create_permissions": []string{"any"}, "read_permissions": []string{}, "update_permissions": []string{}, "delete_permissions": []string{}},
+		http.StatusOK,
+		&struct{}{},
+	)
 	anonymousClient := newIntegrationClient(t)
 	publicRow := struct {
 		Row struct {
 			ID string `json:"id"`
 		} `json:"row"`
 	}{}
-	requestJSON(t, anonymousClient, http.MethodPost, tableURL+"/rows", map[string]any{"data": map[string]any{"title": "public"}, "read_permissions": []string{"any"}, "update_permissions": []string{"any"}, "delete_permissions": []string{"any"}}, http.StatusCreated, &publicRow)
+	requestJSON(
+		t,
+		anonymousClient,
+		http.MethodPost,
+		tableURL+"/rows",
+		map[string]any{"data": map[string]any{"title": "public"}, "read_permissions": []string{"any"}, "update_permissions": []string{"any"}, "delete_permissions": []string{"any"}},
+		http.StatusCreated,
+		&publicRow,
+	)
 	requestJSON(t, anonymousClient, http.MethodGet, tableURL+"/rows/"+publicRow.Row.ID, nil, http.StatusOK, &struct{}{})
-	requestJSON(t, anonymousClient, http.MethodPatch, tableURL+"/rows/"+publicRow.Row.ID, map[string]any{"data": map[string]any{"title": "public-updated"}}, http.StatusOK, &struct{}{})
+	requestJSON(
+		t,
+		anonymousClient,
+		http.MethodPatch,
+		tableURL+"/rows/"+publicRow.Row.ID,
+		map[string]any{"data": map[string]any{"title": "public-updated"}},
+		http.StatusOK,
+		&struct{}{},
+	)
 
 	// Registration creates an application cookie. The user grant is useful on
 	// a table with an empty table-read grant, and the cookie takes precedence
 	// over the Console cookie when both are attached to a request.
-	requestJSON(t, ownerClient, http.MethodPatch, projectURL+"/auth/settings", map[string]any{"registration_enabled": true}, http.StatusOK, &struct{}{})
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPatch,
+		projectURL+"/auth/settings",
+		map[string]any{"registration_enabled": true},
+		http.StatusOK,
+		&struct{}{},
+	)
 	appClient := newIntegrationClient(t)
 	appRegistration := struct {
 		Account struct {
 			ID string `json:"id"`
 		} `json:"account"`
 	}{}
-	requestJSON(t, appClient, http.MethodPost, projectURL+"/account/registrations", map[string]string{"email": "database-app-" + ownerID.String() + "@example.test", "password": "application-password-1"}, http.StatusCreated, &appRegistration)
-	requestJSON(t, appClient, http.MethodPost, tableURL+"/rows", map[string]any{"data": map[string]any{"title": "private"}}, http.StatusCreated, &struct{}{})
+	requestJSON(
+		t,
+		appClient,
+		http.MethodPost,
+		projectURL+"/account/registrations",
+		map[string]string{"email": "database-app-" + ownerID.String() + "@example.test", "password": "application-password-1"},
+		http.StatusCreated,
+		&appRegistration,
+	)
+	requestJSON(
+		t,
+		appClient,
+		http.MethodPost,
+		tableURL+"/rows",
+		map[string]any{"data": map[string]any{"title": "private"}},
+		http.StatusCreated,
+		&struct{}{},
+	)
 	requestJSON(t, anonymousClient, http.MethodGet, tableURL+"/rows?limit=100", nil, http.StatusOK, &struct{}{})
 
 	// Disable row security: the table's users grant is sufficient even when a
 	// row has no read grant.
-	requestJSON(t, ownerClient, http.MethodPatch, tableURL, map[string]any{"row_security": false, "create_permissions": []string{"any"}, "read_permissions": []string{"users"}, "update_permissions": []string{"users"}, "delete_permissions": []string{"users"}}, http.StatusOK, &struct{}{})
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPatch,
+		tableURL,
+		map[string]any{"row_security": false, "create_permissions": []string{"any"}, "read_permissions": []string{"users"}, "update_permissions": []string{"users"}, "delete_permissions": []string{"users"}},
+		http.StatusOK,
+		&struct{}{},
+	)
 	requestJSON(t, appClient, http.MethodGet, tableURL+"/rows", nil, http.StatusOK, &struct{}{})
 
 	// Blocking the application user revokes its session and prevents further
 	// data access; the Console user remains isolated from app credentials.
-	requestJSON(t, ownerClient, http.MethodPatch, projectURL+"/users/"+appRegistration.Account.ID+"/status", map[string]string{"status": "blocked"}, http.StatusOK, &struct{}{})
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPatch,
+		projectURL+"/users/"+appRegistration.Account.ID+"/status",
+		map[string]string{"status": "blocked"},
+		http.StatusOK,
+		&struct{}{},
+	)
 	requestJSON(t, appClient, http.MethodGet, tableURL+"/rows", nil, http.StatusUnauthorized, nil)
 	var auditMetadata string
 	if err := pool.QueryRow(ctx, `SELECT metadata::text FROM audit_events WHERE action='database_row.create' AND target_id=$1 ORDER BY created_at DESC LIMIT 1`, firstRow.Row.ID).Scan(&auditMetadata); err != nil {
@@ -1595,7 +2783,15 @@ func TestProjectDatabasesCoreIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"organization"`
 	}{}
-	requestJSON(t, outsider, http.MethodPost, server.URL+"/v1/account/registrations", map[string]string{"email": "database-outsider-" + ownerID.String() + "@example.test", "password": "correct-horse-battery-staple"}, http.StatusCreated, &outsiderRegistration)
+	requestJSON(
+		t,
+		outsider,
+		http.MethodPost,
+		server.URL+"/v1/account/registrations",
+		map[string]string{"email": "database-outsider-" + ownerID.String() + "@example.test", "password": "correct-horse-battery-staple"},
+		http.StatusCreated,
+		&outsiderRegistration,
+	)
 	t.Cleanup(func() {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM organizations WHERE id=$1`, outsiderRegistration.Organization.ID)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM accounts WHERE id=$1`, outsiderRegistration.Account.ID)
@@ -1605,7 +2801,15 @@ func TestProjectDatabasesCoreIntegration(t *testing.T) {
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM artifact_cleanup_jobs WHERE project_id=$1`, projectResponse.Project.ID).Scan(&databaseCleanupJobsBefore); err != nil {
 		t.Fatal(err)
 	}
-	requestJSON(t, ownerClient, http.MethodPost, databaseURLPath+"/backups?max_rows=1000", nil, http.StatusCreated, &backupResponse)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		databaseURLPath+"/backups?max_rows=1000",
+		nil,
+		http.StatusCreated,
+		&backupResponse,
+	)
 	requestJSON(t, ownerClient, http.MethodDelete, databaseURLPath, nil, http.StatusNoContent, nil)
 	requestJSON(t, ownerClient, http.MethodGet, databaseURLPath, nil, http.StatusNotFound, nil)
 	var databaseCleanupJobsAfter int

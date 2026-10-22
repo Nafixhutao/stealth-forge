@@ -14,7 +14,9 @@ func TestParseGitHubRepository(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if archive.Provider != ProviderGitHub || archive.Repository != "https://github.com/Acme/landing" || archive.Ref != "feature/home" {
+	if archive.Provider != ProviderGitHub ||
+		archive.Repository != "https://github.com/Acme/landing" ||
+		archive.Ref != "feature/home" {
 		t.Fatalf("unexpected descriptor: %+v", archive)
 	}
 	if archive.ArchiveURL != "https://codeload.github.com/Acme/landing/tar.gz/feature/home" {
@@ -30,7 +32,9 @@ func TestParseGitLabNestedRepository(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if archive.Provider != ProviderGitLab || archive.Repository != "https://gitlab.com/acme/web/landing" || archive.Ref != "release/2026.09" {
+	if archive.Provider != ProviderGitLab ||
+		archive.Repository != "https://gitlab.com/acme/web/landing" ||
+		archive.Ref != "release/2026.09" {
 		t.Fatalf("unexpected descriptor: %+v", archive)
 	}
 	if archive.ArchiveURL != "https://gitlab.com/acme/web/landing/-/archive/release/2026.09/landing-release-2026.09.tar.gz" {

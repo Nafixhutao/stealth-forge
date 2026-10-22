@@ -34,14 +34,29 @@ func (r *Reconciler) ReconcileConsoleOrigin(ctx context.Context) (origin string,
 	}
 	desired := connection.ConsoleOriginDesired
 	if desired != ConsoleOriginProxy && desired != ConsoleOriginTraefik {
-		return "", r.recordConsoleOriginFailure(ctx, connection.APIToken, desired, errors.New("saved Console origin is invalid; run stealth ingress rollback"))
+		return "", r.recordConsoleOriginFailure(
+			ctx,
+			connection.APIToken,
+			desired,
+			errors.New("saved Console origin is invalid; run stealth ingress rollback"),
+		)
 	}
 	if !connectionConfigured(connection) {
-		return "", r.recordConsoleOriginFailure(ctx, connection.APIToken, desired, errors.New("Cloudflare connection is unavailable; an Instance Owner must reconnect the scoped token for the existing Named Tunnel"))
+		return "", r.recordConsoleOriginFailure(
+			ctx,
+			connection.APIToken,
+			desired,
+			errors.New("Cloudflare connection is unavailable; an Instance Owner must reconnect the scoped token for the existing Named Tunnel"),
+		)
 	}
 	provider, err := r.client(connection.APIToken)
 	if err != nil {
-		return "", r.recordConsoleOriginFailure(ctx, connection.APIToken, desired, errors.New("Cloudflare API client could not be initialized"))
+		return "", r.recordConsoleOriginFailure(
+			ctx,
+			connection.APIToken,
+			desired,
+			errors.New("Cloudflare API client could not be initialized"),
+		)
 	}
 	providerCtx, cancel := context.WithTimeout(ctx, r.httpTimeout)
 	defer cancel()
@@ -66,7 +81,12 @@ func (r *Reconciler) ReconcileConsoleOrigin(ctx context.Context) (origin string,
 		return "", r.recordConsoleOriginFailure(ctx, connection.APIToken, desired, err)
 	}
 	if !sameTunnelRules(verified, want) {
-		return "", r.recordConsoleOriginFailure(ctx, connection.APIToken, desired, errors.New("Cloudflare Tunnel Console-origin read-back did not match the requested change; HIGH SEVERITY: provider rollback is unverified"))
+		return "", r.recordConsoleOriginFailure(
+			ctx,
+			connection.APIToken,
+			desired,
+			errors.New("Cloudflare Tunnel Console-origin read-back did not match the requested change; HIGH SEVERITY: provider rollback is unverified"),
+		)
 	}
 	completed, err := r.store.CompleteCloudflareConsoleOrigin(ctx, desired, desired)
 	if err != nil {
@@ -75,7 +95,15 @@ func (r *Reconciler) ReconcileConsoleOrigin(ctx context.Context) (origin string,
 	if !completed {
 		return "", ErrCloudflareDesiredStateChanged
 	}
-	r.logger.Info("cloudflare console origin reconciled", "desired_origin", desired, "observed_origin", desired, "changed", observed != desired)
+	r.logger.Info(
+		"cloudflare console origin reconciled",
+		"desired_origin",
+		desired,
+		"observed_origin",
+		desired,
+		"changed",
+		observed != desired,
+	)
 	return desired, nil
 }
 
@@ -120,7 +148,12 @@ func (r *Reconciler) VerifyConsoleOrigin(ctx context.Context) (origin string, er
 	if err != nil {
 		return "", err
 	}
-	_, observed, err := patchConsoleIngress(current, connection.ConsoleHostname, connection.WildcardHostname, connection.ConsoleOriginDesired)
+	_, observed, err := patchConsoleIngress(
+		current,
+		connection.ConsoleHostname,
+		connection.WildcardHostname,
+		connection.ConsoleOriginDesired,
+	)
 	if err != nil {
 		return "", err
 	}
@@ -167,7 +200,15 @@ func (r *Reconciler) VerifyProvider(ctx context.Context) (origin string, err err
 	}
 	providerCtx, cancel := context.WithTimeout(ctx, r.httpTimeout)
 	defer cancel()
-	zones, err := validateExistingConnection(providerCtx, provider, connection.AccountID, connection.ConsoleZoneID, connection.ConsoleHostname, connection.TunnelID, connection.TunnelName)
+	zones, err := validateExistingConnection(
+		providerCtx,
+		provider,
+		connection.AccountID,
+		connection.ConsoleZoneID,
+		connection.ConsoleHostname,
+		connection.TunnelID,
+		connection.TunnelName,
+	)
 	if err != nil {
 		return "", err
 	}

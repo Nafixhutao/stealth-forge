@@ -14,12 +14,26 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (r *Repository) BuildDatabaseBackup(ctx context.Context, projectID, databaseID uuid.UUID, actor DatabaseActor, maxRows int) (DatabaseBackupSnapshot, []byte, error) {
+func (r *Repository) BuildDatabaseBackup(
+	ctx context.Context,
+	projectID,
+	databaseID uuid.UUID,
+	actor DatabaseActor,
+	maxRows int,
+) (
+	DatabaseBackupSnapshot,
+	[]byte,
+	error,
+) {
 	if maxRows <= 0 {
 		maxRows = DatabaseBackupDefaultMaxRows
 	}
 	if maxRows > DatabaseBackupMaxRows {
-		return DatabaseBackupSnapshot{}, nil, fmt.Errorf("%w: maximum row count is %d", ErrBackupTooLarge, DatabaseBackupMaxRows)
+		return DatabaseBackupSnapshot{}, nil, fmt.Errorf(
+			"%w: maximum row count is %d",
+			ErrBackupTooLarge,
+			DatabaseBackupMaxRows,
+		)
 	}
 	if _, err := r.requireDatabaseRead(ctx, projectID, actor); err != nil {
 		return DatabaseBackupSnapshot{}, nil, err
@@ -71,7 +85,12 @@ func (r *Repository) BuildDatabaseBackup(ctx context.Context, projectID, databas
 	tableRows.Close()
 	rowCount := 0
 	for _, table := range tables {
-		item := DatabaseBackupTable{Table: table, Columns: make([]domain.DatabaseColumn, 0), Indexes: make([]domain.DatabaseIndex, 0), Rows: make([]domain.DatabaseRow, 0)}
+		item := DatabaseBackupTable{
+			Table:   table,
+			Columns: make([]domain.DatabaseColumn, 0),
+			Indexes: make([]domain.DatabaseIndex, 0),
+			Rows:    make([]domain.DatabaseRow, 0),
+		}
 		tableID := mustParseUUID(table.ID)
 		columns, err := tx.Query(ctx, `SELECT `+columnProjection()+` FROM database_columns WHERE table_id=$1 ORDER BY id`, tableID)
 		if err != nil {
@@ -168,16 +187,59 @@ func (r *Repository) BuildDatabaseBackup(ctx context.Context, projectID, databas
 	return snapshot, payload, nil
 }
 
-func (r *Repository) CreateDatabaseBackup(ctx context.Context, id, projectID, databaseID uuid.UUID, actor DatabaseActor, storagePath string, sizeBytes int64, checksum string) (domain.DatabaseBackup, error) {
+func (r *Repository) CreateDatabaseBackup(
+	ctx context.Context,
+	id,
+	projectID,
+	databaseID uuid.UUID,
+	actor DatabaseActor,
+	storagePath string,
+	sizeBytes int64,
+	checksum string,
+) (
+	domain.DatabaseBackup,
+	error,
+) {
 	return r.createDatabaseBackup(ctx, id, projectID, databaseID, actor, storagePath, sizeBytes, checksum, nil)
 }
 
-func (r *Repository) CreateDatabaseBackupWithCleanup(ctx context.Context, id, projectID, databaseID uuid.UUID, actor DatabaseActor, storagePath string, sizeBytes int64, checksum string, cleanup ArtifactCleanupInput) (domain.DatabaseBackup, error) {
+func (r *Repository) CreateDatabaseBackupWithCleanup(
+	ctx context.Context,
+	id,
+	projectID,
+	databaseID uuid.UUID,
+	actor DatabaseActor,
+	storagePath string,
+	sizeBytes int64,
+	checksum string,
+	cleanup ArtifactCleanupInput,
+) (
+	domain.DatabaseBackup,
+	error,
+) {
 	return r.createDatabaseBackup(ctx, id, projectID, databaseID, actor, storagePath, sizeBytes, checksum, &cleanup)
 }
 
-func (r *Repository) createDatabaseBackup(ctx context.Context, id, projectID, databaseID uuid.UUID, actor DatabaseActor, storagePath string, sizeBytes int64, checksum string, cleanup *ArtifactCleanupInput) (domain.DatabaseBackup, error) {
-	if strings.TrimSpace(storagePath) == "" || strings.Contains(storagePath, "..") || sizeBytes < 1 || sizeBytes > DatabaseBackupMaxBytes || len(checksum) != 64 || checksum != strings.ToLower(checksum) {
+func (r *Repository) createDatabaseBackup(
+	ctx context.Context,
+	id,
+	projectID,
+	databaseID uuid.UUID,
+	actor DatabaseActor,
+	storagePath string,
+	sizeBytes int64,
+	checksum string,
+	cleanup *ArtifactCleanupInput,
+) (
+	domain.DatabaseBackup,
+	error,
+) {
+	if strings.TrimSpace(storagePath) == "" ||
+		strings.Contains(storagePath, "..") ||
+		sizeBytes < 1 ||
+		sizeBytes > DatabaseBackupMaxBytes ||
+		len(checksum) != 64 ||
+		checksum != strings.ToLower(checksum) {
 		return domain.DatabaseBackup{}, ErrInvalidBackup
 	}
 	if _, err := hex.DecodeString(checksum); err != nil {
@@ -222,7 +284,19 @@ func (r *Repository) createDatabaseBackup(ctx context.Context, id, projectID, da
 	return item, nil
 }
 
-func (r *Repository) ListDatabaseBackups(ctx context.Context, projectID, databaseID uuid.UUID, actor DatabaseActor, limit int, cursor *uuid.UUID) ([]domain.DatabaseBackup, string, bool, error) {
+func (r *Repository) ListDatabaseBackups(
+	ctx context.Context,
+	projectID,
+	databaseID uuid.UUID,
+	actor DatabaseActor,
+	limit int,
+	cursor *uuid.UUID,
+) (
+	[]domain.DatabaseBackup,
+	string,
+	bool,
+	error,
+) {
 	canManage, err := r.requireDatabaseRead(ctx, projectID, actor)
 	if err != nil {
 		return nil, "", false, err
@@ -254,7 +328,17 @@ func (r *Repository) ListDatabaseBackups(ctx context.Context, projectID, databas
 	return items, next, canManage, nil
 }
 
-func (r *Repository) GetDatabaseBackup(ctx context.Context, projectID, databaseID, backupID uuid.UUID, actor DatabaseActor) (domain.DatabaseBackup, string, error) {
+func (r *Repository) GetDatabaseBackup(
+	ctx context.Context,
+	projectID,
+	databaseID,
+	backupID uuid.UUID,
+	actor DatabaseActor,
+) (
+	domain.DatabaseBackup,
+	string,
+	error,
+) {
 	if _, err := r.requireDatabaseRead(ctx, projectID, actor); err != nil {
 		return domain.DatabaseBackup{}, "", err
 	}
@@ -265,7 +349,16 @@ func (r *Repository) GetDatabaseBackup(ctx context.Context, projectID, databaseI
 	return item, path, err
 }
 
-func (r *Repository) DeleteDatabaseBackup(ctx context.Context, projectID, databaseID, backupID uuid.UUID, actor DatabaseActor) (string, error) {
+func (r *Repository) DeleteDatabaseBackup(
+	ctx context.Context,
+	projectID,
+	databaseID,
+	backupID uuid.UUID,
+	actor DatabaseActor,
+) (
+	string,
+	error,
+) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return "", err
@@ -281,9 +374,11 @@ func (r *Repository) DeleteDatabaseBackup(ctx context.Context, projectID, databa
 		return "", err
 	}
 	var path string
-	if err := tx.QueryRow(ctx, `SELECT storage_path FROM database_backups WHERE project_id=$1 AND database_id=$2 AND id=$3 FOR UPDATE`, projectID, databaseID, backupID).Scan(&path); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT storage_path FROM database_backups WHERE project_id=$1 AND database_id=$2 AND id=$3 FOR UPDATE`, projectID, databaseID, backupID).Scan(&path)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return "", ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return "", err
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM database_backups WHERE project_id=$1 AND database_id=$2 AND id=$3`, projectID, databaseID, backupID); err != nil {

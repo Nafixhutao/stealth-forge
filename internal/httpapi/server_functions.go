@@ -70,7 +70,11 @@ func functionActorFrom(r *http.Request) repository.FunctionActor {
 		return repository.FunctionActor{}
 	}
 	if actor.kind == apiKeyProjectActor {
-		return repository.FunctionActor{Kind: repository.FunctionAPIKeyActor, APIKeyID: actor.apiKeyID, APIKeyScopes: actor.scopes}
+		return repository.FunctionActor{
+			Kind:         repository.FunctionAPIKeyActor,
+			APIKeyID:     actor.apiKeyID,
+			APIKeyScopes: actor.scopes,
+		}
 	}
 	account, ok := r.Context().Value(accountContextKey).(domain.Account)
 	if !ok {
@@ -256,7 +260,12 @@ func validateFunctionRuntime(value string) (string, error) {
 
 func validateFunctionEntrypoint(value string) (string, error) {
 	value = strings.TrimSpace(value)
-	if value == "" || len(value) > 255 || value == "." || value == ".." || strings.HasPrefix(value, "/") || strings.ContainsAny(value, "\\\x00\r\n") {
+	if value == "" ||
+		len(value) > 255 ||
+		value == "." ||
+		value == ".." ||
+		strings.HasPrefix(value, "/") ||
+		strings.ContainsAny(value, "\\\x00\r\n") {
 		return "", errors.New("entrypoint must be a non-empty safe path")
 	}
 	for _, segment := range strings.Split(value, "/") {
@@ -306,7 +315,11 @@ func (s *Server) listFunctions(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"functions": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"functions": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) getFunction(w http.ResponseWriter, r *http.Request) {

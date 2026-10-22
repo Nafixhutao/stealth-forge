@@ -42,7 +42,15 @@ func TestOrganizationIncidentsControlPlaneIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"organization"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/account/registrations", map[string]string{"email": ownerEmail, "password": password}, http.StatusCreated, &owner)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/account/registrations",
+		map[string]string{"email": ownerEmail, "password": password},
+		http.StatusCreated,
+		&owner,
+	)
 	t.Cleanup(func() {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM audit_events WHERE actor_account_id=$1 OR organization_id=$2`, owner.Account.ID, owner.Organization.ID)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM organizations WHERE id=$1`, owner.Organization.ID)
@@ -59,13 +67,29 @@ func TestOrganizationIncidentsControlPlaneIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"organization"`
 	}
-	requestJSON(t, viewerClient, http.MethodPost, server.URL+"/v1/account/registrations", map[string]string{"email": viewerEmail, "password": password}, http.StatusCreated, &viewer)
+	requestJSON(
+		t,
+		viewerClient,
+		http.MethodPost,
+		server.URL+"/v1/account/registrations",
+		map[string]string{"email": viewerEmail, "password": password},
+		http.StatusCreated,
+		&viewer,
+	)
 	t.Cleanup(func() {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM audit_events WHERE actor_account_id=$1 OR organization_id=$2`, viewer.Account.ID, viewer.Organization.ID)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM organizations WHERE id=$1`, viewer.Organization.ID)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM accounts WHERE id=$1`, viewer.Account.ID)
 	})
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/organizations/"+owner.Organization.ID+"/memberships", map[string]string{"email": viewerEmail, "role": "viewer"}, http.StatusCreated, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/organizations/"+owner.Organization.ID+"/memberships",
+		map[string]string{"email": viewerEmail, "role": "viewer"},
+		http.StatusCreated,
+		nil,
+	)
 
 	var created struct {
 		Incident struct {
@@ -87,7 +111,12 @@ func TestOrganizationIncidentsControlPlaneIntegration(t *testing.T) {
 		"services": []string{"Sandbox Service", "API"},
 		"message":  "Provision failures crossed the alert threshold.",
 	}, http.StatusCreated, &created)
-	if created.Incident.ID == "" || created.Incident.Title != "Elevated sandbox failures" || created.Incident.Severity != "warning" || created.Incident.Status != "investigating" || len(created.Incident.Services) != 2 || len(created.Incident.Updates) != 1 {
+	if created.Incident.ID == "" ||
+		created.Incident.Title != "Elevated sandbox failures" ||
+		created.Incident.Severity != "warning" ||
+		created.Incident.Status != "investigating" ||
+		len(created.Incident.Services) != 2 ||
+		len(created.Incident.Updates) != 1 {
 		t.Fatalf("created incident = %+v", created.Incident)
 	}
 
@@ -100,11 +129,30 @@ func TestOrganizationIncidentsControlPlaneIntegration(t *testing.T) {
 		CanManage bool `json:"can_manage"`
 	}
 	requestJSON(t, viewerClient, http.MethodGet, incidentURL, nil, http.StatusOK, &listed)
-	if listed.CanManage || len(listed.Incidents) != 1 || listed.Incidents[0].ID != created.Incident.ID || listed.Incidents[0].Status != "investigating" {
+	if listed.CanManage ||
+		len(listed.Incidents) != 1 ||
+		listed.Incidents[0].ID != created.Incident.ID ||
+		listed.Incidents[0].Status != "investigating" {
 		t.Fatalf("viewer incident list = %+v", listed)
 	}
-	requestJSON(t, viewerClient, http.MethodPost, incidentURL, map[string]any{"title": "viewer cannot open", "severity": "info", "services": []string{"API"}}, http.StatusForbidden, nil)
-	requestJSON(t, viewerClient, http.MethodPatch, incidentURL+"/"+created.Incident.ID, map[string]any{"status": "resolved"}, http.StatusForbidden, nil)
+	requestJSON(
+		t,
+		viewerClient,
+		http.MethodPost,
+		incidentURL,
+		map[string]any{"title": "viewer cannot open", "severity": "info", "services": []string{"API"}},
+		http.StatusForbidden,
+		nil,
+	)
+	requestJSON(
+		t,
+		viewerClient,
+		http.MethodPatch,
+		incidentURL+"/"+created.Incident.ID,
+		map[string]any{"status": "resolved"},
+		http.StatusForbidden,
+		nil,
+	)
 
 	var updated struct {
 		Incident struct {
@@ -115,11 +163,30 @@ func TestOrganizationIncidentsControlPlaneIntegration(t *testing.T) {
 			} `json:"updates"`
 		} `json:"incident"`
 	}
-	requestJSON(t, ownerClient, http.MethodPatch, incidentURL+"/"+created.Incident.ID, map[string]any{"status": "resolved", "message": "The error rate is back to baseline."}, http.StatusOK, &updated)
-	if updated.Incident.Status != "resolved" || updated.Incident.ResolvedAt == nil || len(updated.Incident.Updates) != 2 || updated.Incident.Updates[1].Status != "resolved" {
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPatch,
+		incidentURL+"/"+created.Incident.ID,
+		map[string]any{"status": "resolved", "message": "The error rate is back to baseline."},
+		http.StatusOK,
+		&updated,
+	)
+	if updated.Incident.Status != "resolved" ||
+		updated.Incident.ResolvedAt == nil ||
+		len(updated.Incident.Updates) != 2 ||
+		updated.Incident.Updates[1].Status != "resolved" {
 		t.Fatalf("updated incident = %+v", updated.Incident)
 	}
-	requestJSON(t, ownerClient, http.MethodPatch, incidentURL+"/"+created.Incident.ID, map[string]any{"status": "monitoring"}, http.StatusConflict, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPatch,
+		incidentURL+"/"+created.Incident.ID,
+		map[string]any{"status": "monitoring"},
+		http.StatusConflict,
+		nil,
+	)
 
 	var events struct {
 		Events []struct {
@@ -127,7 +194,15 @@ func TestOrganizationIncidentsControlPlaneIntegration(t *testing.T) {
 			TargetID string `json:"target_id"`
 		} `json:"events"`
 	}
-	requestJSON(t, ownerClient, http.MethodGet, server.URL+"/v1/organizations/"+owner.Organization.ID+"/audit-events?limit=100", nil, http.StatusOK, &events)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		server.URL+"/v1/organizations/"+owner.Organization.ID+"/audit-events?limit=100",
+		nil,
+		http.StatusOK,
+		&events,
+	)
 	seenCreate, seenUpdate := false, false
 	for _, event := range events.Events {
 		if event.TargetID != created.Incident.ID {

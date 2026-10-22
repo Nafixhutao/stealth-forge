@@ -12,7 +12,16 @@ func lockStorageNamespace(ctx context.Context, tx pgx.Tx, projectID uuid.UUID) e
 	return err
 }
 
-func (r *Repository) auditStorage(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, actor StorageActor, action, targetType string, target uuid.UUID, metadata map[string]any) error {
+func (r *Repository) auditStorage(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	actor StorageActor,
+	action,
+	targetType string,
+	target uuid.UUID,
+	metadata map[string]any,
+) error {
 	orgID, err := projectOrganizationIDValue(ctx, tx, projectID)
 	if err != nil {
 		return err

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Nafixhutao/stealth-forge/internal/repository"
 	"github.com/google/uuid"
 )
 
@@ -17,7 +18,12 @@ func safeWorkerID(value string) bool {
 		return false
 	}
 	for _, char := range value {
-		if (char >= 'A' && char <= 'Z') || (char >= 'a' && char <= 'z') || (char >= '0' && char <= '9') || char == '.' || char == '_' || char == '-' {
+		if (char >= 'A' && char <= 'Z') ||
+			(char >= 'a' && char <= 'z') ||
+			(char >= '0' && char <= '9') ||
+			char == '.' ||
+			char == '_' ||
+			char == '-' {
 			continue
 		}
 		return false
@@ -136,7 +142,14 @@ func (w *progressWriter) writeLine(raw []byte) {
 	}
 	id, err := uuid.NewV7()
 	if err == nil {
-		_, _ = w.store.AppendAppBuildLog(w.ctx, w.projectID, w.appID, w.deploymentID, w.workerID, id, "info", line)
+		_, _ = w.store.AppendAppBuildLog(
+			w.ctx,
+			w.projectID,
+			w.appID,
+			w.deploymentID,
+			w.workerID,
+			repository.BuildLogEntry{ID: id, Level: "info", Message: line},
+		)
 	}
 	w.lines++
 	w.retained += len(line)

@@ -127,7 +127,15 @@ func TestCrossTenantRequestDoesNotMeterProjectIntegration(t *testing.T) {
 	if err := pool.QueryRow(ctx, `SELECT COALESCE(sum(api_request_count),0) FROM project_usage_daily WHERE project_id=$1`, projectID).Scan(&beforeUsage); err != nil {
 		t.Fatal(err)
 	}
-	requestJSON(t, outsiderClient, http.MethodGet, server.URL+"/v1/projects/"+project.Project.ID, nil, http.StatusNotFound, nil)
+	requestJSON(
+		t,
+		outsiderClient,
+		http.MethodGet,
+		server.URL+"/v1/projects/"+project.Project.ID,
+		nil,
+		http.StatusNotFound,
+		nil,
+	)
 	var afterUsage int64
 	var outsiderTraces int
 	if err := pool.QueryRow(ctx, `SELECT COALESCE(sum(api_request_count),0) FROM project_usage_daily WHERE project_id=$1`, projectID).Scan(&afterUsage); err != nil {
@@ -137,6 +145,11 @@ func TestCrossTenantRequestDoesNotMeterProjectIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	if afterUsage != beforeUsage || outsiderTraces != 0 {
-		t.Fatalf("cross-tenant request wrote telemetry or usage: usage %d->%d traces=%d", beforeUsage, afterUsage, outsiderTraces)
+		t.Fatalf(
+			"cross-tenant request wrote telemetry or usage: usage %d->%d traces=%d",
+			beforeUsage,
+			afterUsage,
+			outsiderTraces,
+		)
 	}
 }

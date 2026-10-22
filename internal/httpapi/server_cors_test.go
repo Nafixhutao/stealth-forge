@@ -65,8 +65,13 @@ func TestConsoleCORSAllowsConfiguredManagementOrigin(t *testing.T) {
 	preflight.Header.Set("Access-Control-Request-Headers", "content-type,idempotency-key")
 	preflightResponse := httptest.NewRecorder()
 	handler.ServeHTTP(preflightResponse, preflight)
-	if preflightResponse.Code != http.StatusNoContent || preflightResponse.Header().Get("Access-Control-Allow-Origin") != "http://localhost:5173" {
-		t.Fatalf("preflight status=%d allow-origin=%q", preflightResponse.Code, preflightResponse.Header().Get("Access-Control-Allow-Origin"))
+	if preflightResponse.Code != http.StatusNoContent ||
+		preflightResponse.Header().Get("Access-Control-Allow-Origin") != "http://localhost:5173" {
+		t.Fatalf(
+			"preflight status=%d allow-origin=%q",
+			preflightResponse.Code,
+			preflightResponse.Header().Get("Access-Control-Allow-Origin"),
+		)
 	}
 
 	request := httptest.NewRequest(http.MethodGet, "/v1/projects/018f27e3-5d1a-7c44-ae35-1db4ea12e6d2", nil)
@@ -74,7 +79,11 @@ func TestConsoleCORSAllowsConfiguredManagementOrigin(t *testing.T) {
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusAccepted || response.Header().Get("Access-Control-Allow-Credentials") != "true" {
-		t.Fatalf("configured console request status=%d credentials=%q", response.Code, response.Header().Get("Access-Control-Allow-Credentials"))
+		t.Fatalf(
+			"configured console request status=%d credentials=%q",
+			response.Code,
+			response.Header().Get("Access-Control-Allow-Credentials"),
+		)
 	}
 }
 

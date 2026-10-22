@@ -46,7 +46,10 @@ func TestAppCandidatesUseAppSpecificDeterministicFallbacks(t *testing.T) {
 		t.Fatalf("AppCandidates() = %#v, want %#v", got, want)
 	}
 	reserved := AppCandidates("api", appID)
-	if len(reserved) != 3 || reserved[0] != "api-018f0d5e7c197abc8d1e1234567890ab" || reserved[1] != want[2] || reserved[2] != want[3] {
+	if len(reserved) != 3 ||
+		reserved[0] != "api-018f0d5e7c197abc8d1e1234567890ab" ||
+		reserved[1] != want[2] ||
+		reserved[2] != want[3] {
 		t.Fatalf("reserved App candidates = %#v", reserved)
 	}
 }

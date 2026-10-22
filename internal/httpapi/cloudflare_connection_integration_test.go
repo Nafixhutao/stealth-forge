@@ -188,7 +188,8 @@ func TestAdminCloudflareConnectionOwnerBoundaryAndSecretProjectionIntegration(t 
 	if invalidResponse.StatusCode != http.StatusUnprocessableEntity {
 		t.Fatalf("invalid token replacement status=%d body=%s", invalidResponse.StatusCode, invalidBody)
 	}
-	if bytes.Contains(invalidBody, []byte("candidate-invalid-token")) || bytes.Contains(invalidBody, []byte(cloudflareHTTPTestToken)) {
+	if bytes.Contains(invalidBody, []byte("candidate-invalid-token")) ||
+		bytes.Contains(invalidBody, []byte(cloudflareHTTPTestToken)) {
 		t.Fatalf("invalid-token response leaked credential material: %s", invalidBody)
 	}
 	var afterFailure []byte
@@ -203,12 +204,21 @@ func TestAdminCloudflareConnectionOwnerBoundaryAndSecretProjectionIntegration(t 
 	if err := pool.QueryRow(ctx, `SELECT metadata::text FROM audit_events WHERE action='admin.cloudflare.connection.update' ORDER BY created_at DESC LIMIT 1`).Scan(&auditMetadata); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(auditMetadata, cloudflareHTTPTestToken) || strings.Contains(auditMetadata, "candidate-invalid-token") {
+	if strings.Contains(auditMetadata, cloudflareHTTPTestToken) ||
+		strings.Contains(auditMetadata, "candidate-invalid-token") {
 		t.Fatalf("token appeared in audit metadata: %s", auditMetadata)
 	}
 }
 
-func createCloudflareAPITestSession(t *testing.T, ctx context.Context, pool *pgxpool.Pool, accountID uuid.UUID) (string, error) {
+func createCloudflareAPITestSession(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	accountID uuid.UUID,
+) (
+	string,
+	error,
+) {
 	t.Helper()
 	token, tokenHash, err := auth.NewSessionToken()
 	if err != nil {
@@ -250,13 +260,25 @@ func (c cloudflareAdminValidationClient) ListZones(context.Context, string) ([]c
 	}
 	return []cloudflare.Zone{{ID: "console-zone", Name: "example.com"}}, nil
 }
-func (c cloudflareAdminValidationClient) ListCertificatePacks(context.Context, string) ([]cloudflare.CertificatePack, error) {
+func (c cloudflareAdminValidationClient) ListCertificatePacks(
+	context.Context,
+	string,
+) (
+	[]cloudflare.CertificatePack,
+	error,
+) {
 	if err := c.reject(); err != nil {
 		return nil, err
 	}
 	return nil, nil
 }
-func (c cloudflareAdminValidationClient) TotalTLSSettings(context.Context, string) (cloudflare.TotalTLSSettings, error) {
+func (c cloudflareAdminValidationClient) TotalTLSSettings(
+	context.Context,
+	string,
+) (
+	cloudflare.TotalTLSSettings,
+	error,
+) {
 	if err := c.reject(); err != nil {
 		return cloudflare.TotalTLSSettings{}, err
 	}
@@ -268,16 +290,35 @@ func (c cloudflareAdminValidationClient) ListTunnels(context.Context, string, st
 func (c cloudflareAdminValidationClient) CreateTunnel(context.Context, string, string) (cloudflare.Tunnel, error) {
 	return cloudflare.Tunnel{}, errors.New("unexpected tunnel creation")
 }
-func (c cloudflareAdminValidationClient) ConfigureTunnel(context.Context, string, string, []cloudflare.IngressRule) error {
+func (c cloudflareAdminValidationClient) ConfigureTunnel(
+	context.Context,
+	string,
+	string,
+	[]cloudflare.IngressRule,
+) error {
 	return errors.New("unexpected tunnel mutation during validation")
 }
-func (c cloudflareAdminValidationClient) TunnelConfiguration(context.Context, string, string) ([]cloudflare.IngressRule, error) {
+func (c cloudflareAdminValidationClient) TunnelConfiguration(
+	context.Context,
+	string,
+	string,
+) (
+	[]cloudflare.IngressRule,
+	error,
+) {
 	if err := c.reject(); err != nil {
 		return nil, err
 	}
 	return []cloudflare.IngressRule{{Hostname: "cloud.example.com", Service: "http://proxy:80"}, {Service: "http_status:404"}}, nil
 }
-func (c cloudflareAdminValidationClient) ListDNSRecords(context.Context, string, string) ([]cloudflare.DNSRecord, error) {
+func (c cloudflareAdminValidationClient) ListDNSRecords(
+	context.Context,
+	string,
+	string,
+) (
+	[]cloudflare.DNSRecord,
+	error,
+) {
 	if err := c.reject(); err != nil {
 		return nil, err
 	}
@@ -286,16 +327,38 @@ func (c cloudflareAdminValidationClient) ListDNSRecords(context.Context, string,
 func (c cloudflareAdminValidationClient) GetDNSRecord(context.Context, string, string) (cloudflare.DNSRecord, error) {
 	return cloudflare.DNSRecord{}, cloudflare.ErrResourceNotFound
 }
-func (c cloudflareAdminValidationClient) CreateDNSRecord(context.Context, string, cloudflare.DNSRecord) (cloudflare.DNSRecord, error) {
+func (c cloudflareAdminValidationClient) CreateDNSRecord(
+	context.Context,
+	string,
+	cloudflare.DNSRecord,
+) (
+	cloudflare.DNSRecord,
+	error,
+) {
 	return cloudflare.DNSRecord{}, errors.New("unexpected DNS creation during validation")
 }
-func (c cloudflareAdminValidationClient) UpdateDNSRecord(context.Context, string, string, cloudflare.DNSRecord) (cloudflare.DNSRecord, error) {
+func (c cloudflareAdminValidationClient) UpdateDNSRecord(
+	context.Context,
+	string,
+	string,
+	cloudflare.DNSRecord,
+) (
+	cloudflare.DNSRecord,
+	error,
+) {
 	return cloudflare.DNSRecord{}, errors.New("unexpected DNS update during validation")
 }
 func (c cloudflareAdminValidationClient) DeleteDNSRecord(context.Context, string, string) error {
 	return errors.New("unexpected DNS deletion during validation")
 }
-func (c cloudflareAdminValidationClient) TunnelStatus(_ context.Context, _, tunnelID string) (cloudflare.TunnelStatus, error) {
+func (c cloudflareAdminValidationClient) TunnelStatus(
+	_ context.Context,
+	_,
+	tunnelID string,
+) (
+	cloudflare.TunnelStatus,
+	error,
+) {
 	if err := c.reject(); err != nil {
 		return cloudflare.TunnelStatus{}, err
 	}

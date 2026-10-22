@@ -94,7 +94,12 @@ func TestCloudflareConnectionPersistenceAndReconciliationIntegration(t *testing.
 	}
 	neutralResult, err := providerNeutralReconciler.Reconcile(ctx)
 	if err != nil || neutralResult.Status != "unconfigured" || providerFactoryCalls != 0 {
-		t.Fatalf("provider-neutral workload domain reconcile = %#v, factory_calls=%d, err=%v", neutralResult, providerFactoryCalls, err)
+		t.Fatalf(
+			"provider-neutral workload domain reconcile = %#v, factory_calls=%d, err=%v",
+			neutralResult,
+			providerFactoryCalls,
+			err,
+		)
 	}
 	input := CloudflareConnectionInput{
 		AccountID: "account-1", ConsoleZoneID: "console-zone", ConsoleHostname: "cloud.example.com",
@@ -113,7 +118,10 @@ func TestCloudflareConnectionPersistenceAndReconciliationIntegration(t *testing.
 		t.Fatalf("repeated setup-state import = %v, %v; want no overwrite", imported, err)
 	}
 	connection, err := repo.CloudflareConnectionDetails(ctx)
-	if err != nil || connection.ConsoleOriginDesired != cloudflare.ConsoleOriginProxy || connection.ConsoleOriginObserved != "unknown" || connection.ConsoleOriginStatus != "pending" {
+	if err != nil ||
+		connection.ConsoleOriginDesired != cloudflare.ConsoleOriginProxy ||
+		connection.ConsoleOriginObserved != "unknown" ||
+		connection.ConsoleOriginStatus != "pending" {
 		t.Fatalf("new origin state defaults = %#v, %v", connection, err)
 	}
 
@@ -164,7 +172,8 @@ func TestCloudflareConnectionPersistenceAndReconciliationIntegration(t *testing.
 	if _, err := repo.UpdateInstanceDomainSettings(ctx, ownerID, "cloud.example.com", &firstDomain); err != nil {
 		t.Fatal(err)
 	}
-	if changed, err := repo.SetCloudflareConsoleOriginDesired(ctx, cloudflare.ConsoleOriginTraefik, "cutover"); err != nil || !changed {
+	if changed, err := repo.SetCloudflareConsoleOriginDesired(ctx, cloudflare.ConsoleOriginTraefik, "cutover"); err != nil ||
+		!changed {
 		t.Fatalf("set Console origin desired to Traefik = changed:%v error:%v", changed, err)
 	}
 	if completed, err := repo.CompleteCloudflareReconcile(ctx, domain.CloudflareRoutingUpdate{
@@ -176,14 +185,24 @@ func TestCloudflareConnectionPersistenceAndReconciliationIntegration(t *testing.
 		t.Fatalf("first reconcile completion = %v, %v", completed, err)
 	}
 	status, err = repo.CloudflareRoutingStatus(ctx)
-	if err != nil || status.Status != "ready" || status.EdgeTLSStatus != cloudflare.EdgeTLSReady || status.WorkloadHostname == nil || *status.WorkloadHostname != "*.apps.example.net" || status.ConsoleOriginDesired != cloudflare.ConsoleOriginTraefik || status.ConsoleOriginObserved != cloudflare.ConsoleOriginTraefik || status.ConsoleOriginStatus != "ready" {
+	if err != nil ||
+		status.Status != "ready" ||
+		status.EdgeTLSStatus != cloudflare.EdgeTLSReady ||
+		status.WorkloadHostname == nil ||
+		*status.WorkloadHostname != "*.apps.example.net" ||
+		status.ConsoleOriginDesired != cloudflare.ConsoleOriginTraefik ||
+		status.ConsoleOriginObserved != cloudflare.ConsoleOriginTraefik ||
+		status.ConsoleOriginStatus != "ready" {
 		t.Fatalf("ready Cloudflare status = %#v, %v", status, err)
 	}
-	if verified, err := repo.RecordCloudflareConsoleOriginVerification(ctx, cloudflare.ConsoleOriginTraefik); err != nil || !verified {
+	if verified, err := repo.RecordCloudflareConsoleOriginVerification(ctx, cloudflare.ConsoleOriginTraefik); err != nil ||
+		!verified {
 		t.Fatalf("persist public Console verification = %v, %v", verified, err)
 	}
 	status, err = repo.CloudflareRoutingStatus(ctx)
-	if err != nil || status.ConsolePublicVerifiedAt == nil || status.ConsolePublicVerifiedOrigin != cloudflare.ConsoleOriginTraefik {
+	if err != nil ||
+		status.ConsolePublicVerifiedAt == nil ||
+		status.ConsolePublicVerifiedOrigin != cloudflare.ConsoleOriginTraefik {
 		t.Fatalf("public Console verification status = %#v, %v", status, err)
 	}
 
@@ -205,7 +224,10 @@ func TestCloudflareConnectionPersistenceAndReconciliationIntegration(t *testing.
 		t.Fatalf("action-required TLS observation = %v, %v", completed, err)
 	}
 	status, err = repo.CloudflareRoutingStatus(ctx)
-	if err != nil || status.Status != "error" || status.EdgeTLSStatus != cloudflare.EdgeTLSActionRequired || !strings.Contains(status.EdgeTLSError, "No active certificate") {
+	if err != nil ||
+		status.Status != "error" ||
+		status.EdgeTLSStatus != cloudflare.EdgeTLSActionRequired ||
+		!strings.Contains(status.EdgeTLSError, "No active certificate") {
 		t.Fatalf("action-required edge TLS status = %#v, %v", status, err)
 	}
 	if err := repo.RecordCloudflareReconcileFailure(ctx, "Cloudflare request timed out"); err != nil {
@@ -219,13 +241,19 @@ func TestCloudflareConnectionPersistenceAndReconciliationIntegration(t *testing.
 		t.Fatal(err)
 	}
 	status, err = repo.CloudflareRoutingStatus(ctx)
-	if err != nil || status.Status != "error" || status.ConsoleOriginStatus != "error" || status.ConsoleOriginLastError != "Console tunnel read-back failed" || status.ConsolePublicVerifiedAt != nil {
+	if err != nil ||
+		status.Status != "error" ||
+		status.ConsoleOriginStatus != "error" ||
+		status.ConsoleOriginLastError != "Console tunnel read-back failed" ||
+		status.ConsolePublicVerifiedAt != nil {
 		t.Fatalf("independent Console-origin failure status = %#v, %v", status, err)
 	}
-	if completed, err := repo.CompleteCloudflareConsoleOrigin(ctx, cloudflare.ConsoleOriginProxy, cloudflare.ConsoleOriginProxy); err != nil || completed {
+	if completed, err := repo.CompleteCloudflareConsoleOrigin(ctx, cloudflare.ConsoleOriginProxy, cloudflare.ConsoleOriginProxy); err != nil ||
+		completed {
 		t.Fatalf("stale Console-origin observation = %v, %v; want conditional no-op", completed, err)
 	}
-	if completed, err := repo.CompleteCloudflareConsoleOrigin(ctx, cloudflare.ConsoleOriginTraefik, cloudflare.ConsoleOriginTraefik); err != nil || !completed {
+	if completed, err := repo.CompleteCloudflareConsoleOrigin(ctx, cloudflare.ConsoleOriginTraefik, cloudflare.ConsoleOriginTraefik); err != nil ||
+		!completed {
 		t.Fatalf("restore Console-origin readiness = %v, %v", completed, err)
 	}
 	status, err = repo.CloudflareRoutingStatus(ctx)
@@ -246,7 +274,12 @@ func TestCloudflareConnectionPersistenceAndReconciliationIntegration(t *testing.
 		t.Fatalf("clear reconcile completion = %v, %v", completed, err)
 	}
 	retiring, err := repo.ListRetiringCloudflareWildcardDNS(ctx)
-	if err != nil || len(retiring) != 2 || retiring[0].RecordID != "wildcard-1" || retiring[0].Hostname != "*.apps.example.net" || retiring[1].RecordID != "wildcard-2" || retiring[1].Hostname != "*.deploy.example.co.uk" {
+	if err != nil ||
+		len(retiring) != 2 ||
+		retiring[0].RecordID != "wildcard-1" ||
+		retiring[0].Hostname != "*.apps.example.net" ||
+		retiring[1].RecordID != "wildcard-2" ||
+		retiring[1].Hostname != "*.deploy.example.co.uk" {
 		t.Fatalf("queued prior wildcard cleanup = %#v, %v", retiring, err)
 	}
 	var stillEncrypted []byte

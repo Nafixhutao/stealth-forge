@@ -68,7 +68,9 @@ func TestComposeSmokeLegacyHandoff(t *testing.T) {
 			t.Fatal(err)
 		}
 		plaintext, err := cipher.Decrypt(ciphertext)
-		if err != nil || strings.Contains(string(plaintext), "must-not-cross-cloudflare-handoff") || strings.Contains(string(plaintext), "github_private_key") {
+		if err != nil ||
+			strings.Contains(string(plaintext), "must-not-cross-cloudflare-handoff") ||
+			strings.Contains(string(plaintext), "github_private_key") {
 			t.Fatal("Cloudflare artifact contains unrelated setup data")
 		}
 	case "verify-absent":

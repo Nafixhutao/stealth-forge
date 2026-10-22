@@ -118,7 +118,11 @@ func TestMobyRuntimeImageCacheInventoryIsStrictBoundedAndTyped(t *testing.T) {
 		t.Fatal(err)
 	}
 	entries, err := moby.ListRuntimeImageCache(context.Background())
-	if err != nil || len(entries) != 1 || entries[0].Reference != reference || entries[0].ImageID != imageID || entries[0].SizeBytes != 4096 {
+	if err != nil ||
+		len(entries) != 1 ||
+		entries[0].Reference != reference ||
+		entries[0].ImageID != imageID ||
+		entries[0].SizeBytes != 4096 {
 		t.Fatalf("runtime image cache inventory = %#v, %v", entries, err)
 	}
 	if len(runner.calls) != 2 || runner.calls[0].args[0] != "image" || runner.calls[1].args[0] != "image" ||
@@ -175,7 +179,15 @@ func TestMobyRuntimeImageCacheInventoryRejectsMalformedAndTruncatedData(t *testi
 	}
 }
 
-func runtimeImageCacheDockerFixtures(t *testing.T, tagCount, imageCount int) ([]byte, []CommandResult, []RuntimeImageCacheEntry) {
+func runtimeImageCacheDockerFixtures(
+	t *testing.T,
+	tagCount,
+	imageCount int,
+) (
+	[]byte,
+	[]CommandResult,
+	[]RuntimeImageCacheEntry,
+) {
 	t.Helper()
 	if imageCount < 1 || imageCount > tagCount {
 		t.Fatalf("invalid fixture counts: tags=%d images=%d", tagCount, imageCount)
@@ -350,7 +362,10 @@ func TestMobyRuntimeImageRemovalUsesExactValidatedTagAndTreatsAbsenceAsSuccess(t
 	if err := moby.RemoveRuntimeImageTag(context.Background(), entry); err != nil {
 		t.Fatal(err)
 	}
-	if len(runner.calls) != 2 || runner.calls[1].args[0] != "image" || runner.calls[1].args[1] != "rm" || runner.calls[1].args[2] != entry.Reference {
+	if len(runner.calls) != 2 ||
+		runner.calls[1].args[0] != "image" ||
+		runner.calls[1].args[1] != "rm" ||
+		runner.calls[1].args[2] != entry.Reference {
 		t.Fatalf("image removal argv = %#v", runner.calls)
 	}
 	for _, call := range runner.calls {
@@ -378,7 +393,10 @@ func TestMobyRuntimeImageRemovalUsesExactValidatedTagAndTreatsAbsenceAsSuccess(t
 	if err := failingMoby.RemoveRuntimeImageTag(context.Background(), entry); !errors.Is(err, removeFailure) {
 		t.Fatalf("Docker image removal failure = %v, want propagated maintenance error", err)
 	}
-	if len(failingRunner.calls) != 2 || failingRunner.calls[1].args[0] != "image" || failingRunner.calls[1].args[1] != "rm" || failingRunner.calls[1].args[2] != entry.Reference {
+	if len(failingRunner.calls) != 2 ||
+		failingRunner.calls[1].args[0] != "image" ||
+		failingRunner.calls[1].args[1] != "rm" ||
+		failingRunner.calls[1].args[2] != entry.Reference {
 		t.Fatalf("failed removal did not target one exact tag: %#v", failingRunner.calls)
 	}
 
@@ -407,7 +425,9 @@ func TestMobyManagedAppImageReferenceInventoryIsBoundedAndOwnershipChecked(t *te
 	runner := &scriptedRuntimeRunner{results: []CommandResult{{Stdout: []byte(containerID + "\n")}, {Stdout: []byte(output)}}}
 	moby, _ := NewMoby(runner, "stealth_app_runtime", 30*time.Second, 10*time.Minute)
 	refs, err := moby.ListManagedAppImageReferences(context.Background())
-	if err != nil || len(refs) != 1 || refs[0] != (ManagedAppImageReference{DeploymentID: deploymentID, ImageID: imageID}) {
+	if err != nil ||
+		len(refs) != 1 ||
+		refs[0] != (ManagedAppImageReference{DeploymentID: deploymentID, ImageID: imageID}) {
 		t.Fatalf("verified container references = %#v, %v", refs, err)
 	}
 	if len(runner.calls) != 2 || runner.calls[1].args[0] != "container" || runner.calls[1].args[1] != "inspect" {
@@ -433,7 +453,15 @@ type managedContainerDockerFixture struct {
 	ref    ManagedAppImageReference
 }
 
-func managedContainerDockerFixtures(t *testing.T, count, malformedIndex int) ([]byte, []CommandResult, []ManagedAppImageReference) {
+func managedContainerDockerFixtures(
+	t *testing.T,
+	count,
+	malformedIndex int,
+) (
+	[]byte,
+	[]CommandResult,
+	[]ManagedAppImageReference,
+) {
 	t.Helper()
 	fixtures := make([]managedContainerDockerFixture, 0, count)
 	for index := 0; index < count; index++ {
@@ -512,7 +540,11 @@ func TestMobyManagedAppImageReferencesInventoryBatchesAndAcceptsLargeHosts(t *te
 			}
 			for _, call := range runner.calls[1:] {
 				if len(call.args)-4 > managedContainerInspectBatchSize {
-					t.Fatalf("container inspect argv has %d IDs, batch limit is %d", len(call.args)-4, managedContainerInspectBatchSize)
+					t.Fatalf(
+						"container inspect argv has %d IDs, batch limit is %d",
+						len(call.args)-4,
+						managedContainerInspectBatchSize,
+					)
 				}
 			}
 		})
@@ -520,7 +552,11 @@ func TestMobyManagedAppImageReferencesInventoryBatchesAndAcceptsLargeHosts(t *te
 }
 
 func TestMobyManagedAppImageReferencesFailsClosedOnMalformedLaterBatch(t *testing.T) {
-	listing, inspectResults, _ := managedContainerDockerFixtures(t, 2*managedContainerInspectBatchSize+1, 2*managedContainerInspectBatchSize)
+	listing, inspectResults, _ := managedContainerDockerFixtures(
+		t,
+		2*managedContainerInspectBatchSize+1,
+		2*managedContainerInspectBatchSize,
+	)
 	results := append([]CommandResult{{Stdout: listing}}, inspectResults...)
 	runner := &scriptedRuntimeRunner{results: results}
 	moby, _ := NewMoby(runner, "stealth_app_runtime", 30*time.Second, 10*time.Minute)

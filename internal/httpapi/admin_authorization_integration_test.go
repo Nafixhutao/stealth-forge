@@ -61,7 +61,15 @@ func TestInstanceAdminRoutesUseInstanceRoleBoundary(t *testing.T) {
 
 	requestJSON(t, ownerClient, http.MethodGet, server.URL+"/v1/admin/overview", nil, http.StatusOK, &struct{}{})
 	requestJSON(t, memberClient, http.MethodGet, server.URL+"/v1/admin/overview", nil, http.StatusForbidden, nil)
-	requestJSON(t, newIntegrationClient(t), http.MethodGet, server.URL+"/v1/admin/overview", nil, http.StatusUnauthorized, nil)
+	requestJSON(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		server.URL+"/v1/admin/overview",
+		nil,
+		http.StatusUnauthorized,
+		nil,
+	)
 }
 
 type adminTestAccount struct {

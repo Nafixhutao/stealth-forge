@@ -104,7 +104,15 @@ func TestSiteDomainWriteScopeAndDNSVerificationIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"site"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/sites", map[string]string{"name": "domain-site"}, http.StatusCreated, &site)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/sites",
+		map[string]string{"name": "domain-site"},
+		http.StatusCreated,
+		&site,
+	)
 
 	var created struct {
 		Domain struct {
@@ -120,8 +128,18 @@ func TestSiteDomainWriteScopeAndDNSVerificationIntegration(t *testing.T) {
 	// integration runs collide on the hostname uniqueness constraint.
 	rawHostname := "WWW-" + strings.ReplaceAll(ownerID.String(), "-", "") + ".EXAMPLE.TEST."
 	expectedHostname := strings.ToLower(strings.TrimSuffix(rawHostname, "."))
-	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/sites/"+site.Site.ID+"/domains", map[string]string{"hostname": rawHostname}, http.StatusCreated, &created)
-	if created.Domain.Hostname != expectedHostname || created.Domain.Status != "pending" || created.Domain.VerificationValue == "" {
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/sites/"+site.Site.ID+"/domains",
+		map[string]string{"hostname": rawHostname},
+		http.StatusCreated,
+		&created,
+	)
+	if created.Domain.Hostname != expectedHostname ||
+		created.Domain.Status != "pending" ||
+		created.Domain.VerificationValue == "" {
 		t.Fatalf("unexpected domain challenge: %+v", created.Domain)
 	}
 
@@ -133,9 +151,25 @@ func TestSiteDomainWriteScopeAndDNSVerificationIntegration(t *testing.T) {
 		"scopes": []string{"sites.write"},
 	}, http.StatusCreated, &key)
 	resolver.set(created.Domain.VerificationRecord, created.Domain.VerificationValue)
-	verifyBody := requestJSONRawWithHeaders(t, newIntegrationClient(t), http.MethodPost, projectURL+"/sites/"+site.Site.ID+"/domains/"+created.Domain.ID+"/verify", nil, http.StatusOK, map[string]string{"X-Stealth-Key": key.Secret})
+	verifyBody := requestJSONRawWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodPost,
+		projectURL+"/sites/"+site.Site.ID+"/domains/"+created.Domain.ID+"/verify",
+		nil,
+		http.StatusOK,
+		map[string]string{"X-Stealth-Key": key.Secret},
+	)
 	if !bytes.Contains(verifyBody, []byte(`"status":"verified"`)) {
 		t.Fatalf("write-only key did not verify domain: %s", verifyBody)
 	}
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, projectURL+"/sites/"+site.Site.ID+"/domains/"+created.Domain.ID, nil, http.StatusForbidden, map[string]string{"X-Stealth-Key": key.Secret})
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		projectURL+"/sites/"+site.Site.ID+"/domains/"+created.Domain.ID,
+		nil,
+		http.StatusForbidden,
+		map[string]string{"X-Stealth-Key": key.Secret},
+	)
 }

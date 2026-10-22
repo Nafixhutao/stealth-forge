@@ -96,7 +96,17 @@ const messagingSubscriberProjection = `id,project_id,topic_id,channel,address_pr
 func scanMessagingProvider(row messagingProviderScanner) (domain.MessagingProvider, error) {
 	var item domain.MessagingProvider
 	var id, projectID uuid.UUID
-	err := row.Scan(&id, &projectID, &item.Name, &item.Channel, &item.Provider, &item.CredentialsPresent, &item.Enabled, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&id,
+		&projectID,
+		&item.Name,
+		&item.Channel,
+		&item.Provider,
+		&item.CredentialsPresent,
+		&item.Enabled,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	item.ID = id.String()
 	item.ProjectID = projectID.String()
 	return item, err
@@ -105,7 +115,16 @@ func scanMessagingProvider(row messagingProviderScanner) (domain.MessagingProvid
 func scanMessagingTopic(row messagingTopicScanner) (domain.MessagingTopic, error) {
 	var item domain.MessagingTopic
 	var id, projectID uuid.UUID
-	err := row.Scan(&id, &projectID, &item.Name, &item.Description, &item.Enabled, &item.SubscriberCount, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&id,
+		&projectID,
+		&item.Name,
+		&item.Description,
+		&item.Enabled,
+		&item.SubscriberCount,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	item.ID = id.String()
 	item.ProjectID = projectID.String()
 	return item, err
@@ -114,7 +133,16 @@ func scanMessagingTopic(row messagingTopicScanner) (domain.MessagingTopic, error
 func scanMessagingSubscriber(row messagingSubscriberScanner) (domain.MessagingSubscriber, error) {
 	var item domain.MessagingSubscriber
 	var id, projectID, topicID uuid.UUID
-	err := row.Scan(&id, &projectID, &topicID, &item.Channel, &item.AddressPreview, &item.Enabled, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&id,
+		&projectID,
+		&topicID,
+		&item.Channel,
+		&item.AddressPreview,
+		&item.Enabled,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	item.ID = id.String()
 	item.ProjectID = projectID.String()
 	item.TopicID = topicID.String()
@@ -157,7 +185,11 @@ func normalizeMessagingProvider(value string) (string, error) {
 
 func normalizeMessagingCredentials(raw map[string]string) ([]byte, bool, error) {
 	if len(raw) > maxMessagingCredentialKeys {
-		return nil, false, fmt.Errorf("%w: at most %d credential fields are allowed", ErrInvalidMessaging, maxMessagingCredentialKeys)
+		return nil, false, fmt.Errorf(
+			"%w: at most %d credential fields are allowed",
+			ErrInvalidMessaging,
+			maxMessagingCredentialKeys,
+		)
 	}
 	normalized := make(map[string]string, len(raw))
 	keys := make([]string, 0, len(raw))
@@ -227,7 +259,14 @@ func messagingAddressPreview(channel, address string) string {
 	return address[:2] + "…" + address[len(address)-2:]
 }
 
-func (r *Repository) requireMessagingRead(ctx context.Context, projectID uuid.UUID, actor MessagingActor) (bool, error) {
+func (r *Repository) requireMessagingRead(
+	ctx context.Context,
+	projectID uuid.UUID,
+	actor MessagingActor,
+) (
+	bool,
+	error,
+) {
 	switch actor.Kind {
 	case MessagingConsoleActor:
 		role, err := r.projectRole(ctx, projectID, actor.AccountID)
@@ -252,7 +291,12 @@ func (r *Repository) requireMessagingRead(ctx context.Context, projectID uuid.UU
 	}
 }
 
-func (r *Repository) requireMessagingWriteTx(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, actor MessagingActor) error {
+func (r *Repository) requireMessagingWriteTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	actor MessagingActor,
+) error {
 	switch actor.Kind {
 	case MessagingConsoleActor:
 		return requireProjectRoleTx(ctx, tx, projectID, actor.AccountID, "owner", "admin")
@@ -299,7 +343,16 @@ func messagingAuditMetadata(actor MessagingActor, metadata map[string]any) map[s
 	return metadata
 }
 
-func (r *Repository) auditMessaging(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, actor MessagingActor, action, targetType string, target uuid.UUID, metadata map[string]any) error {
+func (r *Repository) auditMessaging(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	actor MessagingActor,
+	action,
+	targetType string,
+	target uuid.UUID,
+	metadata map[string]any,
+) error {
 	orgID, err := projectOrganizationIDValue(ctx, tx, projectID)
 	if err != nil {
 		return err

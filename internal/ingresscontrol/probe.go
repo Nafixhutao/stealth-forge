@@ -30,7 +30,14 @@ var requiredBrowserSecurityHeaders = []struct{ name, value string }{
 	{"Content-Security-Policy", "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' https://github.com; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.googleusercontent.com https://avatars.githubusercontent.com; font-src 'self' data:; connect-src 'self';"},
 }
 
-var publicConsolePaths = []string{"/", "/v1/account", "/healthz", "/readyz", "/version", "/__stealth_ingress_acceptance_unknown__"}
+var publicConsolePaths = []string{
+	"/",
+	"/v1/account",
+	"/healthz",
+	"/readyz",
+	"/version",
+	"/__stealth_ingress_acceptance_unknown__",
+}
 
 var nonPublicAddressRanges = []netip.Prefix{
 	netip.MustParsePrefix("0.0.0.0/8"),
@@ -123,14 +130,23 @@ func (p *HTTPProbe) LocalTraefik(ctx context.Context, hostname string) error {
 		}
 	}
 	if rootStatus < http.StatusOK || rootStatus >= http.StatusMultipleChoices {
-		return fmt.Errorf("local route %s/ returned HTTP %d, expected a Console document or safe redirect", target, rootStatus)
+		return fmt.Errorf(
+			"local route %s/ returned HTTP %d, expected a Console document or safe redirect",
+			target,
+			rootStatus,
+		)
 	}
 	apiStatus, _, err := p.localTraefikRequest(ctx, target, hostname, "/v1/account")
 	if err != nil {
 		return err
 	}
 	if apiStatus != http.StatusUnauthorized {
-		return fmt.Errorf("local route %s/v1/account returned HTTP %d, expected %d", target, apiStatus, http.StatusUnauthorized)
+		return fmt.Errorf(
+			"local route %s/v1/account returned HTTP %d, expected %d",
+			target,
+			apiStatus,
+			http.StatusUnauthorized,
+		)
 	}
 	return nil
 }
@@ -143,7 +159,7 @@ func (p *HTTPProbe) localTraefikRequest(ctx context.Context, target, hostname, p
 	request.Host = hostname
 	response, err := p.client.Do(request)
 	if err != nil {
-		return 0, nil, fmt.Errorf("local route %s%s is unreachable", target, path)
+		return 0, nil, fmt.Errorf("local route %q is unreachable", target+path)
 	}
 	_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, maxProbeBody))
 	_ = response.Body.Close()
@@ -154,7 +170,14 @@ func (p *HTTPProbe) CapturePublicConsole(ctx context.Context, publicURL string) 
 	return p.VerifyPublicConsole(ctx, publicURL, nil)
 }
 
-func (p *HTTPProbe) VerifyPublicConsole(ctx context.Context, publicURL string, baseline *PublicEvidence) (PublicEvidence, error) {
+func (p *HTTPProbe) VerifyPublicConsole(
+	ctx context.Context,
+	publicURL string,
+	baseline *PublicEvidence,
+) (
+	PublicEvidence,
+	error,
+) {
 	base, err := parsePublicURL(publicURL)
 	if err != nil {
 		return PublicEvidence{}, err
@@ -165,7 +188,13 @@ func (p *HTTPProbe) VerifyPublicConsole(ctx context.Context, publicURL string, b
 	}
 	evidence := PublicEvidence{Routes: make(map[string]ResponseEvidence, len(publicConsolePaths))}
 	for _, path := range publicConsolePaths {
-		routeEvidence, finalResponse, err := p.requestPublicRoute(ctx, base, path, addresses, path == "/" || path == "/v1/account")
+		routeEvidence, finalResponse, err := p.requestPublicRoute(
+			ctx,
+			base,
+			path,
+			addresses,
+			path == "/" || path == "/v1/account",
+		)
 		if err != nil {
 			return PublicEvidence{}, err
 		}
@@ -192,7 +221,17 @@ func (p *HTTPProbe) VerifyPublicConsole(ctx context.Context, publicURL string, b
 // public DNS answers stay pinned for every hop, and redirect destinations are
 // resolved and validated against the configured origin before another request
 // is issued. The default http.Client redirect policy remains disabled.
-func (p *HTTPProbe) requestPublicRoute(ctx context.Context, base *url.URL, path string, addresses []net.IP, requirePolicy bool) (ResponseEvidence, *http.Response, error) {
+func (p *HTTPProbe) requestPublicRoute(
+	ctx context.Context,
+	base *url.URL,
+	path string,
+	addresses []net.IP,
+	requirePolicy bool,
+) (
+	ResponseEvidence,
+	*http.Response,
+	error,
+) {
 	target := *base
 	target.Path = strings.TrimRight(base.Path, "/") + path
 	seen := map[string]struct{}{redirectLoopKey(&target): {}}
@@ -218,7 +257,11 @@ func (p *HTTPProbe) requestPublicRoute(ctx context.Context, base *url.URL, path 
 		}
 		if !isRedirect(response.StatusCode) {
 			if response.StatusCode >= 300 && response.StatusCode < 400 {
-				return ResponseEvidence{}, nil, fmt.Errorf("public HTTPS route %s returned unsupported redirect status %d", path, response.StatusCode)
+				return ResponseEvidence{}, nil, fmt.Errorf(
+					"public HTTPS route %s returned unsupported redirect status %d",
+					path,
+					response.StatusCode,
+				)
 			}
 			route := evidenceFromResponse(response)
 			route.StatusCode = evidence.StatusCode
@@ -228,7 +271,11 @@ func (p *HTTPProbe) requestPublicRoute(ctx context.Context, base *url.URL, path 
 			return route, response, nil
 		}
 		if redirects >= maxPublicRedirects {
-			return ResponseEvidence{}, nil, fmt.Errorf("public HTTPS route %s exceeded the %d redirect limit", path, maxPublicRedirects)
+			return ResponseEvidence{}, nil, fmt.Errorf(
+				"public HTTPS route %s exceeded the %d redirect limit",
+				path,
+				maxPublicRedirects,
+			)
 		}
 		next, err := safeConsoleRedirect(&target, base, response.Header.Values("Location"))
 		if err != nil {
@@ -271,14 +318,23 @@ func (p *HTTPProbe) VerifyPublicSite(ctx context.Context, hostname, workloadBase
 	}
 	if expectedSHA256 != "" {
 		actual := evidenceFromResponse(response).BodySHA256
-		if len(actual) != len(expectedSHA256) || subtle.ConstantTimeCompare([]byte(actual), []byte(strings.ToLower(expectedSHA256))) != 1 {
+		if len(actual) != len(expectedSHA256) ||
+			subtle.ConstantTimeCompare([]byte(actual), []byte(strings.ToLower(expectedSHA256))) != 1 {
 			return errors.New("public platform Site body SHA-256 did not match the requested digest")
 		}
 	}
 	return nil
 }
 
-func (p *HTTPProbe) request(ctx context.Context, base *url.URL, path string, pinnedAddresses ...[]net.IP) (*http.Response, error) {
+func (p *HTTPProbe) request(
+	ctx context.Context,
+	base *url.URL,
+	path string,
+	pinnedAddresses ...[]net.IP,
+) (
+	*http.Response,
+	error,
+) {
 	target := *base
 	target.Path = strings.TrimRight(base.Path, "/") + path
 	var addresses []net.IP
@@ -288,9 +344,22 @@ func (p *HTTPProbe) request(ctx context.Context, base *url.URL, path string, pin
 	return p.requestURL(ctx, &target, base.Hostname(), addresses, path)
 }
 
-func (p *HTTPProbe) requestURL(ctx context.Context, target *url.URL, pinnedHost string, pinnedAddresses []net.IP, path string) (*http.Response, error) {
+func (p *HTTPProbe) requestURL(
+	ctx context.Context,
+	target *url.URL,
+	pinnedHost string,
+	pinnedAddresses []net.IP,
+	path string,
+) (
+	*http.Response,
+	error,
+) {
 	if len(pinnedAddresses) > 0 {
-		ctx = context.WithValue(ctx, publicDestinationContextKey{}, pinnedPublicDestination{host: pinnedHost, ips: pinnedAddresses})
+		ctx = context.WithValue(
+			ctx,
+			publicDestinationContextKey{},
+			pinnedPublicDestination{host: pinnedHost, ips: pinnedAddresses},
+		)
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
 	if err != nil {
@@ -313,7 +382,11 @@ func (p *HTTPProbe) requestURL(ctx context.Context, target *url.URL, pinnedHost 
 
 func isRedirect(status int) bool {
 	switch status {
-	case http.StatusMovedPermanently, http.StatusFound, http.StatusSeeOther, http.StatusTemporaryRedirect, http.StatusPermanentRedirect:
+	case http.StatusMovedPermanently,
+		http.StatusFound,
+		http.StatusSeeOther,
+		http.StatusTemporaryRedirect,
+		http.StatusPermanentRedirect:
 		return true
 	default:
 		return false
@@ -423,7 +496,12 @@ func publicDestinationIP(ip net.IP) bool {
 		return false
 	}
 	address = address.Unmap()
-	if !address.IsGlobalUnicast() || address.IsPrivate() || address.IsLoopback() || address.IsLinkLocalUnicast() || address.IsMulticast() || address.IsUnspecified() {
+	if !address.IsGlobalUnicast() ||
+		address.IsPrivate() ||
+		address.IsLoopback() ||
+		address.IsLinkLocalUnicast() ||
+		address.IsMulticast() ||
+		address.IsUnspecified() {
 		return false
 	}
 	for _, prefix := range nonPublicAddressRanges {
@@ -478,7 +556,12 @@ func compareResponse(path string, baseline, after ResponseEvidence) error {
 		}
 	}
 	if baseline.FinalStatusCode != after.FinalStatusCode {
-		return fmt.Errorf("public route %s changed final HTTP status from %d to %d after cutover", path, baseline.FinalStatusCode, after.FinalStatusCode)
+		return fmt.Errorf(
+			"public route %s changed final HTTP status from %d to %d after cutover",
+			path,
+			baseline.FinalStatusCode,
+			after.FinalStatusCode,
+		)
 	}
 	if baseline.FinalPath != after.FinalPath {
 		return fmt.Errorf("public route %s changed its final path after cutover", path)

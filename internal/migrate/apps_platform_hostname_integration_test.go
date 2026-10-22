@@ -263,11 +263,30 @@ func TestAppDeploymentMigrationPreservesExistingAppsIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	decoded, err := workloadspec.Decode(gotSpec)
-	if err != nil || !workloadspec.Equal(decoded, spec) || gotDigest != digest || desiredGeneration != 7 || observedGeneration != 0 || runtimeStatus != "not_deployed" {
-		t.Fatalf("migration changed preexisting App desired state: spec=%s hash=%s generation=%d/%d runtime=%s", gotSpec, gotDigest, desiredGeneration, observedGeneration, runtimeStatus)
+	if err != nil ||
+		!workloadspec.Equal(decoded, spec) ||
+		gotDigest != digest ||
+		desiredGeneration != 7 ||
+		observedGeneration != 0 ||
+		runtimeStatus != "not_deployed" {
+		t.Fatalf(
+			"migration changed preexisting App desired state: spec=%s hash=%s generation=%d/%d runtime=%s",
+			gotSpec,
+			gotDigest,
+			desiredGeneration,
+			observedGeneration,
+			runtimeStatus,
+		)
 	}
 	if selected != nil || quota != 5<<30 || used != 0 || reserved != 0 || nextVersion != 1 {
-		t.Fatalf("migration defaults = selected %v quota %d used %d reserved %d next version %d", selected, quota, used, reserved, nextVersion)
+		t.Fatalf(
+			"migration defaults = selected %v quota %d used %d reserved %d next version %d",
+			selected,
+			quota,
+			used,
+			reserved,
+			nextVersion,
+		)
 	}
 	var deploymentCount, claimCount int
 	if err := conn.QueryRow(ctx, `SELECT count(*) FROM app_deployments WHERE project_id=$1`, projectID).Scan(&deploymentCount); err != nil {
@@ -277,7 +296,11 @@ func TestAppDeploymentMigrationPreservesExistingAppsIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	if deploymentCount != 0 || claimCount != 1 {
-		t.Fatalf("migration synthesized deployment or changed hostname claim: deployments=%d claims=%d", deploymentCount, claimCount)
+		t.Fatalf(
+			"migration synthesized deployment or changed hostname claim: deployments=%d claims=%d",
+			deploymentCount,
+			claimCount,
+		)
 	}
 }
 

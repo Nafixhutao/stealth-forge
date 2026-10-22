@@ -32,7 +32,15 @@ func (r *rollbackTestRunner) Run(_ context.Context, _ string, _, _ io.Writer, na
 	return nil
 }
 
-func (r *rollbackTestRunner) RunWithEnv(_ context.Context, _ string, env []string, _, _ io.Writer, name string, args ...string) error {
+func (r *rollbackTestRunner) RunWithEnv(
+	_ context.Context,
+	_ string,
+	env []string,
+	_,
+	_ io.Writer,
+	name string,
+	args ...string,
+) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, recordedCommand{name: name, args: append([]string(nil), args...), env: append([]string(nil), env...)})
@@ -203,7 +211,9 @@ func TestPlatformRollbackRestoresPreviousReleaseAndPreservesSecrets(t *testing.T
 		Platform string `json:"platform_version"`
 		CLI      string `json:"cli_version"`
 	}
-	if err := json.Unmarshal(stateContents, &state); err != nil || state.Platform != "v1.2.2" || state.CLI != fixture.plan.CLIVersion {
+	if err := json.Unmarshal(stateContents, &state); err != nil ||
+		state.Platform != "v1.2.2" ||
+		state.CLI != fixture.plan.CLIVersion {
 		t.Fatalf("rollback status = %#v, %v", state, err)
 	}
 	if _, err := os.Stat(filepath.Join(fixture.layout.StateDir, platformRollbackPending)); !os.IsNotExist(err) {
@@ -269,7 +279,8 @@ func TestPlatformRollbackRefusesWhenNoOlderReleaseIsSaved(t *testing.T) {
 	if err := writeManagedReleaseMetadata(filepath.Join(fixture.layout.StateDir, "managed-assets.previous"), metadata); err != nil {
 		t.Fatal(err)
 	}
-	if err := engine.Rollback(context.Background(), fixture.plan); err == nil || !strings.Contains(err.Error(), "distinct older release") {
+	if err := engine.Rollback(context.Background(), fixture.plan); err == nil ||
+		!strings.Contains(err.Error(), "distinct older release") {
 		t.Fatalf("Rollback() error = %v, want missing older release refusal", err)
 	}
 	if len(fixture.runner.snapshot()) != 0 {

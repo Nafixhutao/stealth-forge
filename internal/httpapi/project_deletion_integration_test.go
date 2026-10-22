@@ -102,11 +102,35 @@ func TestProjectDeletionIntegration(t *testing.T) {
 	}
 
 	projectURL := httpServer.URL + "/v1/projects/" + project.Project.ID
-	requestJSON(t, client, http.MethodDelete, projectURL, map[string]string{"confirm_name": " " + projectName + " "}, http.StatusUnprocessableEntity, nil)
+	requestJSON(
+		t,
+		client,
+		http.MethodDelete,
+		projectURL,
+		map[string]string{"confirm_name": " " + projectName + " "},
+		http.StatusUnprocessableEntity,
+		nil,
+	)
 	requestJSON(t, client, http.MethodGet, projectURL, nil, http.StatusOK, &struct{}{})
-	requestJSON(t, client, http.MethodDelete, projectURL, map[string]string{"confirm_name": projectName}, http.StatusNoContent, nil)
+	requestJSON(
+		t,
+		client,
+		http.MethodDelete,
+		projectURL,
+		map[string]string{"confirm_name": projectName},
+		http.StatusNoContent,
+		nil,
+	)
 	requestJSON(t, client, http.MethodGet, projectURL, nil, http.StatusNotFound, nil)
-	requestJSON(t, client, http.MethodDelete, projectURL, map[string]string{"confirm_name": projectName}, http.StatusNotFound, nil)
+	requestJSON(
+		t,
+		client,
+		http.MethodDelete,
+		projectURL,
+		map[string]string{"confirm_name": projectName},
+		http.StatusNotFound,
+		nil,
+	)
 
 	var projectRows, auditRows int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM projects WHERE id=$1`, project.Project.ID).Scan(&projectRows); err != nil {

@@ -26,7 +26,13 @@ func (f *fakeTelemetryAlertStore) ListAdminAlertRules(context.Context, int) ([]d
 	return f.rules, nil
 }
 
-func (f *fakeTelemetryAlertStore) EvaluateAdminAlert(_ context.Context, id uuid.UUID, trigger bool, value *float64, message string) error {
+func (f *fakeTelemetryAlertStore) EvaluateAdminAlert(
+	_ context.Context,
+	id uuid.UUID,
+	trigger bool,
+	value *float64,
+	message string,
+) error {
 	f.evaluations = append(f.evaluations, telemetryAlertEvaluation{id: id, trigger: trigger, value: value, message: message})
 	return nil
 }
@@ -62,10 +68,15 @@ func TestTelemetryAlertEvaluatorUsesBoundedComparisonAndPersistsValue(t *testing
 	if evaluated, err := evaluator.RunOnce(context.Background()); err != nil || evaluated != 1 {
 		t.Fatalf("RunOnce() = evaluated=%d err=%v", evaluated, err)
 	}
-	if len(store.evaluations) != 1 || !store.evaluations[0].trigger || store.evaluations[0].value == nil || *store.evaluations[0].value != 0.91 {
+	if len(store.evaluations) != 1 ||
+		!store.evaluations[0].trigger ||
+		store.evaluations[0].value == nil ||
+		*store.evaluations[0].value != 0.91 {
 		t.Fatalf("unexpected evaluation = %+v", store.evaluations)
 	}
-	if explorer.query.Metric != "system.cpu.utilization" || explorer.query.Range.To.Sub(explorer.query.Range.From) < defaultAlertWindow || explorer.query.Range.To.Sub(explorer.query.Range.From) > defaultAlertWindow+time.Millisecond {
+	if explorer.query.Metric != "system.cpu.utilization" ||
+		explorer.query.Range.To.Sub(explorer.query.Range.From) < defaultAlertWindow ||
+		explorer.query.Range.To.Sub(explorer.query.Range.From) > defaultAlertWindow+time.Millisecond {
 		t.Fatalf("unexpected bounded query = %+v", explorer.query)
 	}
 }
@@ -105,7 +116,11 @@ func TestCompileTelemetryAlertHonorsWindowAndLogFilters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if compiled.query.Search != "database unavailable" || compiled.query.Service != "stealth-api" || compiled.query.Level != "ERROR" || compiled.query.Range.To.Sub(compiled.query.Range.From) < 90*time.Second || compiled.query.Range.To.Sub(compiled.query.Range.From) > 90*time.Second+time.Millisecond {
+	if compiled.query.Search != "database unavailable" ||
+		compiled.query.Service != "stealth-api" ||
+		compiled.query.Level != "ERROR" ||
+		compiled.query.Range.To.Sub(compiled.query.Range.From) < 90*time.Second ||
+		compiled.query.Range.To.Sub(compiled.query.Range.From) > 90*time.Second+time.Millisecond {
 		t.Fatalf("unexpected compiled alert = %+v", compiled)
 	}
 }

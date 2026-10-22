@@ -34,7 +34,14 @@ func (a *App) bootstrapStatus(ctx context.Context, endpoint string) (bootstrapSt
 	return payload, nil
 }
 
-func (a *App) bootstrapAdoptionAccounts(ctx context.Context, endpoint string, key []byte) ([]bootstrapAdoptionAccountPayload, error) {
+func (a *App) bootstrapAdoptionAccounts(
+	ctx context.Context,
+	endpoint string,
+	key []byte,
+) (
+	[]bootstrapAdoptionAccountPayload,
+	error,
+) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, err
@@ -77,7 +84,14 @@ func (a *App) adoptBootstrapOwner(ctx context.Context, endpoint string, key []by
 	return nil
 }
 
-func (a *App) createBootstrapSession(ctx context.Context, endpoint string, key []byte) (bootstrapSessionPayload, error) {
+func (a *App) createBootstrapSession(
+	ctx context.Context,
+	endpoint string,
+	key []byte,
+) (
+	bootstrapSessionPayload,
+	error,
+) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, http.NoBody)
 	if err != nil {
 		return bootstrapSessionPayload{}, err

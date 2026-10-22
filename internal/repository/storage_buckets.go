@@ -10,7 +10,18 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (r *Repository) ListStorageBuckets(ctx context.Context, projectID uuid.UUID, actor StorageActor, limit int, cursor *uuid.UUID) ([]domain.StorageBucket, string, bool, error) {
+func (r *Repository) ListStorageBuckets(
+	ctx context.Context,
+	projectID uuid.UUID,
+	actor StorageActor,
+	limit int,
+	cursor *uuid.UUID,
+) (
+	[]domain.StorageBucket,
+	string,
+	bool,
+	error,
+) {
 	canManage, err := r.requireStorageRead(ctx, projectID, actor)
 	if err != nil {
 		return nil, "", false, err
@@ -39,14 +50,31 @@ func (r *Repository) ListStorageBuckets(ctx context.Context, projectID uuid.UUID
 	return items, next, canManage, nil
 }
 
-func (r *Repository) GetStorageBucket(ctx context.Context, projectID, bucketID uuid.UUID, actor StorageActor) (domain.StorageBucket, error) {
+func (r *Repository) GetStorageBucket(
+	ctx context.Context,
+	projectID,
+	bucketID uuid.UUID,
+	actor StorageActor,
+) (
+	domain.StorageBucket,
+	error,
+) {
 	if _, err := r.requireStorageRead(ctx, projectID, actor); err != nil {
 		return domain.StorageBucket{}, err
 	}
 	return r.storageBucket(ctx, r.pool, projectID, bucketID, false)
 }
 
-func (r *Repository) CreateStorageBucket(ctx context.Context, id, projectID uuid.UUID, actor StorageActor, input StorageBucketInput) (domain.StorageBucket, error) {
+func (r *Repository) CreateStorageBucket(
+	ctx context.Context,
+	id,
+	projectID uuid.UUID,
+	actor StorageActor,
+	input StorageBucketInput,
+) (
+	domain.StorageBucket,
+	error,
+) {
 	permissions, err := storageBucketPermissions(input)
 	if err != nil {
 		return domain.StorageBucket{}, err
@@ -85,7 +113,16 @@ func (r *Repository) CreateStorageBucket(ctx context.Context, id, projectID uuid
 	return item, nil
 }
 
-func (r *Repository) UpdateStorageBucket(ctx context.Context, projectID, bucketID uuid.UUID, actor StorageActor, patch StorageBucketPatch) (domain.StorageBucket, error) {
+func (r *Repository) UpdateStorageBucket(
+	ctx context.Context,
+	projectID,
+	bucketID uuid.UUID,
+	actor StorageActor,
+	patch StorageBucketPatch,
+) (
+	domain.StorageBucket,
+	error,
+) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.StorageBucket{}, err
@@ -196,7 +233,15 @@ func storageBucketChangedFields(patch StorageBucketPatch) []string {
 
 // DeleteStorageBucket removes metadata/accounting and records durable
 // UUID-derived cleanup jobs in the same transaction.
-func (r *Repository) DeleteStorageBucket(ctx context.Context, projectID, bucketID uuid.UUID, actor StorageActor) ([]string, error) {
+func (r *Repository) DeleteStorageBucket(
+	ctx context.Context,
+	projectID,
+	bucketID uuid.UUID,
+	actor StorageActor,
+) (
+	[]string,
+	error,
+) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return nil, err

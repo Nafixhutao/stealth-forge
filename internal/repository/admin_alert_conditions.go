@@ -33,7 +33,12 @@ func normalizeAdminAlertRuleInput(input AdminAlertRuleInput) (AdminAlertRuleInpu
 }
 
 func normalizeAdminAlertRulePatch(patch AdminAlertRulePatch) (AdminAlertRulePatch, error) {
-	if patch.Name == nil && patch.Kind == nil && patch.Condition == nil && patch.Severity == nil && patch.ForSeconds == nil && patch.Enabled == nil {
+	if patch.Name == nil &&
+		patch.Kind == nil &&
+		patch.Condition == nil &&
+		patch.Severity == nil &&
+		patch.ForSeconds == nil &&
+		patch.Enabled == nil {
 		return AdminAlertRulePatch{}, fmt.Errorf("%w: at least one field is required", ErrInvalidAdminAlert)
 	}
 	if patch.Name != nil {
@@ -79,7 +84,8 @@ func validateAdminAlertCondition(kind string, raw json.RawMessage) error {
 	}
 	switch kind {
 	case "metric_threshold", "error_rate", "latency", "log_match", "service_health", "disk_pressure":
-		if !conditionHasNumber(condition, "threshold") || !conditionHasString(condition, "operator", "gt", "gte", "lt", "lte") {
+		if !conditionHasNumber(condition, "threshold") ||
+			!conditionHasString(condition, "operator", "gt", "gte", "lt", "lte") {
 			return fmt.Errorf("%w: telemetry alerts require operator and numeric threshold", ErrInvalidAdminAlert)
 		}
 		if err := validateTelemetryAlertCondition(kind, condition); err != nil {
@@ -101,7 +107,15 @@ func validateAdminAlertCondition(kind string, raw json.RawMessage) error {
 
 func validAdminAlertKind(value string) bool {
 	switch value {
-	case "metric_threshold", "error_rate", "latency", "log_match", "service_health", "disk_pressure", "monitor_failure", "heartbeat_failure", "certificate_expiry":
+	case "metric_threshold",
+		"error_rate",
+		"latency",
+		"log_match",
+		"service_health",
+		"disk_pressure",
+		"monitor_failure",
+		"heartbeat_failure",
+		"certificate_expiry":
 		return true
 	default:
 		return false

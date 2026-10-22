@@ -61,7 +61,8 @@ func TestParseRowQueryFullTextSearch(t *testing.T) {
 		"/?search_column=title",
 		"/?search=hello&search_column=count",
 	} {
-		if _, err := parseRowQuery(httptest.NewRequest("GET", rawURL, nil), schema); err == nil || !errors.Is(err, repository.ErrInvalidQuery) {
+		if _, err := parseRowQuery(httptest.NewRequest("GET", rawURL, nil), schema); err == nil ||
+			!errors.Is(err, repository.ErrInvalidQuery) {
 			t.Fatalf("parseRowQuery(%s) error = %v", rawURL, err)
 		}
 	}

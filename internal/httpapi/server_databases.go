@@ -60,7 +60,11 @@ func (s *Server) requireProjectDataActor(next http.Handler) http.Handler {
 				internalError(s, w, err)
 				return
 			}
-			ctx := context.WithValue(r.Context(), projectDataActorContextKey, projectDataActor{actor: repository.DatabaseActor{Kind: repository.DatabaseAPIKeyActor, APIKeyID: keyID, APIKeyScopes: key.Scopes}})
+			ctx := context.WithValue(
+				r.Context(),
+				projectDataActorContextKey,
+				projectDataActor{actor: repository.DatabaseActor{Kind: repository.DatabaseAPIKeyActor, APIKeyID: keyID, APIKeyScopes: key.Scopes}},
+			)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
@@ -74,7 +78,11 @@ func (s *Server) requireProjectDataActor(next http.Handler) http.Handler {
 				internalError(s, w, err)
 				return
 			}
-			ctx := context.WithValue(r.Context(), projectDataActorContextKey, projectDataActor{actor: repository.DatabaseActor{Kind: repository.DatabaseApplicationActor, ProjectUserID: mustUUID(user.ID)}})
+			ctx := context.WithValue(
+				r.Context(),
+				projectDataActorContextKey,
+				projectDataActor{actor: repository.DatabaseActor{Kind: repository.DatabaseApplicationActor, ProjectUserID: mustUUID(user.ID)}},
+			)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
@@ -87,11 +95,19 @@ func (s *Server) requireProjectDataActor(next http.Handler) http.Handler {
 			ctx := context.WithValue(r.Context(), accountContextKey, account)
 			recordTraceAccount(ctx, account)
 			ctx = context.WithValue(ctx, sessionContextKey, sessionID)
-			ctx = context.WithValue(ctx, projectDataActorContextKey, projectDataActor{actor: repository.DatabaseActor{Kind: repository.DatabaseConsoleActor, AccountID: mustUUID(account.ID)}})
+			ctx = context.WithValue(
+				ctx,
+				projectDataActorContextKey,
+				projectDataActor{actor: repository.DatabaseActor{Kind: repository.DatabaseConsoleActor, AccountID: mustUUID(account.ID)}},
+			)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
-		ctx := context.WithValue(r.Context(), projectDataActorContextKey, projectDataActor{actor: repository.DatabaseActor{Kind: repository.DatabaseAnonymousActor}})
+		ctx := context.WithValue(
+			r.Context(),
+			projectDataActorContextKey,
+			projectDataActor{actor: repository.DatabaseActor{Kind: repository.DatabaseAnonymousActor}},
+		)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -107,7 +123,11 @@ func databaseActorFrom(r *http.Request) repository.DatabaseActor {
 	}
 	actor := projectActorFrom(r)
 	if actor.kind == apiKeyProjectActor {
-		return repository.DatabaseActor{Kind: repository.DatabaseAPIKeyActor, APIKeyID: actor.apiKeyID, APIKeyScopes: actor.scopes}
+		return repository.DatabaseActor{
+			Kind:         repository.DatabaseAPIKeyActor,
+			APIKeyID:     actor.apiKeyID,
+			APIKeyScopes: actor.scopes,
+		}
 	}
 	return repository.DatabaseActor{Kind: repository.DatabaseConsoleActor, AccountID: mustUUID(accountFrom(r).ID)}
 }
@@ -161,7 +181,13 @@ func (s *Server) listProjectDatabases(w http.ResponseWriter, r *http.Request) {
 		parsed, _ := uuid.Parse(cursor)
 		cursorID = &parsed
 	}
-	items, next, canManage, err := s.repo.ListProjectDatabases(r.Context(), projectID, databaseActorFrom(r), limit, cursorID)
+	items, next, canManage, err := s.repo.ListProjectDatabases(
+		r.Context(),
+		projectID,
+		databaseActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if databaseResourceError(w, err) {
 		return
 	}
@@ -169,7 +195,11 @@ func (s *Server) listProjectDatabases(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"databases": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"databases": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) createProjectDatabase(w http.ResponseWriter, r *http.Request) {
@@ -229,9 +259,11 @@ func (s *Server) deleteProjectDatabase(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.repo.DeleteProjectDatabase(r.Context(), projectID, databaseID, databaseActorFrom(r)); databaseResourceError(w, err) {
+	err := s.repo.DeleteProjectDatabase(r.Context(), projectID, databaseID, databaseActorFrom(r))
+	if databaseResourceError(w, err) {
 		return
-	} else if err != nil {
+	}
+	if err != nil {
 		internalError(s, w, err)
 		return
 	}

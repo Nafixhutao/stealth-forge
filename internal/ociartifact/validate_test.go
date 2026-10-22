@@ -23,7 +23,11 @@ func TestValidateOCIArchive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inspect() error = %v", err)
 	}
-	if info.ManifestDigest != digest || info.OS != "linux" || info.Architecture != "amd64" || len(info.LayerDiffIDs) != 1 || info.ArchiveSize != int64(len(archive)) {
+	if info.ManifestDigest != digest ||
+		info.OS != "linux" ||
+		info.Architecture != "amd64" ||
+		len(info.LayerDiffIDs) != 1 ||
+		info.ArchiveSize != int64(len(archive)) {
 		t.Fatalf("Inspect() info = %+v", info)
 	}
 }
@@ -59,7 +63,10 @@ func TestWriteDockerArchiveAddsLoadManifestToVerifiedOCILayout(t *testing.T) {
 			}
 		}
 	}
-	if !seen["oci-layout"] || !seen["index.json"] || !seen[blobPath(info.ConfigDigest)] || !seen[blobPath(info.LayerDigests[0])] {
+	if !seen["oci-layout"] ||
+		!seen["index.json"] ||
+		!seen[blobPath(info.ConfigDigest)] ||
+		!seen[blobPath(info.LayerDigests[0])] {
 		t.Fatalf("converted tar omitted OCI entries: %v", seen)
 	}
 	var manifest []dockerManifestItem

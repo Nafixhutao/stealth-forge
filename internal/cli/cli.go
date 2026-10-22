@@ -175,7 +175,7 @@ func (a *App) printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  stealth doctor")
 	fmt.Fprintln(
 		w,
-		"  stealth logs [api|worker|console|proxy|postgres|redis|clickhouse|otel-collector|telemetry-host|telemetry-docker-logs|telemetry-docker-proxy|telemetry-docker]",
+		"  stealth logs [api|worker|console|proxy|postgres|redis|migrate|cloudflared]",
 	)
 	fmt.Fprintln(w, "  stealth ingress status|verify [--site-hostname HOST --site-sha256 DIGEST]|cutover|rollback")
 	fmt.Fprintln(w, "  stealth version [--json]")

@@ -68,7 +68,9 @@ func TestRenderIsDeterministicAndUsesNarrowBackend(t *testing.T) {
 	if !strings.Contains(contents, "url: http://api:8082") || !strings.Contains(contents, "passHostHeader: true") {
 		t.Fatalf("rendered service is not the narrow Site listener: %s", contents)
 	}
-	if strings.Contains(contents, "v1/") || strings.Contains(contents, "healthz") || strings.Contains(contents, "metrics") {
+	if strings.Contains(contents, "v1/") ||
+		strings.Contains(contents, "healthz") ||
+		strings.Contains(contents, "metrics") {
 		t.Fatalf("rendered platform config contains control-plane routes: %s", contents)
 	}
 }
@@ -368,7 +370,13 @@ func TestReconcileRejectsSymlinkDirectoryComponent(t *testing.T) {
 		t.Skipf("symlink test unavailable: %v", err)
 	}
 	store := &fakeStore{lockAcquired: true, routes: []domain.PlatformRoute{{SiteID: "018f0d5e-7c19-7abc-8d1e-1234567890ab", Hostname: "safe.apps.example.com"}}}
-	reconciler, err := New(store, filepath.Join(link, "generated"), filepath.Join(directory, ".reload.yaml"), time.Second, nil)
+	reconciler, err := New(
+		store,
+		filepath.Join(link, "generated"),
+		filepath.Join(directory, ".reload.yaml"),
+		time.Second,
+		nil,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}

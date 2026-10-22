@@ -223,7 +223,16 @@ func S256Challenge(verifier string) string {
 }
 
 // Exchange swaps an authorization code for a token using the library flow.
-func (c *HTTPClient) Exchange(ctx context.Context, p Provider, code, redirectURI, codeVerifier string) (*oauth2.Token, error) {
+func (c *HTTPClient) Exchange(
+	ctx context.Context,
+	p Provider,
+	code,
+	redirectURI,
+	codeVerifier string,
+) (
+	*oauth2.Token,
+	error,
+) {
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, c.http)
 	return p.oauthConfig(redirectURI).Exchange(ctx, code, oauth2.VerifierOption(codeVerifier))
 }
@@ -274,7 +283,14 @@ func (c *HTTPClient) UserInfo(ctx context.Context, p Provider, token *oauth2.Tok
 // githubPrimaryEmail reads the account's primary verified email. It returns
 // ok=false when the list is unavailable, so callers never treat an unknown
 // address as verified.
-func (c *HTTPClient) githubPrimaryEmail(ctx context.Context, client *http.Client) (email string, verified bool, ok bool) {
+func (c *HTTPClient) githubPrimaryEmail(
+	ctx context.Context,
+	client *http.Client,
+) (
+	email string,
+	verified bool,
+	ok bool,
+) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, gitHubEmailsURL, nil)
 	if err != nil {
 		return "", false, false

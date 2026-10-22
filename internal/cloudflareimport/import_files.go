@@ -143,7 +143,9 @@ func cleanWorkerImportDirectory(directory, artifactName string) error {
 			}
 			continue
 		}
-		if name == legacySetupSnapshotName || name == legacySetupTempName || (strings.HasPrefix(name, ".cloudflare-import-") && strings.HasSuffix(name, ".tmp")) {
+		if name == legacySetupSnapshotName ||
+			name == legacySetupTempName ||
+			(strings.HasPrefix(name, ".cloudflare-import-") && strings.HasSuffix(name, ".tmp")) {
 			entryInfo, statErr := os.Lstat(filepath.Join(directory, name))
 			if statErr != nil || entryInfo.IsDir() {
 				return ErrWorkerBoundaryUnsafe

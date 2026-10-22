@@ -11,7 +11,19 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (r *Repository) ListDatabaseColumns(ctx context.Context, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor, limit int, cursor *uuid.UUID) ([]domain.DatabaseColumn, string, error) {
+func (r *Repository) ListDatabaseColumns(
+	ctx context.Context,
+	projectID,
+	databaseID,
+	tableID uuid.UUID,
+	actor DatabaseActor,
+	limit int,
+	cursor *uuid.UUID,
+) (
+	[]domain.DatabaseColumn,
+	string,
+	error,
+) {
 	if _, err := r.requireDatabaseRead(ctx, projectID, actor); err != nil {
 		return nil, "", err
 	}
@@ -42,7 +54,18 @@ func (r *Repository) ListDatabaseColumns(ctx context.Context, projectID, databas
 	return items, next, nil
 }
 
-func (r *Repository) CreateDatabaseColumn(ctx context.Context, id, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor, input DatabaseColumnInput) (domain.DatabaseColumn, error) {
+func (r *Repository) CreateDatabaseColumn(
+	ctx context.Context,
+	id,
+	projectID,
+	databaseID,
+	tableID uuid.UUID,
+	actor DatabaseActor,
+	input DatabaseColumnInput,
+) (
+	domain.DatabaseColumn,
+	error,
+) {
 	if err := dbcore.ValidateColumn(dbcore.ColumnDefinition{Key: input.Key, Type: input.Type, Required: input.Required, VarcharSize: input.VarcharSize, Default: input.Default, HasDefault: input.HasDefault}); err != nil {
 		return domain.DatabaseColumn{}, err
 	}
@@ -95,7 +118,14 @@ func (r *Repository) CreateDatabaseColumn(ctx context.Context, id, projectID, da
 	return item, nil
 }
 
-func (r *Repository) DeleteDatabaseColumn(ctx context.Context, projectID, databaseID, tableID, columnID uuid.UUID, actor DatabaseActor) error {
+func (r *Repository) DeleteDatabaseColumn(
+	ctx context.Context,
+	projectID,
+	databaseID,
+	tableID,
+	columnID uuid.UUID,
+	actor DatabaseActor,
+) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -112,9 +142,11 @@ func (r *Repository) DeleteDatabaseColumn(ctx context.Context, projectID, databa
 	}
 	var dependentIndex bool
 	var key string
-	if err := tx.QueryRow(ctx, `SELECT key FROM database_columns WHERE id=$1 AND table_id=$2 FOR UPDATE`, columnID, tableID).Scan(&key); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT key FROM database_columns WHERE id=$1 AND table_id=$2 FOR UPDATE`, columnID, tableID).Scan(&key)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return err
 	}
 	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM database_indexes WHERE table_id=$1 AND $2=ANY(column_keys))`, tableID, key).Scan(&dependentIndex); err != nil {

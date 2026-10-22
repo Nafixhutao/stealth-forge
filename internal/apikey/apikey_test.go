@@ -17,7 +17,12 @@ func TestNewSecretIsRecognizableHighEntropyAndHashOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !strings.HasPrefix(secret, SecretPrefix) || !strings.HasPrefix(secret, prefix) || len(hash) != 32 {
-		t.Fatalf("unexpected secret material: secret prefix=%q prefix=%q hash length=%d", secret[:len(SecretPrefix)], prefix, len(hash))
+		t.Fatalf(
+			"unexpected secret material: secret prefix=%q prefix=%q hash length=%d",
+			secret[:len(SecretPrefix)],
+			prefix,
+			len(hash),
+		)
 	}
 	if len(secret) < len(SecretPrefix)+43 {
 		t.Fatalf("secret is too short for 256-bit entropy: %d", len(secret))

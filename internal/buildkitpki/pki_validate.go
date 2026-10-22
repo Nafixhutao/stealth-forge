@@ -33,7 +33,17 @@ func replaceBundle(current, pending, previous, parent string) error {
 }
 
 func pathsAtRoot(root string) Paths {
-	return Paths{Root: root, CACert: filepath.Join(root, "ca-cert.pem"), CAKey: filepath.Join(root, "ca-key.pem"), ServerCert: filepath.Join(root, "server", "cert.pem"), ServerKey: filepath.Join(root, "server", "key.pem"), WorkerCert: filepath.Join(root, "worker", "cert.pem"), WorkerKey: filepath.Join(root, "worker", "key.pem"), HealthCert: filepath.Join(root, "health", "cert.pem"), HealthKey: filepath.Join(root, "health", "key.pem")}
+	return Paths{
+		Root:       root,
+		CACert:     filepath.Join(root, "ca-cert.pem"),
+		CAKey:      filepath.Join(root, "ca-key.pem"),
+		ServerCert: filepath.Join(root, "server", "cert.pem"),
+		ServerKey:  filepath.Join(root, "server", "key.pem"),
+		WorkerCert: filepath.Join(root, "worker", "cert.pem"),
+		WorkerKey:  filepath.Join(root, "worker", "key.pem"),
+		HealthCert: filepath.Join(root, "health", "cert.pem"),
+		HealthKey:  filepath.Join(root, "health", "key.pem"),
+	}
 }
 
 func validateBundle(paths Paths, allowRenewal bool) (bool, bool, error) {

@@ -9,7 +9,12 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (r *Repository) saveCloudflareConnection(ctx context.Context, actor uuid.UUID, input CloudflareConnectionInput, requireOwner bool) error {
+func (r *Repository) saveCloudflareConnection(
+	ctx context.Context,
+	actor uuid.UUID,
+	input CloudflareConnectionInput,
+	requireOwner bool,
+) error {
 	if r == nil || r.pool == nil {
 		return ErrNotFound
 	}
@@ -84,11 +89,21 @@ func (r *Repository) saveCloudflareConnection(ctx context.Context, actor uuid.UU
 // SetCloudflareConnectionByOwner establishes or reconnects the existing tunnel
 // under live Instance Owner authorization. It never creates provider
 // resources; the API adapter validates the identity and token first.
-func (r *Repository) SetCloudflareConnectionByOwner(ctx context.Context, actor uuid.UUID, input CloudflareConnectionInput) error {
+func (r *Repository) SetCloudflareConnectionByOwner(
+	ctx context.Context,
+	actor uuid.UUID,
+	input CloudflareConnectionInput,
+) error {
 	return r.saveCloudflareConnection(ctx, actor, input, true)
 }
 
-func (r *Repository) CompleteCloudflareReconcile(ctx context.Context, update domain.CloudflareRoutingUpdate) (bool, error) {
+func (r *Repository) CompleteCloudflareReconcile(
+	ctx context.Context,
+	update domain.CloudflareRoutingUpdate,
+) (
+	bool,
+	error,
+) {
 	if r == nil || r.pool == nil {
 		return false, ErrNotFound
 	}
@@ -105,9 +120,11 @@ func (r *Repository) CompleteCloudflareReconcile(ctx context.Context, update dom
 		return false, err
 	}
 	var accountID, tunnelID, oldZoneID, oldHostname, oldRecordID, currentConsoleOrigin string
-	if err := tx.QueryRow(ctx, `SELECT COALESCE(account_id,''),COALESCE(tunnel_id,''),COALESCE(workload_zone_id,''),COALESCE(wildcard_hostname,''),COALESCE(wildcard_record_id,''),console_origin_desired FROM cloudflare_connections WHERE id=TRUE AND api_token_ciphertext IS NOT NULL FOR UPDATE`).Scan(&accountID, &tunnelID, &oldZoneID, &oldHostname, &oldRecordID, &currentConsoleOrigin); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT COALESCE(account_id,''),COALESCE(tunnel_id,''),COALESCE(workload_zone_id,''),COALESCE(wildcard_hostname,''),COALESCE(wildcard_record_id,''),console_origin_desired FROM cloudflare_connections WHERE id=TRUE AND api_token_ciphertext IS NOT NULL FOR UPDATE`).Scan(&accountID, &tunnelID, &oldZoneID, &oldHostname, &oldRecordID, &currentConsoleOrigin)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return false, ErrCloudflareIdentityRequired
-	} else if err != nil {
+	}
+	if err != nil {
 		return false, err
 	}
 	if currentConsoleOrigin != update.ConsoleOriginDesired {
@@ -116,7 +133,7 @@ func (r *Repository) CompleteCloudflareReconcile(ctx context.Context, update dom
 		}
 		return false, nil
 	}
-	if !sameOptionalString(currentDomain, update.ExpectedWorkloadBaseDomain) {
+	if !optionalStringEqual(currentDomain, update.ExpectedWorkloadBaseDomain) {
 		if update.WildcardRecordID != "" && update.WildcardRecordID != oldRecordID {
 			if err := queueRetiringWildcardTx(ctx, tx, update.WorkloadZoneID, update.WildcardHostname, update.WildcardRecordID, tunnelID+".cfargotunnel.com"); err != nil {
 				return false, err
@@ -207,7 +224,14 @@ func (r *Repository) RecordCloudflareReconcileFailure(ctx context.Context, messa
 // CompleteCloudflareConsoleOrigin persists only the independently observed
 // Tunnel Console origin. The desired-state predicate prevents an older
 // provider operation from overwriting a newer host request.
-func (r *Repository) CompleteCloudflareConsoleOrigin(ctx context.Context, expectedOrigin, observedOrigin string) (bool, error) {
+func (r *Repository) CompleteCloudflareConsoleOrigin(
+	ctx context.Context,
+	expectedOrigin,
+	observedOrigin string,
+) (
+	bool,
+	error,
+) {
 	if r == nil || r.pool == nil {
 		return false, ErrNotFound
 	}
@@ -309,14 +333,4 @@ func (r *Repository) RecordCloudflareConsoleOriginVerification(ctx context.Conte
 		return false, err
 	}
 	return tag.RowsAffected() == 1, nil
-}
-
-func (r *Repository) MarkCloudflareRoutingPending(ctx context.Context) error {
-	if r == nil || r.pool == nil {
-		return ErrNotFound
-	}
-	_, err := r.pool.Exec(ctx, `UPDATE cloudflare_connections SET status='pending',last_error=NULL,
-		edge_tls_status=CASE WHEN (SELECT workload_base_domain FROM instance_domain_settings WHERE id=TRUE) IS NULL THEN 'not_applicable' ELSE 'pending' END,
-		edge_tls_error=NULL,updated_at=now() WHERE id=TRUE AND api_token_ciphertext IS NOT NULL`)
-	return err
 }

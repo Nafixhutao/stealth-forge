@@ -53,7 +53,12 @@ func (s *Server) createGitSiteDeployment(w http.ResponseWriter, r *http.Request)
 		defer func() { <-s.siteGitSlots }()
 	default:
 		w.Header().Set("Retry-After", "5")
-		writeError(w, http.StatusTooManyRequests, "git_deployment_busy", "too many Git deployments are downloading; retry later")
+		writeError(
+			w,
+			http.StatusTooManyRequests,
+			"git_deployment_busy",
+			"too many Git deployments are downloading; retry later",
+		)
 		return
 	}
 	activate := true
@@ -67,7 +72,12 @@ func (s *Server) createGitSiteDeployment(w http.ResponseWriter, r *http.Request)
 		case errors.Is(err, gitarchive.ErrInvalidRepository), errors.Is(err, gitarchive.ErrInvalidRef):
 			writeError(w, http.StatusUnprocessableEntity, "validation_error", err.Error())
 		case errors.Is(err, gitarchive.ErrTooLarge):
-			writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "Git archive exceeds the configured maximum size")
+			writeError(
+				w,
+				http.StatusRequestEntityTooLarge,
+				"payload_too_large",
+				"Git archive exceeds the configured maximum size",
+			)
 		case errors.Is(err, gitarchive.ErrUnavailable):
 			writeError(w, http.StatusBadGateway, "git_archive_unavailable", "the Git provider archive could not be downloaded")
 		default:
@@ -75,7 +85,11 @@ func (s *Server) createGitSiteDeployment(w http.ResponseWriter, r *http.Request)
 		}
 		return
 	}
-	if archive.Body == nil || storage.ValidateFilename(archive.Filename) != nil || (archive.Provider != "github" && archive.Provider != "gitlab") || archive.Repository == "" || archive.Ref == "" {
+	if archive.Body == nil ||
+		storage.ValidateFilename(archive.Filename) != nil ||
+		(archive.Provider != "github" && archive.Provider != "gitlab") ||
+		archive.Repository == "" ||
+		archive.Ref == "" {
 		if archive.Body != nil {
 			_ = archive.Body.Close()
 		}
@@ -83,9 +97,21 @@ func (s *Server) createGitSiteDeployment(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	defer archive.Body.Close()
-	prepared, err := s.siteArchives.BeginUploadWithLimit(r.Context(), projectID, siteID, deploymentID, archive.Body, s.config.SitesMaxArtifactSize)
+	prepared, err := s.siteArchives.BeginUploadWithLimit(
+		r.Context(),
+		projectID,
+		siteID,
+		deploymentID,
+		archive.Body,
+		s.config.SitesMaxArtifactSize,
+	)
 	if errors.Is(err, functionstore.ErrTooLarge) || errors.Is(err, gitarchive.ErrTooLarge) {
-		writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "Git archive exceeds the configured maximum size")
+		writeError(
+			w,
+			http.StatusRequestEntityTooLarge,
+			"payload_too_large",
+			"Git archive exceeds the configured maximum size",
+		)
 		return
 	}
 	if errors.Is(err, gitarchive.ErrUnavailable) {
@@ -159,11 +185,26 @@ func (s *Server) createGitSiteDeployment(w http.ResponseWriter, r *http.Request)
 func writeSiteArchiveError(s *Server, w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, functionrunner.ErrArchiveTooLarge):
-		writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "site archive expands beyond the configured limits")
+		writeError(
+			w,
+			http.StatusRequestEntityTooLarge,
+			"payload_too_large",
+			"site archive expands beyond the configured limits",
+		)
 	case errors.Is(err, functionrunner.ErrUnsupportedArchive):
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "site archive must be a .zip, .tar, .tar.gz, or .tgz file")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"site archive must be a .zip, .tar, .tar.gz, or .tgz file",
+		)
 	case errors.Is(err, functionrunner.ErrArchiveTraversal), errors.Is(err, functionrunner.ErrArchiveEntry):
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "site archive contains an unsafe or duplicate entry")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"site archive contains an unsafe or duplicate entry",
+		)
 	default:
 		internalError(s, w, err)
 	}

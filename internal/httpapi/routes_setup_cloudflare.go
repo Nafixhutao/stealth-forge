@@ -18,7 +18,12 @@ func (s *Server) startCloudflareOAuth(w http.ResponseWriter, r *http.Request) {
 	// but this setup flow deliberately stays inactive until Cloudflare provides
 	// a verified redirect and scope configuration for the deployed origin. In
 	// particular, never derive an OAuth redirect from a random Quick Tunnel.
-	writeError(w, http.StatusGone, "cloudflare_oauth_inactive", "Cloudflare OAuth is experimental and inactive; use a scoped Cloudflare API token")
+	writeError(
+		w,
+		http.StatusGone,
+		"cloudflare_oauth_inactive",
+		"Cloudflare OAuth is experimental and inactive; use a scoped Cloudflare API token",
+	)
 }
 
 func (s *Server) setupCloudflareOAuthCallback(w http.ResponseWriter, r *http.Request) {
@@ -131,7 +136,12 @@ func (s *Server) createCloudflareTunnel(w http.ResponseWriter, r *http.Request) 
 		_ = errors.As(err, &provisioningErr)
 		switch {
 		case errors.Is(err, cloudflare.ErrInvalidRequest):
-			writeError(w, http.StatusUnprocessableEntity, "validation_error", "Cloudflare account, zone, and hostname are invalid")
+			writeError(
+				w,
+				http.StatusUnprocessableEntity,
+				"validation_error",
+				"Cloudflare account, zone, and hostname are invalid",
+			)
 		case errors.Is(err, cloudflare.ErrConflict):
 			var bindingConflict *setupstate.CloudflareBindingConflict
 			if provisioningErr != nil && errors.As(provisioningErr.Err, &bindingConflict) {
@@ -160,9 +170,19 @@ func (s *Server) createCloudflareTunnel(w http.ResponseWriter, r *http.Request) 
 			case strings.HasPrefix(stage, "dns"):
 				writeError(w, http.StatusBadGateway, "cloudflare_dns_failed", cloudflareDNSFailureMessage(err))
 			case stage == "zones":
-				writeError(w, http.StatusBadGateway, "cloudflare_unavailable", "Cloudflare zones could not be verified. Confirm the token grants Zone:Zone:Read for the selected account.")
+				writeError(
+					w,
+					http.StatusBadGateway,
+					"cloudflare_unavailable",
+					"Cloudflare zones could not be verified. Confirm the token grants Zone:Zone:Read for the selected account.",
+				)
 			default:
-				writeError(w, http.StatusBadGateway, "cloudflare_tunnel_failed", "Cloudflare could not provision the named tunnel. Confirm the token grants Account:Cloudflare Tunnel:Edit for the selected account.")
+				writeError(
+					w,
+					http.StatusBadGateway,
+					"cloudflare_tunnel_failed",
+					"Cloudflare could not provision the named tunnel. Confirm the token grants Account:Cloudflare Tunnel:Edit for the selected account.",
+				)
 			}
 		default:
 			internalError(s, w, err)
@@ -178,9 +198,19 @@ func (s *Server) createCloudflareTunnel(w http.ResponseWriter, r *http.Request) 
 		})
 		if persistErr != nil {
 			if errors.Is(persistErr, repository.ErrCloudflareConnectionConflict) {
-				writeError(w, http.StatusConflict, "cloudflare_connection_conflict", "a different production Cloudflare tunnel connection is already saved")
+				writeError(
+					w,
+					http.StatusConflict,
+					"cloudflare_connection_conflict",
+					"a different production Cloudflare tunnel connection is already saved",
+				)
 			} else {
-				writeError(w, http.StatusServiceUnavailable, "cloudflare_connection_unavailable", "Cloudflare was provisioned, but its production connection could not be persisted; retry this setup step")
+				writeError(
+					w,
+					http.StatusServiceUnavailable,
+					"cloudflare_connection_unavailable",
+					"Cloudflare was provisioned, but its production connection could not be persisted; retry this setup step",
+				)
 			}
 			return
 		}
@@ -260,7 +290,11 @@ func (s *Server) cloudflareTunnelStatus(w http.ResponseWriter, r *http.Request) 
 	}); err != nil {
 		s.logger.Warn("cloudflare tunnel status state update failed", "error", err)
 	}
-	writeJSON(w, http.StatusOK, setupCloudflareStatusResponse{TunnelID: binding.TunnelID, Status: status.Status, Healthy: cloudflare.StatusIsHealthy(status), Connections: status.Connections})
+	writeJSON(
+		w,
+		http.StatusOK,
+		setupCloudflareStatusResponse{TunnelID: binding.TunnelID, Status: status.Status, Healthy: cloudflare.StatusIsHealthy(status), Connections: status.Connections},
+	)
 }
 
 func (s *Server) cloudflareClient(ctx context.Context) (cloudflare.Client, error) {

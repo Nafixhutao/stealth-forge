@@ -134,7 +134,9 @@ func RenderApps(routes []domain.AppPlatformRoute) ([]byte, error) {
 	}
 	identityCounts := make(map[string]int, len(ordered))
 	for _, route := range ordered {
-		if identity, err := uuid.Parse(route.RouteIdentity); err == nil && identity != uuid.Nil && identity.String() == route.RouteIdentity {
+		if identity, err := uuid.Parse(route.RouteIdentity); err == nil &&
+			identity != uuid.Nil &&
+			identity.String() == route.RouteIdentity {
 			identityCounts[route.RouteIdentity]++
 		}
 	}
@@ -169,7 +171,7 @@ func RenderApps(routes []domain.AppPlatformRoute) ([]byte, error) {
 		}
 		seenHosts[hostname] = struct{}{}
 		seenApps[routerID] = struct{}{}
-		backend := "http://" + net.JoinHostPort(backendHost, fmt.Sprint(route.Port))
+		backend := "http://" + net.JoinHostPort(backendHost, strconv.Itoa(route.Port))
 		expectedTargets[routerID] = backendHost
 		config.HTTP.Routers[routerID] = dynamicRouter{
 			EntryPoints: []string{"web"}, Rule: "Host(`" + hostname + "`)",
@@ -197,7 +199,9 @@ func validateAppRendered(contents []byte, routerCount, serviceCount int, expecte
 	if err := yaml.Unmarshal(contents, &parsed); err != nil {
 		return fmt.Errorf("generated App Traefik YAML is invalid: %w", err)
 	}
-	if len(parsed.HTTP.Routers) != routerCount || len(parsed.HTTP.Services) != serviceCount || routerCount != serviceCount {
+	if len(parsed.HTTP.Routers) != routerCount ||
+		len(parsed.HTTP.Services) != serviceCount ||
+		routerCount != serviceCount {
 		return errors.New("generated App route and service counts do not match")
 	}
 	for routerID, router := range parsed.HTTP.Routers {
@@ -210,7 +214,11 @@ func validateAppRendered(contents []byte, routerCount, serviceCount int, expecte
 		}
 		expectedHost := expectedTargets[routerID]
 		service, ok := parsed.HTTP.Services[router.Service]
-		if expectedHost == "" || !ok || !service.LoadBalancer.PassHostHeader || len(service.LoadBalancer.Servers) != 1 || !validAppBackendURL(service.LoadBalancer.Servers[0].URL, expectedHost) {
+		if expectedHost == "" ||
+			!ok ||
+			!service.LoadBalancer.PassHostHeader ||
+			len(service.LoadBalancer.Servers) != 1 ||
+			!validAppBackendURL(service.LoadBalancer.Servers[0].URL, expectedHost) {
 			return fmt.Errorf("generated App backend for %q is invalid", routerID)
 		}
 	}
@@ -219,7 +227,12 @@ func validateAppRendered(contents []byte, routerCount, serviceCount int, expecte
 
 func validAppBackendURL(raw, expectedHost string) bool {
 	parsed, err := url.Parse(raw)
-	if err != nil || parsed.Scheme != "http" || parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if err != nil ||
+		parsed.Scheme != "http" ||
+		parsed.User != nil ||
+		parsed.Path != "" ||
+		parsed.RawQuery != "" ||
+		parsed.Fragment != "" {
 		return false
 	}
 	host, portText, err := net.SplitHostPort(parsed.Host)
@@ -232,7 +245,12 @@ func validAppBackendURL(raw, expectedHost string) bool {
 
 func validBackendURL(raw string) error {
 	parsed, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if err != nil {
+		return errors.New("platform Site backend URL must be an HTTP(S) origin without credentials or path")
+	}
+	schemeOK := parsed.Scheme == "http" || parsed.Scheme == "https"
+	originOnly := parsed.User == nil && parsed.Path == "" && parsed.RawQuery == "" && parsed.Fragment == ""
+	if !schemeOK || parsed.Host == "" || !originOnly {
 		return errors.New("platform Site backend URL must be an HTTP(S) origin without credentials or path")
 	}
 	return nil
@@ -253,7 +271,10 @@ func validateRendered(contents []byte, routeCount int, backendURL string) error 
 		return nil
 	}
 	service, ok := parsed.HTTP.Services["stealth-platform-sites"]
-	if !ok || !service.LoadBalancer.PassHostHeader || len(service.LoadBalancer.Servers) != 1 || service.LoadBalancer.Servers[0].URL != backendURL {
+	if !ok ||
+		!service.LoadBalancer.PassHostHeader ||
+		len(service.LoadBalancer.Servers) != 1 ||
+		service.LoadBalancer.Servers[0].URL != backendURL {
 		return errors.New("generated platform service is invalid")
 	}
 	for routerID, router := range parsed.HTTP.Routers {

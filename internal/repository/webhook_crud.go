@@ -11,7 +11,17 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (r *Repository) CreateWebhook(ctx context.Context, id, projectID uuid.UUID, actor WebhookActor, input WebhookInput) (domain.Webhook, string, error) {
+func (r *Repository) CreateWebhook(
+	ctx context.Context,
+	id,
+	projectID uuid.UUID,
+	actor WebhookActor,
+	input WebhookInput,
+) (
+	domain.Webhook,
+	string,
+	error,
+) {
 	if r.webhookCipher == nil {
 		return domain.Webhook{}, "", ErrWebhookNotReady
 	}
@@ -56,7 +66,18 @@ func (r *Repository) CreateWebhook(ctx context.Context, id, projectID uuid.UUID,
 	return item, secret, nil
 }
 
-func (r *Repository) ListWebhooks(ctx context.Context, projectID uuid.UUID, actor WebhookActor, limit int, cursor *uuid.UUID) ([]domain.Webhook, string, bool, error) {
+func (r *Repository) ListWebhooks(
+	ctx context.Context,
+	projectID uuid.UUID,
+	actor WebhookActor,
+	limit int,
+	cursor *uuid.UUID,
+) (
+	[]domain.Webhook,
+	string,
+	bool,
+	error,
+) {
 	canManage, err := r.requireWebhookRead(ctx, projectID, actor)
 	if err != nil {
 		return nil, "", false, err
@@ -88,7 +109,15 @@ func (r *Repository) ListWebhooks(ctx context.Context, projectID uuid.UUID, acto
 	return items, next, canManage, nil
 }
 
-func (r *Repository) GetWebhook(ctx context.Context, projectID, webhookID uuid.UUID, actor WebhookActor) (domain.Webhook, error) {
+func (r *Repository) GetWebhook(
+	ctx context.Context,
+	projectID,
+	webhookID uuid.UUID,
+	actor WebhookActor,
+) (
+	domain.Webhook,
+	error,
+) {
 	if _, err := r.requireWebhookRead(ctx, projectID, actor); err != nil {
 		return domain.Webhook{}, err
 	}
@@ -99,7 +128,16 @@ func (r *Repository) GetWebhook(ctx context.Context, projectID, webhookID uuid.U
 	return item, err
 }
 
-func (r *Repository) UpdateWebhook(ctx context.Context, projectID, webhookID uuid.UUID, actor WebhookActor, patch WebhookPatch) (domain.Webhook, error) {
+func (r *Repository) UpdateWebhook(
+	ctx context.Context,
+	projectID,
+	webhookID uuid.UUID,
+	actor WebhookActor,
+	patch WebhookPatch,
+) (
+	domain.Webhook,
+	error,
+) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.Webhook{}, err
@@ -192,7 +230,16 @@ func (r *Repository) DeleteWebhook(ctx context.Context, projectID, webhookID uui
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) RotateWebhookSecret(ctx context.Context, projectID, webhookID uuid.UUID, actor WebhookActor) (domain.Webhook, string, error) {
+func (r *Repository) RotateWebhookSecret(
+	ctx context.Context,
+	projectID,
+	webhookID uuid.UUID,
+	actor WebhookActor,
+) (
+	domain.Webhook,
+	string,
+	error,
+) {
 	if r.webhookCipher == nil {
 		return domain.Webhook{}, "", ErrWebhookNotReady
 	}
@@ -230,7 +277,18 @@ func (r *Repository) RotateWebhookSecret(ctx context.Context, projectID, webhook
 	return item, secret, nil
 }
 
-func (r *Repository) ListWebhookDeliveries(ctx context.Context, projectID, webhookID uuid.UUID, actor WebhookActor, limit int, cursor *uuid.UUID) ([]domain.WebhookDelivery, string, error) {
+func (r *Repository) ListWebhookDeliveries(
+	ctx context.Context,
+	projectID,
+	webhookID uuid.UUID,
+	actor WebhookActor,
+	limit int,
+	cursor *uuid.UUID,
+) (
+	[]domain.WebhookDelivery,
+	string,
+	error,
+) {
 	if _, err := r.requireWebhookRead(ctx, projectID, actor); err != nil {
 		return nil, "", err
 	}

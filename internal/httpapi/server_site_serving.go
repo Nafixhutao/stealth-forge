@@ -116,7 +116,11 @@ func (s *Server) serveSiteDeploymentFile(w http.ResponseWriter, r *http.Request)
 	s.servePublishedSiteFile(w, r, artifact)
 }
 
-func (s *Server) servePublishedSiteFile(w http.ResponseWriter, r *http.Request, artifact repository.SitePublicArtifact) {
+func (s *Server) servePublishedSiteFile(
+	w http.ResponseWriter,
+	r *http.Request,
+	artifact repository.SitePublicArtifact,
+) {
 	requested := chi.URLParam(r, "*")
 	if requested == "" {
 		requested = "index.html"

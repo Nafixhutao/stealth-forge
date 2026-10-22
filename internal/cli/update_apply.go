@@ -23,7 +23,12 @@ func (a *App) performUpdateWithTargetMigration(ctx context.Context, release gith
 	})
 }
 
-func (a *App) performUpdateWithTargetMigrationHook(ctx context.Context, release githubRelease, asset string, beforeReplace func(string) error) error {
+func (a *App) performUpdateWithTargetMigrationHook(
+	ctx context.Context,
+	release githubRelease,
+	asset string,
+	beforeReplace func(string) error,
+) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("update canceled: %w", err)
 	}
@@ -92,7 +97,17 @@ func (a *App) invokeTargetMigration(ctx context.Context, binaryPath, targetVersi
 	if runner == nil {
 		runner = execCommandRunner{}
 	}
-	return runner.Run(ctx, "", a.out, a.errOut, binaryPath, "internal", "migrate-installation", "--target-version", targetVersion)
+	return runner.Run(
+		ctx,
+		"",
+		a.out,
+		a.errOut,
+		binaryPath,
+		"internal",
+		"migrate-installation",
+		"--target-version",
+		targetVersion,
+	)
 }
 
 // migrateInstalledRelease runs the trusted host-side install engine for an

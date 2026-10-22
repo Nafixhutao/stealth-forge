@@ -119,12 +119,30 @@ func TestInstanceDomainSettingsIntegration(t *testing.T) {
 	requestRawJSON(t, ownerClient, http.MethodPatch, settingsURL, `{"workload_base_domain":"例え.テスト"}`, http.StatusOK, &settings)
 	assertDomainSettings(t, settings, "cloud.example.com", "xn--r8jz45g.xn--zckzah")
 	assertStoredWorkloadDomain(t, ctx, pool, "xn--r8jz45g.xn--zckzah")
-	ownerAuditEvents = assertNewInstanceDomainAuditEvent(t, ctx, pool, ownerID, ownerAuditEvents, nil, stringPointer("xn--r8jz45g.xn--zckzah"), false)
+	ownerAuditEvents = assertNewInstanceDomainAuditEvent(
+		t,
+		ctx,
+		pool,
+		ownerID,
+		ownerAuditEvents,
+		nil,
+		stringPointer("xn--r8jz45g.xn--zckzah"),
+		false,
+	)
 
 	requestRawJSON(t, ownerClient, http.MethodPatch, settingsURL, `{"workload_base_domain":" Apps.Example.COM. "}`, http.StatusOK, &settings)
 	assertDomainSettings(t, settings, "cloud.example.com", "apps.example.com")
 	assertStoredWorkloadDomain(t, ctx, pool, "apps.example.com")
-	ownerAuditEvents = assertNewInstanceDomainAuditEvent(t, ctx, pool, ownerID, ownerAuditEvents, stringPointer("xn--r8jz45g.xn--zckzah"), stringPointer("apps.example.com"), false)
+	ownerAuditEvents = assertNewInstanceDomainAuditEvent(
+		t,
+		ctx,
+		pool,
+		ownerID,
+		ownerAuditEvents,
+		stringPointer("xn--r8jz45g.xn--zckzah"),
+		stringPointer("apps.example.com"),
+		false,
+	)
 
 	adminAuditEvents := queryInstanceDomainAuditEvents(t, ctx, pool, uuid.MustParse(admin.accountID))
 	for _, client := range []*http.Client{adminClient, organizationOwnerClient, regularClient} {
@@ -138,7 +156,16 @@ func TestInstanceDomainSettingsIntegration(t *testing.T) {
 	requestRawJSON(t, ownerClient, http.MethodPatch, settingsURL, `{"workload_base_domain":"deploy.example.co.uk"}`, http.StatusOK, &settings)
 	assertDomainSettings(t, settings, "cloud.example.com", "deploy.example.co.uk")
 	assertStoredWorkloadDomain(t, ctx, pool, "deploy.example.co.uk")
-	ownerAuditEvents = assertNewInstanceDomainAuditEvent(t, ctx, pool, ownerID, ownerAuditEvents, stringPointer("apps.example.com"), stringPointer("deploy.example.co.uk"), false)
+	ownerAuditEvents = assertNewInstanceDomainAuditEvent(
+		t,
+		ctx,
+		pool,
+		ownerID,
+		ownerAuditEvents,
+		stringPointer("apps.example.com"),
+		stringPointer("deploy.example.co.uk"),
+		false,
+	)
 
 	ownerAuditEventsBeforeInvalid := ownerAuditEvents
 	for _, value := range []string{
@@ -154,7 +181,11 @@ func TestInstanceDomainSettingsIntegration(t *testing.T) {
 		requestRawJSON(t, ownerClient, http.MethodPatch, settingsURL, `{"workload_base_domain":"`+value+`"}`, http.StatusUnprocessableEntity, nil)
 	}
 	if got := queryInstanceDomainAuditEvents(t, ctx, pool, ownerID); len(got) != len(ownerAuditEventsBeforeInvalid) {
-		t.Fatalf("invalid updates changed instance domain audit count from %d to %d", len(ownerAuditEventsBeforeInvalid), len(got))
+		t.Fatalf(
+			"invalid updates changed instance domain audit count from %d to %d",
+			len(ownerAuditEventsBeforeInvalid),
+			len(got),
+		)
 	}
 	assertStoredWorkloadDomain(t, ctx, pool, "deploy.example.co.uk")
 
@@ -163,7 +194,16 @@ func TestInstanceDomainSettingsIntegration(t *testing.T) {
 	requestRawJSON(t, ownerClient, http.MethodPatch, settingsURL, `{"workload_base_domain":null}`, http.StatusOK, &settings)
 	assertDomainSettings(t, settings, "cloud.example.com", "")
 	assertStoredWorkloadDomain(t, ctx, pool, "")
-	ownerAuditEvents = assertNewInstanceDomainAuditEvent(t, ctx, pool, ownerID, ownerAuditEvents, stringPointer("deploy.example.co.uk"), nil, true)
+	ownerAuditEvents = assertNewInstanceDomainAuditEvent(
+		t,
+		ctx,
+		pool,
+		ownerID,
+		ownerAuditEvents,
+		stringPointer("deploy.example.co.uk"),
+		nil,
+		true,
+	)
 	if len(ownerAuditEvents) != len(ownerAuditEventsBeforeClear)+1 {
 		t.Fatalf("clear audit event count = %d, want %d", len(ownerAuditEvents), len(ownerAuditEventsBeforeClear)+1)
 	}
@@ -194,7 +234,12 @@ type instanceDomainAuditMetadata struct {
 	Cleared                    bool    `json:"cleared"`
 }
 
-func queryInstanceDomainAuditEvents(t *testing.T, ctx context.Context, pool *pgxpool.Pool, actorID uuid.UUID) []instanceDomainAuditEvent {
+func queryInstanceDomainAuditEvents(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	actorID uuid.UUID,
+) []instanceDomainAuditEvent {
 	t.Helper()
 	rows, err := pool.Query(ctx, `
 		SELECT id,actor_account_id,action,target_type,target_id,metadata
@@ -221,7 +266,16 @@ func queryInstanceDomainAuditEvents(t *testing.T, ctx context.Context, pool *pgx
 	return events
 }
 
-func assertNewInstanceDomainAuditEvent(t *testing.T, ctx context.Context, pool *pgxpool.Pool, actorID uuid.UUID, previous []instanceDomainAuditEvent, wantPrevious, wantWorkload *string, wantCleared bool) []instanceDomainAuditEvent {
+func assertNewInstanceDomainAuditEvent(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	actorID uuid.UUID,
+	previous []instanceDomainAuditEvent,
+	wantPrevious,
+	wantWorkload *string,
+	wantCleared bool,
+) []instanceDomainAuditEvent {
 	t.Helper()
 	events := queryInstanceDomainAuditEvents(t, ctx, pool, actorID)
 	if len(events) != len(previous)+1 {
@@ -244,8 +298,16 @@ func assertNewInstanceDomainAuditEvent(t *testing.T, ctx context.Context, pool *
 	if err := json.Unmarshal(event.Metadata, &metadata); err != nil {
 		t.Fatal(err)
 	}
-	if !sameOptionalString(metadata.PreviousWorkloadBaseDomain, wantPrevious) || !sameOptionalString(metadata.WorkloadBaseDomain, wantWorkload) || metadata.Cleared != wantCleared {
-		t.Fatalf("audit metadata = %s, want previous=%v workload=%v cleared=%v", event.Metadata, wantPrevious, wantWorkload, wantCleared)
+	if !sameOptionalString(metadata.PreviousWorkloadBaseDomain, wantPrevious) ||
+		!sameOptionalString(metadata.WorkloadBaseDomain, wantWorkload) ||
+		metadata.Cleared != wantCleared {
+		t.Fatalf(
+			"audit metadata = %s, want previous=%v workload=%v cleared=%v",
+			event.Metadata,
+			wantPrevious,
+			wantWorkload,
+			wantCleared,
+		)
 	}
 	return events
 }
@@ -266,7 +328,12 @@ type instanceDomainSettingsResponse struct {
 	WorkloadBaseDomain *string `json:"workload_base_domain"`
 }
 
-func assertDomainSettings(t *testing.T, settings instanceDomainSettingsResponse, instanceHostname, workloadBaseDomain string) {
+func assertDomainSettings(
+	t *testing.T,
+	settings instanceDomainSettingsResponse,
+	instanceHostname,
+	workloadBaseDomain string,
+) {
 	t.Helper()
 	if settings.InstanceHostname != instanceHostname {
 		t.Fatalf("instance hostname = %q, want %q", settings.InstanceHostname, instanceHostname)

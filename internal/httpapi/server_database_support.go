@@ -26,12 +26,25 @@ func databaseResourceError(w http.ResponseWriter, err error) bool {
 		writeError(w, http.StatusConflict, "schema_conflict", "schema change conflicts with existing rows or indexes")
 		return true
 	case errors.Is(err, repository.ErrUnindexedQuery):
-		writeError(w, http.StatusUnprocessableEntity, "unindexed_query", "filters and ordering require a real key index on the declared column")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"unindexed_query",
+			"filters and ordering require a real key index on the declared column",
+		)
 		return true
 	case errors.Is(err, repository.ErrInvalidQuery):
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", err.Error())
 		return true
-	case errors.Is(err, dbcore.ErrInvalidIdentifier), errors.Is(err, dbcore.ErrInvalidColumn), errors.Is(err, dbcore.ErrInvalidPermissions), errors.Is(err, dbcore.ErrDuplicatePermission), errors.Is(err, dbcore.ErrInvalidName), errors.Is(err, dbcore.ErrInvalidRow), errors.Is(err, dbcore.ErrMissingRequired), errors.Is(err, dbcore.ErrUnknownField), errors.Is(err, dbcore.ErrInvalidValue):
+	case errors.Is(err, dbcore.ErrInvalidIdentifier),
+		errors.Is(err, dbcore.ErrInvalidColumn),
+		errors.Is(err, dbcore.ErrInvalidPermissions),
+		errors.Is(err, dbcore.ErrDuplicatePermission),
+		errors.Is(err, dbcore.ErrInvalidName),
+		errors.Is(err, dbcore.ErrInvalidRow),
+		errors.Is(err, dbcore.ErrMissingRequired),
+		errors.Is(err, dbcore.ErrUnknownField),
+		errors.Is(err, dbcore.ErrInvalidValue):
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", err.Error())
 		return true
 	}

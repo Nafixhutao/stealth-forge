@@ -104,7 +104,15 @@ func (r *Repository) OAuthProviderCredentials(ctx context.Context, provider stri
 }
 
 // UpsertOAuthProvider stores or replaces one provider's credentials.
-func (r *Repository) UpsertOAuthProvider(ctx context.Context, provider, clientID, clientSecret string) (OAuthProviderStatus, error) {
+func (r *Repository) UpsertOAuthProvider(
+	ctx context.Context,
+	provider,
+	clientID,
+	clientSecret string,
+) (
+	OAuthProviderStatus,
+	error,
+) {
 	provider = strings.ToLower(strings.TrimSpace(provider))
 	if !ValidOAuthProvider(provider) {
 		return OAuthProviderStatus{}, ErrOAuthProviderInvalid

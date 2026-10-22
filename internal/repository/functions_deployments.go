@@ -47,7 +47,19 @@ func (r *Repository) functionDeploymentByID(ctx context.Context, query interface
 	return item, sourcePath, nil
 }
 
-func (r *Repository) ListFunctionDeployments(ctx context.Context, projectID, functionID uuid.UUID, actor FunctionActor, limit int, cursor *uuid.UUID) ([]domain.FunctionDeployment, string, bool, error) {
+func (r *Repository) ListFunctionDeployments(
+	ctx context.Context,
+	projectID,
+	functionID uuid.UUID,
+	actor FunctionActor,
+	limit int,
+	cursor *uuid.UUID,
+) (
+	[]domain.FunctionDeployment,
+	string,
+	bool,
+	error,
+) {
 	canManage, err := r.requireFunctionRead(ctx, projectID, actor)
 	if err != nil {
 		return nil, "", false, err
@@ -79,7 +91,16 @@ func (r *Repository) ListFunctionDeployments(ctx context.Context, projectID, fun
 	return items, next, canManage, nil
 }
 
-func (r *Repository) GetFunctionDeployment(ctx context.Context, projectID, functionID, deploymentID uuid.UUID, actor FunctionActor) (domain.FunctionDeployment, error) {
+func (r *Repository) GetFunctionDeployment(
+	ctx context.Context,
+	projectID,
+	functionID,
+	deploymentID uuid.UUID,
+	actor FunctionActor,
+) (
+	domain.FunctionDeployment,
+	error,
+) {
 	if _, err := r.requireFunctionRead(ctx, projectID, actor); err != nil {
 		return domain.FunctionDeployment{}, err
 	}
@@ -97,7 +118,17 @@ func (r *Repository) GetFunctionDeployment(ctx context.Context, projectID, funct
 // deployment's intended active state, but the function's active pointer is
 // moved only after the asynchronous build succeeds so a failed build cannot
 // strand the function on a non-executable deployment.
-func (r *Repository) CreateFunctionDeployment(ctx context.Context, id, projectID, functionID uuid.UUID, actor FunctionActor, input FunctionDeploymentInput) (domain.FunctionDeployment, error) {
+func (r *Repository) CreateFunctionDeployment(
+	ctx context.Context,
+	id,
+	projectID,
+	functionID uuid.UUID,
+	actor FunctionActor,
+	input FunctionDeploymentInput,
+) (
+	domain.FunctionDeployment,
+	error,
+) {
 	if input.SizeBytes < 0 {
 		return domain.FunctionDeployment{}, ErrFunctionArtifactTooLarge
 	}
@@ -187,7 +218,14 @@ func (r *Repository) CreateFunctionDeployment(ctx context.Context, id, projectID
 			return domain.FunctionDeployment{}, err
 		}
 	}
-	metadata := map[string]any{"function_id": functionID.String(), "version": item.Version, "source": input.Source, "size_bytes": input.SizeBytes, "checksum_sha256": input.ChecksumSHA256, "activated": input.Activate}
+	metadata := map[string]any{
+		"function_id":     functionID.String(),
+		"version":         item.Version,
+		"source":          input.Source,
+		"size_bytes":      input.SizeBytes,
+		"checksum_sha256": input.ChecksumSHA256,
+		"activated":       input.Activate,
+	}
 	if err := r.auditFunction(ctx, tx, projectID, actor, "function_deployment.create", "function_deployment", id, metadata); err != nil {
 		return domain.FunctionDeployment{}, err
 	}
@@ -202,7 +240,18 @@ func (r *Repository) CreateFunctionDeployment(ctx context.Context, id, projectID
 	return item, nil
 }
 
-func activateFunctionDeploymentTx(ctx context.Context, tx pgx.Tx, projectID, functionID, deploymentID uuid.UUID, actor FunctionActor, item domain.FunctionDeployment) (domain.FunctionDeployment, error) {
+func activateFunctionDeploymentTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID,
+	functionID,
+	deploymentID uuid.UUID,
+	actor FunctionActor,
+	item domain.FunctionDeployment,
+) (
+	domain.FunctionDeployment,
+	error,
+) {
 	var current *uuid.UUID
 	var functionStatus string
 	if err := tx.QueryRow(ctx, `SELECT active_deployment_id,status FROM project_functions WHERE project_id=$1 AND id=$2 FOR UPDATE`, projectID, functionID).Scan(&current, &functionStatus); err != nil {
@@ -248,7 +297,18 @@ func activateFunctionDeploymentTx(ctx context.Context, tx pgx.Tx, projectID, fun
 // functionDeploymentByIDTx is the transaction variant used by activation and
 // worker state transitions. Keeping the project and function predicates in
 // every query makes cross-tenant IDs fail closed.
-func (r *Repository) functionDeploymentByIDTx(ctx context.Context, tx pgx.Tx, projectID, functionID, deploymentID uuid.UUID, lock bool) (domain.FunctionDeployment, string, error) {
+func (r *Repository) functionDeploymentByIDTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID,
+	functionID,
+	deploymentID uuid.UUID,
+	lock bool,
+) (
+	domain.FunctionDeployment,
+	string,
+	error,
+) {
 	suffix := ""
 	if lock {
 		suffix = " FOR UPDATE"
@@ -277,7 +337,17 @@ type functionDeploymentBuildStorage struct {
 	BuildWorkerID       string
 }
 
-func (r *Repository) functionDeploymentBuildStorageTx(ctx context.Context, tx pgx.Tx, projectID, functionID, deploymentID uuid.UUID, lock bool) (functionDeploymentBuildStorage, error) {
+func (r *Repository) functionDeploymentBuildStorageTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID,
+	functionID,
+	deploymentID uuid.UUID,
+	lock bool,
+) (
+	functionDeploymentBuildStorage,
+	error,
+) {
 	suffix := ""
 	if lock {
 		suffix = " FOR UPDATE"
@@ -308,7 +378,17 @@ func (r *Repository) functionDeploymentBuildStorageTx(ctx context.Context, tx pg
 // onto the current function identity. Enabled/status and permissions remain
 // live controls, while runtime/entrypoint/commands/timeout/logging cannot
 // drift after a deployment has been built.
-func (r *Repository) functionDeploymentRuntimeConfigTx(ctx context.Context, tx pgx.Tx, projectID, functionID, deploymentID uuid.UUID, function domain.Function) (domain.Function, error) {
+func (r *Repository) functionDeploymentRuntimeConfigTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID,
+	functionID,
+	deploymentID uuid.UUID,
+	function domain.Function,
+) (
+	domain.Function,
+	error,
+) {
 	var runtime, entrypoint, commands string
 	var timeout int
 	var logging bool
@@ -330,7 +410,16 @@ func (r *Repository) functionDeploymentRuntimeConfigTx(ctx context.Context, tx p
 // FunctionDeploymentStoragePaths returns opaque source/build paths for a
 // post-commit filesystem cleanup. It is intentionally separate from the
 // public deployment projection.
-func (r *Repository) FunctionDeploymentStoragePaths(ctx context.Context, projectID, functionID, deploymentID uuid.UUID, actor FunctionActor) ([]string, error) {
+func (r *Repository) FunctionDeploymentStoragePaths(
+	ctx context.Context,
+	projectID,
+	functionID,
+	deploymentID uuid.UUID,
+	actor FunctionActor,
+) (
+	[]string,
+	error,
+) {
 	if _, err := r.requireFunctionRead(ctx, projectID, actor); err != nil {
 		return nil, err
 	}

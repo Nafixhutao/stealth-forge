@@ -70,7 +70,12 @@ func (c *poolCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(c.connections, prometheus.GaugeValue, float64(stat.TotalConns()), "total")
 	ch <- prometheus.MustNewConstMetric(c.connections, prometheus.GaugeValue, float64(stat.IdleConns()), "idle")
 	ch <- prometheus.MustNewConstMetric(c.connections, prometheus.GaugeValue, float64(stat.AcquiredConns()), "acquired")
-	ch <- prometheus.MustNewConstMetric(c.connections, prometheus.GaugeValue, float64(stat.ConstructingConns()), "constructing")
+	ch <- prometheus.MustNewConstMetric(
+		c.connections,
+		prometheus.GaugeValue,
+		float64(stat.ConstructingConns()),
+		"constructing",
+	)
 	ch <- prometheus.MustNewConstMetric(c.connections, prometheus.GaugeValue, float64(stat.MaxConns()), "max")
 	ch <- prometheus.MustNewConstMetric(c.acquires, prometheus.CounterValue, float64(stat.AcquireCount()))
 	ch <- prometheus.MustNewConstMetric(c.acquireDuration, prometheus.CounterValue, stat.AcquireDuration().Seconds())

@@ -59,7 +59,12 @@ func TestAppEnvironmentValueSizeMigrationBackfillsAndRollsBackIntegration(t *tes
 					t.Fatal(err)
 				}
 				valueID := uuid.Must(uuid.NewV7())
-				configuredCiphertext, err = cipher.Encrypt(projectID, appID, valueID, []byte("migration keeps this ciphertext exact"))
+				configuredCiphertext, err = cipher.Encrypt(
+					projectID,
+					appID,
+					valueID,
+					[]byte("migration keeps this ciphertext exact"),
+				)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -95,8 +100,13 @@ func TestAppEnvironmentValueSizeMigrationBackfillsAndRollsBackIntegration(t *tes
 				if err := conn.QueryRow(ctx, `SELECT value_plaintext_bytes,value_ciphertext FROM app_environment_variables WHERE key='TOKEN'`).Scan(&plaintextBytes, &afterCiphertext); err != nil {
 					t.Fatal(err)
 				}
-				if plaintextBytes != len("migration keeps this ciphertext exact") || !bytes.Equal(afterCiphertext, configuredCiphertext) {
-					t.Fatalf("backfill bytes=%d ciphertextPreserved=%t", plaintextBytes, bytes.Equal(afterCiphertext, configuredCiphertext))
+				if plaintextBytes != len("migration keeps this ciphertext exact") ||
+					!bytes.Equal(afterCiphertext, configuredCiphertext) {
+					t.Fatalf(
+						"backfill bytes=%d ciphertextPreserved=%t",
+						plaintextBytes,
+						bytes.Equal(afterCiphertext, configuredCiphertext),
+					)
 				}
 				var emptyBytes int
 				if err := conn.QueryRow(ctx, `SELECT value_plaintext_bytes FROM app_environment_variables WHERE key='EMPTY'`).Scan(&emptyBytes); err != nil || emptyBytes != 0 {
@@ -117,14 +127,25 @@ func TestAppEnvironmentValueSizeMigrationBackfillsAndRollsBackIntegration(t *tes
 			if populated {
 				var afterCiphertext []byte
 				if err := conn.QueryRow(ctx, `SELECT value_ciphertext FROM app_environment_variables WHERE key='TOKEN'`).Scan(&afterCiphertext); err != nil || !bytes.Equal(afterCiphertext, configuredCiphertext) {
-					t.Fatalf("rollback changed existing ciphertext: equal=%t err=%v", bytes.Equal(afterCiphertext, configuredCiphertext), err)
+					t.Fatalf(
+						"rollback changed existing ciphertext: equal=%t err=%v",
+						bytes.Equal(afterCiphertext, configuredCiphertext),
+						err,
+					)
 				}
 			}
 		})
 	}
 }
 
-func insertAppEnvironmentMigrationFixture(t *testing.T, ctx context.Context, conn *pgxpool.Conn) (uuid.UUID, uuid.UUID) {
+func insertAppEnvironmentMigrationFixture(
+	t *testing.T,
+	ctx context.Context,
+	conn *pgxpool.Conn,
+) (
+	uuid.UUID,
+	uuid.UUID,
+) {
 	t.Helper()
 	organizationID, projectID := uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())
 	appID := uuid.Must(uuid.NewV7())

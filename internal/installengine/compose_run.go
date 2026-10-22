@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -23,15 +24,28 @@ func (e *Engine) runCompose(ctx context.Context, plan Plan, args ...string) erro
 func (e *Engine) runTraefikStateInit(ctx context.Context, plan Plan, composeFile, projectDirectory string) error {
 	args := []string{
 		"run", "--rm", "--no-deps",
-		"-e", fmt.Sprintf("STEALTH_TRAEFIK_HOST_UID=%d", os.Geteuid()),
+		"-e", "STEALTH_TRAEFIK_HOST_UID=" + strconv.Itoa(os.Geteuid()),
 		"traefik-state-init",
 	}
 	return e.runComposeFile(ctx, plan, composeFile, projectDirectory, args...)
 }
-func (e *Engine) runComposeFile(ctx context.Context, plan Plan, composeFile, projectDirectory string, args ...string) error {
+func (e *Engine) runComposeFile(
+	ctx context.Context,
+	plan Plan,
+	composeFile,
+	projectDirectory string,
+	args ...string,
+) error {
 	return e.runComposeFileWithEnv(ctx, plan, composeFile, projectDirectory, plan.Layout.EnvFile, args...)
 }
-func (e *Engine) runComposeFileWithEnv(ctx context.Context, plan Plan, composeFile, projectDirectory, envFile string, args ...string) error {
+func (e *Engine) runComposeFileWithEnv(
+	ctx context.Context,
+	plan Plan,
+	composeFile,
+	projectDirectory,
+	envFile string,
+	args ...string,
+) error {
 	composeArgs := []string{"compose"}
 	if plan.Cloudflare {
 		composeArgs = append(composeArgs, "--profile", "cloudflare")
@@ -53,7 +67,15 @@ func (e *Engine) runComposeFileWithEnv(ctx context.Context, plan Plan, composeFi
 		if !ok {
 			return errors.New("command runner cannot set STEALTH_ENV_FILE for staged Compose validation")
 		}
-		err = runner.RunWithEnv(ctx, plan.Layout.Root, []string{"STEALTH_ENV_FILE=" + envFile}, e.output, e.output, "docker", composeArgs...)
+		err = runner.RunWithEnv(
+			ctx,
+			plan.Layout.Root,
+			[]string{"STEALTH_ENV_FILE=" + envFile},
+			e.output,
+			e.output,
+			"docker",
+			composeArgs...,
+		)
 	} else {
 		err = e.runner.Run(ctx, plan.Layout.Root, e.output, e.output, "docker", composeArgs...)
 	}

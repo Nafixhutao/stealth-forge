@@ -2,6 +2,7 @@ package installengine
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -46,7 +47,10 @@ func recoverInterruptedManagedAssetMigration(layout Layout, allowedPaths map[str
 	}
 	return removeStaleManagedAssetTransactions(layout)
 }
-func validateManagedAssetRecoveryManifest(manifest managedAssetRecoveryManifest, allowedPaths map[string]struct{}) error {
+func validateManagedAssetRecoveryManifest(
+	manifest managedAssetRecoveryManifest,
+	allowedPaths map[string]struct{},
+) error {
 	if strings.TrimSpace(manifest.TransactionID) == "" || strings.ContainsAny(manifest.TransactionID, `/\\`) {
 		return errors.New("managed asset recovery journal contains an invalid transaction id")
 	}
@@ -58,11 +62,18 @@ func validateManagedAssetRecoveryManifest(manifest managedAssetRecoveryManifest,
 			return fmt.Errorf("managed asset recovery journal contains an invalid original version: %w", err)
 		}
 	}
-	if !validManagedTransactionDirectory(manifest.BackupDir, ".stealth-managed-backup-") || !validManagedTransactionDirectory(manifest.StageDir, ".stealth-managed-assets-") {
+	if !validManagedTransactionDirectory(manifest.BackupDir, ".stealth-managed-backup-") ||
+		!validManagedTransactionDirectory(manifest.StageDir, ".stealth-managed-assets-") {
 		return errors.New("managed asset recovery journal contains an invalid transaction path")
 	}
 	switch manifest.Phase {
-	case migrationPhasePrepared, migrationPhaseBackedUp, migrationPhaseAssetsActivated, migrationPhaseConfigActivated, migrationPhaseVersionActivated, migrationPhaseComposeValidated, migrationPhaseFinalized:
+	case migrationPhasePrepared,
+		migrationPhaseBackedUp,
+		migrationPhaseAssetsActivated,
+		migrationPhaseConfigActivated,
+		migrationPhaseVersionActivated,
+		migrationPhaseComposeValidated,
+		migrationPhaseFinalized:
 	default:
 		return fmt.Errorf("managed asset recovery journal contains an unknown phase %q", manifest.Phase)
 	}
@@ -133,7 +144,7 @@ func rollbackManagedAssetMigration(layout Layout, manifest managedAssetRecoveryM
 				return fmt.Errorf("read recovery backup for managed asset %q: %w", entry.RelativePath, err)
 			}
 			digest := sha256.Sum256(contents)
-			if fmt.Sprintf("%x", digest) != entry.SHA256 {
+			if hex.EncodeToString(digest[:]) != entry.SHA256 {
 				return fmt.Errorf("recover previous managed asset %q: backup checksum mismatch", entry.RelativePath)
 			}
 		}
@@ -198,7 +209,9 @@ func publishManagedAssetRecoverySet(layout Layout, manifest managedAssetRecovery
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("inspect completed managed asset recovery set: %w", err)
-	} else if info, previousErr := os.Lstat(previous); previousErr != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+	} else if info, previousErr := os.Lstat(previous); previousErr != nil ||
+		!info.IsDir() ||
+		info.Mode()&os.ModeSymlink != 0 {
 		return errors.New("completed managed asset recovery set is missing")
 	}
 	if err := removeAllAndSync(filepath.Join(layout.StateDir, manifest.StageDir)); err != nil {
@@ -225,7 +238,12 @@ func finalizeRecoveredManagedAssetMigration(layout Layout, manifest managedAsset
 	}
 	return nil
 }
-func restoreManagedStateFile(targetPath, backupDir string, state managedAssetRecoveryFile, fallbackMode os.FileMode) error {
+func restoreManagedStateFile(
+	targetPath,
+	backupDir string,
+	state managedAssetRecoveryFile,
+	fallbackMode os.FileMode,
+) error {
 	if !state.Existed {
 		return removeAndSync(targetPath)
 	}
@@ -275,7 +293,8 @@ func removeStaleManagedAssetTransactions(layout Layout) error {
 		return fmt.Errorf("inspect managed asset staging directory: %w", err)
 	}
 	for _, entry := range entries {
-		if !strings.HasPrefix(entry.Name(), ".stealth-managed-assets-") && !strings.HasPrefix(entry.Name(), ".stealth-managed-backup-") {
+		if !strings.HasPrefix(entry.Name(), ".stealth-managed-assets-") &&
+			!strings.HasPrefix(entry.Name(), ".stealth-managed-backup-") {
 			continue
 		}
 		if err := removeAllAndSync(filepath.Join(layout.StateDir, entry.Name())); err != nil {

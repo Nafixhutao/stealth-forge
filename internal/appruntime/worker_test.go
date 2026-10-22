@@ -58,10 +58,23 @@ func (s *runtimeTestStore) ScheduleAppRuntimeStartupSweep(context.Context) error
 func (s *runtimeTestStore) RequeueStaleAppRuntimeLeases(context.Context) (int64, error) {
 	return 0, nil
 }
-func (s *runtimeTestStore) ClaimNextAppRuntime(context.Context, string, time.Duration) (repository.AppRuntimeJob, error) {
+func (s *runtimeTestStore) ClaimNextAppRuntime(
+	context.Context,
+	string,
+	time.Duration,
+) (
+	repository.AppRuntimeJob,
+	error,
+) {
 	return repository.AppRuntimeJob{}, repository.ErrNoAppRuntimeJob
 }
-func (s *runtimeTestStore) ListAppRuntimeEnvironment(context.Context, repository.AppRuntimeJob) ([]repository.AppRuntimeEnvironmentCiphertext, error) {
+func (s *runtimeTestStore) ListAppRuntimeEnvironment(
+	context.Context,
+	repository.AppRuntimeJob,
+) (
+	[]repository.AppRuntimeEnvironmentCiphertext,
+	error,
+) {
 	return s.environment, nil
 }
 func (s *runtimeTestStore) RenewAppRuntimeLease(context.Context, uuid.UUID, string, uuid.UUID, time.Duration) error {
@@ -74,7 +87,12 @@ func (s *runtimeTestStore) ReleaseAppRuntimeJob(context.Context, repository.AppR
 	s.released++
 	return nil
 }
-func (s *runtimeTestStore) CompleteAppRuntime(_ context.Context, job repository.AppRuntimeJob, status string, container *repository.AppRuntimeContainer) error {
+func (s *runtimeTestStore) CompleteAppRuntime(
+	_ context.Context,
+	job repository.AppRuntimeJob,
+	status string,
+	container *repository.AppRuntimeContainer,
+) error {
 	s.completeCalls++
 	if s.completeErr != nil {
 		return s.completeErr
@@ -84,22 +102,43 @@ func (s *runtimeTestStore) CompleteAppRuntime(_ context.Context, job repository.
 	s.observedGeneration = job.App.DesiredGeneration
 	return nil
 }
-func (s *runtimeTestStore) ResetAppHealthBeforeRuntimeRestart(_ context.Context, _ repository.AppRuntimeJob, identity uuid.UUID) error {
+func (s *runtimeTestStore) ResetAppHealthBeforeRuntimeRestart(
+	_ context.Context,
+	_ repository.AppRuntimeJob,
+	identity uuid.UUID,
+) error {
 	s.resetCalls++
 	s.resetIdentity = identity
 	return nil
 }
-func (s *runtimeTestStore) RotateAppRuntimeIdentityBeforeCreate(_ context.Context, _ repository.AppRuntimeJob, identity uuid.UUID) error {
+func (s *runtimeTestStore) RotateAppRuntimeIdentityBeforeCreate(
+	_ context.Context,
+	_ repository.AppRuntimeJob,
+	identity uuid.UUID,
+) error {
 	s.createIdentity = identity
 	return nil
 }
-func (s *runtimeTestStore) FailAppRuntime(_ context.Context, _ repository.AppRuntimeJob, status, message string, _ time.Time) error {
+func (s *runtimeTestStore) FailAppRuntime(
+	_ context.Context,
+	_ repository.AppRuntimeJob,
+	status,
+	message string,
+	_ time.Time,
+) error {
 	s.failureCalls++
 	s.failureStatus = status
 	s.failureMessage = message
 	return nil
 }
-func (s *runtimeTestStore) ClaimNextAppHealthCheck(context.Context, string, time.Duration) (repository.AppHealthCheckJob, error) {
+func (s *runtimeTestStore) ClaimNextAppHealthCheck(
+	context.Context,
+	string,
+	time.Duration,
+) (
+	repository.AppHealthCheckJob,
+	error,
+) {
 	return repository.AppHealthCheckJob{}, repository.ErrNoAppHealthCheckJob
 }
 func (s *runtimeTestStore) IsAppHealthCheckCurrent(context.Context, repository.AppHealthCheckJob) (bool, error) {
@@ -115,10 +154,25 @@ func (s *runtimeTestStore) ReleaseAppHealthCheck(context.Context, repository.App
 	s.released++
 	return nil
 }
-func (s *runtimeTestStore) AppRuntimeContainerExists(_ context.Context, _ uuid.UUID, _ uuid.UUID, containerID string) (bool, error) {
+func (s *runtimeTestStore) AppRuntimeContainerExists(
+	_ context.Context,
+	_ uuid.UUID,
+	_ uuid.UUID,
+	containerID string,
+) (
+	bool,
+	error,
+) {
 	return containerID != "" && containerID == s.runtimeContainerID, nil
 }
-func (s *runtimeTestStore) ListProtectedAppRuntimeDeploymentIDs(_ context.Context, candidates []uuid.UUID) ([]uuid.UUID, bool, error) {
+func (s *runtimeTestStore) ListProtectedAppRuntimeDeploymentIDs(
+	_ context.Context,
+	candidates []uuid.UUID,
+) (
+	[]uuid.UUID,
+	bool,
+	error,
+) {
 	s.protectedQuerySizes = append(s.protectedQuerySizes, len(candidates))
 	candidateSet := make(map[uuid.UUID]struct{}, len(candidates))
 	for _, id := range candidates {
@@ -133,7 +187,14 @@ func (s *runtimeTestStore) ListProtectedAppRuntimeDeploymentIDs(_ context.Contex
 	return protected, s.activeRuntimeLease, nil
 }
 
-func (s *runtimeTestStore) QueueAppRuntimeCleanup(_ context.Context, projectID *uuid.UUID, appID uuid.UUID, containerID, containerName string, _ int) error {
+func (s *runtimeTestStore) QueueAppRuntimeCleanup(
+	_ context.Context,
+	projectID *uuid.UUID,
+	appID uuid.UUID,
+	containerID,
+	containerName string,
+	_ int,
+) error {
 	s.queueCalls++
 	s.queuedAppID = appID
 	s.queuedProjectID = projectID
@@ -141,17 +202,34 @@ func (s *runtimeTestStore) QueueAppRuntimeCleanup(_ context.Context, projectID *
 	s.queuedContainerName = containerName
 	return nil
 }
-func (s *runtimeTestStore) ClaimNextAppRuntimeCleanup(context.Context, string, time.Duration) (repository.AppRuntimeCleanupJob, error) {
+func (s *runtimeTestStore) ClaimNextAppRuntimeCleanup(
+	context.Context,
+	string,
+	time.Duration,
+) (
+	repository.AppRuntimeCleanupJob,
+	error,
+) {
 	return repository.AppRuntimeCleanupJob{}, repository.ErrNoAppRuntimeCleanup
 }
-func (s *runtimeTestStore) RenewAppRuntimeCleanupLease(context.Context, repository.AppRuntimeCleanupJob, time.Duration) error {
+func (s *runtimeTestStore) RenewAppRuntimeCleanupLease(
+	context.Context,
+	repository.AppRuntimeCleanupJob,
+	time.Duration,
+) error {
 	return nil
 }
 func (s *runtimeTestStore) CompleteAppRuntimeCleanup(context.Context, repository.AppRuntimeCleanupJob) error {
 	s.cleanupCompleteCall++
 	return nil
 }
-func (s *runtimeTestStore) FailAppRuntimeCleanup(context.Context, repository.AppRuntimeCleanupJob, string, time.Time, bool) error {
+func (s *runtimeTestStore) FailAppRuntimeCleanup(
+	context.Context,
+	repository.AppRuntimeCleanupJob,
+	string,
+	time.Time,
+	bool,
+) error {
 	return nil
 }
 func (s *runtimeTestStore) PruneAppRuntimeCleanupJobs(context.Context, int) (int64, error) {
@@ -226,7 +304,12 @@ func TestWorkerRejectsAggregateRuntimeEnvironmentBeforeContainerCreate(t *testin
 		t.Fatal(err)
 	}
 	if driver.createCalls != 0 || driver.startCalls != 0 || store.completeCalls != 0 {
-		t.Fatalf("over-limit runtime environment reached container execution: create=%d start=%d complete=%d", driver.createCalls, driver.startCalls, store.completeCalls)
+		t.Fatalf(
+			"over-limit runtime environment reached container execution: create=%d start=%d complete=%d",
+			driver.createCalls,
+			driver.startCalls,
+			store.completeCalls,
+		)
 	}
 	if store.failureCalls != 1 || store.failureMessage != "runtime unavailable" {
 		t.Fatalf("worker did not record a sanitized failure: calls=%d message=%q", store.failureCalls, store.failureMessage)
@@ -279,7 +362,15 @@ func (r *runtimeTestDriver) EnsureNetwork(context.Context) error {
 	return r.ensureNetworkErr
 }
 func (r *runtimeTestDriver) EnsureRuntimeNetworkPeers(context.Context) error { return nil }
-func (r *runtimeTestDriver) EnsureImage(_ context.Context, info ociartifact.ImageInfo, archive io.ReadSeeker, tag string) (Image, error) {
+func (r *runtimeTestDriver) EnsureImage(
+	_ context.Context,
+	info ociartifact.ImageInfo,
+	archive io.ReadSeeker,
+	tag string,
+) (
+	Image,
+	error,
+) {
 	r.ensureImageCalls++
 	if r.ensureImageErr != nil {
 		return Image{}, r.ensureImageErr
@@ -303,7 +394,15 @@ func (r *runtimeTestDriver) InspectApp(context.Context, uuid.UUID) (Container, b
 func (r *runtimeTestDriver) ProbeApp(context.Context, repository.AppHealthCheckJob, Container) error {
 	return nil
 }
-func (r *runtimeTestDriver) CreateApp(_ context.Context, job repository.AppRuntimeJob, image Image, environment []RuntimeEnvironmentVariable) (Container, error) {
+func (r *runtimeTestDriver) CreateApp(
+	_ context.Context,
+	job repository.AppRuntimeJob,
+	image Image,
+	environment []RuntimeEnvironmentVariable,
+) (
+	Container,
+	error,
+) {
 	r.createCalls++
 	r.createJob = job
 	r.createdEnvironment = make([]RuntimeEnvironmentVariable, len(environment))
@@ -323,7 +422,15 @@ func (r *runtimeTestDriver) CreateApp(_ context.Context, job repository.AppRunti
 	}
 	return r.container, nil
 }
-func (r *runtimeTestDriver) RenameApp(_ context.Context, job repository.AppRuntimeJob, containerID, targetName string) (Container, error) {
+func (r *runtimeTestDriver) RenameApp(
+	_ context.Context,
+	job repository.AppRuntimeJob,
+	containerID,
+	targetName string,
+) (
+	Container,
+	error,
+) {
 	r.renameCalls++
 	r.renamedFrom = strings.TrimPrefix(r.container.Name, "/")
 	r.renamedTo = targetName
@@ -342,7 +449,14 @@ func (r *runtimeTestDriver) RenameApp(_ context.Context, job repository.AppRunti
 	}
 	return r.container, nil
 }
-func (r *runtimeTestDriver) StartApp(_ context.Context, job repository.AppRuntimeJob, containerID string) (Container, error) {
+func (r *runtimeTestDriver) StartApp(
+	_ context.Context,
+	job repository.AppRuntimeJob,
+	containerID string,
+) (
+	Container,
+	error,
+) {
 	r.startCalls++
 	r.startedContainer = containerID
 	if r.store != nil {
@@ -410,16 +524,39 @@ func TestWorkerImportsVerifiedImageAndAppliesCurrentWorkload(t *testing.T) {
 		t.Fatal(err)
 	}
 	if store.failureCalls != 0 || store.completeCalls != 1 || store.completeStatus != "running" || store.completed == nil {
-		t.Fatalf("runtime completion = status %q container %#v failures=%d", store.completeStatus, store.completed, store.failureCalls)
+		t.Fatalf(
+			"runtime completion = status %q container %#v failures=%d",
+			store.completeStatus,
+			store.completed,
+			store.failureCalls,
+		)
 	}
-	if store.observedGeneration != job.App.DesiredGeneration || store.completed.ImageDigest != *job.Deployment.ImageDigest || store.completed.ImageID != runtimeTestConfigDigest(archive) {
+	if store.observedGeneration != job.App.DesiredGeneration ||
+		store.completed.ImageDigest != *job.Deployment.ImageDigest ||
+		store.completed.ImageID != runtimeTestConfigDigest(archive) {
 		t.Fatalf("completed runtime identity = %#v observed=%d", store.completed, store.observedGeneration)
 	}
-	if driver.ensureImageCalls != 1 || !bytes.Equal(driver.loadedBytes, archive) || driver.createCalls != 1 || driver.startCalls != 1 {
-		t.Fatalf("image import/create/start calls = %d/%d/%d; archive match=%v", driver.ensureImageCalls, driver.createCalls, driver.startCalls, bytes.Equal(driver.loadedBytes, archive))
+	if driver.ensureImageCalls != 1 ||
+		!bytes.Equal(driver.loadedBytes, archive) ||
+		driver.createCalls != 1 ||
+		driver.startCalls != 1 {
+		t.Fatalf(
+			"image import/create/start calls = %d/%d/%d; archive match=%v",
+			driver.ensureImageCalls,
+			driver.createCalls,
+			driver.startCalls,
+			bytes.Equal(driver.loadedBytes, archive),
+		)
 	}
-	if store.createIdentity == uuid.Nil || driver.createJob.RouteIdentity != store.createIdentity || driver.createJob.ContainerName == job.ContainerName {
-		t.Fatalf("new container did not receive a distinct persisted routing incarnation: prior=%s create=%+v identity=%s", job.ContainerName, driver.createJob, store.createIdentity)
+	if store.createIdentity == uuid.Nil ||
+		driver.createJob.RouteIdentity != store.createIdentity ||
+		driver.createJob.ContainerName == job.ContainerName {
+		t.Fatalf(
+			"new container did not receive a distinct persisted routing incarnation: prior=%s create=%+v identity=%s",
+			job.ContainerName,
+			driver.createJob,
+			store.createIdentity,
+		)
 	}
 	if got := driver.createJob.App.Workload.Resources.CPUMillis; got != 750 {
 		t.Fatalf("runtime used workload snapshot CPU %d, want mutable App CPU 750", got)
@@ -452,16 +589,36 @@ func TestWorkerReimportsEvictedRollbackReleaseFromPersistedArtifact(t *testing.T
 		t.Fatal(err)
 	}
 	if store.failureCalls != 0 || store.completeCalls != 1 || store.completeStatus != "running" || store.completed == nil {
-		t.Fatalf("rollback runtime completion = status %q container %#v failures=%d", store.completeStatus, store.completed, store.failureCalls)
+		t.Fatalf(
+			"rollback runtime completion = status %q container %#v failures=%d",
+			store.completeStatus,
+			store.completed,
+			store.failureCalls,
+		)
 	}
 	if driver.ensureImageCalls != 1 || !bytes.Equal(driver.loadedBytes, archive) {
-		t.Fatalf("missing runtime cache was not restored from the persisted rollback archive: calls=%d archive_match=%v", driver.ensureImageCalls, bytes.Equal(driver.loadedBytes, archive))
+		t.Fatalf(
+			"missing runtime cache was not restored from the persisted rollback archive: calls=%d archive_match=%v",
+			driver.ensureImageCalls,
+			bytes.Equal(driver.loadedBytes, archive),
+		)
 	}
 	if driver.createCalls != 1 || driver.startCalls != 1 || driver.createJob.App.Workload.Resources.CPUMillis != 500 {
-		t.Fatalf("rollback WorkloadSpec was not used for a new runtime: create=%d start=%d cpu=%d", driver.createCalls, driver.startCalls, driver.createJob.App.Workload.Resources.CPUMillis)
+		t.Fatalf(
+			"rollback WorkloadSpec was not used for a new runtime: create=%d start=%d cpu=%d",
+			driver.createCalls,
+			driver.startCalls,
+			driver.createJob.App.Workload.Resources.CPUMillis,
+		)
 	}
-	if store.observedGeneration != 6 || store.completed.ImageDigest == "" || store.completed.ImageID != runtimeTestConfigDigest(archive) {
-		t.Fatalf("rollback generation or verified image identity was not applied: observed=%d container=%+v", store.observedGeneration, store.completed)
+	if store.observedGeneration != 6 ||
+		store.completed.ImageDigest == "" ||
+		store.completed.ImageID != runtimeTestConfigDigest(archive) {
+		t.Fatalf(
+			"rollback generation or verified image identity was not applied: observed=%d container=%+v",
+			store.observedGeneration,
+			store.completed,
+		)
 	}
 }
 
@@ -490,11 +647,25 @@ func TestWorkerRejectsMissingOrModifiedImageWithoutAdvancingGeneration(t *testin
 			if err := worker.processApp(context.Background(), job); err != nil {
 				t.Fatal(err)
 			}
-			if store.completeCalls != 0 || store.observedGeneration != job.App.ObservedGeneration || store.failureCalls != 1 || store.failureStatus != "failed" || store.failureMessage != test.want {
-				t.Fatalf("failed image changed observed truth: complete=%d observed=%d failure=%+v", store.completeCalls, store.observedGeneration, store)
+			if store.completeCalls != 0 ||
+				store.observedGeneration != job.App.ObservedGeneration ||
+				store.failureCalls != 1 ||
+				store.failureStatus != "failed" ||
+				store.failureMessage != test.want {
+				t.Fatalf(
+					"failed image changed observed truth: complete=%d observed=%d failure=%+v",
+					store.completeCalls,
+					store.observedGeneration,
+					store,
+				)
 			}
 			if driver.ensureImageCalls != 0 || driver.createCalls != 0 || driver.startCalls != 0 {
-				t.Fatalf("unverified artifact reached Moby: import/create/start=%d/%d/%d", driver.ensureImageCalls, driver.createCalls, driver.startCalls)
+				t.Fatalf(
+					"unverified artifact reached Moby: import/create/start=%d/%d/%d",
+					driver.ensureImageCalls,
+					driver.createCalls,
+					driver.startCalls,
+				)
 			}
 		})
 	}
@@ -506,11 +677,25 @@ func TestWorkerGenerationRaceRemovesUncommittedContainer(t *testing.T) {
 	if err := worker.processApp(context.Background(), job); err != nil {
 		t.Fatal(err)
 	}
-	if store.completeCalls != 0 || store.failureCalls != 0 || store.released != 1 || store.observedGeneration != job.App.ObservedGeneration {
-		t.Fatalf("stale generation finalized: completed=%d failed=%d released=%d observed=%d", store.completeCalls, store.failureCalls, store.released, store.observedGeneration)
+	if store.completeCalls != 0 ||
+		store.failureCalls != 0 ||
+		store.released != 1 ||
+		store.observedGeneration != job.App.ObservedGeneration {
+		t.Fatalf(
+			"stale generation finalized: completed=%d failed=%d released=%d observed=%d",
+			store.completeCalls,
+			store.failureCalls,
+			store.released,
+			store.observedGeneration,
+		)
 	}
 	if driver.createCalls != 1 || driver.removeCalls != 1 || driver.found {
-		t.Fatalf("stale created container was not removed: create=%d remove=%d remains=%v", driver.createCalls, driver.removeCalls, driver.found)
+		t.Fatalf(
+			"stale created container was not removed: create=%d remove=%d remains=%v",
+			driver.createCalls,
+			driver.removeCalls,
+			driver.found,
+		)
 	}
 	if len(driver.removeTargets) != 1 || driver.removeTargets[0] != strings.Repeat("a", 64) {
 		t.Fatalf("stale cleanup did not target the exact uncommitted container id: %v", driver.removeTargets)
@@ -527,11 +712,22 @@ func TestWorkerRejectsForeignContainerWithoutAdoptingOrRemoving(t *testing.T) {
 	if err := worker.processApp(context.Background(), job); err != nil {
 		t.Fatal(err)
 	}
-	if store.failureStatus != "failed" || store.failureMessage != "container ownership conflict" || store.observedGeneration != job.App.ObservedGeneration {
+	if store.failureStatus != "failed" ||
+		store.failureMessage != "container ownership conflict" ||
+		store.observedGeneration != job.App.ObservedGeneration {
 		t.Fatalf("foreign container conflict state = %+v", store)
 	}
-	if driver.createCalls != 0 || driver.removeCalls != 0 || !driver.found || driver.container.Config.Labels["stealth.app_id"] == job.App.ID {
-		t.Fatalf("foreign container was adopted or removed: create=%d remove=%d found=%v labels=%v", driver.createCalls, driver.removeCalls, driver.found, driver.container.Config.Labels)
+	if driver.createCalls != 0 ||
+		driver.removeCalls != 0 ||
+		!driver.found ||
+		driver.container.Config.Labels["stealth.app_id"] == job.App.ID {
+		t.Fatalf(
+			"foreign container was adopted or removed: create=%d remove=%d found=%v labels=%v",
+			driver.createCalls,
+			driver.removeCalls,
+			driver.found,
+			driver.container.Config.Labels,
+		)
 	}
 }
 
@@ -545,7 +741,13 @@ func TestWorkerReusesExactContainerAndReplacesGenerationDrift(t *testing.T) {
 			t.Fatal(err)
 		}
 		if store.completeCalls != 1 || driver.createCalls != 0 || driver.startCalls != 0 || driver.removeCalls != 0 {
-			t.Fatalf("exact runtime was not adopted as already converged: completed=%d create/start/remove=%d/%d/%d", store.completeCalls, driver.createCalls, driver.startCalls, driver.removeCalls)
+			t.Fatalf(
+				"exact runtime was not adopted as already converged: completed=%d create/start/remove=%d/%d/%d",
+				store.completeCalls,
+				driver.createCalls,
+				driver.startCalls,
+				driver.removeCalls,
+			)
 		}
 	})
 
@@ -564,11 +766,29 @@ func TestWorkerReusesExactContainerAndReplacesGenerationDrift(t *testing.T) {
 		if err := worker.processApp(context.Background(), job); err != nil {
 			t.Fatal(err)
 		}
-		if store.completeCalls != 1 || store.completeStatus != "running" || driver.removeCalls != 1 || driver.createCalls != 1 || driver.startCalls != 1 {
-			t.Fatalf("stale runtime was not replaced: completed=%d status=%s remove/create/start=%d/%d/%d", store.completeCalls, store.completeStatus, driver.removeCalls, driver.createCalls, driver.startCalls)
+		if store.completeCalls != 1 ||
+			store.completeStatus != "running" ||
+			driver.removeCalls != 1 ||
+			driver.createCalls != 1 ||
+			driver.startCalls != 1 {
+			t.Fatalf(
+				"stale runtime was not replaced: completed=%d status=%s remove/create/start=%d/%d/%d",
+				store.completeCalls,
+				store.completeStatus,
+				driver.removeCalls,
+				driver.createCalls,
+				driver.startCalls,
+			)
 		}
-		if store.createIdentity == uuid.Nil || driver.createJob.RouteIdentity != store.createIdentity || driver.createJob.ContainerName == staleJob.ContainerName {
-			t.Fatalf("generation replacement reused the old routing identity: old=%s create=%+v identity=%s", staleJob.ContainerName, driver.createJob, store.createIdentity)
+		if store.createIdentity == uuid.Nil ||
+			driver.createJob.RouteIdentity != store.createIdentity ||
+			driver.createJob.ContainerName == staleJob.ContainerName {
+			t.Fatalf(
+				"generation replacement reused the old routing identity: old=%s create=%+v identity=%s",
+				staleJob.ContainerName,
+				driver.createJob,
+				store.createIdentity,
+			)
 		}
 	})
 }
@@ -583,16 +803,45 @@ func TestWorkerResetsHealthBeforeRestartingSameContainer(t *testing.T) {
 		t.Fatal(err)
 	}
 	if store.resetCalls != 1 || driver.startCalls != 1 || driver.startResetCalls != 1 {
-		t.Fatalf("restart did not durably invalidate health before Docker start: resets=%d starts=%d resets-before-start=%d", store.resetCalls, driver.startCalls, driver.startResetCalls)
+		t.Fatalf(
+			"restart did not durably invalidate health before Docker start: resets=%d starts=%d resets-before-start=%d",
+			store.resetCalls,
+			driver.startCalls,
+			driver.startResetCalls,
+		)
 	}
 	if driver.startedContainer != containerID || driver.container.ID != containerID {
-		t.Fatalf("restart replaced the managed container identity: started=%q after=%q want=%q", driver.startedContainer, driver.container.ID, containerID)
+		t.Fatalf(
+			"restart replaced the managed container identity: started=%q after=%q want=%q",
+			driver.startedContainer,
+			driver.container.ID,
+			containerID,
+		)
 	}
-	if store.resetIdentity == uuid.Nil || driver.renameCalls != 1 || driver.renamedFrom != job.ContainerName || driver.renamedTo == job.ContainerName || driver.container.Name != "/"+driver.renamedTo {
-		t.Fatalf("restart did not rotate DNS target before starting: identity=%s rename=%d %q -> %q current=%q", store.resetIdentity, driver.renameCalls, driver.renamedFrom, driver.renamedTo, driver.container.Name)
+	if store.resetIdentity == uuid.Nil ||
+		driver.renameCalls != 1 ||
+		driver.renamedFrom != job.ContainerName ||
+		driver.renamedTo == job.ContainerName ||
+		driver.container.Name != "/"+driver.renamedTo {
+		t.Fatalf(
+			"restart did not rotate DNS target before starting: identity=%s rename=%d %q -> %q current=%q",
+			store.resetIdentity,
+			driver.renameCalls,
+			driver.renamedFrom,
+			driver.renamedTo,
+			driver.container.Name,
+		)
 	}
-	if store.completeCalls != 1 || store.completeStatus != "running" || store.completed == nil || store.completed.ID != containerID {
-		t.Fatalf("same-container restart did not complete current runtime: status=%q container=%+v calls=%d", store.completeStatus, store.completed, store.completeCalls)
+	if store.completeCalls != 1 ||
+		store.completeStatus != "running" ||
+		store.completed == nil ||
+		store.completed.ID != containerID {
+		t.Fatalf(
+			"same-container restart did not complete current runtime: status=%q container=%+v calls=%d",
+			store.completeStatus,
+			store.completed,
+			store.completeCalls,
+		)
 	}
 }
 
@@ -611,13 +860,41 @@ func TestWorkerRecreatesExitedContainerRemovedDuringRename(t *testing.T) {
 		t.Fatal(err)
 	}
 	if store.failureCalls != 0 || store.completeCalls != 1 || store.completeStatus != "running" {
-		t.Fatalf("disappeared container did not converge: failures=%d completed=%d status=%q", store.failureCalls, store.completeCalls, store.completeStatus)
+		t.Fatalf(
+			"disappeared container did not converge: failures=%d completed=%d status=%q",
+			store.failureCalls,
+			store.completeCalls,
+			store.completeStatus,
+		)
 	}
-	if store.resetCalls != 1 || store.resetIdentity == uuid.Nil || store.createIdentity != uuid.Nil || driver.createJob.RouteIdentity != store.resetIdentity {
-		t.Fatalf("replacement did not reuse its durable restart route identity: resets=%d resetIdentity=%s createIdentity=%s createRoute=%s", store.resetCalls, store.resetIdentity, store.createIdentity, driver.createJob.RouteIdentity)
+	if store.resetCalls != 1 ||
+		store.resetIdentity == uuid.Nil ||
+		store.createIdentity != uuid.Nil ||
+		driver.createJob.RouteIdentity != store.resetIdentity {
+		t.Fatalf(
+			"replacement did not reuse its durable restart route identity: resets=%d resetIdentity=%s createIdentity=%s createRoute=%s",
+			store.resetCalls,
+			store.resetIdentity,
+			store.createIdentity,
+			driver.createJob.RouteIdentity,
+		)
 	}
-	if driver.renameCalls != 1 || driver.createCalls != 1 || driver.startCalls != 1 || driver.removeCalls != 0 || driver.startedContainer != driver.container.ID || driver.startResetCalls != 1 {
-		t.Fatalf("disappeared container recovery used unexpected runtime operations: rename/create/start/remove=%d/%d/%d/%d started=%q current=%q reset-before-start=%d", driver.renameCalls, driver.createCalls, driver.startCalls, driver.removeCalls, driver.startedContainer, driver.container.ID, driver.startResetCalls)
+	if driver.renameCalls != 1 ||
+		driver.createCalls != 1 ||
+		driver.startCalls != 1 ||
+		driver.removeCalls != 0 ||
+		driver.startedContainer != driver.container.ID ||
+		driver.startResetCalls != 1 {
+		t.Fatalf(
+			"disappeared container recovery used unexpected runtime operations: rename/create/start/remove=%d/%d/%d/%d started=%q current=%q reset-before-start=%d",
+			driver.renameCalls,
+			driver.createCalls,
+			driver.startCalls,
+			driver.removeCalls,
+			driver.startedContainer,
+			driver.container.ID,
+			driver.startResetCalls,
+		)
 	}
 }
 
@@ -634,8 +911,21 @@ func TestWorkerKeepsRenameRaceFailClosedWhenAnotherAppContainerExists(t *testing
 	if err := worker.processApp(context.Background(), job); err != nil {
 		t.Fatal(err)
 	}
-	if store.failureCalls != 1 || store.failureStatus != "failed" || store.failureMessage != "container ownership conflict" || driver.createCalls != 0 || driver.startCalls != 0 || store.completeCalls != 0 {
-		t.Fatalf("rename race did not preserve ownership fail-closed behavior: failure=%d/%s/%q create/start/complete=%d/%d/%d", store.failureCalls, store.failureStatus, store.failureMessage, driver.createCalls, driver.startCalls, store.completeCalls)
+	if store.failureCalls != 1 ||
+		store.failureStatus != "failed" ||
+		store.failureMessage != "container ownership conflict" ||
+		driver.createCalls != 0 ||
+		driver.startCalls != 0 ||
+		store.completeCalls != 0 {
+		t.Fatalf(
+			"rename race did not preserve ownership fail-closed behavior: failure=%d/%s/%q create/start/complete=%d/%d/%d",
+			store.failureCalls,
+			store.failureStatus,
+			store.failureMessage,
+			driver.createCalls,
+			driver.startCalls,
+			store.completeCalls,
+		)
 	}
 }
 
@@ -649,7 +939,13 @@ func TestWorkerDoesNotStartSameContainerAfterLeaseExpiresDuringRename(t *testing
 		t.Fatal(err)
 	}
 	if store.resetCalls != 1 || driver.renameCalls != 1 || driver.startCalls != 0 || store.completeCalls != 0 {
-		t.Fatalf("expired runtime lease allowed a same-container restart: reset=%d rename=%d start=%d complete=%d", store.resetCalls, driver.renameCalls, driver.startCalls, store.completeCalls)
+		t.Fatalf(
+			"expired runtime lease allowed a same-container restart: reset=%d rename=%d start=%d complete=%d",
+			store.resetCalls,
+			driver.renameCalls,
+			driver.startCalls,
+			store.completeCalls,
+		)
 	}
 }
 
@@ -670,11 +966,27 @@ func TestWorkerRemovesRuntimeForDisabledAndUnselectedApps(t *testing.T) {
 			if err := worker.processApp(context.Background(), job); err != nil {
 				t.Fatal(err)
 			}
-			if store.completeCalls != 1 || store.completeStatus != test.wantStatus || store.observedGeneration != job.App.DesiredGeneration || driver.removeCalls != 1 || driver.found {
-				t.Fatalf("non-running desired state was not cleaned: status=%s complete=%d observed=%d remove=%d found=%v", store.completeStatus, store.completeCalls, store.observedGeneration, driver.removeCalls, driver.found)
+			if store.completeCalls != 1 ||
+				store.completeStatus != test.wantStatus ||
+				store.observedGeneration != job.App.DesiredGeneration ||
+				driver.removeCalls != 1 ||
+				driver.found {
+				t.Fatalf(
+					"non-running desired state was not cleaned: status=%s complete=%d observed=%d remove=%d found=%v",
+					store.completeStatus,
+					store.completeCalls,
+					store.observedGeneration,
+					driver.removeCalls,
+					driver.found,
+				)
 			}
 			if driver.ensureImageCalls != 0 || driver.createCalls != 0 || driver.startCalls != 0 {
-				t.Fatalf("disabled/unselected App started an image: import/create/start=%d/%d/%d", driver.ensureImageCalls, driver.createCalls, driver.startCalls)
+				t.Fatalf(
+					"disabled/unselected App started an image: import/create/start=%d/%d/%d",
+					driver.ensureImageCalls,
+					driver.createCalls,
+					driver.startCalls,
+				)
 			}
 		})
 	}
@@ -686,7 +998,11 @@ func TestWorkerRetriesUnavailableMobyWithoutAdvancingObservedGeneration(t *testi
 	if err := worker.processApp(context.Background(), job); err != nil {
 		t.Fatal(err)
 	}
-	if store.failureCalls != 1 || store.failureStatus != "degraded" || store.failureMessage != "runtime unavailable" || store.completeCalls != 0 || store.observedGeneration != job.App.ObservedGeneration {
+	if store.failureCalls != 1 ||
+		store.failureStatus != "degraded" ||
+		store.failureMessage != "runtime unavailable" ||
+		store.completeCalls != 0 ||
+		store.observedGeneration != job.App.ObservedGeneration {
 		t.Fatalf("runtime outage advanced or leaked runtime state: %+v", store)
 	}
 }
@@ -696,11 +1012,18 @@ func TestWorkerRejectsImageDeclaredVolumesBeforeImport(t *testing.T) {
 	if err := worker.processApp(context.Background(), job); err != nil {
 		t.Fatal(err)
 	}
-	if store.failureStatus != "failed" || store.failureMessage != "runtime image declares unsupported volumes" || store.observedGeneration != job.App.ObservedGeneration {
+	if store.failureStatus != "failed" ||
+		store.failureMessage != "runtime image declares unsupported volumes" ||
+		store.observedGeneration != job.App.ObservedGeneration {
 		t.Fatalf("image volume policy result = %+v", store)
 	}
 	if driver.ensureImageCalls != 0 || driver.createCalls != 0 || driver.startCalls != 0 {
-		t.Fatalf("volume image reached Moby import/container creation: %d/%d/%d", driver.ensureImageCalls, driver.createCalls, driver.startCalls)
+		t.Fatalf(
+			"volume image reached Moby import/container creation: %d/%d/%d",
+			driver.ensureImageCalls,
+			driver.createCalls,
+			driver.startCalls,
+		)
 	}
 }
 
@@ -770,7 +1093,16 @@ func TestOrphanSweepFailureUsesBoundedBackoff(t *testing.T) {
 	}
 }
 
-func newRuntimeWorkerFixture(t *testing.T, withVolume bool) (*Worker, *runtimeTestStore, *runtimeTestDriver, repository.AppRuntimeJob, []byte) {
+func newRuntimeWorkerFixture(
+	t *testing.T,
+	withVolume bool,
+) (
+	*Worker,
+	*runtimeTestStore,
+	*runtimeTestDriver,
+	repository.AppRuntimeJob,
+	[]byte,
+) {
 	t.Helper()
 	appID := uuid.MustParse("11111111-1111-4111-8111-111111111111")
 	projectID := uuid.MustParse("22222222-2222-4222-8222-222222222222")
@@ -781,7 +1113,14 @@ func newRuntimeWorkerFixture(t *testing.T, withVolume bool) (*Worker, *runtimeTe
 	if err != nil {
 		t.Fatal(err)
 	}
-	prepared, err := store.Images.BeginUpload(context.Background(), projectID, appID, deploymentID, bytes.NewReader(archive), int64(len(archive)))
+	prepared, err := store.Images.BeginUpload(
+		context.Background(),
+		projectID,
+		appID,
+		deploymentID,
+		bytes.NewReader(archive),
+		int64(len(archive)),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -822,7 +1161,11 @@ func newRuntimeWorkerFixture(t *testing.T, withVolume bool) (*Worker, *runtimeTe
 		Entrypoint: []string{"/probe"}, Command: []string{"image-default"},
 		Environment: []string{"FROM_IMAGE=kept"}, WorkingDir: "/image", User: "10001:10001",
 	}
-	persistence := &runtimeTestStore{current: true, observedGeneration: job.App.ObservedGeneration, runtimeContainerID: strings.Repeat("8", 64)}
+	persistence := &runtimeTestStore{
+		current:            true,
+		observedGeneration: job.App.ObservedGeneration,
+		runtimeContainerID: strings.Repeat("8", 64),
+	}
 	driver := &runtimeTestDriver{store: persistence, image: image, nextContainerID: strings.Repeat("a", 64)}
 	worker := &Worker{
 		Store: persistence, Artifacts: store, Runtime: driver, WorkerID: job.WorkerID,

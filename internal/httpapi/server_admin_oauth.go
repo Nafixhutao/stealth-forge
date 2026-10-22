@@ -58,7 +58,11 @@ func (s *Server) listAdminOAuthProviders(w http.ResponseWriter, r *http.Request)
 
 // adminOAuthProvider builds one provider row from stored credentials with a
 // fallback to the deployment environment.
-func (s *Server) adminOAuthProvider(r *http.Request, name string, stored repository.OAuthProviderStatus) adminOAuthProvider {
+func (s *Server) adminOAuthProvider(
+	r *http.Request,
+	name string,
+	stored repository.OAuthProviderStatus,
+) adminOAuthProvider {
 	callbackURL, err := s.oauthCallbackURL(r, name)
 	if err != nil {
 		callbackURL = ""

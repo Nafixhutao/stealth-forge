@@ -84,7 +84,13 @@ func envelopeFromSetupState(state setupstate.State) (Envelope, string) {
 	if !hasIntent {
 		return Envelope{}, OutcomeNoImport
 	}
-	if binding.Validate() != nil || binding.AccountID == "" || binding.ZoneID == "" || binding.Hostname == "" || binding.TunnelID == "" || binding.TunnelName == "" || binding.RecordID == "" {
+	if binding.Validate() != nil ||
+		binding.AccountID == "" ||
+		binding.ZoneID == "" ||
+		binding.Hostname == "" ||
+		binding.TunnelID == "" ||
+		binding.TunnelName == "" ||
+		binding.RecordID == "" {
 		return Envelope{Version: Version, State: StateReconnectRequired}, OutcomeReconnectRequired
 	}
 	if len(apiToken) > 4096 || strings.ContainsAny(apiToken, "\x00\r\n") {
@@ -104,7 +110,13 @@ func validateEnvelope(envelope Envelope) error {
 	}
 	switch envelope.State {
 	case StateReconnectRequired:
-		if envelope.AccountID != "" || envelope.ConsoleZoneID != "" || envelope.ConsoleHostname != "" || envelope.TunnelID != "" || envelope.TunnelName != "" || envelope.ConsoleRecordID != "" || envelope.APIToken != "" {
+		if envelope.AccountID != "" ||
+			envelope.ConsoleZoneID != "" ||
+			envelope.ConsoleHostname != "" ||
+			envelope.TunnelID != "" ||
+			envelope.TunnelName != "" ||
+			envelope.ConsoleRecordID != "" ||
+			envelope.APIToken != "" {
 			return errInvalidArtifact
 		}
 		return nil
@@ -119,7 +131,10 @@ func validateEnvelope(envelope Envelope) error {
 		{envelope.AccountID, 128}, {envelope.ConsoleZoneID, 128}, {envelope.TunnelID, 128},
 		{envelope.TunnelName, 120}, {envelope.ConsoleRecordID, 128}, {envelope.ConsoleHostname, 253},
 	} {
-		if strings.TrimSpace(field.value) != field.value || field.value == "" || len(field.value) > field.max || strings.ContainsAny(field.value, "\x00\r\n") {
+		if strings.TrimSpace(field.value) != field.value ||
+			field.value == "" ||
+			len(field.value) > field.max ||
+			strings.ContainsAny(field.value, "\x00\r\n") {
 			return errInvalidArtifact
 		}
 	}
@@ -127,7 +142,9 @@ func validateEnvelope(envelope Envelope) error {
 	if err != nil || hostname != envelope.ConsoleHostname {
 		return errInvalidArtifact
 	}
-	if len(envelope.APIToken) > 4096 || strings.TrimSpace(envelope.APIToken) != envelope.APIToken || strings.ContainsAny(envelope.APIToken, "\x00\r\n") {
+	if len(envelope.APIToken) > 4096 ||
+		strings.TrimSpace(envelope.APIToken) != envelope.APIToken ||
+		strings.ContainsAny(envelope.APIToken, "\x00\r\n") {
 		return errInvalidArtifact
 	}
 	return nil

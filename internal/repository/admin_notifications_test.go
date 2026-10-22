@@ -21,7 +21,12 @@ func TestNormalizeAdminNotificationChannelInputRequiresProviderSafeConfiguration
 }
 
 func TestNormalizeAdminNotificationChannelInputRejectsControlCharacters(t *testing.T) {
-	input := AdminNotificationChannelInput{Name: "Owner webhook", Kind: "webhook", Enabled: true, Config: []byte("{\"url\":\"https://alerts.example.test/hooks/1\\nsecret\"}")}
+	input := AdminNotificationChannelInput{
+		Name:    "Owner webhook",
+		Kind:    "webhook",
+		Enabled: true,
+		Config:  []byte("{\"url\":\"https://alerts.example.test/hooks/1\\nsecret\"}"),
+	}
 	if _, err := normalizeAdminNotificationChannelInput(input); err == nil {
 		t.Fatal("control character accepted in encrypted channel configuration")
 	}

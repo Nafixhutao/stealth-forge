@@ -84,7 +84,15 @@ func truncateMessagingError(value string) *string {
 	return &value
 }
 
-func (r *Repository) FinishMessagingDelivery(ctx context.Context, deliveryID uuid.UUID, workerID string, success bool, statusCode *int, lastError string, retryAt *time.Time) error {
+func (r *Repository) FinishMessagingDelivery(
+	ctx context.Context,
+	deliveryID uuid.UUID,
+	workerID string,
+	success bool,
+	statusCode *int,
+	lastError string,
+	retryAt *time.Time,
+) error {
 	if !validFunctionWorkerID(workerID) {
 		return ErrInvalidMessaging
 	}
@@ -160,7 +168,13 @@ func refreshMessagingMessageTx(ctx context.Context, tx pgx.Tx, projectID, messag
 
 // MessagingProviderCredentialsForDelivery decrypts a provider row only for a
 // worker-owned delivery job. It is separate from the safe provider projection.
-func (r *Repository) MessagingProviderCredentialsForDelivery(ctx context.Context, job MessagingDeliveryJob) (MessagingProviderCredentials, error) {
+func (r *Repository) MessagingProviderCredentialsForDelivery(
+	ctx context.Context,
+	job MessagingDeliveryJob,
+) (
+	MessagingProviderCredentials,
+	error,
+) {
 	if job.Provider == nil || job.ProviderEnabled == nil || job.ProviderID == nil {
 		return MessagingProviderCredentials{}, ErrMessagingProviderUnavailable
 	}
@@ -189,7 +203,13 @@ func (r *Repository) MessagingDeliveryAddress(_ context.Context, job MessagingDe
 	return string(plaintext), nil
 }
 
-func (r *Repository) MessagingDeliveryPayload(_ context.Context, job MessagingDeliveryJob) (MessagingMessagePayload, error) {
+func (r *Repository) MessagingDeliveryPayload(
+	_ context.Context,
+	job MessagingDeliveryJob,
+) (
+	MessagingMessagePayload,
+	error,
+) {
 	if r.messagingCipher == nil {
 		return MessagingMessagePayload{}, ErrMessagingNotReady
 	}

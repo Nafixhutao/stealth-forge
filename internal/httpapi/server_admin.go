@@ -156,7 +156,14 @@ func (s *Server) adminOverview(w http.ResponseWriter, r *http.Request) {
 	if explorer, ok := s.telemetry.(telemetry.OverviewExplorer); ok {
 		if result, err := explorer.QueryHTTPOverview(healthContext, telemetry.HTTPOverviewQuery{Range: queryRange}); err == nil {
 			if result.SampleCount > 0 {
-				httpOverview = &adminHTTPOverview{RequestRate: result.RequestRate, ErrorRate: result.ErrorRate, P50LatencyMS: result.P50LatencyMS, P95LatencyMS: result.P95LatencyMS, P99LatencyMS: result.P99LatencyMS, SampleCount: result.SampleCount}
+				httpOverview = &adminHTTPOverview{
+					RequestRate:  result.RequestRate,
+					ErrorRate:    result.ErrorRate,
+					P50LatencyMS: result.P50LatencyMS,
+					P95LatencyMS: result.P95LatencyMS,
+					P99LatencyMS: result.P99LatencyMS,
+					SampleCount:  result.SampleCount,
+				}
 			}
 		}
 	}

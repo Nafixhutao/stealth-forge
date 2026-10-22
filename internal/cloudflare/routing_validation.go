@@ -10,7 +10,19 @@ import (
 	"github.com/Nafixhutao/stealth-forge/internal/domainname"
 )
 
-func ValidateExistingTunnel(ctx context.Context, client Client, accountID, zoneID, consoleHostname, tunnelID, expectedTunnelName string, workloadBaseDomain *string) (domain.CloudflareConnection, error) {
+func ValidateExistingTunnel(
+	ctx context.Context,
+	client Client,
+	accountID,
+	zoneID,
+	consoleHostname,
+	tunnelID,
+	expectedTunnelName string,
+	workloadBaseDomain *string,
+) (
+	domain.CloudflareConnection,
+	error,
+) {
 	if client == nil {
 		return domain.CloudflareConnection{}, errors.New("Cloudflare client is unavailable")
 	}
@@ -112,7 +124,18 @@ func validationProviderError(message string, err error) error {
 	return errors.New(message)
 }
 
-func validateExistingConnection(ctx context.Context, client Client, accountID, consoleZoneID, consoleHostname, tunnelID, tunnelName string) ([]Zone, error) {
+func validateExistingConnection(
+	ctx context.Context,
+	client Client,
+	accountID,
+	consoleZoneID,
+	consoleHostname,
+	tunnelID,
+	tunnelName string,
+) (
+	[]Zone,
+	error,
+) {
 	if err := validateExistingTunnel(ctx, client, accountID, tunnelID, tunnelName); err != nil {
 		return nil, err
 	}
@@ -148,7 +171,14 @@ func validateExistingTunnel(ctx context.Context, client Client, accountID, tunne
 }
 
 func connectionConfigured(connection domain.CloudflareConnection) bool {
-	return strings.TrimSpace(connection.APIToken) != "" && strings.TrimSpace(connection.AccountID) != "" && strings.TrimSpace(connection.ConsoleZoneID) != "" && strings.TrimSpace(connection.ConsoleHostname) != "" && strings.TrimSpace(connection.TunnelID) != "" && strings.TrimSpace(connection.TunnelName) != "" && strings.TrimSpace(connection.ConsoleRecordID) != ""
+	hasCredential := strings.TrimSpace(connection.APIToken) != ""
+	hasAccount := strings.TrimSpace(connection.AccountID) != ""
+	hasConsoleBinding := strings.TrimSpace(connection.ConsoleZoneID) != "" &&
+		strings.TrimSpace(connection.ConsoleHostname) != "" &&
+		strings.TrimSpace(connection.ConsoleRecordID) != ""
+	hasTunnel := strings.TrimSpace(connection.TunnelID) != "" &&
+		strings.TrimSpace(connection.TunnelName) != ""
+	return hasCredential && hasAccount && hasConsoleBinding && hasTunnel
 }
 
 func hasCloudflareConnectionIntent(connection domain.CloudflareConnection) bool {

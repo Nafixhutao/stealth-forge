@@ -67,7 +67,9 @@ func TestAppEnvironmentVariablePersistenceGenerationAuthorizationAndLeaseFencing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(encoded), initialValue) || strings.Contains(string(encoded), "ciphertext") || strings.Contains(string(encoded), "nonce") {
+	if strings.Contains(string(encoded), initialValue) ||
+		strings.Contains(string(encoded), "ciphertext") ||
+		strings.Contains(string(encoded), "nonce") {
 		t.Fatalf("App environment metadata exposed value or crypto state: %s", encoded)
 	}
 
@@ -105,7 +107,14 @@ func TestAppEnvironmentVariablePersistenceGenerationAuthorizationAndLeaseFencing
 		t.Fatal(err)
 	}
 	readActor := AppActor{Kind: AppAPIKeyActor, APIKeyID: readKeyID, APIKeyScopes: []string{"apps.read"}}
-	readItems, _, readCanManage, err := f.repo.ListAppEnvironmentVariables(f.ctx, f.projectOneID, appID, readActor, 20, nil)
+	readItems, _, readCanManage, err := f.repo.ListAppEnvironmentVariables(
+		f.ctx,
+		f.projectOneID,
+		appID,
+		readActor,
+		20,
+		nil,
+	)
 	if err != nil || readCanManage || len(readItems) != 2 {
 		t.Fatalf("apps.read access = %#v can_manage=%t err=%v", readItems, readCanManage, err)
 	}
@@ -182,7 +191,9 @@ func TestAppEnvironmentVariablePersistenceGenerationAuthorizationAndLeaseFencing
 	if err := f.pool.QueryRow(f.ctx, `SELECT COALESCE(string_agg(metadata::text,' '),'') FROM audit_events WHERE target_id=$1`, appID.String()).Scan(&auditText); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(auditText, initialValue) || strings.Contains(auditText, replacement) || strings.Contains(auditText, duplicateValue) {
+	if strings.Contains(auditText, initialValue) ||
+		strings.Contains(auditText, replacement) ||
+		strings.Contains(auditText, duplicateValue) {
 		t.Fatalf("App environment plaintext was recorded in audit metadata: %s", auditText)
 	}
 }
@@ -236,7 +247,12 @@ func TestAppEnvironmentAggregateValueLimitIsTransactionalIntegration(t *testing.
 	}
 	afterRejectedCreate, err := f.repo.GetApp(f.ctx, f.projectOneID, limitAppID, f.actor)
 	if err != nil || afterRejectedCreate.DesiredGeneration != atLimit.DesiredGeneration {
-		t.Fatalf("rejected create changed desired generation: before=%d after=%d err=%v", atLimit.DesiredGeneration, afterRejectedCreate.DesiredGeneration, err)
+		t.Fatalf(
+			"rejected create changed desired generation: before=%d after=%d err=%v",
+			atLimit.DesiredGeneration,
+			afterRejectedCreate.DesiredGeneration,
+			err,
+		)
 	}
 	items, _, _, err := f.repo.ListAppEnvironmentVariables(f.ctx, f.projectOneID, limitAppID, f.actor, 20, nil)
 	if err != nil || len(items) != 8 {
@@ -282,8 +298,16 @@ func TestAppEnvironmentAggregateValueLimitIsTransactionalIntegration(t *testing.
 		t.Fatal(err)
 	}
 	afterOverReplace, err := f.repo.GetApp(f.ctx, f.projectOneID, replaceAppID, f.actor)
-	if err != nil || afterOverReplace.DesiredGeneration != beforeOverReplace.DesiredGeneration || !bytes.Equal(beforeCiphertext, afterCiphertext) {
-		t.Fatalf("rejected replacement changed ciphertext or generation: generation %d→%d ciphertextPreserved=%t err=%v", beforeOverReplace.DesiredGeneration, afterOverReplace.DesiredGeneration, bytes.Equal(beforeCiphertext, afterCiphertext), err)
+	if err != nil ||
+		afterOverReplace.DesiredGeneration != beforeOverReplace.DesiredGeneration ||
+		!bytes.Equal(beforeCiphertext, afterCiphertext) {
+		t.Fatalf(
+			"rejected replacement changed ciphertext or generation: generation %d→%d ciphertextPreserved=%t err=%v",
+			beforeOverReplace.DesiredGeneration,
+			afterOverReplace.DesiredGeneration,
+			bytes.Equal(beforeCiphertext, afterCiphertext),
+			err,
+		)
 	}
 	description := "metadata only"
 	metadataApp, err := f.repo.UpdateAppEnvironmentVariable(f.ctx, f.projectOneID, replaceAppID, targetID, f.actor, AppEnvironmentVariablePatch{
@@ -294,7 +318,12 @@ func TestAppEnvironmentAggregateValueLimitIsTransactionalIntegration(t *testing.
 	}
 	metaGeneration, err := f.repo.GetApp(f.ctx, f.projectOneID, replaceAppID, f.actor)
 	if err != nil || metaGeneration.DesiredGeneration != beforeOverReplace.DesiredGeneration {
-		t.Fatalf("metadata-only edit changed generation: before=%d after=%d err=%v", beforeOverReplace.DesiredGeneration, metaGeneration.DesiredGeneration, err)
+		t.Fatalf(
+			"metadata-only edit changed generation: before=%d after=%d err=%v",
+			beforeOverReplace.DesiredGeneration,
+			metaGeneration.DesiredGeneration,
+			err,
+		)
 	}
 	if _, err := f.repo.UpdateAppEnvironmentVariable(f.ctx, f.projectOneID, replaceAppID, targetID, f.actor, AppEnvironmentVariablePatch{ClearValue: true}); err != nil {
 		t.Fatalf("clear value to free aggregate capacity: %v", err)
@@ -314,7 +343,13 @@ func TestAppEnvironmentAggregateValueLimitIsTransactionalIntegration(t *testing.
 	}
 	afterMetadata, err := f.repo.GetApp(f.ctx, f.projectOneID, replaceAppID, f.actor)
 	if err != nil || totalBytes != 500000 || afterMetadata.DesiredGeneration != beforeMetadata.DesiredGeneration {
-		t.Fatalf("rename/classification changed configured usage or generation: bytes=%d generation %d→%d err=%v", totalBytes, beforeMetadata.DesiredGeneration, afterMetadata.DesiredGeneration, err)
+		t.Fatalf(
+			"rename/classification changed configured usage or generation: bytes=%d generation %d→%d err=%v",
+			totalBytes,
+			beforeMetadata.DesiredGeneration,
+			afterMetadata.DesiredGeneration,
+			err,
+		)
 	}
 	freed := strings.Repeat("f", 24000)
 	freedID := createValue(replaceAppID, "CLEARED_CAPACITY", freed)

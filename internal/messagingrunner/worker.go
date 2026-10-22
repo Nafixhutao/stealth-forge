@@ -139,7 +139,11 @@ func (r *Registry) Resolve(channel, provider string) Adapter {
 	if strings.ContainsAny(channel+provider, "\x00\r\n") {
 		return nil
 	}
-	return r.adapters[adapterKey(strings.ToLower(strings.TrimSpace(channel)), strings.ToLower(strings.TrimSpace(provider)))]
+	key := adapterKey(
+		strings.ToLower(strings.TrimSpace(channel)),
+		strings.ToLower(strings.TrimSpace(provider)),
+	)
+	return r.adapters[key]
 }
 
 func adapterKey(channel, provider string) string { return channel + "\x00" + provider }
@@ -437,7 +441,12 @@ func (a SMTPAdapter) Send(ctx context.Context, provider Provider, message Messag
 		Timeout:     timeout,
 		DialContext: restrictedDialContext,
 	}
-	if err := sender.Send(ctx, mailer.Message{To: message.Recipient, Subject: message.Subject, TextBody: message.Body}); err != nil {
+	outbound := mailer.Message{
+		To:       message.Recipient,
+		Subject:  message.Subject,
+		TextBody: message.Body,
+	}
+	if err := sender.Send(ctx, outbound); err != nil {
 		return &SendError{Retryable: true, Message: safeError(err)}
 	}
 	return nil
@@ -492,8 +501,8 @@ func (a TwilioAdapter) Send(ctx context.Context, provider Provider, message Mess
 		return nil
 	}
 	messageText := "twilio returned HTTP " + strconv.Itoa(response.StatusCode)
-	if text := strings.TrimSpace(string(body)); text != "" {
-		messageText += ": " + safeError(errors.New(text))
+	if text := boundedProviderText(body); text != "" {
+		messageText += ": " + text
 	}
 	return &SendError{
 		Retryable:  retryableStatus(response.StatusCode),
@@ -519,6 +528,23 @@ func retryableStatus(status int) bool {
 	return status == http.StatusRequestTimeout || status == http.StatusTooEarly ||
 		status == http.StatusTooManyRequests ||
 		status >= 500
+}
+
+// boundedProviderText renders a provider response body as one log-safe line.
+// The provider is untrusted: control characters are folded to spaces so a
+// response cannot forge log lines in the stored delivery error.
+func boundedProviderText(body []byte) string {
+	text := strings.TrimSpace(string(body))
+	if text == "" {
+		return ""
+	}
+	text = strings.TrimSpace(strings.Map(func(r rune) rune {
+		if r == '\x00' || r == '\r' || r == '\n' {
+			return ' '
+		}
+		return r
+	}, text))
+	return boundedUTF8(text, maxProviderResponse)
 }
 
 func safeError(err error) string {

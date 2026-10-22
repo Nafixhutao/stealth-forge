@@ -8,7 +8,15 @@ import (
 )
 
 func TestRealUpgradeCommandRunnerReturnsSchemaFingerprint(t *testing.T) {
-	output, err := (realUpgradeCommandRunner{}).Output(context.Background(), "", "docker", "compose", "run", "migrate", "schema-fingerprint")
+	output, err := (realUpgradeCommandRunner{}).Output(
+		context.Background(),
+		"",
+		"docker",
+		"compose",
+		"run",
+		"migrate",
+		"schema-fingerprint",
+	)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -42,7 +42,15 @@ func (r *setupRunner) Run(_ context.Context, _ string, _, _ io.Writer, name stri
 	return r.runErr
 }
 
-func (r *setupRunner) RunWithEnv(ctx context.Context, dir string, _ []string, stdout, stderr io.Writer, name string, args ...string) error {
+func (r *setupRunner) RunWithEnv(
+	ctx context.Context,
+	dir string,
+	_ []string,
+	stdout,
+	stderr io.Writer,
+	name string,
+	args ...string,
+) error {
 	return r.Run(ctx, dir, stdout, stderr, name, args...)
 }
 
@@ -170,7 +178,8 @@ func TestStartQuickTunnelUsesPinnedImageAndOnlyProxyNetwork(t *testing.T) {
 	}) {
 		t.Fatalf("docker run command = %#v", call)
 	}
-	if call := runner.command(1); call.name != "docker" || !equalStrings(call.args, []string{"logs", "stealth-onboarding-test"}) {
+	if call := runner.command(1); call.name != "docker" ||
+		!equalStrings(call.args, []string{"logs", "stealth-onboarding-test"}) {
 		t.Fatalf("docker logs command = %#v", call)
 	}
 }
@@ -335,7 +344,8 @@ func TestCloseQuickTunnelUsesExactGeneratedContainer(t *testing.T) {
 	if err := app.closeQuickTunnel(context.Background(), layout, "stealth-onboarding-test"); err != nil {
 		t.Fatal(err)
 	}
-	if call := runner.command(0); call.name != "docker" || !equalStrings(call.args, []string{"ps", "--all", "--filter", "name=^stealth-onboarding-test$", "--format", "{{.Names}}"}) {
+	if call := runner.command(0); call.name != "docker" ||
+		!equalStrings(call.args, []string{"ps", "--all", "--filter", "name=^stealth-onboarding-test$", "--format", "{{.Names}}"}) {
 		t.Fatalf("docker presence check command = %#v", call)
 	}
 	call := runner.command(1)
@@ -379,7 +389,16 @@ func TestSetupModelClosesTunnelAfterOwnerCompletion(t *testing.T) {
 	app.runner = runner
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	model := newSetupModel(ctx, app, cancel, newInstallLayout(t.TempDir()), nil, "http://127.0.0.1:18080", "http://127.0.0.1:8080/setup", &setupTunnelState{})
+	model := newSetupModel(
+		ctx,
+		app,
+		cancel,
+		newInstallLayout(t.TempDir()),
+		nil,
+		"http://127.0.0.1:18080",
+		"http://127.0.0.1:8080/setup",
+		&setupTunnelState{},
+	)
 	model.phase = setupWaiting
 	model.containerName = "stealth-onboarding-test"
 	model.tunnelStarted = true
@@ -387,7 +406,11 @@ func TestSetupModelClosesTunnelAfterOwnerCompletion(t *testing.T) {
 	updated, command := model.Update(setupStatusMessage{setupRequired: false})
 	closing := updated.(setupModel)
 	if closing.phase != setupClosing || command == nil {
-		t.Fatalf("owner completion transition = phase %d, command %v; want closing and cleanup", closing.phase, command != nil)
+		t.Fatalf(
+			"owner completion transition = phase %d, command %v; want closing and cleanup",
+			closing.phase,
+			command != nil,
+		)
 	}
 	cleanupMessage := command()
 	updated, _ = closing.Update(cleanupMessage)
@@ -395,7 +418,9 @@ func TestSetupModelClosesTunnelAfterOwnerCompletion(t *testing.T) {
 	if complete.phase != setupComplete || !complete.tunnelClosed || complete.cleanupErr != nil {
 		t.Fatalf("cleanup transition = %#v; want completed closed tunnel", complete)
 	}
-	if len(runner.calls) != 2 || runner.command(1).name != "docker" || !equalStrings(runner.command(1).args, []string{"rm", "--force", "stealth-onboarding-test"}) {
+	if len(runner.calls) != 2 ||
+		runner.command(1).name != "docker" ||
+		!equalStrings(runner.command(1).args, []string{"rm", "--force", "stealth-onboarding-test"}) {
 		t.Fatalf("owner completion cleanup commands = %#v", runner.calls)
 	}
 }
@@ -434,8 +459,19 @@ func TestPrepareSetupReusesExistingTunnelWhenRefreshingExpiredCode(t *testing.T)
 	app := NewApp(strings.NewReader(""), io.Discard, io.Discard)
 	app.runner = runner
 	key := bytes.Repeat([]byte{0x31}, 32)
-	message := app.prepareSetup(context.Background(), newInstallLayout(t.TempDir()), map[string]string{"BOOTSTRAP_CLI_KEY": encodeTestSecret(key)}, server.URL, "http://127.0.0.1:8080/setup", "stealth-onboarding-test", "https://silent-moon.trycloudflare.com", nil)
-	if message.err != nil || message.tunnelURL != "https://silent-moon.trycloudflare.com" || message.session.SetupCode != code {
+	message := app.prepareSetup(
+		context.Background(),
+		newInstallLayout(t.TempDir()),
+		map[string]string{"BOOTSTRAP_CLI_KEY": encodeTestSecret(key)},
+		server.URL,
+		"http://127.0.0.1:8080/setup",
+		"stealth-onboarding-test",
+		"https://silent-moon.trycloudflare.com",
+		nil,
+	)
+	if message.err != nil ||
+		message.tunnelURL != "https://silent-moon.trycloudflare.com" ||
+		message.session.SetupCode != code {
 		t.Fatalf("refreshed setup session = %#v", message)
 	}
 	if len(runner.calls) != 0 {

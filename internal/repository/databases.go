@@ -179,14 +179,36 @@ func scanDatabase(row interface{ Scan(...any) error }) (domain.ProjectDatabase, 
 
 func scanTable(row interface{ Scan(...any) error }) (domain.DatabaseTable, error) {
 	var item domain.DatabaseTable
-	err := row.Scan(&item.ID, &item.DatabaseID, &item.ProjectID, &item.Name, &item.RowSecurity, &item.CreatePermissions, &item.ReadPermissions, &item.UpdatePermissions, &item.DeletePermissions, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&item.ID,
+		&item.DatabaseID,
+		&item.ProjectID,
+		&item.Name,
+		&item.RowSecurity,
+		&item.CreatePermissions,
+		&item.ReadPermissions,
+		&item.UpdatePermissions,
+		&item.DeletePermissions,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	return item, err
 }
 
 func scanColumn(row interface{ Scan(...any) error }) (domain.DatabaseColumn, error) {
 	var item domain.DatabaseColumn
 	var raw []byte
-	err := row.Scan(&item.ID, &item.TableID, &item.Key, &item.Type, &item.Required, &item.VarcharSize, &raw, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&item.ID,
+		&item.TableID,
+		&item.Key,
+		&item.Type,
+		&item.Required,
+		&item.VarcharSize,
+		&raw,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	if err != nil {
 		return item, err
 	}
@@ -198,7 +220,16 @@ func scanColumn(row interface{ Scan(...any) error }) (domain.DatabaseColumn, err
 
 func scanIndex(row interface{ Scan(...any) error }) (domain.DatabaseIndex, error) {
 	var item domain.DatabaseIndex
-	err := row.Scan(&item.ID, &item.TableID, &item.Name, &item.Type, &item.ColumnKeys, &item.Directions, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&item.ID,
+		&item.TableID,
+		&item.Name,
+		&item.Type,
+		&item.ColumnKeys,
+		&item.Directions,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	return item, err
 }
 
@@ -206,7 +237,18 @@ func scanRow(row interface{ Scan(...any) error }) (domain.DatabaseRow, error) {
 	var item domain.DatabaseRow
 	var raw []byte
 	var creator *uuid.UUID
-	err := row.Scan(&item.ID, &item.TableID, &item.ProjectID, &raw, &item.ReadPermissions, &item.UpdatePermissions, &item.DeletePermissions, &creator, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&item.ID,
+		&item.TableID,
+		&item.ProjectID,
+		&raw,
+		&item.ReadPermissions,
+		&item.UpdatePermissions,
+		&item.DeletePermissions,
+		&creator,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	if err != nil {
 		return item, err
 	}
@@ -235,7 +277,15 @@ func schemaFromDomain(column domain.DatabaseColumn) DatabaseColumnSchema {
 			hasDefault = false
 		}
 	}
-	return DatabaseColumnSchema{ID: mustParseUUID(column.ID), Key: column.Key, Type: dbcore.ColumnType(column.Type), Required: column.Required, VarcharSize: column.VarcharSize, Default: defaultValue, HasDefault: hasDefault}
+	return DatabaseColumnSchema{
+		ID:          mustParseUUID(column.ID),
+		Key:         column.Key,
+		Type:        dbcore.ColumnType(column.Type),
+		Required:    column.Required,
+		VarcharSize: column.VarcharSize,
+		Default:     defaultValue,
+		HasDefault:  hasDefault,
+	}
 }
 
 func mustParseUUID(value string) uuid.UUID {
@@ -243,7 +293,18 @@ func mustParseUUID(value string) uuid.UUID {
 	return parsed
 }
 
-func (r *Repository) ListProjectDatabases(ctx context.Context, projectID uuid.UUID, actor DatabaseActor, limit int, cursor *uuid.UUID) ([]domain.ProjectDatabase, string, bool, error) {
+func (r *Repository) ListProjectDatabases(
+	ctx context.Context,
+	projectID uuid.UUID,
+	actor DatabaseActor,
+	limit int,
+	cursor *uuid.UUID,
+) (
+	[]domain.ProjectDatabase,
+	string,
+	bool,
+	error,
+) {
 	canManage, err := r.requireDatabaseRead(ctx, projectID, actor)
 	if err != nil {
 		return nil, "", false, err
@@ -272,7 +333,15 @@ func (r *Repository) ListProjectDatabases(ctx context.Context, projectID uuid.UU
 	return items, next, canManage, nil
 }
 
-func (r *Repository) GetProjectDatabase(ctx context.Context, projectID, databaseID uuid.UUID, actor DatabaseActor) (domain.ProjectDatabase, error) {
+func (r *Repository) GetProjectDatabase(
+	ctx context.Context,
+	projectID,
+	databaseID uuid.UUID,
+	actor DatabaseActor,
+) (
+	domain.ProjectDatabase,
+	error,
+) {
 	if _, err := r.requireDatabaseRead(ctx, projectID, actor); err != nil {
 		return domain.ProjectDatabase{}, err
 	}
@@ -283,7 +352,16 @@ func (r *Repository) GetProjectDatabase(ctx context.Context, projectID, database
 	return item, err
 }
 
-func (r *Repository) CreateProjectDatabase(ctx context.Context, id, projectID uuid.UUID, actor DatabaseActor, name string) (domain.ProjectDatabase, error) {
+func (r *Repository) CreateProjectDatabase(
+	ctx context.Context,
+	id,
+	projectID uuid.UUID,
+	actor DatabaseActor,
+	name string,
+) (
+	domain.ProjectDatabase,
+	error,
+) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.ProjectDatabase{}, err
@@ -315,7 +393,12 @@ func (r *Repository) CreateProjectDatabase(ctx context.Context, id, projectID uu
 	return item, nil
 }
 
-func (r *Repository) DeleteProjectDatabase(ctx context.Context, projectID, databaseID uuid.UUID, actor DatabaseActor) error {
+func (r *Repository) DeleteProjectDatabase(
+	ctx context.Context,
+	projectID,
+	databaseID uuid.UUID,
+	actor DatabaseActor,
+) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err

@@ -18,10 +18,21 @@ func TestLoadTransportSettings(t *testing.T) {
 	}
 	var config Config
 	settings.apply(&config)
-	if config.RedisURL != "redis://redis.example.test:6379/2" || config.HTTPAddress != "127.0.0.1:9090" || config.PlatformSiteAddress != "127.0.0.1:9091" || config.MetricsToken != "scrape-token" {
-		t.Fatalf("unexpected transport settings: redis=%q http=%q platform=%q metrics=%q", config.RedisURL, config.HTTPAddress, config.PlatformSiteAddress, config.MetricsToken)
+	if config.RedisURL != "redis://redis.example.test:6379/2" ||
+		config.HTTPAddress != "127.0.0.1:9090" ||
+		config.PlatformSiteAddress != "127.0.0.1:9091" ||
+		config.MetricsToken != "scrape-token" {
+		t.Fatalf(
+			"unexpected transport settings: redis=%q http=%q platform=%q metrics=%q",
+			config.RedisURL,
+			config.HTTPAddress,
+			config.PlatformSiteAddress,
+			config.MetricsToken,
+		)
 	}
-	if len(config.TrustedProxyCIDRs) != 2 || !config.TrustedProxyCIDRs[0].Contains(net.ParseIP("10.1.2.3")) || !config.TrustedProxyCIDRs[1].Contains(net.ParseIP("192.0.2.10")) {
+	if len(config.TrustedProxyCIDRs) != 2 ||
+		!config.TrustedProxyCIDRs[0].Contains(net.ParseIP("10.1.2.3")) ||
+		!config.TrustedProxyCIDRs[1].Contains(net.ParseIP("192.0.2.10")) {
 		t.Fatalf("unexpected trusted proxy networks: %+v", config.TrustedProxyCIDRs)
 	}
 	config.TrustedProxyCIDRs[0].IP[0] = 203

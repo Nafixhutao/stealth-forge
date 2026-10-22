@@ -28,7 +28,11 @@ func TestAdminAlertEventCursorRoundTripPreservesFilters(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeAdminAlertEventCursor() error = %v", err)
 	}
-	if !got.OccurredAt.Equal(want.OccurredAt) || got.ID != want.ID || !sameOptionalUUID(got.RuleID, want.RuleID) || !sameOptionalTime(got.From, want.From) || !sameOptionalTime(got.To, want.To) {
+	if !got.OccurredAt.Equal(want.OccurredAt) ||
+		got.ID != want.ID ||
+		!sameOptionalUUID(got.RuleID, want.RuleID) ||
+		!sameOptionalTime(got.From, want.From) ||
+		!sameOptionalTime(got.To, want.To) {
 		t.Fatalf("decoded cursor = %#v, want %#v", got, want)
 	}
 }
@@ -47,7 +51,11 @@ func TestAdminAlertEventQueryRejectsCursorForDifferentFilters(t *testing.T) {
 	ruleA := uuid.MustParse("00000000-0000-7000-8000-000000000103")
 	ruleB := uuid.MustParse("00000000-0000-7000-8000-000000000104")
 	occurredAt := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
-	cursor := AdminAlertEventCursor{OccurredAt: occurredAt, ID: uuid.MustParse("00000000-0000-7000-8000-000000000105"), RuleID: &ruleA}
+	cursor := AdminAlertEventCursor{
+		OccurredAt: occurredAt,
+		ID:         uuid.MustParse("00000000-0000-7000-8000-000000000105"),
+		RuleID:     &ruleA,
+	}
 
 	_, err := normalizeAdminAlertEventQuery(AdminAlertEventQuery{RuleID: &ruleB, Cursor: &cursor, Limit: 10})
 	if !errors.Is(err, ErrInvalidAdminAlertHistory) {

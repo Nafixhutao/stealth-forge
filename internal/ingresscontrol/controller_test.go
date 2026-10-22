@@ -30,7 +30,14 @@ func (s *controllerFakeStore) CloudflareRoutingStatus(context.Context) (domain.C
 	return s.status, nil
 }
 
-func (s *controllerFakeStore) SetCloudflareConsoleOriginDesired(_ context.Context, origin, action string) (bool, error) {
+func (s *controllerFakeStore) SetCloudflareConsoleOriginDesired(
+	_ context.Context,
+	origin,
+	action string,
+) (
+	bool,
+	error,
+) {
 	s.setCalls = append(s.setCalls, action+":"+origin)
 	if !s.status.Configured {
 		return false, errors.New("not configured")
@@ -53,9 +60,17 @@ func (s *controllerFakeStore) SetCloudflareConsoleOriginDesired(_ context.Contex
 	return true, nil
 }
 
-func (s *controllerFakeStore) RecordCloudflareConsoleOriginVerification(_ context.Context, origin string) (bool, error) {
+func (s *controllerFakeStore) RecordCloudflareConsoleOriginVerification(
+	_ context.Context,
+	origin string,
+) (
+	bool,
+	error,
+) {
 	s.verifyCalls = append(s.verifyCalls, origin)
-	if s.status.ConsoleOriginDesired != origin || s.status.ConsoleOriginObserved != origin || s.status.ConsoleOriginStatus != "ready" {
+	if s.status.ConsoleOriginDesired != origin ||
+		s.status.ConsoleOriginObserved != origin ||
+		s.status.ConsoleOriginStatus != "ready" {
 		return false, nil
 	}
 	s.status.ConsolePublicVerifiedOrigin = origin
@@ -125,7 +140,16 @@ func (p *controllerFakeProbe) VerifyPublicSite(_ context.Context, hostname, work
 	return p.siteErr
 }
 
-func newControllerFixture(t *testing.T, desired, observed string) (*Controller, *controllerFakeStore, *controllerFakeReconciler, *controllerFakeProbe) {
+func newControllerFixture(
+	t *testing.T,
+	desired,
+	observed string,
+) (
+	*Controller,
+	*controllerFakeStore,
+	*controllerFakeReconciler,
+	*controllerFakeProbe,
+) {
 	t.Helper()
 	workload := "apps.example.com"
 	store := &controllerFakeStore{
@@ -140,7 +164,13 @@ func newControllerFixture(t *testing.T, desired, observed string) (*Controller, 
 	}
 	reconciler := &controllerFakeReconciler{store: store}
 	probe := &controllerFakeProbe{}
-	controller, err := New(store, reconciler, probe, "https://cloud.example.com", slog.New(slog.NewTextHandler(io.Discard, nil)))
+	controller, err := New(
+		store,
+		reconciler,
+		probe,
+		"https://cloud.example.com",
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,11 +180,16 @@ func newControllerFixture(t *testing.T, desired, observed string) (*Controller, 
 func TestCutoverPreflightFailureDoesNotMutateDesiredState(t *testing.T) {
 	controller, store, reconciler, probe := newControllerFixture(t, OriginProxy, OriginProxy)
 	probe.localErr = errors.New("Traefik route returned 502")
-	if err := controller.Cutover(context.Background(), io.Discard); err == nil || !strings.Contains(err.Error(), "local preflight") {
+	if err := controller.Cutover(context.Background(), io.Discard); err == nil ||
+		!strings.Contains(err.Error(), "local preflight") {
 		t.Fatalf("cutover error = %v", err)
 	}
 	if len(store.setCalls) != 0 || reconciler.consoleCalls != 0 {
-		t.Fatalf("preflight failure mutated state: set=%v console_reconcile_calls=%d", store.setCalls, reconciler.consoleCalls)
+		t.Fatalf(
+			"preflight failure mutated state: set=%v console_reconcile_calls=%d",
+			store.setCalls,
+			reconciler.consoleCalls,
+		)
 	}
 }
 
@@ -164,11 +199,23 @@ func TestCutoverProviderAndPublicVerificationSucceeds(t *testing.T) {
 	if err := controller.Cutover(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
-	if store.status.ConsoleOriginDesired != OriginTraefik || store.status.ConsoleOriginObserved != OriginTraefik || store.status.ConsoleOriginStatus != "ready" {
+	if store.status.ConsoleOriginDesired != OriginTraefik ||
+		store.status.ConsoleOriginObserved != OriginTraefik ||
+		store.status.ConsoleOriginStatus != "ready" {
 		t.Fatalf("Console origin state = %#v", store.status)
 	}
-	if reconciler.consoleCalls != 2 || reconciler.consoleVerifyCalls != 2 || len(store.verifyCalls) != 1 || store.verifyCalls[0] != OriginTraefik || probe.publicCalls != 1 {
-		t.Fatalf("cutover orchestration origin_reconcile=%d provider_verify=%d persisted_verification=%v public=%d", reconciler.consoleCalls, reconciler.consoleVerifyCalls, store.verifyCalls, probe.publicCalls)
+	if reconciler.consoleCalls != 2 ||
+		reconciler.consoleVerifyCalls != 2 ||
+		len(store.verifyCalls) != 1 ||
+		store.verifyCalls[0] != OriginTraefik ||
+		probe.publicCalls != 1 {
+		t.Fatalf(
+			"cutover orchestration origin_reconcile=%d provider_verify=%d persisted_verification=%v public=%d",
+			reconciler.consoleCalls,
+			reconciler.consoleVerifyCalls,
+			store.verifyCalls,
+			probe.publicCalls,
+		)
 	}
 	if !strings.Contains(output.String(), "verified through Traefik") {
 		t.Fatalf("cutover output = %q", output.String())
@@ -183,14 +230,26 @@ func TestCutoverPublicFailureRollsBackAndVerifiesNginxRecovery(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "Console origin cutover failed after the origin request") {
 		t.Fatalf("cutover error = %v", err)
 	}
-	if store.status.ConsoleOriginDesired != OriginProxy || store.status.ConsoleOriginObserved != OriginProxy || store.status.ConsolePublicVerifiedOrigin != OriginProxy {
+	if store.status.ConsoleOriginDesired != OriginProxy ||
+		store.status.ConsoleOriginObserved != OriginProxy ||
+		store.status.ConsolePublicVerifiedOrigin != OriginProxy {
 		t.Fatalf("automatic rollback state = %#v", store.status)
 	}
 	if got := strings.Join(store.setCalls, ","); got != "cutover:traefik,rollback:proxy" {
 		t.Fatalf("desired-state transitions = %s", got)
 	}
-	if reconciler.consoleCalls != 3 || reconciler.consoleVerifyCalls != 3 || probe.publicCalls != 2 || !strings.Contains(output.String(), "rollback succeeded") || !strings.Contains(output.String(), "Nginx") {
-		t.Fatalf("rollback evidence origin_reconcile=%d provider_verify=%d public=%d output=%q", reconciler.consoleCalls, reconciler.consoleVerifyCalls, probe.publicCalls, output.String())
+	if reconciler.consoleCalls != 3 ||
+		reconciler.consoleVerifyCalls != 3 ||
+		probe.publicCalls != 2 ||
+		!strings.Contains(output.String(), "rollback succeeded") ||
+		!strings.Contains(output.String(), "Nginx") {
+		t.Fatalf(
+			"rollback evidence origin_reconcile=%d provider_verify=%d public=%d output=%q",
+			reconciler.consoleCalls,
+			reconciler.consoleVerifyCalls,
+			probe.publicCalls,
+			output.String(),
+		)
 	}
 }
 
@@ -207,8 +266,16 @@ func TestAmbiguousCutoverCommitIsInspectedAndRolledBack(t *testing.T) {
 	if got := strings.Join(store.setCalls, ","); got != "cutover:traefik,rollback:proxy" {
 		t.Fatalf("durable transitions after ambiguous commit = %s", got)
 	}
-	if store.status.ConsoleOriginDesired != OriginProxy || store.status.ConsoleOriginObserved != OriginProxy || probe.publicCalls != 1 || reconciler.consoleCalls != 2 {
-		t.Fatalf("ambiguous cutover did not restore Nginx: status=%#v reconciles=%d public=%d", store.status, reconciler.consoleCalls, probe.publicCalls)
+	if store.status.ConsoleOriginDesired != OriginProxy ||
+		store.status.ConsoleOriginObserved != OriginProxy ||
+		probe.publicCalls != 1 ||
+		reconciler.consoleCalls != 2 {
+		t.Fatalf(
+			"ambiguous cutover did not restore Nginx: status=%#v reconciles=%d public=%d",
+			store.status,
+			reconciler.consoleCalls,
+			probe.publicCalls,
+		)
 	}
 	if !strings.Contains(output.String(), "rollback succeeded") {
 		t.Fatalf("ambiguous commit recovery output = %q", output.String())
@@ -222,7 +289,9 @@ func TestCutoverProviderFailureAttemptsVerifiedRollback(t *testing.T) {
 	if err := controller.Cutover(context.Background(), &output); err == nil {
 		t.Fatal("provider failure must fail cutover")
 	}
-	if store.status.ConsoleOriginDesired != OriginProxy || store.status.ConsoleOriginStatus != "ready" || store.status.ConsoleOriginObserved != OriginProxy {
+	if store.status.ConsoleOriginDesired != OriginProxy ||
+		store.status.ConsoleOriginStatus != "ready" ||
+		store.status.ConsoleOriginObserved != OriginProxy {
 		t.Fatalf("provider timeout did not restore the Nginx origin: %#v", store.status)
 	}
 	if reconciler.consoleCalls != 3 || !strings.Contains(output.String(), "rollback succeeded") {
@@ -248,7 +317,12 @@ func TestCutoverAlreadyOnTraefikIsVerifiedNoOp(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(store.setCalls) != 0 || reconciler.consoleCalls != 1 || probe.publicCalls != 1 {
-		t.Fatalf("repeat cutover was not a verified no-op: set=%v reconcile=%d public=%d", store.setCalls, reconciler.consoleCalls, probe.publicCalls)
+		t.Fatalf(
+			"repeat cutover was not a verified no-op: set=%v reconcile=%d public=%d",
+			store.setCalls,
+			reconciler.consoleCalls,
+			probe.publicCalls,
+		)
 	}
 }
 
@@ -258,11 +332,22 @@ func TestManualRollbackDoesNotNeedPublicAPIAndRestoresNginx(t *testing.T) {
 	if err := controller.Rollback(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
-	if store.status.ConsoleOriginDesired != OriginProxy || store.status.ConsoleOriginObserved != OriginProxy || store.status.ConsolePublicVerifiedOrigin != OriginProxy {
+	if store.status.ConsoleOriginDesired != OriginProxy ||
+		store.status.ConsoleOriginObserved != OriginProxy ||
+		store.status.ConsolePublicVerifiedOrigin != OriginProxy {
 		t.Fatalf("manual rollback status = %#v", store.status)
 	}
-	if got := strings.Join(store.setCalls, ","); got != "rollback:proxy" || reconciler.consoleCalls != 1 || reconciler.consoleVerifyCalls != 1 || probe.publicCalls != 1 {
-		t.Fatalf("manual rollback calls set=%s reconcile=%d provider_verify=%d public=%d", got, reconciler.consoleCalls, reconciler.consoleVerifyCalls, probe.publicCalls)
+	if got := strings.Join(store.setCalls, ","); got != "rollback:proxy" ||
+		reconciler.consoleCalls != 1 ||
+		reconciler.consoleVerifyCalls != 1 ||
+		probe.publicCalls != 1 {
+		t.Fatalf(
+			"manual rollback calls set=%s reconcile=%d provider_verify=%d public=%d",
+			got,
+			reconciler.consoleCalls,
+			reconciler.consoleVerifyCalls,
+			probe.publicCalls,
+		)
 	}
 }
 
@@ -275,8 +360,16 @@ func TestManualRollbackDoesNotDependOnWorkloadRoutingOrTraefik(t *testing.T) {
 	if err := controller.Rollback(context.Background(), io.Discard); err != nil {
 		t.Fatalf("workload failure blocked Console rollback: %v", err)
 	}
-	if store.status.ConsoleOriginObserved != OriginProxy || store.status.ConsoleOriginStatus != "ready" || reconciler.consoleCalls != 1 || probe.publicCalls != 1 {
-		t.Fatalf("rollback did not independently restore Console through Nginx: status=%#v reconciles=%d public=%d", store.status, reconciler.consoleCalls, probe.publicCalls)
+	if store.status.ConsoleOriginObserved != OriginProxy ||
+		store.status.ConsoleOriginStatus != "ready" ||
+		reconciler.consoleCalls != 1 ||
+		probe.publicCalls != 1 {
+		t.Fatalf(
+			"rollback did not independently restore Console through Nginx: status=%#v reconciles=%d public=%d",
+			store.status,
+			reconciler.consoleCalls,
+			probe.publicCalls,
+		)
 	}
 }
 
@@ -295,7 +388,8 @@ func TestVerifyRequiresReadyCloudflareWorkloadAndExactPlatformHost(t *testing.T)
 		t.Fatal("hostname outside workload base domain should be rejected")
 	}
 	store.status.EdgeTLSStatus = cloudflare.EdgeTLSActionRequired
-	if err := controller.Verify(context.Background(), "portfolio.apps.example.com", ""); err == nil || !strings.Contains(err.Error(), "edge TLS") {
+	if err := controller.Verify(context.Background(), "portfolio.apps.example.com", ""); err == nil ||
+		!strings.Contains(err.Error(), "edge TLS") {
 		t.Fatalf("unready edge TLS verification error = %v", err)
 	}
 }
@@ -309,7 +403,8 @@ func TestVerifyReadsProviderStateWithoutMutation(t *testing.T) {
 		t.Fatalf("verify was not read-only: desired writes=%v provider reads=%d", store.setCalls, reconciler.verifyCalls)
 	}
 	reconciler.verifyErr = errors.New("Tunnel ingress differs from durable state")
-	if err := controller.Verify(context.Background(), "", ""); err == nil || !strings.Contains(err.Error(), "Tunnel verification failed") {
+	if err := controller.Verify(context.Background(), "", ""); err == nil ||
+		!strings.Contains(err.Error(), "Tunnel verification failed") {
 		t.Fatalf("provider drift verification error = %v", err)
 	}
 	if len(store.setCalls) != 0 {
@@ -324,7 +419,9 @@ func TestStatusDistinguishesUnusedCloudflareFromMissingCredential(t *testing.T) 
 	if err := controller.Status(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(output.String(), "degraded") || !strings.Contains(output.String(), "reconnect") || strings.Contains(output.String(), "not configured") {
+	if !strings.Contains(output.String(), "degraded") ||
+		!strings.Contains(output.String(), "reconnect") ||
+		strings.Contains(output.String(), "not configured") {
 		t.Fatalf("missing credential status = %q", output.String())
 	}
 
@@ -334,7 +431,8 @@ func TestStatusDistinguishesUnusedCloudflareFromMissingCredential(t *testing.T) 
 	if err := controller.Status(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(output.String(), "Cloudflare Tunnel: not configured") || !strings.Contains(output.String(), "not applicable") {
+	if !strings.Contains(output.String(), "Cloudflare Tunnel: not configured") ||
+		!strings.Contains(output.String(), "not applicable") {
 		t.Fatalf("provider-neutral status = %q", output.String())
 	}
 }

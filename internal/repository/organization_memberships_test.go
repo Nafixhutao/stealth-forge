@@ -21,7 +21,14 @@ func TestCanManageOrganizationMembership(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if got := canManageOrganizationMembership(test.actorRole, test.targetRole, test.nextRole); got != test.want {
-				t.Fatalf("canManageOrganizationMembership(%q, %q, %q) = %v, want %v", test.actorRole, test.targetRole, test.nextRole, got, test.want)
+				t.Fatalf(
+					"canManageOrganizationMembership(%q, %q, %q) = %v, want %v",
+					test.actorRole,
+					test.targetRole,
+					test.nextRole,
+					got,
+					test.want,
+				)
 			}
 		})
 	}
