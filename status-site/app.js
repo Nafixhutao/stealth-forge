@@ -116,6 +116,9 @@ function renderComponents(components) {
   }
   nodes.components.setAttribute("aria-busy", "false");
   nodes.componentsHint.textContent = plural(components.length, "component");
+  // A failed or unpublished render hides this panel. The 60s refresh must be
+  // able to bring it back without a full page reload.
+  nodes.componentsPanel.hidden = components.length === 0;
 }
 
 function renderIncidents(incidents) {

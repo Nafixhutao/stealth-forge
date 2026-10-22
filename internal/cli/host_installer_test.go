@@ -130,6 +130,11 @@ func hostManagedAssetContents() map[string]string {
 		"traefik/traefik.yaml":                        testManagedTraefikStaticAsset(),
 		"traefik/dynamic/core.yaml":                   testManagedTraefikCoreAsset(),
 		"traefik/dynamic/generated/.gitkeep":          "# Stealth route reconciler\n",
+		"status-site/index.html":                      "<!doctype html>\n<title>Status</title>\n",
+		"status-site/app.js":                          "function renderPublished(page) {}\n",
+		"status-site/styles.css":                      ".site-header__inner { display: flex; }\n",
+		"status-site/favicon.png":                     "\x89PNG\r\n\x1a\n",
+		"status-site/stealth-mark.png":                "\x89PNG\r\n\x1a\n",
 	}
 }
 
