@@ -700,6 +700,7 @@ print_bounded_diagnostic() {
 	else
 		printf '<none>\n' >&2
 	fi
+}
 
 container_networks() {
 	docker inspect --format '{{range $name, $_ := .NetworkSettings.Networks}}{{printf "%s\n" $name}}{{end}}' "$1" | sort
@@ -3788,12 +3789,6 @@ clear_platform_route_smoke() {
 	printf 'platform route remained after workload-domain clear: status=%s\n' "$route_status" >&2
 	return 1
 }
-
-
-
-
-}
-
 
 seal_bootstrap_for_smoke() {
 	# The release smoke database has no real GitHub owner. Sealing this
