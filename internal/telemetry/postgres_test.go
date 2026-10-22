@@ -58,17 +58,17 @@ func TestPostgresVolumeQueryUsesBoundedBuckets(t *testing.T) {
 }
 
 func TestPostgresLogProjectionKeepsSeverityAndTraceIdentity(t *testing.T) {
-	item := postgresLogRecord(
-		"0199fb52-7a6d-7f91-8f6c-ab95ef2fe3c1",
-		"4bf92f3577b34da6a3ce929d0e0e4736",
-		"00f067aa0ba902b7",
-		"POST",
-		"/v1/projects/{projectID}/apps",
-		503,
-		42,
-		128,
-		time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC),
-	)
+	item := postgresLogRecord(postgresLogRow{
+		EventID:       "0199fb52-7a6d-7f91-8f6c-ab95ef2fe3c1",
+		TraceID:       "4bf92f3577b34da6a3ce929d0e0e4736",
+		SpanID:        "00f067aa0ba902b7",
+		Method:        "POST",
+		Route:         "/v1/projects/{projectID}/apps",
+		Status:        503,
+		DurationMS:    42,
+		ResponseBytes: 128,
+		Timestamp:     time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC),
+	})
 	if item.Severity != "ERROR" || item.TraceID == "" || item.EventID == "" {
 		t.Fatalf("unexpected PostgreSQL log projection: %+v", item)
 	}

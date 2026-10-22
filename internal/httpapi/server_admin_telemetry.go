@@ -43,7 +43,7 @@ func (s *Server) adminTelemetryLogs(w http.ResponseWriter, r *http.Request) {
 }
 
 // adminTelemetryLogTail keeps the transport streaming and the query bounded.
-// It deliberately does not expose ClickHouse's native stream or credentials:
+// It deliberately does not expose the store's native stream or credentials:
 // every poll is still an authenticated, parameterized domain query, and the
 // browser receives only redacted log records. The short-lived connection is
 // also safe to cancel when the operator navigates away.
@@ -260,7 +260,12 @@ func (s *Server) adminTelemetryTraces(w http.ResponseWriter, r *http.Request) {
 	}
 	minMS, err := parseFloatQuery(r, "min_duration_ms", 0, 24*60*60*1000)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "validation_error", "min_duration_ms must be a non-negative number within one day")
+		writeError(
+			w,
+			http.StatusBadRequest,
+			"validation_error",
+			"min_duration_ms must be a non-negative number within one day",
+		)
 		return
 	}
 	result, err := s.telemetry.QueryTraces(r.Context(), telemetry.TracesQuery{

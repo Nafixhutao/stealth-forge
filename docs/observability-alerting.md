@@ -68,8 +68,8 @@ usually means the provider endpoint is rejecting requests; check the delivery
 telemetry in PostgreSQL, so first verify the API can reach its normal database
 and that the `http_traces` migration is applied. Host resource metrics are
 sampled in-process by the API. App logs are read from Docker json-file logs
-through the bounded project-scoped API. There is no separate collector to
-restart unless the installation explicitly configured ClickHouse.
+through the bounded project-scoped API. There is no separate collector or
+telemetry store to restart.
 
 **Migration failure on upgrade.** The migration runner is advisory-locked and
 fails loudly. See [Upgrade and rollback](upgrade.md); roll back the application

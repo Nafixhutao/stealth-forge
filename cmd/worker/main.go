@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -47,6 +48,28 @@ import (
 	"github.com/Nafixhutao/stealth-forge/internal/workersupervisor"
 )
 
+// validateWorkerConfig runs every configuration gate the worker depends on
+// before it opens any resource. Each validator returns a wrapped error that
+// names the section it covers, so one log line is enough to locate a failure.
+func validateWorkerConfig(cfg config.Config) error {
+	checks := []struct {
+		name     string
+		validate func() error
+	}{
+		{"functions", cfg.ValidateFunctions},
+		{"sites", cfg.ValidateSites},
+		{"Apps", cfg.ValidateApps},
+		{"App environment encryption", cfg.ValidateAppSecrets},
+		{"production secret", cfg.ValidateProductionSecrets},
+	}
+	for _, check := range checks {
+		if err := check.validate(); err != nil {
+			return fmt.Errorf("%s: %w", check.name, err)
+		}
+	}
+	return nil
+}
+
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	cfg, err := config.Load()
@@ -54,24 +77,8 @@ func main() {
 		logger.Error("configuration error", "error", err)
 		os.Exit(1)
 	}
-	if err := cfg.ValidateFunctions(); err != nil {
-		logger.Error("functions configuration error", "error", err)
-		os.Exit(1)
-	}
-	if err := cfg.ValidateSites(); err != nil {
-		logger.Error("sites configuration error", "error", err)
-		os.Exit(1)
-	}
-	if err := cfg.ValidateApps(); err != nil {
-		logger.Error("Apps configuration error", "error", err)
-		os.Exit(1)
-	}
-	if err := cfg.ValidateAppSecrets(); err != nil {
-		logger.Error("App environment encryption configuration error", "error", err)
-		os.Exit(1)
-	}
-	if err := cfg.ValidateProductionSecrets(); err != nil {
-		logger.Error("production secret configuration error", "error", err)
+	if err := validateWorkerConfig(cfg); err != nil {
+		logger.Error("configuration error", "error", err)
 		os.Exit(1)
 	}
 	appSecretsCipher, err := appsecret.New(cfg.AppsSecretKey)
@@ -166,10 +173,6 @@ func main() {
 		os.Exit(1)
 	}
 	telemetryStore, telemetryErr := telemetry.Open(pool, telemetry.Config{
-		Address:          cfg.TelemetryClickHouseAddr,
-		Database:         cfg.TelemetryClickHouseDatabase,
-		Username:         cfg.TelemetryClickHouseUser,
-		Password:         cfg.TelemetryClickHousePassword,
 		MaxQueryDuration: cfg.TelemetryMaxQueryDuration,
 		MaxQueryRange:    cfg.TelemetryMaxQueryRange,
 		MaxQueryRows:     cfg.TelemetryMaxQueryRows,
@@ -557,7 +560,12 @@ const (
 // runRetentionMaintenance bounds the two append-only tables that previously grew
 // without limit: per-request traces and admin monitor checks. Each pass deletes
 // a bounded batch so it does not contend with live traffic.
-func runRetentionMaintenance(ctx context.Context, repo *repository.Repository, telemetryRetention time.Duration, logger *slog.Logger) error {
+func runRetentionMaintenance(
+	ctx context.Context,
+	repo *repository.Repository,
+	telemetryRetention time.Duration,
+	logger *slog.Logger,
+) error {
 	if repo == nil {
 		return errors.New("retention maintenance requires a repository")
 	}

@@ -566,9 +566,8 @@ resource metrics are sampled in-process by the API. Admin Logs, Traces, Errors,
 HTTP latency/error metrics, and telemetry-backed alert evaluation read a
 bounded PostgreSQL request index containing only method, route template,
 status, duration, response size, and trace identifiers. The worker prunes rows
-older than `TELEMETRY_RETENTION` in bounded batches. An external ClickHouse
-store remains an explicit opt-in for installations that need higher telemetry
-volume; it is not required for the portable Compose baseline.
+older than `TELEMETRY_RETENTION` in bounded batches. There is no external
+telemetry store to operate.
 
 Redis is authenticated but intentionally has no volume in this baseline. It
 stores distributed rate-limit windows, not the durable job state. Losing Redis

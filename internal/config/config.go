@@ -150,19 +150,13 @@ type Config struct {
 	TelemetryOTLPEndpoint string
 	TelemetryServiceName  string
 	TelemetrySampleRatio  float64
-	// ClickHouse is an optional control-plane dependency. An empty address
-	// keeps local and legacy installations fully functional while the admin
-	// telemetry surface reports the backend as unavailable. When configured,
-	// all query limits are enforced by the API and the ClickHouse session.
-	TelemetryClickHouseAddr     string
-	TelemetryClickHouseDatabase string
-	TelemetryClickHouseUser     string
-	TelemetryClickHousePassword string
-	TelemetryCollectorHealthURL string
-	TelemetryMaxQueryDuration   time.Duration
-	TelemetryMaxQueryRange      time.Duration
-	TelemetryMaxQueryRows       int
-	TelemetryRetention          time.Duration
+	// Request telemetry is stored in the control-plane PostgreSQL database.
+	// These limits bound every admin query; there is no external telemetry
+	// store to configure.
+	TelemetryMaxQueryDuration time.Duration
+	TelemetryMaxQueryRange    time.Duration
+	TelemetryMaxQueryRows     int
+	TelemetryRetention        time.Duration
 	// AgentProviderCatalog contains non-secret provider/model metadata for the
 	// Console. Agent execution remains queue-only until a trusted provider
 	// worker is deployed.

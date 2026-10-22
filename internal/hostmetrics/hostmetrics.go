@@ -1,6 +1,6 @@
 // Package hostmetrics samples local host resource usage directly from the
 // kernel. It is a lightweight, dependency-free source for the admin Overview's
-// CPU/memory/disk/network cards, replacing the ClickHouse-backed telemetry path
+// CPU/memory/disk/network cards, replacing the telemetry-store path
 // for host resources. A small in-memory ring buffer backs short history charts.
 package hostmetrics
 

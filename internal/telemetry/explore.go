@@ -27,7 +27,7 @@ type OverviewExplorer interface {
 
 // AlertExplorer exposes only the bounded measurements that the trusted alert
 // worker can evaluate. It deliberately does not accept SQL, expressions, or
-// arbitrary ClickHouse column names.
+// arbitrary column names.
 type AlertExplorer interface {
 	EvaluateAlert(context.Context, AlertQuery) (AlertValue, error)
 }
@@ -140,52 +140,3 @@ type InfrastructureMetric struct {
 type InfrastructureResult struct {
 	Items []InfrastructureMetric `json:"items"`
 }
-
-const errorGroupsQuery = `
-SELECT ServiceName, SeverityText, Message, min(Timestamp) AS FirstSeen,
-       max(Timestamp) AS LastSeen, count() AS OccurrenceCount,
-       anyIf(TraceId, TraceId != '') AS TraceID
-FROM (
-  SELECT Timestamp, TraceId, ServiceName, SeverityText,
-         substring(Body, 1, 512) AS Message
-  FROM otel_logs
-  WHERE Timestamp >= {from:DateTime64(9)}
-    AND Timestamp < {to:DateTime64(9)}
-    AND upperUTF8(SeverityText) IN ('ERROR', 'FATAL')
-    AND ({service:String} = '' OR ServiceName = {service:String})
-    AND ({search:String} = '' OR positionCaseInsensitiveUTF8(Body, {search:String}) > 0)
-)
-GROUP BY ServiceName, SeverityText, Message
-ORDER BY LastSeen DESC, ServiceName ASC, Message ASC
-LIMIT {limit:UInt32}`
-
-const serviceMapQuery = `
-SELECT ServiceName,
-       if(SpanAttributes['peer.service'] != '', SpanAttributes['peer.service'],
-          if(ResourceAttributes['peer.service'] != '', ResourceAttributes['peer.service'],
-             if(SpanAttributes['server.address'] != '', SpanAttributes['server.address'], ''))) AS TargetService,
-       count() AS RequestCount,
-       countIf(upperUTF8(StatusCode) = 'ERROR') AS ErrorCount,
-       quantileTDigest(0.95)(toFloat64(Duration) / 1000000.0) AS P95LatencyMS
-FROM otel_traces
-WHERE Timestamp >= {from:DateTime64(9)}
-  AND Timestamp < {to:DateTime64(9)}
-GROUP BY ServiceName, TargetService
-HAVING TargetService != '' AND TargetService != ServiceName
-ORDER BY RequestCount DESC, ServiceName ASC, TargetService ASC
-LIMIT {limit:UInt32}`
-
-const httpOverviewQuery = `
-SELECT toFloat64(count()) / {seconds:Float64} AS RequestRate,
-       if(count() = 0, 0., toFloat64(countIf(upperUTF8(StatusCode) IN ('ERROR', 'STATUS_CODE_ERROR'))) / toFloat64(count())) AS ErrorRate,
-       quantileTDigest(0.50)(toFloat64(Duration) / 1000000.0) AS P50LatencyMS,
-       quantileTDigest(0.95)(toFloat64(Duration) / 1000000.0) AS P95LatencyMS,
-       quantileTDigest(0.99)(toFloat64(Duration) / 1000000.0) AS P99LatencyMS,
-       count() AS SampleCount
-FROM otel_traces
-WHERE Timestamp >= {from:DateTime64(9)}
-  AND Timestamp < {to:DateTime64(9)}
-  AND (lowerUTF8(SpanKind) IN ('server', 'span_kind_server')
-       OR SpanAttributes['http.request.method'] != ''
-       OR SpanAttributes['http.method'] != '')
-  AND ({service:String} = '' OR ServiceName = {service:String})`

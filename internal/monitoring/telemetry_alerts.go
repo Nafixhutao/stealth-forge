@@ -48,7 +48,7 @@ func NewTelemetryAlertEvaluator(
 	return &TelemetryAlertEvaluator{Store: store, Explorer: explorer, Logger: logger}, nil
 }
 
-// RunOnce evaluates only rules backed by ClickHouse measurements. Monitor
+// RunOnce evaluates only rules backed by the telemetry store. Monitor
 // rules remain transactionally evaluated by CompleteAdminMonitorCheck. A
 // telemetry backend outage leaves the last durable alert state untouched so a
 // transient outage cannot manufacture a recovery event.

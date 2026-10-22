@@ -124,10 +124,6 @@ func main() {
 		},
 	)
 	telemetryStore, telemetryErr := telemetry.Open(pool, telemetry.Config{
-		Address:          cfg.TelemetryClickHouseAddr,
-		Database:         cfg.TelemetryClickHouseDatabase,
-		Username:         cfg.TelemetryClickHouseUser,
-		Password:         cfg.TelemetryClickHousePassword,
 		MaxQueryDuration: cfg.TelemetryMaxQueryDuration,
 		MaxQueryRange:    cfg.TelemetryMaxQueryRange,
 		MaxQueryRows:     cfg.TelemetryMaxQueryRows,
@@ -138,12 +134,6 @@ func main() {
 	}
 	if telemetryErr == nil {
 		defer telemetryStore.Close()
-		if err := telemetryStore.Migrate(ctx); err != nil {
-			// Telemetry is intentionally not a startup dependency for the core
-			// API. The collector has a persistent queue and will retry its own
-			// schema/data path when ClickHouse recovers.
-			logger.Warn("telemetry schema registry unavailable", "error", err)
-		}
 	}
 	// Host resource metrics are sampled in-process so the admin Overview keeps
 	// its CPU/memory/disk/network cards without a telemetry backend. A 1-hour

@@ -18,13 +18,11 @@ fi
 compose=(docker compose --env-file "$env_file" -f "$compose_file")
 compose_root="$(cd -- "$(dirname -- "$compose_file")" && pwd)"
 export STEALTH_INSTALL_ROOT="$compose_root"
-# The ClickHouse-backed telemetry pipeline is optional. When the rendered
-# Compose no longer defines it, the telemetry ingestion/persistence smoke
-# checks are skipped instead of failing on missing services.
+# App runtime logs are read from a container log reader, which this Compose
+# baseline does not ship. The API reports them as unavailable, so the App
+# runtime log assertions below are skipped rather than failing on a missing
+# capability. Request telemetry itself is PostgreSQL-backed and always on.
 telemetry_enabled=false
-if "${compose[@]}" config --services 2>/dev/null | grep -qx clickhouse; then
-	telemetry_enabled=true
-fi
 app_host_reboot_evidence_path="${APP_REBOOT_EVIDENCE_PATH:-}"
 case "$app_host_reboot_acceptance" in
 	true|false) ;;
@@ -690,13 +688,6 @@ wait_for_healthy() {
 	return 1
 }
 
-# Telemetry-only helper. It is retained so the gated telemetry smoke below
-# stays coherent, but it only runs when the rendered Compose still defines the
-# ClickHouse service.
-clickhouse_query() {
-	local query="$1"
-	"${compose[@]}" exec -T clickhouse sh -ec 'clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD" --database "$CLICKHOUSE_DB" --query "$1"' sh "$query"
-}
 
 print_bounded_diagnostic() {
 	local label="$1"
@@ -709,22 +700,6 @@ print_bounded_diagnostic() {
 	else
 		printf '<none>\n' >&2
 	fi
-}
-
-start_docker_filelog_smoke() {
-	local marker="$1"
-	# docker compose exec attaches to an exec session and does not write that
-	# session's output to the container's Docker JSON log. Run a short-lived
-	# process as the container's main process so file_log/docker observes the
-	# exact log driver path used in production.
-	"${compose[@]}" run --rm --no-deps --entrypoint sh api -ec '
-		printf "compose filelog probe ready\n" >&2
-		sleep "$2"
-		printf "%s\n" "$1" >&2
-		sleep "$3"
-	' sh "$marker" "${SMOKE_FILELOG_DISCOVERY_DELAY_SECONDS:-5}" "${SMOKE_FILELOG_HOLD_SECONDS:-180}" >/dev/null 2>&1 &
-	filelog_smoke_pid=$!
-}
 
 container_networks() {
 	docker inspect --format '{{range $name, $_ := .NetworkSettings.Networks}}{{printf "%s\n" $name}}{{end}}' "$1" | sort
@@ -3814,233 +3789,11 @@ clear_platform_route_smoke() {
 	return 1
 }
 
-verify_telemetry_runtime_boundaries() {
-	local service container mounts caps networks
-	local collector_networks="" host_networks="" docker_logs_networks="" docker_metrics_networks="" docker_proxy_networks=""
-	local clickhouse_networks api_networks worker_networks ingest_network clickhouse_network proxy_network
-	for service in otel-collector telemetry-host telemetry-docker-logs telemetry-docker telemetry-docker-proxy; do
-		container="$("${compose[@]}" ps -q "$service")"
-		if [ -z "$container" ]; then
-			printf 'missing telemetry container: %s\n' "$service" >&2
-			return 1
-		fi
-		mounts="$(docker inspect --format '{{range .Mounts}}{{printf "%s->%s " .Source .Destination}}{{end}}' "$container")"
-		caps="$(docker inspect --format '{{json .HostConfig.CapAdd}}' "$container")"
-		networks="$(container_networks "$container")"
-		case "$service" in
-			otel-collector)
-				collector_networks="$networks"
-				case "$mounts" in
-					*'->/hostfs'*|*'/var/lib/docker/containers->/hostfs/var/lib/docker/containers'*|*'/var/run/docker.sock->'*)
-						printf 'main Collector has an unexpected host mount: %s\n' "$mounts" >&2
-						return 1
-					;;
-				esac
-				case "$caps" in
-					*DAC_READ_SEARCH*)
-						printf 'main Collector has DAC_READ_SEARCH: %s\n' "$caps" >&2
-						return 1
-					;;
-				 esac
-				;;
-			telemetry-host)
-				host_networks="$networks"
-				case "$mounts" in
-					*'/->/hostfs '*) ;;
-					*)
-						printf 'host metrics Collector has an unexpected mount: %s\n' "$mounts" >&2
-						return 1
-					;;
-				esac
-				case "$caps" in
-					*DAC_READ_SEARCH*)
-						printf 'host metrics Collector has DAC_READ_SEARCH: %s\n' "$caps" >&2
-						return 1
-					;;
-					esac
-				;;
-			telemetry-docker-logs)
-				docker_logs_networks="$networks"
-				case "$mounts" in
-					*'/var/lib/docker/containers->/hostfs/var/lib/docker/containers'*) ;;
-					*)
-						printf 'Docker log Collector is missing its narrow host mount: %s\n' "$mounts" >&2
-						return 1
-					;;
-				 esac
-				case "$mounts" in
-					*'/->/hostfs '*)
-						printf 'Docker log Collector has an overly broad host-root mount: %s\n' "$mounts" >&2
-						return 1
-					;;
-					*'/var/run/docker.sock->'*)
-						printf 'Docker log Collector has an overly broad mount: %s\n' "$mounts" >&2
-						return 1
-					;;
-				esac
-				case "$caps" in
-					*DAC_READ_SEARCH*) ;;
-					*)
-						printf 'Docker log Collector lacks DAC_READ_SEARCH: %s\n' "$caps" >&2
-						return 1
-					;;
-				 esac
-				;;
-			telemetry-docker)
-				docker_metrics_networks="$networks"
-				case "$mounts" in
-					*'/var/run/docker.sock->'*)
-						printf 'Docker metrics Collector has a Docker socket: %s\n' "$mounts" >&2
-						return 1
-					;;
-				 esac
-				;;
-			telemetry-docker-proxy)
-				docker_proxy_networks="$networks"
-				case "$mounts" in
-					*'/var/run/docker.sock->/var/run/docker.sock'*) ;;
-					*)
-						printf 'Docker proxy is missing its socket mount: %s\n' "$mounts" >&2
-						return 1
-					;;
-				 esac
-				;;
-		esac
-	done
 
-	ingest_network="$(telemetry_ingest_network_name)"
-	if [ "$(network_count "$host_networks")" -ne 1 ] || ! network_contains "$host_networks" "$ingest_network"; then
-		printf 'host metrics Collector must join only the configured ingest network: expected=%q actual=%q\n' "$ingest_network" "$host_networks" >&2
-		return 1
-	fi
-	if [ "$(network_count "$docker_logs_networks")" -ne 1 ] || ! network_contains "$docker_logs_networks" "$ingest_network"; then
-		printf 'Docker log Collector must join only the configured ingest network: expected=%q actual=%q\n' "$ingest_network" "$docker_logs_networks" >&2
-		return 1
-	fi
-	if [ "$(docker network inspect --format '{{.Internal}}' "$ingest_network")" != "true" ]; then
-		printf 'telemetry ingest network must be internal: %s\n' "$ingest_network" >&2
-		return 1
-	fi
-	if [ "$(network_count "$collector_networks")" -ne 3 ] || ! network_contains "$collector_networks" "$ingest_network"; then
-		printf 'main Collector network boundary is incorrect: %s\n' "$collector_networks" >&2
-		return 1
-	fi
 
-	container="$("${compose[@]}" ps -q clickhouse)"
-	clickhouse_networks="$(container_networks "$container")"
-	container="$("${compose[@]}" ps -q api)"
-	api_networks="$(container_networks "$container")"
-	container="$("${compose[@]}" ps -q worker)"
-	worker_networks="$(container_networks "$container")"
-	if [ "$(network_count "$clickhouse_networks")" -ne 1 ]; then
-		printf 'ClickHouse network boundary is incorrect: %s\n' "$clickhouse_networks" >&2
-		return 1
-	fi
-	clickhouse_network="$(printf '%s\n' "$clickhouse_networks" | awk 'NF { print; exit }')"
-	if ! network_contains "$collector_networks" "$clickhouse_network" || network_contains "$host_networks" "$clickhouse_network" || network_contains "$docker_logs_networks" "$clickhouse_network"; then
-		printf 'isolated Collectors share the ClickHouse network\n' >&2
-		return 1
-	fi
-	if network_contains "$api_networks" "$ingest_network" || network_contains "$worker_networks" "$ingest_network"; then
-		printf 'application services share the isolated telemetry ingest network\n' >&2
-		return 1
-	fi
 
-	if [ "$(network_count "$docker_proxy_networks")" -ne 1 ] || [ "$(network_count "$docker_metrics_networks")" -ne 2 ]; then
-		printf 'Docker metrics network count is incorrect: collector=%s proxy=%s\n' "$docker_metrics_networks" "$docker_proxy_networks" >&2
-		return 1
-	fi
-	proxy_network="$(printf '%s\n' "$docker_proxy_networks" | awk 'NF { print; exit }')"
-	if [ "$proxy_network" = "$ingest_network" ] || ! network_contains "$docker_metrics_networks" "$ingest_network" || ! network_contains "$docker_metrics_networks" "$proxy_network"; then
-		printf 'Docker metrics Collector does not isolate its proxy and ingest networks\n' >&2
-		return 1
-	fi
-	printf 'Telemetry runtime privilege and network boundaries passed\n'
 }
 
-stop_docker_filelog_smoke() {
-	if [ -n "$filelog_smoke_pid" ]; then
-		kill "$filelog_smoke_pid" 2>/dev/null || true
-		wait "$filelog_smoke_pid" 2>/dev/null || true
-		filelog_smoke_pid=""
-	fi
-}
-
-wait_for_telemetry_rows() {
-	local name="$1"
-	local query="$2"
-	local value output
-	last_telemetry_query="$query"
-	last_telemetry_query_error=""
-	last_telemetry_query_result=""
-	for attempt in $(seq 1 "${SMOKE_ATTEMPTS:-60}"); do
-		if output="$(clickhouse_query "$query" 2>&1)"; then
-			value="$(printf '%s' "$output" | tr -d '[:space:]')"
-			last_telemetry_query_error=""
-		else
-			value=""
-			last_telemetry_query_error="$output"
-		fi
-		last_telemetry_query_result="$value"
-		if [[ "$value" =~ ^[1-9][0-9]*$ ]]; then
-			printf '%s: %s rows\n' "$name" "$value"
-			return 0
-		fi
-		sleep "${SMOKE_INTERVAL_SECONDS:-2}"
-	done
-	printf '%s telemetry query did not return rows\n' "$name" >&2
-	print_telemetry_diagnostics "$name"
-	return 1
-}
-
-wait_for_admin_rows() {
-	local name="$1"
-	local path="$2"
-	local expected="$3"
-	local value=""
-	for attempt in $(seq 1 "${SMOKE_ATTEMPTS:-60}"); do
-		value="$(curl --fail --silent --show-error --header "Cookie: $auth_cookie_header" --max-time 5 "${api_url%/}${path}" 2>/dev/null || true)"
-		if printf '%s' "$value" | grep -F "$expected" >/dev/null 2>&1; then
-			printf '%s: Admin API returned the expected row\n' "$name"
-			return 0
-		fi
-		sleep "${SMOKE_INTERVAL_SECONDS:-2}"
-	done
-	printf '%s Admin API query did not return %s\n' "$name" "$expected" >&2
-	printf '%s\n' "$value" | head -c 600 >&2 || true
-	return 1
-}
-
-verify_collector_storage() {
-	"${compose[@]}" run --rm --no-deps --user 10001:10001 otelcol-state-init \
-		sh -ec 'state=/var/lib/otelcol/file_storage; test -d "$state"; probe="$state/.compose-smoke-probe"; printf smoke >"$probe"; test "$(cat "$probe")" = smoke; rm -f "$probe"'
-	printf 'Collector file_storage is writable as UID 10001\n'
-}
-
-write_collector_persistence_probe() {
-	"${compose[@]}" run --rm --no-deps --user 10001:10001 otelcol-state-init \
-		sh -ec 'state=/var/lib/otelcol; probe="$state/.compose-smoke-persistence-probe"; printf persistent >"$probe"; test "$(cat "$probe")" = persistent'
-	printf 'Collector file_storage persistence probe written\n'
-}
-
-read_collector_persistence_probe() {
-	"${compose[@]}" run --rm --no-deps --user 10001:10001 otelcol-state-init \
-		sh -ec 'state=/var/lib/otelcol; probe="$state/.compose-smoke-persistence-probe"; test "$(cat "$probe")" = persistent; rm -f "$probe"'
-	printf 'Collector file_storage persistence probe survived restart\n'
-}
-
-emit_otlp_signal() {
-	local signal="$1"
-	local payload="$2"
-	"${compose[@]}" exec -T api sh -ec '
-		payload="$1"
-		signal="$2"
-		wget -qO /dev/null \
-			--header="Content-Type: application/json" \
-			--post-data="$payload" \
-			"http://otel-collector:4318/v1/$signal"
-	' sh "$payload" "$signal"
-}
 
 seal_bootstrap_for_smoke() {
 	# The release smoke database has no real GitHub owner. Sealing this
@@ -4059,21 +3812,8 @@ export APPS_RUNTIME_IMAGE_GC_INTERVAL=1m
 "${compose[@]}" up -d postgres redis
 wait_for_healthy postgres
 wait_for_healthy redis
-if [ "$telemetry_enabled" = true ]; then
-	"${compose[@]}" up -d clickhouse
-	wait_for_healthy clickhouse
-fi
 "${compose[@]}" up migrate
 seal_bootstrap_for_smoke
-if [ "$telemetry_enabled" = true ]; then
-	"${compose[@]}" up -d otel-collector telemetry-docker-proxy telemetry-docker
-	wait_for_healthy otel-collector
-	"${compose[@]}" up -d telemetry-host telemetry-docker-logs
-	wait_for_healthy telemetry-host
-	wait_for_healthy telemetry-docker-logs
-	wait_for_healthy telemetry-docker-proxy
-	wait_for_healthy telemetry-docker
-fi
 "${compose[@]}" up -d buildkit
 wait_for_healthy buildkit
 "${compose[@]}" up -d api worker console proxy traefik
@@ -4089,9 +3829,6 @@ if ! printf '%s\n' "$ingress_control_status" | grep -Fq 'Cloudflare Tunnel: not 
 	exit 1
 fi
 printf '%s\n' 'ingress-control one-shot status passed with an unconfigured Cloudflare provider'
-if [ "$telemetry_enabled" = true ]; then
-	verify_telemetry_runtime_boundaries
-fi
 verify_traefik_runtime_boundaries
 verify_worker_platform_state_boundary
 verify_traefik_network_address_model
@@ -4174,99 +3911,6 @@ if [ "$app_host_reboot_acceptance" != true ]; then
 	clear_platform_route_smoke
 fi
 
-if [ "$telemetry_enabled" = true ]; then
-filelog_marker="${smoke_marker}-docker-log"
-start_docker_filelog_smoke "compose filelog smoke ${filelog_marker}"
-
-# App lifecycle smoke can take several minutes. Timestamp telemetry when it is
-# emitted so the later ingestion query window remains valid after that work.
-timestamp_seconds="$(date -u +%s)"
-timestamp_ns="$((timestamp_seconds * 1000000000))"
-start_timestamp_ns="$((timestamp_ns - 1000000000))"
-trace_id="$(printf '%s' "$smoke_marker" | sha256sum | cut -c1-32)"
-span_id="$(printf '%s-span' "$smoke_marker" | sha256sum | cut -c1-16)"
-
-log_payload="$(cat <<EOF
-{"resourceLogs":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"compose-smoke"}},{"key":"smoke.marker","value":{"stringValue":"$smoke_marker"}}]},"scopeLogs":[{"scope":{"name":"compose-smoke"},"logRecords":[{"timeUnixNano":"$timestamp_ns","observedTimeUnixNano":"$timestamp_ns","severityNumber":17,"severityText":"ERROR","body":{"stringValue":"compose smoke log $smoke_marker"},"attributes":[{"key":"smoke.marker","value":{"stringValue":"$smoke_marker"}}],"traceId":"$trace_id","spanId":"$span_id"}]}]}]}
-EOF
-)"
-trace_payload="$(cat <<EOF
-{"resourceSpans":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"compose-smoke"}},{"key":"smoke.marker","value":{"stringValue":"$smoke_marker"}}]},"scopeSpans":[{"scope":{"name":"compose-smoke"},"spans":[{"traceId":"$trace_id","spanId":"$span_id","name":"compose smoke","kind":"SPAN_KIND_SERVER","startTimeUnixNano":"$start_timestamp_ns","endTimeUnixNano":"$timestamp_ns","attributes":[{"key":"smoke.marker","value":{"stringValue":"$smoke_marker"}}],"status":{"code":"STATUS_CODE_OK"}}]}]}]}
-EOF
-)"
-metric_payload="$(cat <<EOF
-{"resourceMetrics":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"compose-smoke"}},{"key":"smoke.marker","value":{"stringValue":"$smoke_marker"}}]},"scopeMetrics":[{"scope":{"name":"compose-smoke"},"metrics":[{"name":"$metric_name","description":"Compose smoke metric","unit":"1","gauge":{"dataPoints":[{"timeUnixNano":"$timestamp_ns","asDouble":1,"attributes":[{"key":"smoke.marker","value":{"stringValue":"$smoke_marker"}}]}]}}]}]}]}
-EOF
-)"
-
-# Exercise the actual OTLP exporter path with one authenticated, correlated
-# log, trace, and metric. The Admin API checks below prove that the same rows
-# are visible through the production authorization/query boundary.
-emit_otlp_signal logs "$log_payload"
-emit_otlp_signal traces "$trace_payload"
-emit_otlp_signal metrics "$metric_payload"
-
-# Keep the lower bound anchored to the emitted OTLP event while including the
-# later Docker file log generated after the App lifecycle checks.
-from="$(date -u -d "@$((timestamp_seconds - 60))" +%Y-%m-%dT%H:%M:%SZ)"
-to="$(date -u -d '1 minute' +%Y-%m-%dT%H:%M:%SZ)"
-wait_for_telemetry_rows "smoke metric" "SELECT count() FROM otel_metrics_gauge WHERE TimeUnix >= now() - INTERVAL 10 MINUTE AND MetricName = '${metric_name}' AND ResourceAttributes['smoke.marker'] = '${smoke_marker}'"
-wait_for_telemetry_rows "smoke log" "SELECT count() FROM otel_logs WHERE Timestamp >= now() - INTERVAL 10 MINUTE AND positionCaseInsensitiveUTF8(Body, '${smoke_marker}') > 0"
-wait_for_telemetry_rows "smoke trace" "SELECT count() FROM otel_traces WHERE Timestamp >= now() - INTERVAL 10 MINUTE AND TraceId = '${trace_id}'"
-wait_for_telemetry_rows "Docker file log" "SELECT count() FROM otel_logs WHERE Timestamp >= now() - INTERVAL 10 MINUTE AND SeverityText = 'WARN' AND positionCaseInsensitiveUTF8(Body, '${filelog_marker}') > 0 AND ResourceAttributes['container.id'] != ''"
-stop_docker_filelog_smoke
-
-wait_for_admin_rows "logs" "/v1/admin/telemetry/logs?from=${from}&to=${to}&service=compose-smoke&level=ERROR&query=${smoke_marker}&limit=10" "$smoke_marker"
-wait_for_admin_rows "traces" "/v1/admin/telemetry/traces?from=${from}&to=${to}&service=compose-smoke&trace_id=${trace_id}&limit=10" "$trace_id"
-wait_for_admin_rows "metrics" "/v1/admin/telemetry/metrics?from=${from}&to=${to}&service=compose-smoke&name=${metric_name}&limit=10" "$smoke_marker"
-
-# Exercise the container receiver and verify each signal family it is expected
-# to emit. The union keeps this independent of whether a receiver release
-# classifies a particular instrument as gauge or sum.
-wait_for_telemetry_rows "container metrics" "SELECT count() FROM (SELECT MetricName, ResourceAttributes FROM otel_metrics_gauge WHERE TimeUnix >= now() - INTERVAL 10 MINUTE UNION ALL SELECT MetricName, ResourceAttributes FROM otel_metrics_sum WHERE TimeUnix >= now() - INTERVAL 10 MINUTE) WHERE mapContains(ResourceAttributes, 'container.id')"
-for metric in \
-	container.cpu.usage.total \
-	container.memory.usage.total \
-	container.network.io.usage.rx_bytes \
-	container.blockio.io_service_bytes_recursive; do
-	wait_for_telemetry_rows "${metric}" "SELECT count() FROM (SELECT MetricName, ResourceAttributes FROM otel_metrics_gauge WHERE TimeUnix >= now() - INTERVAL 10 MINUTE UNION ALL SELECT MetricName, ResourceAttributes FROM otel_metrics_sum WHERE TimeUnix >= now() - INTERVAL 10 MINUTE) WHERE MetricName = '${metric}' AND mapContains(ResourceAttributes, 'container.id')"
-done
-wait_for_admin_rows "Docker file log attribution" "/v1/admin/telemetry/logs?from=${from}&to=${to}&query=${filelog_marker}&limit=10" 'container.name'
-# The receiver intentionally emits the aggregate state metric without a
-# per-container resource. Health status is emitted per container that has a
-# Docker healthcheck, which the Compose stack provides for its core services.
-wait_for_telemetry_rows "container.state.status" "SELECT count() FROM (SELECT MetricName, Attributes FROM otel_metrics_gauge WHERE TimeUnix >= now() - INTERVAL 10 MINUTE UNION ALL SELECT MetricName, Attributes FROM otel_metrics_sum WHERE TimeUnix >= now() - INTERVAL 10 MINUTE) WHERE MetricName = 'container.state.status' AND Attributes['container.state.status'] != ''"
-wait_for_telemetry_rows "container.state.health.status" "SELECT count() FROM (SELECT MetricName, Attributes, ResourceAttributes FROM otel_metrics_gauge WHERE TimeUnix >= now() - INTERVAL 10 MINUTE UNION ALL SELECT MetricName, Attributes, ResourceAttributes FROM otel_metrics_sum WHERE TimeUnix >= now() - INTERVAL 10 MINUTE) WHERE MetricName = 'container.state.health.status' AND mapContains(ResourceAttributes, 'container.id') AND Attributes['container.state.health.state'] != ''"
-
-# hostmetrics' CPU scraper emits the pinned system.cpu.time sum metric. This
-# proves the isolated host collector reaches ClickHouse through main OTLP.
-wait_for_telemetry_rows "host metrics" "SELECT count() FROM otel_metrics_sum WHERE TimeUnix >= now() - INTERVAL 10 MINUTE AND MetricName = 'system.cpu.time'"
-
-verify_collector_storage
-
-# The schema registry is created by the API and is a small persistence
-# sentinel. Restart ClickHouse, wait for the real healthcheck, and verify the
-# sentinel plus the exact smoke rows remain available on the named volume.
-wait_for_telemetry_rows "schema registry" "SELECT count() FROM telemetry_schema_migrations WHERE version = 'otel-clickhouse-exporter-0.161.0'"
-"${compose[@]}" restart clickhouse
-wait_for_healthy clickhouse
-wait_for_telemetry_rows "schema registry after restart" "SELECT count() FROM telemetry_schema_migrations WHERE version = 'otel-clickhouse-exporter-0.161.0'"
-wait_for_telemetry_rows "smoke metric after restart" "SELECT count() FROM otel_metrics_gauge WHERE TimeUnix >= now() - INTERVAL 10 MINUTE AND MetricName = '${metric_name}' AND ResourceAttributes['smoke.marker'] = '${smoke_marker}'"
-wait_for_telemetry_rows "smoke log after restart" "SELECT count() FROM otel_logs WHERE Timestamp >= now() - INTERVAL 10 MINUTE AND positionCaseInsensitiveUTF8(Body, '${smoke_marker}') > 0"
-wait_for_telemetry_rows "smoke trace after restart" "SELECT count() FROM otel_traces WHERE Timestamp >= now() - INTERVAL 10 MINUTE AND TraceId = '${trace_id}'"
-wait_for_telemetry_rows "Docker file log after restart" "SELECT count() FROM otel_logs WHERE Timestamp >= now() - INTERVAL 10 MINUTE AND SeverityText = 'WARN' AND positionCaseInsensitiveUTF8(Body, '${filelog_marker}') > 0 AND ResourceAttributes['container.id'] != ''"
-wait_for_admin_rows "traces after ClickHouse restart" "/v1/admin/telemetry/traces?from=${from}&to=${to}&service=compose-smoke&trace_id=${trace_id}&limit=10" "$trace_id"
-
-write_collector_persistence_probe
-"${compose[@]}" restart otel-collector
-wait_for_healthy otel-collector
-verify_collector_storage
-read_collector_persistence_probe
-
-printf 'Compose telemetry ingestion and ClickHouse persistence smoke checks passed\n'
-else
-	printf '%s\n' 'Skipping telemetry ingestion smoke: the rendered Compose has no ClickHouse service'
-fi
 
 if [ "$app_host_reboot_acceptance" = true ]; then
 	write_app_host_reboot_evidence
