@@ -114,7 +114,12 @@ func writeEngineFixture(t *testing.T, setup bool) Layout {
 		filepath.Join(layout.Root, "buildkit", "stealth-buildkit-rootless.apparmor"): testBuildKitAppArmorProfileAsset(),
 		layout.TraefikStatic: testTraefikStaticAsset(),
 		layout.TraefikCore:   strings.ReplaceAll(testTraefikCoreAsset(), "__STEALTH_PUBLIC_HOST__", "127.0.0.1"),
-		filepath.Join(layout.TraefikGenerated, ".gitkeep"): "# Stealth route reconciler\n",
+		filepath.Join(layout.TraefikGenerated, ".gitkeep"):            "# Stealth route reconciler\n",
+		filepath.Join(layout.Root, "status-site", "index.html"):       "<!doctype html>\n<title>Status</title>\n",
+		filepath.Join(layout.Root, "status-site", "app.js"):           "function renderPublished(page) {}\n",
+		filepath.Join(layout.Root, "status-site", "styles.css"):       ".site-header__inner { display: flex; }\n",
+		filepath.Join(layout.Root, "status-site", "favicon.png"):      "\x89PNG\r\n\x1a\n",
+		filepath.Join(layout.Root, "status-site", "stealth-mark.png"): "\x89PNG\r\n\x1a\n",
 	} {
 		if err := WriteAtomic(path, []byte(contents), 0o644); err != nil {
 			t.Fatal(err)
@@ -294,6 +299,11 @@ func engineTestAssetContents() map[string]string {
 		"traefik/traefik.yaml":                        testTraefikStaticAsset(),
 		"traefik/dynamic/core.yaml":                   testTraefikCoreAsset(),
 		"traefik/dynamic/generated/.gitkeep":          "# Stealth route reconciler\n",
+		"status-site/index.html":                      "<!doctype html>\n<title>Status</title>\n",
+		"status-site/app.js":                          "function renderPublished(page) {}\n",
+		"status-site/styles.css":                      ".site-header__inner { display: flex; }\n",
+		"status-site/favicon.png":                     "\x89PNG\r\n\x1a\n",
+		"status-site/stealth-mark.png":                "\x89PNG\r\n\x1a\n",
 	}
 }
 
@@ -888,6 +898,11 @@ func TestPrepareMigratesPrePR83ManagedAssets(t *testing.T) {
 		"traefik/traefik.yaml":                        testTraefikStaticAsset(),
 		"traefik/dynamic/core.yaml":                   testTraefikCoreAsset(),
 		"traefik/dynamic/generated/.gitkeep":          "# Stealth route reconciler\n",
+		"status-site/index.html":                      "<!doctype html>\n<title>Status</title>\n",
+		"status-site/app.js":                          "function renderPublished(page) {}\n",
+		"status-site/styles.css":                      ".site-header__inner { display: flex; }\n",
+		"status-site/favicon.png":                     "\x89PNG\r\n\x1a\n",
+		"status-site/stealth-mark.png":                "\x89PNG\r\n\x1a\n",
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		name := strings.TrimPrefix(r.URL.Path, "/"+targetVersion+"/")
@@ -1521,16 +1536,8 @@ func TestManagedAssetRecoveryRestoresOnlyCoherentReleaseStates(t *testing.T) {
 func TestTargetReleaseManifestCanAddFutureManagedAsset(t *testing.T) {
 	const version = "v1.2.3"
 	layout := writeEngineFixture(t, false)
-	assets := map[string]string{
-		"compose.production.yaml":                     testProductionComposeAsset(),
-		"buildkit/buildkitd.toml":                     testBuildKitConfigAsset(),
-		"buildkit/stealth-buildkit-rootless.apparmor": testBuildKitAppArmorProfileAsset(),
-		"console/deploy/nginx.conf":                   "server {\n}",
-		"traefik/traefik.yaml":                        testTraefikStaticAsset(),
-		"traefik/dynamic/core.yaml":                   testTraefikCoreAsset(),
-		"traefik/dynamic/generated/.gitkeep":          "# Stealth route reconciler\n",
-		"buildkit/future.yaml":                        "future_receiver:\n",
-	}
+	assets := engineTestAssetContents()
+	assets["buildkit/future.yaml"] = "future_receiver:\n"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		name := strings.TrimPrefix(r.URL.Path, "/"+version+"/")
 		if name == "checksums.txt" {

@@ -5,4 +5,9 @@ console/deploy/nginx.conf
 traefik/traefik.yaml
 traefik/dynamic/core.yaml
 traefik/dynamic/generated/.gitkeep
+status-site/index.html
+status-site/app.js
+status-site/styles.css
+status-site/favicon.png
+status-site/stealth-mark.png
 compose.setup.yaml
