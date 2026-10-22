@@ -52,6 +52,10 @@ export const queryKeys = {
   projects: (organizationId: string) => ["projects", organizationId] as const,
   project: (projectId: string) => ["project", projectId] as const,
   usage: (projectId: string) => ["usage", projectId] as const,
+  // Nested under `usage` on purpose: invalidating the snapshot must also
+  // refresh the chart, which is derived from the same metering data.
+  usageMetering: (projectId: string) =>
+    ["usage", projectId, "metering"] as const,
   audit: (scope: string, id: string) => [scope, id, "audit"] as const,
   traces: (scope: string, id: string) => [scope, id, "traces"] as const,
   functions: (projectId: string) => ["functions", projectId] as const,
@@ -100,6 +104,18 @@ export const queryKeys = {
     ["site-deployment", projectId, siteId, deploymentId] as const,
   siteDeploymentScope: (projectId: string, siteId: string) =>
     ["site-deployment", projectId, siteId] as const,
+  // The build log and the file listing belong to one release, so they hang off
+  // the deployment key: refreshing the release refreshes both.
+  siteDeploymentLogs: (
+    projectId: string,
+    siteId: string,
+    deploymentId: string,
+  ) => ["site-deployment", projectId, siteId, deploymentId, "logs"] as const,
+  siteDeploymentFiles: (
+    projectId: string,
+    siteId: string,
+    deploymentId: string,
+  ) => ["site-deployment", projectId, siteId, deploymentId, "files"] as const,
   databases: (projectId: string) => ["databases", projectId] as const,
   database: (projectId: string, databaseId: string) =>
     ["database", projectId, databaseId] as const,

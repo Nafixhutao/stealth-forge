@@ -1,6 +1,7 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Menu, Search } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useLogout } from "@/api/mutations/auth";
@@ -17,14 +18,15 @@ import { cn } from "@/lib/utils";
 
 /**
  * The user console's mobile top bar: the brand mark on the left, then the
- * command palette and the account on the right. It renders below `lg` only —
- * from `lg` up the desktop rail already carries the chrome — and exists so the
- * phone layout reads like the reference instead of a floating hamburger.
+ * command palette, the account, and the navigation toggle on the right. It
+ * renders below `lg` only — from `lg` up the desktop rail already carries the
+ * chrome — and exists so the phone layout reads like the reference instead of a
+ * floating hamburger.
  *
- * The mark opens the navigation drawer (the sheet slides in below this 59px
- * bar), the magnifier fires the shared command-palette event the sidebar
- * already listens for, and the avatar opens the real account actions. Every
- * control does something the console can actually do.
+ * The mark is the way home, not a menu: it links to the console's front page,
+ * which is what a brand mark does everywhere else. Navigation has its own
+ * control — the three-line button beside the account, at the edge a thumb
+ * reaches — and that opens the bottom sheet.
  */
 
 const FOCUS =
@@ -55,11 +57,10 @@ export function UserTopBar({ canOpenAdmin }: { canOpenAdmin: boolean }) {
 
   return (
     <header className="fixed inset-x-0 top-0 z-40 flex !h-[59px] box-border items-center gap-1 border-b border-[var(--projects-divider)] bg-[var(--projects-bg)] px-4 lg:hidden">
-      <button
-        type="button"
-        onClick={() => shell?.openSidebar()}
-        aria-label="Open navigation"
-        title="Open navigation"
+      <Link
+        href="/user"
+        aria-label="Stealth home"
+        title="Stealth home"
         className={cn(
           "inline-flex shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-[var(--projects-control)]",
           FOCUS,
@@ -71,7 +72,7 @@ export function UserTopBar({ canOpenAdmin }: { canOpenAdmin: boolean }) {
           alt=""
           className="size-6 shrink-0 object-contain"
         />
-      </button>
+      </Link>
 
       <div className="ml-auto flex items-center gap-1.5">
         <button
@@ -94,7 +95,7 @@ export function UserTopBar({ canOpenAdmin }: { canOpenAdmin: boolean }) {
             aria-label="Account menu"
             title="Account menu"
             className={cn(
-              "inline-flex size-9 -mr-1.5 items-center justify-center rounded-full transition-colors hover:bg-[var(--projects-control)]",
+              "inline-flex size-9 items-center justify-center rounded-full transition-colors hover:bg-[var(--projects-control)]",
               FOCUS,
             )}
           >
@@ -136,6 +137,25 @@ export function UserTopBar({ canOpenAdmin }: { canOpenAdmin: boolean }) {
             <DropdownMenuItem onSelect={signOut}>Log out</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        <button
+          type="button"
+          // Opens on click, not pointer-down. Opening on pointer-down starts the
+          // motion a few milliseconds sooner, but it puts the backdrop under the
+          // finger before the tap finishes: the browser then dispatches the
+          // tap's own click to the backdrop and the sheet closes in the same
+          // gesture. On a phone that reads as "the button does nothing".
+          onClick={() => shell?.openSidebar()}
+          aria-label="Open navigation"
+          aria-haspopup="dialog"
+          title="Open navigation"
+          className={cn(
+            "-mr-1.5 inline-flex size-9 items-center justify-center rounded-lg text-[var(--projects-text)] transition-colors hover:bg-[var(--projects-control)]",
+            FOCUS,
+          )}
+        >
+          <Menu className="size-[18px]" strokeWidth={1.9} aria-hidden="true" />
+        </button>
       </div>
     </header>
   );

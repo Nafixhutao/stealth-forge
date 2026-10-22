@@ -374,6 +374,8 @@ paths:
     $ref: './paths/projects-sites.yaml#/paths/~1v1~1projects~1{projectID}~1sites~1{siteID}~1deployments~1{deploymentID}~1activate'
   /v1/projects/{projectID}/sites/{siteID}/deployments/{deploymentID}/logs:
     $ref: './paths/projects-sites.yaml#/paths/~1v1~1projects~1{projectID}~1sites~1{siteID}~1deployments~1{deploymentID}~1logs'
+  /v1/projects/{projectID}/sites/{siteID}/deployments/{deploymentID}/files:
+    $ref: './paths/projects-sites.yaml#/paths/~1v1~1projects~1{projectID}~1sites~1{siteID}~1deployments~1{deploymentID}~1files'
   /v1/sites/{siteID}:
     $ref: './paths/projects-sites.yaml#/paths/~1v1~1sites~1{siteID}'
   /v1/sites/{siteID}/{path}:

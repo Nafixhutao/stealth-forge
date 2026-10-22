@@ -19,3 +19,11 @@ export const PRIMARY_ACTION =
 
 export const SECONDARY_ACTION =
   "h-11 min-h-11 rounded-xl border border-[var(--projects-border)] bg-[var(--projects-card-bg)] text-[15px] text-[var(--projects-text)] hover:border-[var(--projects-border-hover)] hover:bg-[var(--projects-control)] focus-visible:ring-[var(--user-accent)]/50 focus-visible:ring-offset-[var(--projects-bg)] sm:h-9 sm:min-h-9";
+
+/**
+ * The destructive control. It is not the product accent: deleting a resource
+ * is a different intent from creating one, and it must not borrow the colour
+ * the rest of the surface uses for "go".
+ */
+export const DANGER_ACTION =
+  "!h-9 !min-h-0 shrink-0 !px-[15px] gap-2 !text-[12px] font-semibold rounded-lg bg-[var(--projects-danger)] text-white hover:opacity-90 focus-visible:ring-[var(--projects-danger)]/50 focus-visible:ring-offset-[var(--projects-bg)] sm:!w-auto sm:!px-4 sm:!text-[15px]";

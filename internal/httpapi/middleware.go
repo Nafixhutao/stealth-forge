@@ -71,6 +71,26 @@ func (s *Server) requireProjectManagement(next http.Handler) http.Handler {
 			if !ok {
 				return
 			}
+			// A session alone is not authority over a project: the account must
+			// belong to the project's organization. Without this check the only
+			// thing standing between a signed-in account and another tenant's
+			// project was the role lookup inside each repository, so any handler
+			// that forgot one would have been reachable. A non-member gets 404
+			// rather than 403, which is the same answer the API gives for a
+			// project that does not exist.
+			accountID, parseErr := repository.ParseUUID(account.ID)
+			if parseErr != nil {
+				internalError(s, w, parseErr)
+				return
+			}
+			if _, roleErr := s.repo.ProjectRoleForAccount(r.Context(), projectID, accountID); roleErr != nil {
+				if errors.Is(roleErr, repository.ErrNotFound) {
+					writeError(w, http.StatusNotFound, "not_found", "project was not found")
+					return
+				}
+				internalError(s, w, roleErr)
+				return
+			}
 			ctx := context.WithValue(r.Context(), accountContextKey, account)
 			recordTraceAccount(ctx, account)
 			ctx = context.WithValue(ctx, sessionContextKey, sessionID)

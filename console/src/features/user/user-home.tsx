@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   Building2,
   ChevronDown,
@@ -10,9 +9,10 @@ import {
   Plus,
   Search,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCurrentAccount } from "@/api/queries/account";
 import {
+  organizationItems,
   useOrganizationPlan,
   useOrganizationProjects,
   useOrganizations,
@@ -40,7 +40,10 @@ import {
   ProjectListSkeleton,
   ProjectRow,
 } from "@/features/user/project-card";
+import { UserFooter } from "@/features/user/user-footer";
 import { UserTopBar } from "@/features/user/user-top-bar";
+import { setCurrentOrganizationId } from "@/features/user/organization-scope";
+import { planLabel, planUsageText } from "@/lib/plans";
 import { cn } from "@/lib/utils";
 
 /**
@@ -75,23 +78,6 @@ import { cn } from "@/lib/utils";
 const FOCUS =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--user-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--projects-bg)]";
 
-const PLAN_LABEL: Record<string, string> = {
-  free: "Free",
-  pro: "Pro",
-  enterprise: "Enterprise",
-};
-
-/**
- * Real usage against the plan limit, as one sentence. It rides on the plan
- * chip's tooltip so the organization row keeps the reference's compact shape
- * without dropping the number.
- */
-function usageText(used: number, limit: number): string {
-  if (limit < 0)
-    return `${used} ${used === 1 ? "project" : "projects"}, unlimited`;
-  return `${used} of ${limit} ${limit === 1 ? "project" : "projects"} used`;
-}
-
 /** Initials mark. The Console ships no avatar asset, so none is invented. */
 function OrgAvatar({ label }: { label: string }) {
   return (
@@ -111,58 +97,8 @@ function PlanBadge({ planKey, title }: { planKey: string; title?: string }) {
       title={title}
       className="inline-flex !h-[15px] shrink-0 items-center rounded-md bg-[var(--projects-chip)] !px-1.5 leading-[15px] text-[9.5px]! font-medium text-[var(--projects-muted)] sm:h-auto sm:px-[7px] sm:py-[2px] sm:leading-4 sm:text-[11.5px]!"
     >
-      {PLAN_LABEL[planKey] ?? planKey}
+      {planLabel(planKey)}
     </span>
-  );
-}
-
-/** Closing footer: the brand mark and the operator-only console link. */
-function UserFooter({
-  canOpenAdmin,
-  role,
-}: {
-  canOpenAdmin: boolean;
-  role: string | null;
-}) {
-  return (
-    <footer className="border-t border-[var(--projects-divider)]">
-      <div className="mx-auto flex h-12 w-full max-w-[1440px] items-center gap-6 px-4 sm:h-14 sm:px-6 lg:px-7">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/stealth-cat.png"
-          alt=""
-          className="size-5 shrink-0 object-contain opacity-80"
-        />
-        {canOpenAdmin ? (
-          <Link
-            href="/admin"
-            aria-label={`${
-              role === "instance_owner" ? "Instance owner" : "Instance admin"
-            } — open the admin console`}
-            className={cn(
-              "rounded-md text-[13px] leading-5 text-[var(--projects-muted)] transition-colors hover:text-[var(--projects-text)]",
-              FOCUS,
-            )}
-          >
-            Admin
-          </Link>
-        ) : null}
-        {/* The public status site, not the admin console's operator view: the
-            footer is visible to every signed-in member. */}
-        <Link
-          href="/status"
-          className={cn(
-            "rounded-md text-[13px] leading-5 text-[var(--projects-muted)] transition-colors hover:text-[var(--projects-text)]",
-            FOCUS,
-          )}
-        >
-          Status
-        </Link>
-        <p className="m-0 ml-auto text-[13px] leading-5 text-[var(--projects-muted)]">
-          © {new Date().getFullYear()} Stealth
-        </p>
-      </div>
-    </footer>
   );
 }
 
@@ -176,7 +112,7 @@ export function UserHome() {
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
 
-  const items = organizations.data?.organizations ?? [];
+  const items = organizationItems(organizations.data);
   // An explicit choice wins; otherwise the first organization is the default so
   // the page has something to show on first paint.
   const selected =
@@ -187,10 +123,21 @@ export function UserHome() {
   const plan = useOrganizationPlan(selected?.id);
   const projects = useOrganizationProjects(selected?.id);
 
+  // The navigation panel shows this organization's plan, and it is a sibling of
+  // this page rather than a child, so the selection is published to a small
+  // shared store instead of staying page-local state.
+  useEffect(() => {
+    setCurrentOrganizationId(selected?.id ?? null);
+  }, [selected?.id]);
+
   const projectItems = useMemo(
-    () => projects.data?.projects ?? [],
+    () => projects.data?.pages.flatMap((page) => page?.projects ?? []) ?? [],
     [projects.data],
   );
+  // Only owners and admins may create a project. The API says so on the list
+  // itself, so a viewer or billing member is shown the list without a control
+  // that would answer 403.
+  const canManage = projects.data?.pages[0]?.can_manage ?? false;
   const visible = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return projectItems;
@@ -224,7 +171,7 @@ export function UserHome() {
               <OrgAvatar label={selected?.name ?? "?"} />
             )}
             <div className="flex min-w-0 items-center gap-2">
-              <h1 className="m-0 truncate !text-[13px] font-semibold leading-6 tracking-[-0.02em] text-[var(--projects-text)] sm:text-[18px]">
+              <h1 className="m-0 truncate !text-[13px] font-semibold leading-6 tracking-[-0.02em] text-[var(--projects-text)] sm:!text-[18px]">
                 {orgsLoading
                   ? "Loading organizations"
                   : (selected?.name ?? "No organization")}
@@ -232,7 +179,7 @@ export function UserHome() {
               {orgPlan ? (
                 <PlanBadge
                   planKey={orgPlan.plan_key}
-                  title={usageText(
+                  title={planUsageText(
                     orgPlan.usage.projects,
                     orgPlan.limits.projects,
                   )}
@@ -275,22 +222,41 @@ export function UserHome() {
                         ) : null}
                       </DropdownMenuItem>
                     ))}
+                    {organizations.hasNextPage ? (
+                      <DropdownMenuItem
+                        onSelect={(event) => {
+                          // Keep the menu open: the point is to reach the rest
+                          // of the list, not to dismiss it.
+                          event.preventDefault();
+                          void organizations.fetchNextPage();
+                        }}
+                        disabled={organizations.isFetchingNextPage}
+                      >
+                        <span className="text-[var(--projects-muted)]">
+                          {organizations.isFetchingNextPage
+                            ? "Loading…"
+                            : "Load more organizations"}
+                        </span>
+                      </DropdownMenuItem>
+                    ) : null}
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : null}
-              <button
-                type="button"
-                disabled={!selected}
-                onClick={() => setCreateOpen(true)}
-                aria-label="Create project"
-                title="Create project"
-                className={cn(
-                  "ml-[5px] sm:ml-[18px] inline-flex size-6 shrink-0 items-center justify-center text-[var(--projects-muted)] transition-colors hover:text-[var(--projects-text)] disabled:pointer-events-none disabled:opacity-40",
-                  FOCUS,
-                )}
-              >
-                <Plus size={16} strokeWidth={2} aria-hidden="true" />
-              </button>
+              {canManage ? (
+                <button
+                  type="button"
+                  disabled={!selected}
+                  onClick={() => setCreateOpen(true)}
+                  aria-label="Create project"
+                  title="Create project"
+                  className={cn(
+                    "ml-[5px] sm:ml-[18px] inline-flex size-6 shrink-0 items-center justify-center text-[var(--projects-muted)] transition-colors hover:text-[var(--projects-text)] disabled:pointer-events-none disabled:opacity-40",
+                    FOCUS,
+                  )}
+                >
+                  <Plus size={16} strokeWidth={2} aria-hidden="true" />
+                </button>
+              ) : null}
             </div>
           </header>
 
@@ -303,7 +269,7 @@ export function UserHome() {
           >
             <span
               aria-current="page"
-              className="relative inline-flex h-[44px] shrink-0 items-center whitespace-nowrap px-3 !text-[13px] font-medium text-[var(--projects-text)] !border-b-2 !border-white sm:h-[52px]"
+              className="relative inline-flex h-[44px] shrink-0 items-center whitespace-nowrap px-3 !text-[13px] font-medium text-[var(--projects-text)] !border-b-2 !border-[var(--projects-text)] sm:h-[52px]"
             >
               Projects
             </span>
@@ -403,19 +369,21 @@ export function UserHome() {
                     ))}
                   </div>
 
-                  <Button
-                    type="button"
-                    disabled={!selected}
-                    onClick={() => setCreateOpen(true)}
-                    className={PRIMARY_ACTION}
-                  >
-                    <Plus
-                      className="size-4 shrink-0"
-                      strokeWidth={2.2}
-                      aria-hidden="true"
-                    />
-                    Create project
-                  </Button>
+                  {canManage ? (
+                    <Button
+                      type="button"
+                      disabled={!selected}
+                      onClick={() => setCreateOpen(true)}
+                      className={PRIMARY_ACTION}
+                    >
+                      <Plus
+                        className="size-4 shrink-0"
+                        strokeWidth={2.2}
+                        aria-hidden="true"
+                      />
+                      Create project
+                    </Button>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -446,15 +414,21 @@ export function UserHome() {
                   className="py-10 sm:py-14"
                   icon={FolderKanban}
                   title="No projects in this organization yet"
-                  description="Create the first project to get a place for its databases, storage, functions, and deployments."
+                  description={
+                    canManage
+                      ? "Create the first project to get a place for its databases, storage, functions, and deployments."
+                      : "An owner or admin of this organization can create the first project."
+                  }
                   action={
-                    <Button
-                      type="button"
-                      onClick={() => setCreateOpen(true)}
-                      className={PRIMARY_ACTION}
-                    >
-                      Create project
-                    </Button>
+                    canManage ? (
+                      <Button
+                        type="button"
+                        onClick={() => setCreateOpen(true)}
+                        className={PRIMARY_ACTION}
+                      >
+                        Create project
+                      </Button>
+                    ) : undefined
                   }
                 />
               ) : visible.length === 0 ? (
@@ -481,7 +455,9 @@ export function UserHome() {
                       key={project.id}
                       project={project}
                       canOpenAdmin={canOpenAdmin}
-                      onCreateProject={() => setCreateOpen(true)}
+                      onCreateProject={
+                        canManage ? () => setCreateOpen(true) : undefined
+                      }
                     />
                   ))}
                 </div>
@@ -524,15 +500,37 @@ export function UserHome() {
                           colSpan={3}
                           className="px-4 py-2.5 text-[12.5px] leading-5 text-[var(--projects-muted)] sm:px-5 sm:py-3"
                         >
-                          {`Showing ${visible.length} of ${projectItems.length} ${
-                            projectItems.length === 1 ? "project" : "projects"
-                          }`}
+                          {projects.hasNextPage
+                            ? `Showing ${visible.length} of ${projectItems.length} loaded`
+                            : `Showing ${visible.length} of ${projectItems.length} ${
+                                projectItems.length === 1
+                                  ? "project"
+                                  : "projects"
+                              }`}
                         </td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
               )}
+
+              {/* Offered even when the search matches nothing here: a project
+                  that exists only on a later page must still be reachable. */}
+              {projects.hasNextPage && projectItems.length > 0 ? (
+                <div className="flex justify-center">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => void projects.fetchNextPage()}
+                    disabled={projects.isFetchingNextPage}
+                    className={SECONDARY_ACTION}
+                  >
+                    {projects.isFetchingNextPage
+                      ? "Loading…"
+                      : "Load more projects"}
+                  </Button>
+                </div>
+              ) : null}
             </>
           )}
         </PageBody>
