@@ -31,7 +31,10 @@ func validateState(state State) error {
 	if err := state.Cloudflare.Binding.Validate(); err != nil {
 		return err
 	}
-	if len(state.SetupSessionID) > 64 || strings.ContainsAny(state.SetupSessionID, "\x00\r\n") || len(state.SetupCodeHash) > 128 || strings.ContainsAny(state.SetupCodeHash, "\x00\r\n") {
+	if len(state.SetupSessionID) > 64 ||
+		strings.ContainsAny(state.SetupSessionID, "\x00\r\n") ||
+		len(state.SetupCodeHash) > 128 ||
+		strings.ContainsAny(state.SetupCodeHash, "\x00\r\n") {
 		return errors.New("setup bootstrap claim is invalid")
 	}
 	if len(state.InstallRunID) > 128 || strings.ContainsAny(state.InstallRunID, "\x00\r\n") {
@@ -41,7 +44,11 @@ func validateState(state State) error {
 		return errors.New("setup state contains too many host preflight checks")
 	}
 	for _, check := range state.HostPreflight {
-		if strings.TrimSpace(check.Name) == "" || len(check.Name) > 80 || strings.ContainsAny(check.Name, "\x00\r\n") || len(check.Detail) > 240 || strings.ContainsAny(check.Detail, "\x00\r\n") {
+		if strings.TrimSpace(check.Name) == "" ||
+			len(check.Name) > 80 ||
+			strings.ContainsAny(check.Name, "\x00\r\n") ||
+			len(check.Detail) > 240 ||
+			strings.ContainsAny(check.Detail, "\x00\r\n") {
 			return errors.New("host preflight check is invalid")
 		}
 	}
@@ -58,7 +65,11 @@ func validateState(state State) error {
 		// Secret values are encrypted before persistence and are never copied
 		// into env files or public responses. GitHub PEM private keys are
 		// intentionally multi-line, so only NUL is forbidden here.
-		if name == "" || len(name) > 120 || strings.ContainsAny(name, "\x00\r\n") || len(value) > 128<<10 || strings.ContainsRune(value, '\x00') {
+		if name == "" ||
+			len(name) > 120 ||
+			strings.ContainsAny(name, "\x00\r\n") ||
+			len(value) > 128<<10 ||
+			strings.ContainsRune(value, '\x00') {
 			return errors.New("setup state secret is invalid")
 		}
 	}
@@ -71,7 +82,12 @@ func ValidatePublicURL(raw string) (string, error) {
 		return "", errors.New("public URL is required")
 	}
 	parsed, err := url.Parse(raw)
-	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if err != nil {
+		return "", errors.New("public URL must be an absolute HTTP(S) URL without credentials, query, or fragment")
+	}
+	schemeOK := parsed.Scheme == "http" || parsed.Scheme == "https"
+	noExtras := parsed.User == nil && parsed.RawQuery == "" && parsed.Fragment == ""
+	if !schemeOK || parsed.Host == "" || !noExtras {
 		return "", errors.New("public URL must be an absolute HTTP(S) URL without credentials, query, or fragment")
 	}
 	return strings.TrimRight(parsed.String(), "/"), nil
@@ -83,14 +99,6 @@ func ValidateHostname(raw string) (string, error) {
 		return "", errors.New("hostname is invalid")
 	}
 	return host, nil
-}
-
-func ZoneNameForHostname(host string) string {
-	zone, err := domainname.RegistrableDomain(host)
-	if err != nil {
-		return ""
-	}
-	return zone
 }
 
 func sha256Bytes(value []byte) []byte {

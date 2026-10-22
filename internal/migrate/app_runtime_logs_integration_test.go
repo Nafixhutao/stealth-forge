@@ -148,6 +148,14 @@ func assertAppRuntimeLogSourcesSchema(t *testing.T, ctx context.Context, conn *p
 		wantTable, wantIndex, wantConstraints = 1, 1, 5
 	}
 	if table != wantTable || index != wantIndex || constraints != wantConstraints {
-		t.Fatalf("App runtime log schema objects table:%d index:%d constraints:%d, want %d/%d/%d", table, index, constraints, wantTable, wantIndex, wantConstraints)
+		t.Fatalf(
+			"App runtime log schema objects table:%d index:%d constraints:%d, want %d/%d/%d",
+			table,
+			index,
+			constraints,
+			wantTable,
+			wantIndex,
+			wantConstraints,
+		)
 	}
 }

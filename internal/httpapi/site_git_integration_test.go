@@ -79,14 +79,30 @@ func TestGitSiteDeploymentQueuesValidatedSourceIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"project"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects", map[string]string{"name": "site-git-" + ownerID.String()[:8]}, http.StatusCreated, &project)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects",
+		map[string]string{"name": "site-git-" + ownerID.String()[:8]},
+		http.StatusCreated,
+		&project,
+	)
 	projectURL := server.URL + "/v1/projects/" + project.Project.ID
 	var site struct {
 		Site struct {
 			ID string `json:"id"`
 		} `json:"site"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/sites", map[string]string{"name": "git-site"}, http.StatusCreated, &site)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/sites",
+		map[string]string{"name": "git-site"},
+		http.StatusCreated,
+		&site,
+	)
 
 	var created struct {
 		Deployment struct {
@@ -108,7 +124,15 @@ func TestGitSiteDeploymentQueuesValidatedSourceIntegration(t *testing.T) {
 		"output_directory": "dist",
 		"activate":         true,
 	}, http.StatusCreated, &created)
-	if created.Deployment.Source != "github" || created.Deployment.Repository == nil || *created.Deployment.Repository != "https://github.com/acme/landing" || created.Deployment.Ref == nil || *created.Deployment.Ref != "release/2026.09" || created.Deployment.Status != "queued" || created.Deployment.BuildStatus != "queued" || created.Deployment.ArchiveBytes == 0 || created.Deployment.ReservedBytes == 0 {
+	if created.Deployment.Source != "github" ||
+		created.Deployment.Repository == nil ||
+		*created.Deployment.Repository != "https://github.com/acme/landing" ||
+		created.Deployment.Ref == nil ||
+		*created.Deployment.Ref != "release/2026.09" ||
+		created.Deployment.Status != "queued" ||
+		created.Deployment.BuildStatus != "queued" ||
+		created.Deployment.ArchiveBytes == 0 ||
+		created.Deployment.ReservedBytes == 0 {
 		t.Fatalf("unexpected Git deployment: %+v", created.Deployment)
 	}
 	if fetcher.repository != "https://github.com/acme/landing.git" || fetcher.ref != "release/2026.09" {
@@ -131,8 +155,22 @@ func TestGitSiteDeploymentQueuesValidatedSourceIntegration(t *testing.T) {
 			Message      string `json:"message"`
 		} `json:"logs"`
 	}
-	requestJSON(t, ownerClient, http.MethodGet, projectURL+"/sites/"+site.Site.ID+"/deployments/"+created.Deployment.ID+"/logs?limit=10", nil, http.StatusOK, &logs)
-	if len(logs.Logs) != 1 || logs.Logs[0].DeploymentID != created.Deployment.ID || logs.Logs[0].SiteID != site.Site.ID || logs.Logs[0].ProjectID != project.Project.ID || logs.Logs[0].Sequence != 1 || logs.Logs[0].Level != "info" || logs.Logs[0].Message != "source archive queued" {
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		projectURL+"/sites/"+site.Site.ID+"/deployments/"+created.Deployment.ID+"/logs?limit=10",
+		nil,
+		http.StatusOK,
+		&logs,
+	)
+	if len(logs.Logs) != 1 ||
+		logs.Logs[0].DeploymentID != created.Deployment.ID ||
+		logs.Logs[0].SiteID != site.Site.ID ||
+		logs.Logs[0].ProjectID != project.Project.ID ||
+		logs.Logs[0].Sequence != 1 ||
+		logs.Logs[0].Level != "info" ||
+		logs.Logs[0].Message != "source archive queued" {
 		t.Fatalf("unexpected Site build logs: %+v", logs.Logs)
 	}
 	requestJSON(t, ownerClient, http.MethodGet, projectURL+"/sites/"+site.Site.ID+"/deployments/"+created.Deployment.ID+"/logs?after=1", nil, http.StatusOK, &struct {
@@ -147,7 +185,15 @@ func TestGitSiteDeploymentQueuesValidatedSourceIntegration(t *testing.T) {
 		"name":   "site-build-log-reader",
 		"scopes": []string{"sites.read"},
 	}, http.StatusCreated, &readKey)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, projectURL+"/sites/"+site.Site.ID+"/deployments/"+created.Deployment.ID+"/logs?limit=10", nil, http.StatusOK, map[string]string{"X-Stealth-Key": readKey.Secret})
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		projectURL+"/sites/"+site.Site.ID+"/deployments/"+created.Deployment.ID+"/logs?limit=10",
+		nil,
+		http.StatusOK,
+		map[string]string{"X-Stealth-Key": readKey.Secret},
+	)
 }
 
 type fakeGitFetcher struct {

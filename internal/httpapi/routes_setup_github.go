@@ -16,7 +16,12 @@ import (
 
 func (s *Server) startGitHubAuthorization(w http.ResponseWriter, r *http.Request) {
 	if s.githubOAuth == nil || s.setupState == nil {
-		writeError(w, http.StatusServiceUnavailable, "github_authorization_unavailable", "GitHub browser authorization is unavailable")
+		writeError(
+			w,
+			http.StatusServiceUnavailable,
+			"github_authorization_unavailable",
+			"GitHub browser authorization is unavailable",
+		)
 		return
 	}
 	state, err := s.setupState.Load(r.Context())
@@ -24,19 +29,34 @@ func (s *Server) startGitHubAuthorization(w http.ResponseWriter, r *http.Request
 		internalError(s, w, err)
 		return
 	}
-	if !state.GitHub.Connected || !githubauth.ValidClientID(state.GitHub.ClientID) || strings.TrimSpace(state.Secret("github_client_secret")) == "" {
+	if !state.GitHub.Connected ||
+		!githubauth.ValidClientID(state.GitHub.ClientID) ||
+		strings.TrimSpace(state.Secret("github_client_secret")) == "" {
 		writeError(w, http.StatusConflict, "github_not_connected", "connect a GitHub App before authorizing the first owner")
 		return
 	}
 	authorizationURL, expiresAt, err := s.beginGitHubAuthorization(r.Context(), r, state.GitHub.ClientID)
 	if err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "github_authorization_invalid", "the setup host cannot be used for GitHub browser authorization")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"github_authorization_invalid",
+			"the setup host cannot be used for GitHub browser authorization",
+		)
 		return
 	}
 	writeJSON(w, http.StatusOK, setupGitHubAuthorizationResponse{AuthorizationURL: authorizationURL, ExpiresAt: expiresAt})
 }
 
-func (s *Server) beginGitHubAuthorization(ctx context.Context, r *http.Request, clientID string) (string, time.Time, error) {
+func (s *Server) beginGitHubAuthorization(
+	ctx context.Context,
+	r *http.Request,
+	clientID string,
+) (
+	string,
+	time.Time,
+	error,
+) {
 	if s.githubOAuth == nil || s.setupState == nil || !githubauth.ValidClientID(clientID) {
 		return "", time.Time{}, errors.New("GitHub browser authorization is unavailable")
 	}
@@ -60,7 +80,9 @@ func (s *Server) beginGitHubAuthorization(ctx context.Context, r *http.Request, 
 		if setupstate.InstallationLocked(*state) {
 			return errors.New("installation is already in progress or complete")
 		}
-		if !state.GitHub.Connected || state.GitHub.ClientID != clientID || strings.TrimSpace(state.Secret("github_client_secret")) == "" {
+		if !state.GitHub.Connected ||
+			state.GitHub.ClientID != clientID ||
+			strings.TrimSpace(state.Secret("github_client_secret")) == "" {
 			return errors.New("GitHub App is not connected")
 		}
 		state.GitHub.AuthorizationStateHash = stateHash
@@ -75,7 +97,10 @@ func (s *Server) beginGitHubAuthorization(ctx context.Context, r *http.Request, 
 
 func (s *Server) setupGitHubAuthorizationCallback(w http.ResponseWriter, r *http.Request) {
 	providedState := strings.TrimSpace(r.URL.Query().Get("state"))
-	if providedState == "" || len(providedState) > 512 || strings.ContainsAny(providedState, "\x00\r\n") || s.setupState == nil {
+	if providedState == "" ||
+		len(providedState) > 512 ||
+		strings.ContainsAny(providedState, "\x00\r\n") ||
+		s.setupState == nil {
 		http.Redirect(w, r, setupRedirect("/setup?github=error"), http.StatusFound)
 		return
 	}
@@ -84,7 +109,8 @@ func (s *Server) setupGitHubAuthorizationCallback(w http.ResponseWriter, r *http
 		if setupstate.InstallationLocked(*state) {
 			return errors.New("installation is already in progress or complete")
 		}
-		if state.GitHub.AuthorizationExpiresAt.Before(time.Now().UTC()) || !compareStateHash(state.GitHub.AuthorizationStateHash, providedState) {
+		if state.GitHub.AuthorizationExpiresAt.Before(time.Now().UTC()) ||
+			!compareStateHash(state.GitHub.AuthorizationStateHash, providedState) {
 			return errors.New("GitHub authorization state is expired or already used")
 		}
 		clientID = strings.TrimSpace(state.GitHub.ClientID)
@@ -92,7 +118,11 @@ func (s *Server) setupGitHubAuthorizationCallback(w http.ResponseWriter, r *http
 		codeVerifier = state.Secret("github_oauth_code_verifier")
 		setupSessionID = state.SetupSessionID
 		setupCodeHash = state.SetupCodeHash
-		if !githubauth.ValidClientID(clientID) || clientSecret == "" || codeVerifier == "" || setupSessionID == "" || setupCodeHash == "" {
+		if !githubauth.ValidClientID(clientID) ||
+			clientSecret == "" ||
+			codeVerifier == "" ||
+			setupSessionID == "" ||
+			setupCodeHash == "" {
 			return errors.New("GitHub authorization state is incomplete")
 		}
 		state.GitHub.AuthorizationStateHash = ""
@@ -105,7 +135,12 @@ func (s *Server) setupGitHubAuthorizationCallback(w http.ResponseWriter, r *http
 		return
 	}
 	code := strings.TrimSpace(r.URL.Query().Get("code"))
-	if r.URL.Query().Get("error") != "" || code == "" || len(code) > 4096 || strings.ContainsAny(code, "\x00\r\n") || s.githubOAuth == nil || s.bootstrap == nil {
+	if r.URL.Query().Get("error") != "" ||
+		code == "" ||
+		len(code) > 4096 ||
+		strings.ContainsAny(code, "\x00\r\n") ||
+		s.githubOAuth == nil ||
+		s.bootstrap == nil {
 		http.Redirect(w, r, setupRedirect("/setup?github=error"), http.StatusFound)
 		return
 	}
@@ -114,7 +149,14 @@ func (s *Server) setupGitHubAuthorizationCallback(w http.ResponseWriter, r *http
 		http.Redirect(w, r, setupRedirect("/setup?github=error"), http.StatusFound)
 		return
 	}
-	token, err := s.githubOAuth.ExchangeAuthorizationCode(r.Context(), clientID, clientSecret, code, callbackURL, codeVerifier)
+	token, err := s.githubOAuth.ExchangeAuthorizationCode(
+		r.Context(),
+		clientID,
+		clientSecret,
+		code,
+		callbackURL,
+		codeVerifier,
+	)
 	if err != nil {
 		s.logger.Warn("GitHub browser authorization exchange failed", "error", err)
 		http.Redirect(w, r, setupRedirect("/setup?github=error"), http.StatusFound)
@@ -146,7 +188,11 @@ func (s *Server) setupGitHubAuthorizationCallback(w http.ResponseWriter, r *http
 		http.Redirect(w, r, setupRedirect("/setup?github=error"), http.StatusFound)
 		return
 	}
-	owner, err := s.createGitHubInstanceOwner(r.Context(), bootstrap.GitHubAuthorization{SessionID: sessionID, CodeHash: codeHash}, user)
+	owner, err := s.createGitHubInstanceOwner(
+		r.Context(),
+		bootstrap.GitHubAuthorization{SessionID: sessionID, CodeHash: codeHash},
+		user,
+	)
 	if err != nil {
 		s.logger.Warn("GitHub browser owner creation failed", "error", err)
 		http.Redirect(w, r, setupRedirect("/setup?github=error"), http.StatusFound)
@@ -163,7 +209,13 @@ func (s *Server) saveGitHubManual(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &request) {
 		return
 	}
-	if !githubauth.ValidClientID(request.ClientID) || strings.TrimSpace(request.ClientSecret) == "" || strings.ContainsAny(request.ClientSecret+request.WebhookSecret, "\x00\r\n") || strings.ContainsRune(request.PrivateKey, '\x00') || len(request.ClientSecret) > 512 || len(request.PrivateKey) > 32768 || len(request.WebhookSecret) > 512 {
+	if !githubauth.ValidClientID(request.ClientID) ||
+		strings.TrimSpace(request.ClientSecret) == "" ||
+		strings.ContainsAny(request.ClientSecret+request.WebhookSecret, "\x00\r\n") ||
+		strings.ContainsRune(request.PrivateKey, '\x00') ||
+		len(request.ClientSecret) > 512 ||
+		len(request.PrivateKey) > 32768 ||
+		len(request.WebhookSecret) > 512 {
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", "GitHub App credentials are invalid")
 		return
 	}

@@ -44,7 +44,9 @@ func recoverBundle(paths Paths, pending, previous string) error {
 		}
 		if _, err := os.Lstat(pending); err == nil {
 			pendingPaths := pathsAtRoot(pending)
-			if pendingInfo, statErr := os.Lstat(pending); statErr != nil || pendingInfo.Mode()&os.ModeSymlink != 0 || !pendingInfo.IsDir() {
+			if pendingInfo, statErr := os.Lstat(pending); statErr != nil ||
+				pendingInfo.Mode()&os.ModeSymlink != 0 ||
+				!pendingInfo.IsDir() {
 				return fmt.Errorf("%w: interrupted BuildKit mTLS staging path is unsafe", ErrInvalidState)
 			} else if validateErr := validateBundleOnly(pendingPaths, false); validateErr == nil {
 				if err := os.RemoveAll(pending); err != nil {

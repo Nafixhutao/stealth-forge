@@ -93,7 +93,11 @@ func migrateReleaseConfig(values map[string]string, targetVersion, installedVers
 			updates[key] = value
 		}
 	}
-	trustedProxy := ensureTraefikTrustedProxyCIDR(result["TRUSTED_PROXY_CIDRS"], result["STEALTH_NETWORK_SUBNET"], ingress.trustedProxyCIDR())
+	trustedProxy := ensureTraefikTrustedProxyCIDR(
+		result["TRUSTED_PROXY_CIDRS"],
+		result["STEALTH_NETWORK_SUBNET"],
+		ingress.trustedProxyCIDR(),
+	)
 	if trustedProxy != strings.TrimSpace(result["TRUSTED_PROXY_CIDRS"]) {
 		updates["TRUSTED_PROXY_CIDRS"] = trustedProxy
 	}
@@ -119,7 +123,11 @@ func rejectReleaseDowngrade(targetVersion, installedVersion string) error {
 		return fmt.Errorf("compare installed release versions: %w", err)
 	}
 	if comparison < 0 {
-		return fmt.Errorf("refusing platform downgrade from %s to %s; use the matching release or restore a compatible backup", installedVersion, targetVersion)
+		return fmt.Errorf(
+			"refusing platform downgrade from %s to %s; use the matching release or restore a compatible backup",
+			installedVersion,
+			targetVersion,
+		)
 	}
 	return nil
 }

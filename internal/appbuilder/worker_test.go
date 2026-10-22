@@ -57,17 +57,46 @@ func (p *fakePersistence) ClaimNextAppDeployment(_ context.Context, workerID str
 	return p.job, nil
 }
 
-func (p *fakePersistence) DeferAppDeploymentBuild(_ context.Context, _, _, _ uuid.UUID, _ string, message string) error {
+func (p *fakePersistence) DeferAppDeploymentBuild(
+	_ context.Context,
+	_,
+	_,
+	_ uuid.UUID,
+	_ string,
+	message string,
+) error {
 	p.deferred = message
 	return nil
 }
 
-func (p *fakePersistence) ReserveAppImagePublish(_ context.Context, _, _, _ uuid.UUID, _ string, size int64, _ repository.ArtifactCleanupInput) error {
+func (p *fakePersistence) ReserveAppImagePublish(
+	_ context.Context,
+	_,
+	_,
+	_ uuid.UUID,
+	_ string,
+	size int64,
+	_ repository.ArtifactCleanupInput,
+) error {
 	p.reserved = size
 	return nil
 }
 
-func (p *fakePersistence) CompleteAppDeploymentBuildWithCleanup(_ context.Context, _, _, _ uuid.UUID, _ string, digest, path, checksum string, size int64, _ repository.ArtifactCleanupInput) (domain.AppDeployment, error) {
+func (p *fakePersistence) CompleteAppDeploymentBuildWithCleanup(
+	_ context.Context,
+	_,
+	_,
+	_ uuid.UUID,
+	_ string,
+	digest,
+	path,
+	checksum string,
+	size int64,
+	_ repository.ArtifactCleanupInput,
+) (
+	domain.AppDeployment,
+	error,
+) {
 	p.completeTried = true
 	if p.completeErr != nil {
 		p.imagePath, p.digest, p.imageChecksum, p.imageSize = path, digest, checksum, size
@@ -78,14 +107,34 @@ func (p *fakePersistence) CompleteAppDeploymentBuildWithCleanup(_ context.Contex
 	return domain.AppDeployment{Status: "ready", BuildStatus: "succeeded", ImageDigest: &digest}, nil
 }
 
-func (p *fakePersistence) FailAppDeploymentBuild(_ context.Context, _, _, _ uuid.UUID, _ string, message string) (domain.AppDeployment, error) {
+func (p *fakePersistence) FailAppDeploymentBuild(
+	_ context.Context,
+	_,
+	_,
+	_ uuid.UUID,
+	_ string,
+	message string,
+) (
+	domain.AppDeployment,
+	error,
+) {
 	p.failed = message
 	p.logs = append(p.logs, message)
 	return domain.AppDeployment{Status: "failed", BuildStatus: "failed"}, nil
 }
 
-func (p *fakePersistence) AppendAppBuildLog(_ context.Context, _, _, _ uuid.UUID, _ string, _ uuid.UUID, _, message string) (domain.AppBuildLog, error) {
-	p.logs = append(p.logs, message)
+func (p *fakePersistence) AppendAppBuildLog(
+	_ context.Context,
+	_,
+	_,
+	_ uuid.UUID,
+	_ string,
+	entry repository.BuildLogEntry,
+) (
+	domain.AppBuildLog,
+	error,
+) {
+	p.logs = append(p.logs, entry.Message)
 	return domain.AppBuildLog{}, nil
 }
 
@@ -99,7 +148,9 @@ func TestProgressWriterRedactsBuildKitTLSCredentialPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 	writer.Flush()
-	if len(store.logs) != 1 || strings.Contains(store.logs[0], "/run/secrets/stealth-buildkit") || strings.Contains(store.logs[0], "client-key.pem") {
+	if len(store.logs) != 1 ||
+		strings.Contains(store.logs[0], "/run/secrets/stealth-buildkit") ||
+		strings.Contains(store.logs[0], "client-key.pem") {
 		t.Fatalf("BuildKit TLS path leaked into public build logs: %#v", store.logs)
 	}
 }
@@ -204,12 +255,23 @@ func TestWorkerPublishesVerifiedOCIAndKeepsBuildInputsPrivate(t *testing.T) {
 		t.Fatalf("RunOnce = %v, %v", processed, err)
 	}
 	if !persistence.completed || persistence.failed != "" || persistence.deferred != "" {
-		t.Fatalf("build lifecycle = completed %v failed %q deferred %q", persistence.completed, persistence.failed, persistence.deferred)
+		t.Fatalf(
+			"build lifecycle = completed %v failed %q deferred %q",
+			persistence.completed,
+			persistence.failed,
+			persistence.deferred,
+		)
 	}
-	if len(persistence.claimTokens) != 1 || !safeWorkerID(persistence.claimTokens[0]) || persistence.claimTokens[0] == "worker-1" {
+	if len(persistence.claimTokens) != 1 ||
+		!safeWorkerID(persistence.claimTokens[0]) ||
+		persistence.claimTokens[0] == "worker-1" {
 		t.Fatalf("App build did not use a unique per-claim lease token: %#v", persistence.claimTokens)
 	}
-	if len(persistence.digest) != 71 || !strings.HasPrefix(persistence.digest, "sha256:") || len(persistence.imageChecksum) != 64 || persistence.imageSize <= 0 || persistence.reserved != persistence.imageSize {
+	if len(persistence.digest) != 71 ||
+		!strings.HasPrefix(persistence.digest, "sha256:") ||
+		len(persistence.imageChecksum) != 64 ||
+		persistence.imageSize <= 0 ||
+		persistence.reserved != persistence.imageSize {
 		t.Fatalf("verified output metadata = %#v", persistence)
 	}
 	image, err := appArtifacts.Images.OpenRelative(context.Background(), persistence.imagePath)
@@ -221,7 +283,12 @@ func TestWorkerPublishesVerifiedOCIAndKeepsBuildInputsPrivate(t *testing.T) {
 		t.Fatalf("source artifact path is not UUID-derived: %s", persistence.job.SourcePath)
 	}
 	for _, arg := range runner.args {
-		if arg == "--allow" || arg == "--secret" || arg == "--ssh" || strings.HasPrefix(arg, "build-arg:") || strings.Contains(arg, "gateway.v0") || strings.Contains(arg, "docker build") {
+		if arg == "--allow" ||
+			arg == "--secret" ||
+			arg == "--ssh" ||
+			strings.HasPrefix(arg, "build-arg:") ||
+			strings.Contains(arg, "gateway.v0") ||
+			strings.Contains(arg, "docker build") {
 			t.Fatalf("unsafe build argument was passed: %q", arg)
 		}
 	}
@@ -249,8 +316,18 @@ func TestWorkerReadinessFailureDoesNotClaimQueuedDeployment(t *testing.T) {
 func TestWorkerRechecksReadinessAndDefersWhenBuildKitDropsAfterClaim(t *testing.T) {
 	worker, persistence, _, _, _, _, _ := newTestWorker(t, "unavailable_after_ready")
 	processed, err := worker.RunOnce(context.Background())
-	if err != nil || !processed || persistence.claimed != 1 || persistence.deferred == "" || persistence.failed != "" || persistence.completed {
-		t.Fatalf("BuildKit loss after claim was not deferred: processed=%v err=%v persistence=%+v", processed, err, persistence)
+	if err != nil ||
+		!processed ||
+		persistence.claimed != 1 ||
+		persistence.deferred == "" ||
+		persistence.failed != "" ||
+		persistence.completed {
+		t.Fatalf(
+			"BuildKit loss after claim was not deferred: processed=%v err=%v persistence=%+v",
+			processed,
+			err,
+			persistence,
+		)
 	}
 }
 
@@ -259,7 +336,12 @@ func TestWorkerDoesNotDeletePublishedArtifactAfterAmbiguousCompletion(t *testing
 	persistence.completeErr = errors.New("database completion response was lost")
 	processed, err := worker.RunOnce(context.Background())
 	if err == nil || !processed || !persistence.completeTried || persistence.failed != "" {
-		t.Fatalf("ambiguous completion did not stop without terminal failure: processed=%v err=%v persistence=%+v", processed, err, persistence)
+		t.Fatalf(
+			"ambiguous completion did not stop without terminal failure: processed=%v err=%v persistence=%+v",
+			processed,
+			err,
+			persistence,
+		)
 	}
 	artifact, openErr := artifacts.Images.OpenRelative(context.Background(), persistence.imagePath)
 	if openErr != nil {
@@ -315,7 +397,18 @@ func countLogMessage(messages []string, wanted string) int {
 	return count
 }
 
-func newTestWorker(t *testing.T, mode string) (*Worker, *fakePersistence, *fakeCommandRunner, *appstore.Store, uuid.UUID, uuid.UUID, uuid.UUID) {
+func newTestWorker(
+	t *testing.T,
+	mode string,
+) (
+	*Worker,
+	*fakePersistence,
+	*fakeCommandRunner,
+	*appstore.Store,
+	uuid.UUID,
+	uuid.UUID,
+	uuid.UUID,
+) {
 	t.Helper()
 	projectID := uuid.Must(uuid.NewV7())
 	appID := uuid.Must(uuid.NewV7())
@@ -325,7 +418,14 @@ func newTestWorker(t *testing.T, mode string) (*Worker, *fakePersistence, *fakeC
 		t.Fatal(err)
 	}
 	source := zipSource(t)
-	prepared, err := artifacts.Sources.BeginUpload(context.Background(), projectID, appID, deploymentID, bytes.NewReader(source), 1<<20)
+	prepared, err := artifacts.Sources.BeginUpload(
+		context.Background(),
+		projectID,
+		appID,
+		deploymentID,
+		bytes.NewReader(source),
+		1<<20,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}

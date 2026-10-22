@@ -10,8 +10,21 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (r *Repository) RestoreDatabaseBackup(ctx context.Context, projectID, databaseID uuid.UUID, actor DatabaseActor, snapshot DatabaseBackupSnapshot) (DatabaseBackupRestoreResult, error) {
-	if snapshot.Version != DatabaseBackupVersion || snapshot.ProjectID != projectID.String() || snapshot.DatabaseID != databaseID.String() || len(snapshot.Tables) > DatabaseBackupMaxTables || len(snapshot.Relationships) > DatabaseBackupMaxRelations {
+func (r *Repository) RestoreDatabaseBackup(
+	ctx context.Context,
+	projectID,
+	databaseID uuid.UUID,
+	actor DatabaseActor,
+	snapshot DatabaseBackupSnapshot,
+) (
+	DatabaseBackupRestoreResult,
+	error,
+) {
+	if snapshot.Version != DatabaseBackupVersion ||
+		snapshot.ProjectID != projectID.String() ||
+		snapshot.DatabaseID != databaseID.String() ||
+		len(snapshot.Tables) > DatabaseBackupMaxTables ||
+		len(snapshot.Relationships) > DatabaseBackupMaxRelations {
 		return DatabaseBackupRestoreResult{}, ErrInvalidBackup
 	}
 	rowCount := 0
@@ -45,7 +58,9 @@ func (r *Repository) RestoreDatabaseBackup(ctx context.Context, projectID, datab
 	result := DatabaseBackupRestoreResult{}
 	for _, backupTable := range snapshot.Tables {
 		tableID, err := validateBackupUUID(backupTable.Table.ID)
-		if err != nil || backupTable.Table.DatabaseID != databaseID.String() || backupTable.Table.ProjectID != projectID.String() {
+		if err != nil ||
+			backupTable.Table.DatabaseID != databaseID.String() ||
+			backupTable.Table.ProjectID != projectID.String() {
 			return DatabaseBackupRestoreResult{}, ErrInvalidBackup
 		}
 		name, err := dbcore.ValidateName(backupTable.Table.Name)
@@ -74,7 +89,14 @@ func (r *Repository) RestoreDatabaseBackup(ctx context.Context, projectID, datab
 					return DatabaseBackupRestoreResult{}, ErrInvalidBackup
 				}
 			}
-			column := DatabaseColumnInput{Key: backupColumn.Key, Type: dbcore.ColumnType(backupColumn.Type), Required: backupColumn.Required, VarcharSize: backupColumn.VarcharSize, Default: defaultValue, HasDefault: hasDefault}
+			column := DatabaseColumnInput{
+				Key:         backupColumn.Key,
+				Type:        dbcore.ColumnType(backupColumn.Type),
+				Required:    backupColumn.Required,
+				VarcharSize: backupColumn.VarcharSize,
+				Default:     defaultValue,
+				HasDefault:  hasDefault,
+			}
 			if err := dbcore.ValidateColumn(dbcore.ColumnDefinition{Key: column.Key, Type: column.Type, Required: column.Required, VarcharSize: column.VarcharSize, Default: column.Default, HasDefault: column.HasDefault}); err != nil {
 				return DatabaseBackupRestoreResult{}, ErrInvalidBackup
 			}
@@ -145,7 +167,10 @@ func (r *Repository) RestoreDatabaseBackup(ctx context.Context, projectID, datab
 		}
 		sourceTable, sourceOK := tableSchemas[sourceTableUUID]
 		_, targetOK := tableSchemas[targetTableUUID]
-		if !sourceOK || !targetOK || relationship.RelationshipType != DatabaseRelationshipManyToOne || relationship.OnDelete != DatabaseRelationshipRestrict {
+		if !sourceOK ||
+			!targetOK ||
+			relationship.RelationshipType != DatabaseRelationshipManyToOne ||
+			relationship.OnDelete != DatabaseRelationshipRestrict {
 			return DatabaseBackupResultInvalid()
 		}
 		var sourceColumn *DatabaseColumnSchema
@@ -184,7 +209,12 @@ func (r *Repository) RestoreDatabaseBackup(ctx context.Context, projectID, datab
 			if err != nil || backupIndex.TableID != tableID.String() {
 				return DatabaseBackupResultInvalid()
 			}
-			input := DatabaseIndexInput{Name: backupIndex.Name, Type: backupIndex.Type, ColumnKeys: backupIndex.ColumnKeys, Directions: backupIndex.Directions}
+			input := DatabaseIndexInput{
+				Name:       backupIndex.Name,
+				Type:       backupIndex.Type,
+				ColumnKeys: backupIndex.ColumnKeys,
+				Directions: backupIndex.Directions,
+			}
 			if len(input.Directions) == 0 && len(input.ColumnKeys) > 0 {
 				input.Directions = make([]string, len(input.ColumnKeys))
 				for i := range input.Directions {

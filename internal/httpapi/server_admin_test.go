@@ -29,7 +29,13 @@ type fakeAdminTelemetryStore struct {
 
 func (f *fakeAdminTelemetryStore) Ping(context.Context) error { return nil }
 
-func (f *fakeAdminTelemetryStore) QueryLogs(_ context.Context, query telemetry.LogsQuery) (telemetry.LogsResult, error) {
+func (f *fakeAdminTelemetryStore) QueryLogs(
+	_ context.Context,
+	query telemetry.LogsQuery,
+) (
+	telemetry.LogsResult,
+	error,
+) {
 	f.logsCalled = true
 	f.logsQuery = query
 	call := len(f.logsQueries)
@@ -49,17 +55,35 @@ func (f *fakeAdminTelemetryStore) QueryLogs(_ context.Context, query telemetry.L
 	return f.logs, f.logsErr
 }
 
-func (f *fakeAdminTelemetryStore) QueryTraces(_ context.Context, query telemetry.TracesQuery) (telemetry.TracesResult, error) {
+func (f *fakeAdminTelemetryStore) QueryTraces(
+	_ context.Context,
+	query telemetry.TracesQuery,
+) (
+	telemetry.TracesResult,
+	error,
+) {
 	f.tracesCalled = true
 	f.tracesQuery = query
 	return telemetry.TracesResult{}, nil
 }
 
-func (f *fakeAdminTelemetryStore) QueryMetrics(context.Context, telemetry.MetricsQuery) (telemetry.MetricsResult, error) {
+func (f *fakeAdminTelemetryStore) QueryMetrics(
+	context.Context,
+	telemetry.MetricsQuery,
+) (
+	telemetry.MetricsResult,
+	error,
+) {
 	return telemetry.MetricsResult{}, nil
 }
 
-func (f *fakeAdminTelemetryStore) ListSources(context.Context, telemetry.SourcesQuery) (telemetry.SourcesResult, error) {
+func (f *fakeAdminTelemetryStore) ListSources(
+	context.Context,
+	telemetry.SourcesQuery,
+) (
+	telemetry.SourcesResult,
+	error,
+) {
 	return telemetry.SourcesResult{}, nil
 }
 
@@ -74,7 +98,11 @@ func TestAdminTelemetryHandlerPassesBoundedTypedQuery(t *testing.T) {
 	}
 	from := time.Now().UTC().Add(-time.Minute).Format(time.RFC3339Nano)
 	to := time.Now().UTC().Format(time.RFC3339Nano)
-	request := httptest.NewRequest(http.MethodGet, "/v1/admin/telemetry/logs?from="+from+"&to="+to+"&service=api&level=error&query=timeout&limit=7", nil)
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/v1/admin/telemetry/logs?from="+from+"&to="+to+"&service=api&level=error&query=timeout&limit=7",
+		nil,
+	)
 	recorder := httptest.NewRecorder()
 
 	server.adminTelemetryLogs(recorder, request)
@@ -82,7 +110,10 @@ func TestAdminTelemetryHandlerPassesBoundedTypedQuery(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", recorder.Code, recorder.Body.String())
 	}
-	if store.logsQuery.Service != "api" || store.logsQuery.Level != "error" || store.logsQuery.Search != "timeout" || store.logsQuery.Limit != 7 {
+	if store.logsQuery.Service != "api" ||
+		store.logsQuery.Level != "error" ||
+		store.logsQuery.Search != "timeout" ||
+		store.logsQuery.Limit != 7 {
 		t.Fatalf("query = %+v", store.logsQuery)
 	}
 	if store.logsQuery.Range.To.Sub(store.logsQuery.Range.From) > 2*time.Hour {
@@ -165,7 +196,8 @@ func TestAdminTelemetryHandlerReportsOptionalBackendDegraded(t *testing.T) {
 	if recorder.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want 503", recorder.Code)
 	}
-	if !strings.Contains(recorder.Body.String(), "telemetry_unavailable") || !strings.Contains(recorder.Body.String(), "telemetry backend is unavailable") {
+	if !strings.Contains(recorder.Body.String(), "telemetry_unavailable") ||
+		!strings.Contains(recorder.Body.String(), "telemetry backend is unavailable") {
 		t.Fatalf("degraded response = %s", recorder.Body.String())
 	}
 }
@@ -298,7 +330,9 @@ func TestAdminTelemetryLogTailResumesFromLastEventID(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("tail did not stop after resume poll")
 	}
-	if len(store.logsQueries) != 1 || store.logsQueries[0].After == nil || store.logsQueries[0].After.EventID != previous.EventID {
+	if len(store.logsQueries) != 1 ||
+		store.logsQueries[0].After == nil ||
+		store.logsQueries[0].After.EventID != previous.EventID {
 		t.Fatalf("resume query = %+v, want Last-Event-ID cursor", store.logsQueries)
 	}
 	if !strings.Contains(recorder.Body.String(), "resumed-row") {

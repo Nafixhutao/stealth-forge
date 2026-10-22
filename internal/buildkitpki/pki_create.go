@@ -60,7 +60,16 @@ func createCA(now time.Time) (*ecdsa.PrivateKey, *x509.Certificate, error) {
 	return key, cert, nil
 }
 
-func createLeaf(caKey *ecdsa.PrivateKey, ca *x509.Certificate, identity role, now time.Time) (*ecdsa.PrivateKey, *x509.Certificate, error) {
+func createLeaf(
+	caKey *ecdsa.PrivateKey,
+	ca *x509.Certificate,
+	identity role,
+	now time.Time,
+) (
+	*ecdsa.PrivateKey,
+	*x509.Certificate,
+	error,
+) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, nil, fmt.Errorf("generate BuildKit %s key: %w", identity.name, err)

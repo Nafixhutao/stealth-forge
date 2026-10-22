@@ -94,7 +94,15 @@ func TestAuthVerificationAndRecoveryIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"organization"`
 	}
-	requestJSON(t, console, http.MethodPost, server.URL+"/v1/account/registrations", map[string]string{"email": email, "password": password}, http.StatusCreated, &registration)
+	requestJSON(
+		t,
+		console,
+		http.MethodPost,
+		server.URL+"/v1/account/registrations",
+		map[string]string{"email": email, "password": password},
+		http.StatusCreated,
+		&registration,
+	)
 	t.Cleanup(func() {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM audit_events WHERE actor_account_id=$1 OR organization_id=$2`, registration.Account.ID, registration.Organization.ID)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM organizations WHERE id=$1`, registration.Organization.ID)
@@ -114,34 +122,98 @@ func TestAuthVerificationAndRecoveryIntegration(t *testing.T) {
 			EmailVerified bool `json:"email_verified"`
 		} `json:"account"`
 	}
-	requestJSON(t, console, http.MethodPut, server.URL+"/v1/account/verification", map[string]string{"token": verificationToken}, http.StatusOK, &verified)
+	requestJSON(
+		t,
+		console,
+		http.MethodPut,
+		server.URL+"/v1/account/verification",
+		map[string]string{"token": verificationToken},
+		http.StatusOK,
+		&verified,
+	)
 	if !verified.Account.EmailVerified {
 		t.Fatal("account remained unverified after token confirmation")
 	}
-	requestJSON(t, console, http.MethodPut, server.URL+"/v1/account/verification", map[string]string{"token": verificationToken}, http.StatusUnprocessableEntity, nil)
+	requestJSON(
+		t,
+		console,
+		http.MethodPut,
+		server.URL+"/v1/account/verification",
+		map[string]string{"token": verificationToken},
+		http.StatusUnprocessableEntity,
+		nil,
+	)
 
-	requestJSON(t, console, http.MethodPost, server.URL+"/v1/account/recovery", map[string]string{"email": email}, http.StatusAccepted, nil)
+	requestJSON(
+		t,
+		console,
+		http.MethodPost,
+		server.URL+"/v1/account/recovery",
+		map[string]string{"email": email},
+		http.StatusAccepted,
+		nil,
+	)
 	recovery, ok := recorder.latestFor("Reset your Stealth password", "")
 	if !ok {
 		t.Fatal("recovery request did not enqueue an email")
 	}
 	recoveryToken := messageLink(recovery.TextBody).Query().Get("token")
-	requestJSON(t, console, http.MethodPut, server.URL+"/v1/account/recovery", map[string]string{"token": recoveryToken, "password": newPassword}, http.StatusNoContent, nil)
+	requestJSON(
+		t,
+		console,
+		http.MethodPut,
+		server.URL+"/v1/account/recovery",
+		map[string]string{"token": recoveryToken, "password": newPassword},
+		http.StatusNoContent,
+		nil,
+	)
 	requestJSON(t, console, http.MethodGet, server.URL+"/v1/account", nil, http.StatusUnauthorized, nil)
-	requestJSON(t, console, http.MethodPost, server.URL+"/v1/sessions/email-password", map[string]string{"email": email, "password": newPassword}, http.StatusNoContent, nil)
+	requestJSON(
+		t,
+		console,
+		http.MethodPost,
+		server.URL+"/v1/sessions/email-password",
+		map[string]string{"email": email, "password": newPassword},
+		http.StatusNoContent,
+		nil,
+	)
 
 	var project struct {
 		Project struct {
 			ID string `json:"id"`
 		} `json:"project"`
 	}
-	requestJSON(t, console, http.MethodPost, server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects", map[string]string{"name": "auth-" + identifier[:8]}, http.StatusCreated, &project)
+	requestJSON(
+		t,
+		console,
+		http.MethodPost,
+		server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects",
+		map[string]string{"name": "auth-" + identifier[:8]},
+		http.StatusCreated,
+		&project,
+	)
 	projectURL := server.URL + "/v1/projects/" + project.Project.ID
-	requestJSON(t, console, http.MethodPatch, projectURL+"/auth/settings", map[string]any{"registration_enabled": true}, http.StatusOK, nil)
+	requestJSON(
+		t,
+		console,
+		http.MethodPatch,
+		projectURL+"/auth/settings",
+		map[string]any{"registration_enabled": true},
+		http.StatusOK,
+		nil,
+	)
 
 	app := newIntegrationClient(t)
 	appEmail := "project-recovery-" + identifier + "@example.test"
-	requestJSON(t, app, http.MethodPost, projectURL+"/account/registrations", map[string]string{"email": appEmail, "password": password}, http.StatusCreated, nil)
+	requestJSON(
+		t,
+		app,
+		http.MethodPost,
+		projectURL+"/account/registrations",
+		map[string]string{"email": appEmail, "password": password},
+		http.StatusCreated,
+		nil,
+	)
 	projectVerification, ok := recorder.latestFor("Verify your email", project.Project.ID)
 	if !ok {
 		t.Fatal("project registration did not enqueue a verification email")
@@ -152,20 +224,52 @@ func TestAuthVerificationAndRecoveryIntegration(t *testing.T) {
 			EmailVerified bool `json:"email_verified"`
 		} `json:"account"`
 	}
-	requestJSON(t, app, http.MethodPut, projectURL+"/account/verification", map[string]string{"token": projectVerificationToken}, http.StatusOK, &projectVerified)
+	requestJSON(
+		t,
+		app,
+		http.MethodPut,
+		projectURL+"/account/verification",
+		map[string]string{"token": projectVerificationToken},
+		http.StatusOK,
+		&projectVerified,
+	)
 	if !projectVerified.Account.EmailVerified {
 		t.Fatal("project identity remained unverified")
 	}
 
-	requestJSON(t, app, http.MethodPost, projectURL+"/account/recovery", map[string]string{"email": appEmail}, http.StatusAccepted, nil)
+	requestJSON(
+		t,
+		app,
+		http.MethodPost,
+		projectURL+"/account/recovery",
+		map[string]string{"email": appEmail},
+		http.StatusAccepted,
+		nil,
+	)
 	projectRecovery, ok := recorder.latestFor("Reset your password", project.Project.ID)
 	if !ok {
 		t.Fatal("project recovery request did not enqueue an email")
 	}
 	projectRecoveryToken := messageLink(projectRecovery.TextBody).Query().Get("token")
-	requestJSON(t, app, http.MethodPut, projectURL+"/account/recovery", map[string]string{"token": projectRecoveryToken, "password": newPassword}, http.StatusNoContent, nil)
+	requestJSON(
+		t,
+		app,
+		http.MethodPut,
+		projectURL+"/account/recovery",
+		map[string]string{"token": projectRecoveryToken, "password": newPassword},
+		http.StatusNoContent,
+		nil,
+	)
 	requestJSON(t, app, http.MethodGet, projectURL+"/account", nil, http.StatusUnauthorized, nil)
-	requestJSON(t, app, http.MethodPost, projectURL+"/sessions/email-password", map[string]string{"email": appEmail, "password": newPassword}, http.StatusNoContent, nil)
+	requestJSON(
+		t,
+		app,
+		http.MethodPost,
+		projectURL+"/sessions/email-password",
+		map[string]string{"email": appEmail, "password": newPassword},
+		http.StatusNoContent,
+		nil,
+	)
 }
 
 func httptestNewAuthServer(t *testing.T, pool *pgxpool.Pool, sender mailer.Sender) *httptest.Server {

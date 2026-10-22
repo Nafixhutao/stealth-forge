@@ -93,7 +93,13 @@ func (w *Worker) build(parent context.Context, job repository.AppBuildJob) (resu
 	if limits.MaxEntry <= 0 {
 		limits.MaxEntry = limits.MaxBytes
 	}
-	stats, extractErr := functionrunner.Extract(buildCtx, archive, valueOr(job.Deployment.SourceName, ""), sourceRoot, limits)
+	stats, extractErr := functionrunner.Extract(
+		buildCtx,
+		archive,
+		valueOr(job.Deployment.SourceName, ""),
+		sourceRoot,
+		limits,
+	)
 	_ = archive.Close()
 	if extractErr != nil || stats.Files == 0 {
 		if parent.Err() != nil {
@@ -131,8 +137,19 @@ func (w *Worker) build(parent context.Context, job repository.AppBuildJob) (resu
 	buildCommandCtx, cancelBuildCommand := context.WithCancel(buildCtx)
 	tooLarge := make(chan struct{}, 1)
 	monitorDone := make(chan struct{})
-	go monitorArtifactSize(buildCommandCtx, cancelBuildCommand, outputPath, w.Artifacts.Images.MaxBytes(), tooLarge, monitorDone)
-	buildErr := w.Builder.Build(buildCommandCtx, BuildRequest{Definition: definition, ContextPath: contextPath, DockerfileRoot: sourceRoot, OutputPath: outputPath, MetadataPath: metadataPath}, progress)
+	go monitorArtifactSize(
+		buildCommandCtx,
+		cancelBuildCommand,
+		outputPath,
+		w.Artifacts.Images.MaxBytes(),
+		tooLarge,
+		monitorDone,
+	)
+	buildErr := w.Builder.Build(
+		buildCommandCtx,
+		BuildRequest{Definition: definition, ContextPath: contextPath, DockerfileRoot: sourceRoot, OutputPath: outputPath, MetadataPath: metadataPath},
+		progress,
+	)
 	cancelBuildCommand()
 	<-monitorDone
 	progress.Flush()
@@ -194,7 +211,14 @@ func (w *Worker) build(parent context.Context, job repository.AppBuildJob) (resu
 		_ = imageFile.Close()
 		return "error", err
 	}
-	prepared, err := w.Artifacts.Images.BeginUpload(buildCtx, projectID, appID, imageArtifactID, imageFile, w.Artifacts.Images.MaxBytes())
+	prepared, err := w.Artifacts.Images.BeginUpload(
+		buildCtx,
+		projectID,
+		appID,
+		imageArtifactID,
+		imageFile,
+		w.Artifacts.Images.MaxBytes(),
+	)
 	_ = imageFile.Close()
 	if err != nil {
 		if errors.Is(buildCtx.Err(), context.DeadlineExceeded) {
@@ -209,7 +233,12 @@ func (w *Worker) build(parent context.Context, job repository.AppBuildJob) (resu
 	if prepared.Size != imageInfo.Size() {
 		return w.fail(parent, job.WorkerID, projectID, appID, deploymentID, "OCI export invalid")
 	}
-	publishCleanup := repository.ArtifactCleanupInput{ProjectID: projectID, StoreKind: repository.ArtifactCleanupAppImages, Operation: repository.ArtifactCleanupRelative, RelativePath: prepared.RelativePath}
+	publishCleanup := repository.ArtifactCleanupInput{
+		ProjectID:    projectID,
+		StoreKind:    repository.ArtifactCleanupAppImages,
+		Operation:    repository.ArtifactCleanupRelative,
+		RelativePath: prepared.RelativePath,
+	}
 	if err := w.Store.ReserveAppImagePublish(parent, projectID, appID, deploymentID, job.WorkerID, prepared.Size, publishCleanup); err != nil {
 		if errors.Is(err, repository.ErrAppArtifactQuotaExceeded) {
 			return w.fail(parent, job.WorkerID, projectID, appID, deploymentID, "artifact quota exceeded")
@@ -233,7 +262,14 @@ func (w *Worker) build(parent context.Context, job repository.AppBuildJob) (resu
 	return "succeeded", nil
 }
 
-func monitorArtifactSize(ctx context.Context, cancel context.CancelFunc, path string, maximum int64, tooLarge chan<- struct{}, done chan<- struct{}) {
+func monitorArtifactSize(
+	ctx context.Context,
+	cancel context.CancelFunc,
+	path string,
+	maximum int64,
+	tooLarge chan<- struct{},
+	done chan<- struct{},
+) {
 	defer close(done)
 	if maximum <= 0 {
 		return
@@ -258,7 +294,17 @@ func monitorArtifactSize(ctx context.Context, cancel context.CancelFunc, path st
 	}
 }
 
-func (w *Worker) fail(ctx context.Context, workerID string, projectID, appID, deploymentID uuid.UUID, message string) (string, error) {
+func (w *Worker) fail(
+	ctx context.Context,
+	workerID string,
+	projectID,
+	appID,
+	deploymentID uuid.UUID,
+	message string,
+) (
+	string,
+	error,
+) {
 	if ctx.Err() != nil {
 		return "error", ctx.Err()
 	}
@@ -268,12 +314,27 @@ func (w *Worker) fail(ctx context.Context, workerID string, projectID, appID, de
 	return "failed", nil
 }
 
-func (w *Worker) appendLog(ctx context.Context, workerID string, projectID, appID, deploymentID uuid.UUID, level, message string) error {
+func (w *Worker) appendLog(
+	ctx context.Context,
+	workerID string,
+	projectID,
+	appID,
+	deploymentID uuid.UUID,
+	level,
+	message string,
+) error {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return err
 	}
-	_, err = w.Store.AppendAppBuildLog(ctx, projectID, appID, deploymentID, workerID, id, level, message)
+	_, err = w.Store.AppendAppBuildLog(
+		ctx,
+		projectID,
+		appID,
+		deploymentID,
+		workerID,
+		repository.BuildLogEntry{ID: id, Level: level, Message: message},
+	)
 	return err
 }
 

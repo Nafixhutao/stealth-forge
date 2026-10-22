@@ -19,7 +19,12 @@ func value(key, fallback string) string {
 
 func isWorkerID(value string) bool {
 	for _, character := range value {
-		if (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '.' || character == '_' || character == '-' {
+		if (character >= 'A' && character <= 'Z') ||
+			(character >= 'a' && character <= 'z') ||
+			(character >= '0' && character <= '9') ||
+			character == '.' ||
+			character == '_' ||
+			character == '-' {
 			continue
 		}
 		return false
@@ -37,10 +42,12 @@ func isStorageS3Endpoint(raw string) bool {
 		endpointURL = "http://" + raw
 	}
 	parsed, err := url.Parse(endpointURL)
-	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.User != nil {
+	if err != nil {
 		return false
 	}
-	return true
+	schemeOK := parsed.Scheme == "http" || parsed.Scheme == "https"
+	originOnly := parsed.Path == "" && parsed.RawQuery == "" && parsed.Fragment == ""
+	return schemeOK && parsed.Host != "" && originOnly && parsed.User == nil
 }
 
 func isDockerName(value string) bool {
@@ -48,7 +55,12 @@ func isDockerName(value string) bool {
 		return false
 	}
 	for index, character := range value {
-		if (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '.' || character == '_' || character == '-' {
+		if (character >= 'A' && character <= 'Z') ||
+			(character >= 'a' && character <= 'z') ||
+			(character >= '0' && character <= '9') ||
+			character == '.' ||
+			character == '_' ||
+			character == '-' {
 			if index == 0 && (character == '.' || character == '_' || character == '-') {
 				return false
 			}
@@ -64,7 +76,10 @@ func isImageReference(value string) bool {
 		return false
 	}
 	for _, character := range value {
-		if (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || strings.ContainsRune("/._:@-", character) {
+		if (character >= 'A' && character <= 'Z') ||
+			(character >= 'a' && character <= 'z') ||
+			(character >= '0' && character <= '9') ||
+			strings.ContainsRune("/._:@-", character) {
 			continue
 		}
 		return false
@@ -93,7 +108,13 @@ func isACMEDirectoryURL(value string) bool {
 		return false
 	}
 	parsed, err := url.Parse(value)
-	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.Hostname() == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if err != nil ||
+		parsed.Scheme != "https" ||
+		parsed.Host == "" ||
+		parsed.Hostname() == "" ||
+		parsed.User != nil ||
+		parsed.RawQuery != "" ||
+		parsed.Fragment != "" {
 		return false
 	}
 	if port := parsed.Port(); port != "" {
@@ -119,7 +140,13 @@ func isPublicAppURL(value string) bool {
 		return false
 	}
 	parsed, err := url.Parse(value)
-	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.Hostname() == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if err != nil {
+		return false
+	}
+	schemeOK := parsed.Scheme == "http" || parsed.Scheme == "https"
+	hasHost := parsed.Host != "" && parsed.Hostname() != ""
+	noExtras := parsed.User == nil && parsed.RawQuery == "" && parsed.Fragment == ""
+	if !schemeOK || !hasHost || !noExtras {
 		return false
 	}
 	if port := parsed.Port(); port != "" {
@@ -165,7 +192,15 @@ func normalizeConsoleOrigin(raw string) (string, error) {
 		return "", fmt.Errorf("invalid origin")
 	}
 	parsed, err := url.Parse(value)
-	if err != nil || parsed.Opaque != "" || parsed.User != nil || parsed.Host == "" || parsed.Path != "" || parsed.RawPath != "" || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != "" {
+	if err != nil ||
+		parsed.Opaque != "" ||
+		parsed.User != nil ||
+		parsed.Host == "" ||
+		parsed.Path != "" ||
+		parsed.RawPath != "" ||
+		parsed.RawQuery != "" ||
+		parsed.ForceQuery ||
+		parsed.Fragment != "" {
 		return "", fmt.Errorf("invalid origin")
 	}
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {

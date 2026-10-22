@@ -36,7 +36,14 @@ type IdentitySignupInput struct {
 // SignupWithIdentity provisions an account from an OAuth identity, or signs
 // into the existing account that owns the same verified email. The whole
 // operation is one transaction so a partial account can never exist.
-func (r *Repository) SignupWithIdentity(ctx context.Context, input IdentitySignupInput) (domain.Account, domain.Organization, error) {
+func (r *Repository) SignupWithIdentity(
+	ctx context.Context,
+	input IdentitySignupInput,
+) (
+	domain.Account,
+	domain.Organization,
+	error,
+) {
 	if r == nil || r.pool == nil {
 		return domain.Account{}, domain.Organization{}, ErrNotFound
 	}

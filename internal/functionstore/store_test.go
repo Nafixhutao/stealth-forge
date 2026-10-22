@@ -65,7 +65,13 @@ func TestStoreEnforcesUploadLimitAndCleansTemporaryFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	artifact, err := store.BeginUpload(context.Background(), uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7()), strings.NewReader("12345"))
+	artifact, err := store.BeginUpload(
+		context.Background(),
+		uuid.Must(uuid.NewV7()),
+		uuid.Must(uuid.NewV7()),
+		uuid.Must(uuid.NewV7()),
+		strings.NewReader("12345"),
+	)
 	if !errors.Is(err, ErrTooLarge) {
 		t.Fatalf("error = %v, want ErrTooLarge", err)
 	}
@@ -105,7 +111,13 @@ func TestStoreConcurrentUploads(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			artifact, beginErr := store.BeginUpload(context.Background(), projectID, functionID, deploymentID, bytes.NewReader(payload))
+			artifact, beginErr := store.BeginUpload(
+				context.Background(),
+				projectID,
+				functionID,
+				deploymentID,
+				bytes.NewReader(payload),
+			)
 			if beginErr != nil {
 				errCh <- beginErr
 				return

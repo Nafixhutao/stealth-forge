@@ -38,7 +38,12 @@ func TestDockerExecutorUsesIsolationFlagsAndReadOnlyRuntimeMount(t *testing.T) {
 		Execution: domain.FunctionExecution{ID: "018f27e3-5d1a-7c44-ae35-1db4ea12e6d2", InputJSON: []byte(`{"name":"world"}`)},
 		Function:  domain.Function{Runtime: "node-22", Entrypoint: "src/main.js"},
 	}
-	result, err := executor.Execute(context.Background(), job, "jobs/018f27e3-5d1a-7c44-ae35-1db4ea12e6d2", []repository.FunctionRuntimeVariable{{Key: "TOKEN", Value: "secret-value", IsSecret: true}})
+	result, err := executor.Execute(
+		context.Background(),
+		job,
+		"jobs/018f27e3-5d1a-7c44-ae35-1db4ea12e6d2",
+		[]repository.FunctionRuntimeVariable{{Key: "TOKEN", Value: "secret-value", IsSecret: true}},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,10 +150,12 @@ func TestDockerExecutorBuildSiteExportsConfiguredOutputDirectory(t *testing.T) {
 	if len(calls) != 5 {
 		t.Fatalf("got %d docker calls, want create, copy, build, export, remove", len(calls))
 	}
-	if !strings.Contains(calls[2], "sh -c mkdir -p dist") || strings.Contains(calls[2], "destination=/workspace,readonly") {
+	if !strings.Contains(calls[2], "sh -c mkdir -p dist") ||
+		strings.Contains(calls[2], "destination=/workspace,readonly") {
 		t.Fatalf("site build container did not receive a writable workspace: %s", calls[2])
 	}
-	if !strings.Contains(calls[3], "cd /src/dist; tar -cf - .") || !strings.Contains(calls[3], "destination=/src,readonly") {
+	if !strings.Contains(calls[3], "cd /src/dist; tar -cf - .") ||
+		!strings.Contains(calls[3], "destination=/src,readonly") {
 		t.Fatalf("site export did not use the configured output directory: %s", calls[3])
 	}
 }

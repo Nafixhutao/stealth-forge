@@ -25,7 +25,11 @@ type runtimeProtectionQueryTracer struct {
 	leaseQueries    atomic.Int32
 }
 
-func (tracer *runtimeProtectionQueryTracer) TraceQueryStart(ctx context.Context, _ *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
+func (tracer *runtimeProtectionQueryTracer) TraceQueryStart(
+	ctx context.Context,
+	_ *pgx.Conn,
+	data pgx.TraceQueryStartData,
+) context.Context {
 	if strings.Contains(data.SQL, "FROM project_apps") {
 		tracer.selectedQueries.Add(1)
 	}
@@ -42,7 +46,13 @@ func TestAppRuntimeLeaseFencingFailureRecoveryAndConvergenceIntegration(t *testi
 	f := newAppRepositoryFixture(t)
 	cleanupAppRuntimeIntegrationRows(t, f)
 	appID := uuid.Must(uuid.NewV7())
-	_, err := f.repo.CreateApp(f.ctx, appID, f.projectOneID, f.actor, AppInput{Name: "runtime-reconcile", Enabled: true, ArtifactQuotaBytes: 4096})
+	_, err := f.repo.CreateApp(
+		f.ctx,
+		appID,
+		f.projectOneID,
+		f.actor,
+		AppInput{Name: "runtime-reconcile", Enabled: true, ArtifactQuotaBytes: 4096},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +61,10 @@ func TestAppRuntimeLeaseFencingFailureRecoveryAndConvergenceIntegration(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if selected.DesiredDeploymentID == nil || *selected.DesiredDeploymentID != deploymentID.String() || selected.RuntimeStatus != "pending" || selected.ObservedGeneration != 0 {
+	if selected.DesiredDeploymentID == nil ||
+		*selected.DesiredDeploymentID != deploymentID.String() ||
+		selected.RuntimeStatus != "pending" ||
+		selected.ObservedGeneration != 0 {
 		t.Fatalf("selected App did not enter pending runtime state: %+v", selected)
 	}
 
@@ -59,7 +72,11 @@ func TestAppRuntimeLeaseFencingFailureRecoveryAndConvergenceIntegration(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if job.App.DesiredGeneration != selected.DesiredGeneration || job.App.DesiredDeploymentID == nil || *job.App.DesiredDeploymentID != deploymentID.String() || job.Deployment.ID != deploymentID.String() || job.ImagePath == "" {
+	if job.App.DesiredGeneration != selected.DesiredGeneration ||
+		job.App.DesiredDeploymentID == nil ||
+		*job.App.DesiredDeploymentID != deploymentID.String() ||
+		job.Deployment.ID != deploymentID.String() ||
+		job.ImagePath == "" {
 		t.Fatalf("runtime claim lost selected immutable deployment: %+v", job)
 	}
 	if _, err := f.repo.ClaimNextAppRuntime(f.ctx, "runtime-b", time.Minute); !errors.Is(err, ErrNoAppRuntimeJob) {
@@ -75,7 +92,10 @@ func TestAppRuntimeLeaseFencingFailureRecoveryAndConvergenceIntegration(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if failed.RuntimeStatus != "failed" || failed.RuntimeError == nil || *failed.RuntimeError != "container ownership conflict" || failed.ObservedGeneration != 0 {
+	if failed.RuntimeStatus != "failed" ||
+		failed.RuntimeError == nil ||
+		*failed.RuntimeError != "container ownership conflict" ||
+		failed.ObservedGeneration != 0 {
 		t.Fatalf("runtime failure advanced observed state or lost safe error: %+v", failed)
 	}
 	if _, err := f.repo.ClaimNextAppRuntime(f.ctx, "runtime-b", time.Minute); !errors.Is(err, ErrNoAppRuntimeJob) {
@@ -90,14 +110,19 @@ func TestAppRuntimeLeaseFencingFailureRecoveryAndConvergenceIntegration(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if changed.DesiredGeneration != failed.DesiredGeneration+1 || changed.RuntimeStatus != "pending" || changed.RuntimeError != nil {
+	if changed.DesiredGeneration != failed.DesiredGeneration+1 ||
+		changed.RuntimeStatus != "pending" ||
+		changed.RuntimeError != nil {
 		t.Fatalf("desired update did not wake and clear failed runtime: %+v", changed)
 	}
 	changedJob, err := f.repo.ClaimNextAppRuntime(f.ctx, "runtime-b", time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if changedJob.App.Workload.Resources.CPUMillis != 750 || changedJob.App.Workload.WorkingDirectory == nil || *changedJob.App.Workload.WorkingDirectory != "/srv/current" || changedJob.Deployment.WorkloadSnapshot.Resources.CPUMillis != 500 {
+	if changedJob.App.Workload.Resources.CPUMillis != 750 ||
+		changedJob.App.Workload.WorkingDirectory == nil ||
+		*changedJob.App.Workload.WorkingDirectory != "/srv/current" ||
+		changedJob.Deployment.WorkloadSnapshot.Resources.CPUMillis != 500 {
 		t.Fatalf("runtime claim did not preserve current mutable WorkloadSpec and immutable snapshot: %+v", changedJob)
 	}
 
@@ -156,7 +181,9 @@ func TestAppRuntimeLeaseFencingFailureRecoveryAndConvergenceIntegration(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if running.RuntimeStatus != "running" || running.ObservedGeneration != running.DesiredGeneration || running.DesiredGeneration != newer.DesiredGeneration {
+	if running.RuntimeStatus != "running" ||
+		running.ObservedGeneration != running.DesiredGeneration ||
+		running.DesiredGeneration != newer.DesiredGeneration {
 		t.Fatalf("successful runtime completion did not advance observed generation: %+v", running)
 	}
 	assertAppRuntimeContainerID(t, f, appID)
@@ -171,12 +198,20 @@ func TestAppRuntimeLeaseFencingFailureRecoveryAndConvergenceIntegration(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cleanup.AppID != appID || cleanup.ContainerID == nil || *cleanup.ContainerID != strings.Repeat("a", 64) || cleanup.ContainerName != expectedCleanupName {
+	if cleanup.AppID != appID ||
+		cleanup.ContainerID == nil ||
+		*cleanup.ContainerID != strings.Repeat("a", 64) ||
+		cleanup.ContainerName != expectedCleanupName {
 		var persistedContainerID string
 		if err := f.pool.QueryRow(f.ctx, `SELECT COALESCE(container_id,'') FROM app_runtime_cleanup_jobs WHERE id=$1`, cleanup.ID).Scan(&persistedContainerID); err != nil {
 			t.Fatal(err)
 		}
-		t.Fatalf("App deletion cleanup claim disagrees with its row: expected_app_id=%s job=%+v persisted_container_id=%q", appID, cleanup, persistedContainerID)
+		t.Fatalf(
+			"App deletion cleanup claim disagrees with its row: expected_app_id=%s job=%+v persisted_container_id=%q",
+			appID,
+			cleanup,
+			persistedContainerID,
+		)
 	}
 	if err := f.repo.CompleteAppRuntimeCleanup(f.ctx, cleanup); err != nil {
 		t.Fatal(err)
@@ -220,12 +255,21 @@ func TestProjectDeletionQueuesRuntimeCleanupBeforeAppCascadeIntegration(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cleanup.ProjectID == nil || *cleanup.ProjectID != f.projectTwoID || cleanup.AppID != appID || cleanup.ContainerID == nil || *cleanup.ContainerID != strings.Repeat("a", 64) {
+	if cleanup.ProjectID == nil ||
+		*cleanup.ProjectID != f.projectTwoID ||
+		cleanup.AppID != appID ||
+		cleanup.ContainerID == nil ||
+		*cleanup.ContainerID != strings.Repeat("a", 64) {
 		var persistedContainerID string
 		if err := f.pool.QueryRow(f.ctx, `SELECT COALESCE(container_id,'') FROM app_runtime_cleanup_jobs WHERE id=$1`, cleanup.ID).Scan(&persistedContainerID); err != nil {
 			t.Fatal(err)
 		}
-		t.Fatalf("project deletion cleanup claim disagrees with its row: expected_app_id=%s job=%+v persisted_container_id=%q", appID, cleanup, persistedContainerID)
+		t.Fatalf(
+			"project deletion cleanup claim disagrees with its row: expected_app_id=%s job=%+v persisted_container_id=%q",
+			appID,
+			cleanup,
+			persistedContainerID,
+		)
 	}
 	if err := f.repo.CompleteAppRuntimeCleanup(f.ctx, cleanup); err != nil {
 		t.Fatal(err)
@@ -267,8 +311,16 @@ func TestRuntimeImageProtectionIncludesSelectedDisabledAndLiveLeaseDeploymentsIn
 	if active {
 		t.Fatal("unclaimed desired state reported an active runtime lease")
 	}
-	if !slices.Contains(ids, selectedDeploymentID) || !slices.Contains(ids, disabledDeploymentID) || slices.Contains(ids, deletedDeploymentID) {
-		t.Fatalf("protected deployment IDs = %v; selected/disabled/deleted = %s/%s/%s", ids, selectedDeploymentID, disabledDeploymentID, deletedDeploymentID)
+	if !slices.Contains(ids, selectedDeploymentID) ||
+		!slices.Contains(ids, disabledDeploymentID) ||
+		slices.Contains(ids, deletedDeploymentID) {
+		t.Fatalf(
+			"protected deployment IDs = %v; selected/disabled/deleted = %s/%s/%s",
+			ids,
+			selectedDeploymentID,
+			disabledDeploymentID,
+			deletedDeploymentID,
+		)
 	}
 
 	job, err := f.repo.ClaimNextAppRuntime(f.ctx, "cache-protection-worker", time.Minute)
@@ -353,8 +405,14 @@ func TestRuntimeImageProtectionBatchesLargeCandidateInventoryIntegration(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	if activeLease || !slices.Contains(protected, enabledDeploymentID) || !slices.Contains(protected, disabledDeploymentID) {
-		t.Fatalf("large candidate protection = %v, live lease %v; want selected enabled and disabled deployments", protected, activeLease)
+	if activeLease ||
+		!slices.Contains(protected, enabledDeploymentID) ||
+		!slices.Contains(protected, disabledDeploymentID) {
+		t.Fatalf(
+			"large candidate protection = %v, live lease %v; want selected enabled and disabled deployments",
+			protected,
+			activeLease,
+		)
 	}
 	wantBatches := (len(candidates) + protectionQueryBatchSize - 1) / protectionQueryBatchSize
 	if got := int(tracer.selectedQueries.Load()); got != wantBatches {
@@ -383,7 +441,9 @@ func TestRuntimeImageProtectionBatchesLargeCandidateInventoryIntegration(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !activeLease || !slices.Contains(protected, enabledDeploymentID) || !slices.Contains(protected, disabledDeploymentID) {
+	if !activeLease ||
+		!slices.Contains(protected, enabledDeploymentID) ||
+		!slices.Contains(protected, disabledDeploymentID) {
 		t.Fatalf("large-candidate live lease protection = %v, live lease %v", protected, activeLease)
 	}
 	if got := int(tracer.selectedQueries.Load()); got != wantBatches {
@@ -484,7 +544,9 @@ func TestAppRuntimeCleanupExpiredLeaseRecoveryFencesStaleWorkerIntegration(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	if recoveredJob.ID != crashedWorkerJob.ID || recoveredJob.LeaseToken == crashedWorkerJob.LeaseToken || recoveredJob.WorkerID != "recovery-cleanup-worker" {
+	if recoveredJob.ID != crashedWorkerJob.ID ||
+		recoveredJob.LeaseToken == crashedWorkerJob.LeaseToken ||
+		recoveredJob.WorkerID != "recovery-cleanup-worker" {
 		t.Fatalf("expired cleanup lease was not safely reclaimed: original=%+v recovered=%+v", crashedWorkerJob, recoveredJob)
 	}
 	if err := f.repo.QueueAppRuntimeCleanup(f.ctx, &f.projectOneID, appID, containerID, containerName, 15); err != nil {
@@ -530,7 +592,13 @@ func TestAppHealthConvergenceFencesStaleProbesAndControlsRouteSnapshotIntegratio
 	initialDelay := 60
 	workload.HealthCheck.InitialDelaySeconds = &initialDelay
 	appID := uuid.Must(uuid.NewV7())
-	app, err := f.repo.CreateApp(f.ctx, appID, f.projectOneID, f.actor, AppInput{Name: "health-convergence", Enabled: true, Workload: workload})
+	app, err := f.repo.CreateApp(
+		f.ctx,
+		appID,
+		f.projectOneID,
+		f.actor,
+		AppInput{Name: "health-convergence", Enabled: true, Workload: workload},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -556,7 +624,9 @@ func TestAppHealthConvergenceFencesStaleProbesAndControlsRouteSnapshotIntegratio
 	if err != nil {
 		t.Fatal(err)
 	}
-	if starting.RuntimeStatus != "running" || starting.HealthStatus != "pending" || starting.RouteStatus != "waiting_for_health" {
+	if starting.RuntimeStatus != "running" ||
+		starting.HealthStatus != "pending" ||
+		starting.RouteStatus != "waiting_for_health" {
 		t.Fatalf("running App became routable before health converged: %+v", starting)
 	}
 	if routes, err := f.repo.ListAppPlatformRoutes(f.ctx); err != nil || appRouteExists(routes, appID) {
@@ -588,8 +658,15 @@ func TestAppHealthConvergenceFencesStaleProbesAndControlsRouteSnapshotIntegratio
 		FROM app_runtime_state WHERE app_id=$1`, appID).Scan(&currentRouteIdentity, &healthRouteIdentity, &currentContainerName); err != nil {
 		t.Fatal(err)
 	}
-	if currentRouteIdentity == uuid.Nil || healthRouteIdentity != currentRouteIdentity || currentContainerName != AppRuntimeContainerNameForIncarnation(appID, currentRouteIdentity) {
-		t.Fatalf("healthy runtime routing identity = route:%s health:%s name:%q", currentRouteIdentity, healthRouteIdentity, currentContainerName)
+	if currentRouteIdentity == uuid.Nil ||
+		healthRouteIdentity != currentRouteIdentity ||
+		currentContainerName != AppRuntimeContainerNameForIncarnation(appID, currentRouteIdentity) {
+		t.Fatalf(
+			"healthy runtime routing identity = route:%s health:%s name:%q",
+			currentRouteIdentity,
+			healthRouteIdentity,
+			currentContainerName,
+		)
 	}
 	wrongRouteIdentity, err := NewAppRuntimeRouteIdentity()
 	if err != nil {
@@ -619,7 +696,11 @@ func TestAppHealthConvergenceFencesStaleProbesAndControlsRouteSnapshotIntegratio
 		t.Fatalf("rejected stale identity writes changed the App projection: route_status=%s", stillHealthy.RouteStatus)
 	}
 	if routes, err := f.repo.ListAppPlatformRoutes(f.ctx); err != nil || !appRouteExists(routes, appID) {
-		t.Fatalf("current healthy App projection disagrees with ingress after rejected stale identity writes: routes=%+v err=%v", routes, err)
+		t.Fatalf(
+			"current healthy App projection disagrees with ingress after rejected stale identity writes: routes=%+v err=%v",
+			routes,
+			err,
+		)
 	}
 	if _, err := f.pool.Exec(f.ctx, `UPDATE project_apps SET workload_spec=jsonb_set(workload_spec,'{port}','"malformed"'::jsonb) WHERE id=$1`, appID); err != nil {
 		t.Fatal(err)
@@ -676,7 +757,9 @@ func TestAppHealthConvergenceFencesStaleProbesAndControlsRouteSnapshotIntegratio
 	if err != nil {
 		t.Fatal(err)
 	}
-	if current.DesiredGeneration != changed.DesiredGeneration || current.HealthStatus != "pending" || current.RouteStatus != "waiting_for_runtime" {
+	if current.DesiredGeneration != changed.DesiredGeneration ||
+		current.HealthStatus != "pending" ||
+		current.RouteStatus != "waiting_for_runtime" {
 		t.Fatalf("stale health result authorized newer generation: %+v", current)
 	}
 	if routes, err := f.repo.ListAppPlatformRoutes(f.ctx); err != nil || appRouteExists(routes, appID) {
@@ -744,7 +827,13 @@ func TestAppSameContainerRestartRequiresFreshHealthBeforeRoutingIntegration(t *t
 	initialDelay := 60
 	workload.HealthCheck.InitialDelaySeconds = &initialDelay
 	appID := uuid.Must(uuid.NewV7())
-	_, err := f.repo.CreateApp(f.ctx, appID, f.projectOneID, f.actor, AppInput{Name: "same-container-restart", Enabled: true, Workload: workload})
+	_, err := f.repo.CreateApp(
+		f.ctx,
+		appID,
+		f.projectOneID,
+		f.actor,
+		AppInput{Name: "same-container-restart", Enabled: true, Workload: workload},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -761,7 +850,8 @@ func TestAppSameContainerRestartRequiresFreshHealthBeforeRoutingIntegration(t *t
 	if exists, err := f.repo.AppRuntimeContainerExists(f.ctx, f.projectOneID, appID, container.ID); err != nil || !exists {
 		t.Fatalf("startup orphan sweep did not preserve the exact current container: exists=%v err=%v", exists, err)
 	}
-	if exists, err := f.repo.AppRuntimeContainerExists(f.ctx, f.projectOneID, appID, strings.Repeat("f", 64)); err != nil || exists {
+	if exists, err := f.repo.AppRuntimeContainerExists(f.ctx, f.projectOneID, appID, strings.Repeat("f", 64)); err != nil ||
+		exists {
 		t.Fatalf("startup orphan sweep treated a duplicate App container as current: exists=%v err=%v", exists, err)
 	}
 	forceAppHealthCheckDue(t, f, appID)
@@ -777,7 +867,12 @@ func TestAppSameContainerRestartRequiresFreshHealthBeforeRoutingIntegration(t *t
 		t.Fatal(err)
 	}
 	if healthy.RuntimeStatus != "running" || healthy.HealthStatus != "healthy" || healthy.RouteStatus != "active" {
-		t.Fatalf("pre-restart App state = runtime %s health %s route %s, want running/healthy/active", healthy.RuntimeStatus, healthy.HealthStatus, healthy.RouteStatus)
+		t.Fatalf(
+			"pre-restart App state = runtime %s health %s route %s, want running/healthy/active",
+			healthy.RuntimeStatus,
+			healthy.HealthStatus,
+			healthy.RouteStatus,
+		)
 	}
 	if routes, err := f.repo.ListAppPlatformRoutes(f.ctx); err != nil || !appRouteExists(routes, appID) {
 		t.Fatalf("healthy App was not routed before restart: routes=%+v err=%v", routes, err)
@@ -819,8 +914,15 @@ func TestAppSameContainerRestartRequiresFreshHealthBeforeRoutingIntegration(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if pending.RuntimeStatus != "running" || pending.HealthStatus != "pending" || pending.RouteStatus != "waiting_for_health" {
-		t.Fatalf("same-container restart did not enter pending/unroutable state: runtime=%s health=%s route=%s", pending.RuntimeStatus, pending.HealthStatus, pending.RouteStatus)
+	if pending.RuntimeStatus != "running" ||
+		pending.HealthStatus != "pending" ||
+		pending.RouteStatus != "waiting_for_health" {
+		t.Fatalf(
+			"same-container restart did not enter pending/unroutable state: runtime=%s health=%s route=%s",
+			pending.RuntimeStatus,
+			pending.HealthStatus,
+			pending.RouteStatus,
+		)
 	}
 	var rotatedRouteIdentity uuid.UUID
 	var rotatedHealthRouteIdentity *uuid.UUID
@@ -828,7 +930,11 @@ func TestAppSameContainerRestartRequiresFreshHealthBeforeRoutingIntegration(t *t
 		t.Fatal(err)
 	}
 	if rotatedRouteIdentity != newRouteIdentity || rotatedHealthRouteIdentity != nil {
-		t.Fatalf("pending restart identity = route:%s health:%v, want rotated route with no health identity", rotatedRouteIdentity, rotatedHealthRouteIdentity)
+		t.Fatalf(
+			"pending restart identity = route:%s health:%v, want rotated route with no health identity",
+			rotatedRouteIdentity,
+			rotatedHealthRouteIdentity,
+		)
 	}
 	if routes, err := f.repo.ListAppPlatformRoutes(f.ctx); err != nil || appRouteExists(routes, appID) {
 		t.Fatalf("App projection and ingress disagreed while health identity was pending: routes=%+v err=%v", routes, err)
@@ -850,8 +956,25 @@ func TestAppSameContainerRestartRequiresFreshHealthBeforeRoutingIntegration(t *t
 	); err != nil {
 		t.Fatal(err)
 	}
-	if healthStatus != "pending" || healthFailures != 0 || healthCheckedAt != nil || healthGeneration != nil || healthDeploymentID != nil || healthContainerID != nil || containerAddress != nil || !delayHonored {
-		t.Fatalf("restart reset did not clear old process health identity: status=%s failures=%d checked=%v generation=%v deployment=%v container=%v address=%v delay=%v", healthStatus, healthFailures, healthCheckedAt, healthGeneration, healthDeploymentID, healthContainerID, containerAddress, delayHonored)
+	if healthStatus != "pending" ||
+		healthFailures != 0 ||
+		healthCheckedAt != nil ||
+		healthGeneration != nil ||
+		healthDeploymentID != nil ||
+		healthContainerID != nil ||
+		containerAddress != nil ||
+		!delayHonored {
+		t.Fatalf(
+			"restart reset did not clear old process health identity: status=%s failures=%d checked=%v generation=%v deployment=%v container=%v address=%v delay=%v",
+			healthStatus,
+			healthFailures,
+			healthCheckedAt,
+			healthGeneration,
+			healthDeploymentID,
+			healthContainerID,
+			containerAddress,
+			delayHonored,
+		)
 	}
 	if err := f.repo.CompleteAppHealthCheck(f.ctx, staleProbe, true); !errors.Is(err, ErrAppRuntimeLeaseLost) {
 		t.Fatalf("pre-restart health completion = %v, want lost lease", err)
@@ -861,7 +984,11 @@ func TestAppSameContainerRestartRequiresFreshHealthBeforeRoutingIntegration(t *t
 		t.Fatal(err)
 	}
 	if stillPending.HealthStatus != "pending" || stillPending.RouteStatus != "waiting_for_health" {
-		t.Fatalf("stale pre-restart probe restored health: health=%s route=%s", stillPending.HealthStatus, stillPending.RouteStatus)
+		t.Fatalf(
+			"stale pre-restart probe restored health: health=%s route=%s",
+			stillPending.HealthStatus,
+			stillPending.RouteStatus,
+		)
 	}
 
 	// Docker starts the same container ID and the repository rebinds its
@@ -874,8 +1001,15 @@ func TestAppSameContainerRestartRequiresFreshHealthBeforeRoutingIntegration(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if started.RuntimeStatus != "running" || started.HealthStatus != "pending" || started.RouteStatus != "waiting_for_health" {
-		t.Fatalf("restarted same container became routable without a fresh probe: runtime=%s health=%s route=%s", started.RuntimeStatus, started.HealthStatus, started.RouteStatus)
+	if started.RuntimeStatus != "running" ||
+		started.HealthStatus != "pending" ||
+		started.RouteStatus != "waiting_for_health" {
+		t.Fatalf(
+			"restarted same container became routable without a fresh probe: runtime=%s health=%s route=%s",
+			started.RuntimeStatus,
+			started.HealthStatus,
+			started.RouteStatus,
+		)
 	}
 	if routes, err := f.repo.ListAppPlatformRoutes(f.ctx); err != nil || appRouteExists(routes, appID) {
 		t.Fatalf("same-container restart appeared in route snapshot before fresh health: routes=%+v err=%v", routes, err)
@@ -891,8 +1025,15 @@ func TestAppSameContainerRestartRequiresFreshHealthBeforeRoutingIntegration(t *t
 	if err := f.pool.QueryRow(f.ctx, `SELECT health_container_id,host(container_address),health_generation FROM app_runtime_state WHERE app_id=$1`, appID).Scan(&reboundContainerID, &reboundAddress, &reboundGeneration); err != nil {
 		t.Fatal(err)
 	}
-	if reboundContainerID != container.ID || reboundAddress != container.Address || reboundGeneration != restartJob.App.DesiredGeneration {
-		t.Fatalf("runtime identity was not rebound to the restarted process: container=%s address=%s generation=%d", reboundContainerID, reboundAddress, reboundGeneration)
+	if reboundContainerID != container.ID ||
+		reboundAddress != container.Address ||
+		reboundGeneration != restartJob.App.DesiredGeneration {
+		t.Fatalf(
+			"runtime identity was not rebound to the restarted process: container=%s address=%s generation=%d",
+			reboundContainerID,
+			reboundAddress,
+			reboundGeneration,
+		)
 	}
 
 	forceAppHealthCheckDue(t, f, appID)
@@ -911,12 +1052,21 @@ func TestAppSameContainerRestartRequiresFreshHealthBeforeRoutingIntegration(t *t
 		t.Fatal(err)
 	}
 	if recovered.RuntimeStatus != "running" || recovered.HealthStatus != "healthy" || recovered.RouteStatus != "active" {
-		t.Fatalf("fresh post-restart probe did not restore routing: runtime=%s health=%s route=%s", recovered.RuntimeStatus, recovered.HealthStatus, recovered.RouteStatus)
+		t.Fatalf(
+			"fresh post-restart probe did not restore routing: runtime=%s health=%s route=%s",
+			recovered.RuntimeStatus,
+			recovered.HealthStatus,
+			recovered.RouteStatus,
+		)
 	}
 	if routes, err := f.repo.ListAppPlatformRoutes(f.ctx); err != nil || !appRouteExists(routes, appID) {
 		t.Fatalf("freshly healthy same-container restart was not routed: routes=%+v err=%v", routes, err)
 	} else if len(routes) != 1 || routes[0].RouteIdentity != newRouteIdentity.String() {
-		t.Fatalf("route snapshot did not publish the restarted incarnation identity: routes=%+v want=%s", routes, newRouteIdentity)
+		t.Fatalf(
+			"route snapshot did not publish the restarted incarnation identity: routes=%+v want=%s",
+			routes,
+			newRouteIdentity,
+		)
 	}
 
 	if _, err := f.pool.Exec(f.ctx, `UPDATE app_runtime_state SET next_inspection_at=now() WHERE app_id=$1`, appID); err != nil {
@@ -943,7 +1093,11 @@ func TestAppSameContainerRestartRequiresFreshHealthBeforeRoutingIntegration(t *t
 		t.Fatal(err)
 	}
 	if changed.DesiredGeneration != staleRestart.App.DesiredGeneration+1 || changed.RouteStatus != "waiting_for_runtime" {
-		t.Fatalf("stale restart reset authorized a changed generation: desired=%d route=%s", changed.DesiredGeneration, changed.RouteStatus)
+		t.Fatalf(
+			"stale restart reset authorized a changed generation: desired=%d route=%s",
+			changed.DesiredGeneration,
+			changed.RouteStatus,
+		)
 	}
 }
 
@@ -1059,7 +1213,11 @@ func TestAppRuntimeAddressValidityProjectionAndIngressParityIntegration(t *testi
 		t.Fatal(err)
 	}
 	if privateAddressState.HealthStatus != "healthy" || privateAddressState.RouteStatus != "active" {
-		t.Fatalf("valid private runtime address did not permit API route eligibility: health=%s route=%s", privateAddressState.HealthStatus, privateAddressState.RouteStatus)
+		t.Fatalf(
+			"valid private runtime address did not permit API route eligibility: health=%s route=%s",
+			privateAddressState.HealthStatus,
+			privateAddressState.RouteStatus,
+		)
 	}
 	var privateAddress string
 	if err := f.pool.QueryRow(f.ctx, `SELECT host(container_address) FROM app_runtime_state WHERE app_id=$1`, appID).Scan(&privateAddress); err != nil {
@@ -1093,14 +1251,22 @@ func TestAppRuntimeAddressValidityProjectionAndIngressParityIntegration(t *testi
 		t.Fatal(err)
 	}
 	if nonPrivateAddressState.HealthStatus != "healthy" || nonPrivateAddressState.RouteStatus != "waiting_for_health" {
-		t.Fatalf("non-private runtime address did not make the API projection fail closed: health=%s route=%s", nonPrivateAddressState.HealthStatus, nonPrivateAddressState.RouteStatus)
+		t.Fatalf(
+			"non-private runtime address did not make the API projection fail closed: health=%s route=%s",
+			nonPrivateAddressState.HealthStatus,
+			nonPrivateAddressState.RouteStatus,
+		)
 	}
 	nonPrivateRoutes, err := f.repo.ListAppPlatformRoutes(f.ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if appRouteExists(nonPrivateRoutes, appID) {
-		t.Fatalf("API reported route_status=%s for a non-private address but ingress still included the App: routes=%+v", nonPrivateAddressState.RouteStatus, nonPrivateRoutes)
+		t.Fatalf(
+			"API reported route_status=%s for a non-private address but ingress still included the App: routes=%+v",
+			nonPrivateAddressState.RouteStatus,
+			nonPrivateRoutes,
+		)
 	}
 }
 
@@ -1187,7 +1353,12 @@ func createReadySelectedRuntimeDeployment(t *testing.T, f appRepositoryFixture, 
 	t.Helper()
 	deploymentID := uuid.Must(uuid.NewV7())
 	sourcePath := projectID.String() + "/" + appID.String() + "/" + deploymentID.String()
-	sourceCleanup := ArtifactCleanupInput{ProjectID: projectID, StoreKind: ArtifactCleanupAppSources, Operation: ArtifactCleanupRelative, RelativePath: sourcePath}
+	sourceCleanup := ArtifactCleanupInput{
+		ProjectID:    projectID,
+		StoreKind:    ArtifactCleanupAppSources,
+		Operation:    ArtifactCleanupRelative,
+		RelativePath: sourcePath,
+	}
 	if err := f.repo.ReserveAppSourceUpload(f.ctx, projectID, appID, f.actor, 100, sourceCleanup); err != nil {
 		t.Fatal(err)
 	}
@@ -1209,7 +1380,12 @@ func createReadySelectedRuntimeDeployment(t *testing.T, f appRepositoryFixture, 
 		t.Fatalf("runtime test deployment claim = %+v err=%v", build, err)
 	}
 	imagePath := projectID.String() + "/" + appID.String() + "/" + deploymentID.String()
-	imageCleanup := ArtifactCleanupInput{ProjectID: projectID, StoreKind: ArtifactCleanupAppImages, Operation: ArtifactCleanupRelative, RelativePath: imagePath}
+	imageCleanup := ArtifactCleanupInput{
+		ProjectID:    projectID,
+		StoreKind:    ArtifactCleanupAppImages,
+		Operation:    ArtifactCleanupRelative,
+		RelativePath: imagePath,
+	}
 	if err := f.repo.ReserveAppImagePublish(f.ctx, projectID, appID, deploymentID, "runtime-build-worker", 100, imageCleanup); err != nil {
 		t.Fatal(err)
 	}

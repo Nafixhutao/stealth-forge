@@ -101,7 +101,14 @@ func (s *Server) listAdminAlertRuleEvents(w http.ResponseWriter, r *http.Request
 	writeAdminAlertEventPage(w, page)
 }
 
-func adminAlertEventQuery(w http.ResponseWriter, r *http.Request, ruleID *uuid.UUID) (repository.AdminAlertEventQuery, bool) {
+func adminAlertEventQuery(
+	w http.ResponseWriter,
+	r *http.Request,
+	ruleID *uuid.UUID,
+) (
+	repository.AdminAlertEventQuery,
+	bool,
+) {
 	limit, ok := adminConfigLimit(w, r)
 	if !ok {
 		return repository.AdminAlertEventQuery{}, false

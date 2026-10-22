@@ -128,7 +128,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Query structured logs through a bounded, parameterized server-side query. Raw ClickHouse SQL is not accepted. */
+        /** @description Query structured logs through a bounded, parameterized server-side query. Raw SQL is not accepted. */
         get: operations["listAdminTelemetryLogs"];
         put?: never;
         post?: never;
@@ -145,7 +145,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Stream bounded redacted log records over an authenticated server-sent event connection. The server owns the ClickHouse query and closes idle streams after a bounded lifetime. */
+        /** @description Stream bounded redacted log records over an authenticated server-sent event connection. The server owns the query and closes idle streams after a bounded lifetime. */
         get: operations["streamAdminTelemetryLogs"];
         put?: never;
         post?: never;
@@ -236,7 +236,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** @description Update the owner-managed lifecycle state of a redacted error fingerprint. Occurrences remain in ClickHouse. */
+        /** @description Update the owner-managed lifecycle state of a redacted error fingerprint. Occurrences remain in the telemetry store. */
         patch: operations["updateAdminTelemetryErrorStatus"];
         trace?: never;
     };
@@ -6088,7 +6088,7 @@ export interface components {
             pagination: components["schemas"]["Pagination"];
         };
         AppRuntimeLog: {
-            /** @description Opaque stable line identity; does not expose the ClickHouse event ID. */
+            /** @description Opaque stable line identity; does not expose the telemetry event ID. */
             id: string;
             /** Format: date-time */
             created_at: string;

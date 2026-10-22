@@ -95,7 +95,16 @@ func (r *Repository) IssueProjectUserAuthToken(
 	err = tx.QueryRow(ctx, `
 		SELECT id,project_id,email,display_name,status,email_verified,created_at,updated_at
 		FROM project_users WHERE project_id=$1 AND id=$2 FOR UPDATE`, projectID, userID).
-		Scan(&user.ID, &user.ProjectID, &user.Email, &user.Name, &user.Status, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt)
+		Scan(
+			&user.ID,
+			&user.ProjectID,
+			&user.Email,
+			&user.Name,
+			&user.Status,
+			&user.EmailVerified,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+		)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ApplicationUser{}, ErrNotFound
 	}
@@ -185,7 +194,16 @@ func (r *Repository) CreateProjectUserPasswordResetToken(
 	err = tx.QueryRow(ctx, `
 		SELECT id,project_id,email,display_name,status,email_verified,created_at,updated_at
 		FROM project_users WHERE project_id=$1 AND email=$2 FOR UPDATE`, projectID, email).
-		Scan(&user.ID, &user.ProjectID, &user.Email, &user.Name, &user.Status, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt)
+		Scan(
+			&user.ID,
+			&user.ProjectID,
+			&user.Email,
+			&user.Name,
+			&user.Status,
+			&user.EmailVerified,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+		)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ApplicationUser{}, false, nil
 	}
@@ -298,7 +316,17 @@ func (r *Repository) VerifyProjectUserEmail(
 		FROM project_user_auth_tokens t JOIN project_users u ON u.id=t.project_user_id AND u.project_id=t.project_id
 		WHERE t.project_id=$1 AND t.kind=$2 AND t.token_hash=$3 AND t.consumed_at IS NULL AND t.expires_at>now() AND u.status='active'
 		FOR UPDATE OF t,u`, projectID, AuthTokenEmailVerification, tokenHash).
-		Scan(&user.ID, &user.ProjectID, &user.Email, &user.Name, &user.Status, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt, &tokenID)
+		Scan(
+			&user.ID,
+			&user.ProjectID,
+			&user.Email,
+			&user.Name,
+			&user.Status,
+			&user.EmailVerified,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+			&tokenID,
+		)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ApplicationUser{}, ErrInvalidAuthToken
 	}
@@ -310,7 +338,16 @@ func (r *Repository) VerifyProjectUserEmail(
 	}
 	if !user.EmailVerified {
 		err = tx.QueryRow(ctx, `UPDATE project_users SET email_verified=true,updated_at=now() WHERE project_id=$1 AND id=$2 RETURNING id,project_id,email,display_name,status,email_verified,created_at,updated_at`, projectID, uuid.MustParse(user.ID)).
-			Scan(&user.ID, &user.ProjectID, &user.Email, &user.Name, &user.Status, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt)
+			Scan(
+				&user.ID,
+				&user.ProjectID,
+				&user.Email,
+				&user.Name,
+				&user.Status,
+				&user.EmailVerified,
+				&user.CreatedAt,
+				&user.UpdatedAt,
+			)
 		if err != nil {
 			return domain.ApplicationUser{}, err
 		}
@@ -404,7 +441,17 @@ func (r *Repository) ResetProjectUserPassword(
 		FROM project_user_auth_tokens t JOIN project_users u ON u.id=t.project_user_id AND u.project_id=t.project_id
 		WHERE t.project_id=$1 AND t.kind=$2 AND t.token_hash=$3 AND t.consumed_at IS NULL AND t.expires_at>now() AND u.status='active'
 		FOR UPDATE OF t,u`, projectID, AuthTokenPasswordReset, tokenHash).
-		Scan(&user.ID, &user.ProjectID, &user.Email, &user.Name, &user.Status, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt, &tokenID)
+		Scan(
+			&user.ID,
+			&user.ProjectID,
+			&user.Email,
+			&user.Name,
+			&user.Status,
+			&user.EmailVerified,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+			&tokenID,
+		)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ApplicationUser{}, ErrInvalidAuthToken
 	}
@@ -416,7 +463,16 @@ func (r *Repository) ResetProjectUserPassword(
 		return domain.ApplicationUser{}, err
 	}
 	err = tx.QueryRow(ctx, `UPDATE project_users SET password_hash=$3,updated_at=now() WHERE project_id=$1 AND id=$2 RETURNING id,project_id,email,display_name,status,email_verified,created_at,updated_at`, projectID, userID, passwordHash).
-		Scan(&user.ID, &user.ProjectID, &user.Email, &user.Name, &user.Status, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt)
+		Scan(
+			&user.ID,
+			&user.ProjectID,
+			&user.Email,
+			&user.Name,
+			&user.Status,
+			&user.EmailVerified,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+		)
 	if err != nil {
 		return domain.ApplicationUser{}, err
 	}

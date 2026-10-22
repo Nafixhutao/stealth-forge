@@ -88,7 +88,12 @@ func TestProjectOperationRateLimitIsScopedAndReturnsRetryAfter(t *testing.T) {
 	second := httptest.NewRecorder()
 	router.ServeHTTP(second, httptest.NewRequest(http.MethodPost, "/v1/projects/"+projectID+"/expensive", nil))
 	if second.Code != http.StatusTooManyRequests || second.Header().Get("Retry-After") == "" || !strings.Contains(second.Body.String(), `"rate_limited"`) {
-		t.Fatalf("second operation response = status %d headers=%v body=%q, want 429 with Retry-After and envelope", second.Code, second.Header(), second.Body.String())
+		t.Fatalf(
+			"second operation response = status %d headers=%v body=%q, want 429 with Retry-After and envelope",
+			second.Code,
+			second.Header(),
+			second.Body.String(),
+		)
 	}
 }
 
@@ -111,7 +116,11 @@ func TestAuthenticatedOperationRateLimitSharesActorAcrossIPs(t *testing.T) {
 		t.Fatal("same actor bypassed budget by changing IP")
 	}
 	if secondRecorder.Code != http.StatusTooManyRequests || secondRecorder.Header().Get("Retry-After") == "" {
-		t.Fatalf("same actor response = status=%d retry-after=%q", secondRecorder.Code, secondRecorder.Header().Get("Retry-After"))
+		t.Fatalf(
+			"same actor response = status=%d retry-after=%q",
+			secondRecorder.Code,
+			secondRecorder.Header().Get("Retry-After"),
+		)
 	}
 	if !server.allowOperationRateLimit(httptest.NewRecorder(), second, "function_execution", projectID, "account:two") {
 		t.Fatal("different actor was unexpectedly limited")
@@ -149,7 +158,11 @@ func TestAnonymousOperationRateLimitUsesResolvedClientIP(t *testing.T) {
 		t.Fatal("same forwarded client bypassed IP budget")
 	}
 	if retryRecorder.Code != http.StatusTooManyRequests || retryRecorder.Header().Get("Retry-After") == "" {
-		t.Fatalf("anonymous IP response = status=%d retry-after=%q", retryRecorder.Code, retryRecorder.Header().Get("Retry-After"))
+		t.Fatalf(
+			"anonymous IP response = status=%d retry-after=%q",
+			retryRecorder.Code,
+			retryRecorder.Header().Get("Retry-After"),
+		)
 	}
 }
 
@@ -174,7 +187,12 @@ func TestProjectSessionCookieAttributes(t *testing.T) {
 		t.Fatalf("got %d cookies, want one", len(cookies))
 	}
 	cookie := cookies[0]
-	if cookie.Name != projectSessionCookieName(projectID) || cookie.Path != projectSessionCookiePath(projectID) || !cookie.HttpOnly || !cookie.Secure || cookie.SameSite != http.SameSiteNoneMode || cookie.MaxAge != int(ttl.Seconds()) {
+	if cookie.Name != projectSessionCookieName(projectID) ||
+		cookie.Path != projectSessionCookiePath(projectID) ||
+		!cookie.HttpOnly ||
+		!cookie.Secure ||
+		cookie.SameSite != http.SameSiteNoneMode ||
+		cookie.MaxAge != int(ttl.Seconds()) {
 		t.Fatalf("unexpected app cookie attributes: %+v", cookie)
 	}
 }

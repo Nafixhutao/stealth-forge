@@ -16,7 +16,15 @@ import (
 	"github.com/Nafixhutao/stealth-forge/internal/repository"
 )
 
-func checkHTTP(ctx context.Context, job repository.AdminMonitorJob, config monitorConfig, details *json.RawMessage) (*int, error) {
+func checkHTTP(
+	ctx context.Context,
+	job repository.AdminMonitorJob,
+	config monitorConfig,
+	details *json.RawMessage,
+) (
+	*int,
+	error,
+) {
 	method := strings.ToUpper(strings.TrimSpace(config.Method))
 	if method == "" {
 		method = http.MethodGet
@@ -78,7 +86,12 @@ func checkHTTP(ctx context.Context, job repository.AdminMonitorJob, config monit
 	return &response.StatusCode, nil
 }
 
-func checkTCP(ctx context.Context, job repository.AdminMonitorJob, config monitorConfig, details *json.RawMessage) error {
+func checkTCP(
+	ctx context.Context,
+	job repository.AdminMonitorJob,
+	config monitorConfig,
+	details *json.RawMessage,
+) error {
 	host, port, _ := hostPort(job.Target, config)
 	connection, err := safeDialContext(ctx, "tcp", net.JoinHostPort(host, strconv.Itoa(port)))
 	if err != nil {
@@ -90,7 +103,12 @@ func checkTCP(ctx context.Context, job repository.AdminMonitorJob, config monito
 	return nil
 }
 
-func checkDNS(ctx context.Context, job repository.AdminMonitorJob, config monitorConfig, details *json.RawMessage) error {
+func checkDNS(
+	ctx context.Context,
+	job repository.AdminMonitorJob,
+	config monitorConfig,
+	details *json.RawMessage,
+) error {
 	recordType := strings.ToUpper(strings.TrimSpace(config.RecordType))
 	if recordType == "" {
 		recordType = "A"
@@ -133,7 +151,12 @@ func checkDNS(ctx context.Context, job repository.AdminMonitorJob, config monito
 	return nil
 }
 
-func checkTLS(ctx context.Context, job repository.AdminMonitorJob, config monitorConfig, details *json.RawMessage) error {
+func checkTLS(
+	ctx context.Context,
+	job repository.AdminMonitorJob,
+	config monitorConfig,
+	details *json.RawMessage,
+) error {
 	host, port, _ := hostPort(job.Target, config)
 	connection, err := safeDialContext(ctx, "tcp", net.JoinHostPort(host, strconv.Itoa(port)))
 	if err != nil {
@@ -162,7 +185,12 @@ func checkTLS(ctx context.Context, job repository.AdminMonitorJob, config monito
 	return nil
 }
 
-func checkHeartbeat(now time.Time, job repository.AdminMonitorJob, config monitorConfig, details *json.RawMessage) error {
+func checkHeartbeat(
+	now time.Time,
+	job repository.AdminMonitorJob,
+	config monitorConfig,
+	details *json.RawMessage,
+) error {
 	if job.LastHeartbeatAt == nil {
 		return errors.New("heartbeat has not been received")
 	}

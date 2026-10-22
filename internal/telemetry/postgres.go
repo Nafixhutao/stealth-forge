@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,13 +26,9 @@ type PostgresStore struct {
 	retention        time.Duration
 }
 
-// Open selects PostgreSQL when no external ClickHouse address is configured.
-// A nil error always means the returned store is usable; on error the store is
-// nil so process wiring cannot accidentally treat a partial backend as ready.
+// Open builds the PostgreSQL-backed telemetry store. The pool is the existing
+// control-plane database; no collector, sidecar, or second store is required.
 func Open(pool *pgxpool.Pool, cfg Config) (ManagedStore, error) {
-	if strings.TrimSpace(cfg.Address) != "" {
-		return New(cfg)
-	}
 	return NewPostgres(pool, cfg)
 }
 
@@ -155,17 +152,21 @@ func (s *PostgresStore) QueryLogs(ctx context.Context, query LogsQuery) (LogsRes
 	defer rows.Close()
 	result := LogsResult{Items: make([]LogRecord, 0, query.Limit)}
 	for rows.Next() {
-		var eventID, traceID, spanID, method, route string
-		var status, durationMS int
-		var responseBytes int64
-		var timestamp time.Time
-		if err := rows.Scan(&eventID, &traceID, &spanID, &method, &route, &status, &durationMS, &responseBytes, &timestamp); err != nil {
+		var row postgresLogRow
+		if err := rows.Scan(
+			&row.EventID,
+			&row.TraceID,
+			&row.SpanID,
+			&row.Method,
+			&row.Route,
+			&row.Status,
+			&row.DurationMS,
+			&row.ResponseBytes,
+			&row.Timestamp,
+		); err != nil {
 			return LogsResult{}, fmt.Errorf("scan PostgreSQL telemetry log: %w", err)
 		}
-		result.Items = append(result.Items, postgresLogRecord(
-			eventID, traceID, spanID, method, route, status, durationMS,
-			responseBytes, timestamp,
-		))
+		result.Items = append(result.Items, postgresLogRecord(row))
 	}
 	if err := rows.Err(); err != nil {
 		return LogsResult{}, fmt.Errorf("read PostgreSQL telemetry logs: %w", err)
@@ -173,30 +174,44 @@ func (s *PostgresStore) QueryLogs(ctx context.Context, query LogsQuery) (LogsRes
 	return result, nil
 }
 
-func postgresLogRecord(
-	eventID, traceID, spanID, method, route string,
-	status int,
-	durationMS int,
-	responseBytes int64,
-	timestamp time.Time,
-) LogRecord {
+func postgresLogRecord(row postgresLogRow) LogRecord {
 	return LogRecord{
-		Timestamp: timestamp,
-		TraceID:   traceID,
-		SpanID:    spanID,
-		Severity:  postgresLogSeverity(status),
+		Timestamp: row.Timestamp,
+		TraceID:   row.TraceID,
+		SpanID:    row.SpanID,
+		Severity:  postgresLogSeverity(row.Status),
 		Service:   "api",
-		Body:      fmt.Sprintf("%s %s -> %d (%dms)", method, route, status, durationMS),
+		Body: fmt.Sprintf(
+			"%s %s -> %d (%dms)",
+			row.Method,
+			row.Route,
+			row.Status,
+			row.DurationMS,
+		),
 		Attributes: map[string]string{
-			"http.request.method":       method,
-			"http.route":                route,
-			"http.response.status_code": fmt.Sprintf("%d", status),
-			"duration_ms":               fmt.Sprintf("%d", durationMS),
-			"response_bytes":            fmt.Sprintf("%d", responseBytes),
+			"http.request.method":       row.Method,
+			"http.route":                row.Route,
+			"http.response.status_code": strconv.Itoa(row.Status),
+			"duration_ms":               strconv.Itoa(row.DurationMS),
+			"response_bytes":            strconv.FormatInt(row.ResponseBytes, 10),
 		},
 		ResourceAttributes: map[string]string{"service.name": "api"},
-		EventID:            eventID,
+		EventID:            row.EventID,
 	}
+}
+
+// postgresLogRow is the scan target for one request-index row. Grouping the
+// columns keeps the scan list and the projection next to each other.
+type postgresLogRow struct {
+	EventID       string
+	TraceID       string
+	SpanID        string
+	Method        string
+	Route         string
+	Status        int
+	DurationMS    int
+	ResponseBytes int64
+	Timestamp     time.Time
 }
 
 func postgresLogSeverity(status int) string {
@@ -262,7 +277,7 @@ func (s *PostgresStore) QueryTraces(ctx context.Context, query TracesQuery) (Tra
 		item.Attributes = map[string]string{
 			"http.request.method":       method,
 			"http.route":                route,
-			"http.response.status_code": fmt.Sprintf("%d", status),
+			"http.response.status_code": strconv.Itoa(status),
 		}
 		item.ResourceAttributes = map[string]string{"service.name": "api"}
 		result.Items = append(result.Items, item)
@@ -496,7 +511,13 @@ func (s *PostgresStore) QueryMetrics(ctx context.Context, query MetricsQuery) (M
 	return MetricsResult{Items: []MetricRecord{}}, nil
 }
 
-func (s *PostgresStore) QueryInfrastructure(ctx context.Context, query InfrastructureQuery) (InfrastructureResult, error) {
+func (s *PostgresStore) QueryInfrastructure(
+	ctx context.Context,
+	query InfrastructureQuery,
+) (
+	InfrastructureResult,
+	error,
+) {
 	if err := s.validate(query.Range, query.Limit); err != nil {
 		return InfrastructureResult{}, err
 	}

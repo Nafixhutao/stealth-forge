@@ -21,7 +21,8 @@ func TestDisabledSenderFailsClosed(t *testing.T) {
 
 func TestSMTPSenderRejectsHeaderInjectionBeforeDial(t *testing.T) {
 	sender := &SMTP{Host: "127.0.0.1", Port: 1, From: "no-reply@example.test"}
-	if err := sender.Send(context.Background(), Message{To: "user@example.test\r\nBcc: attacker@example.test"}); err == nil || !strings.Contains(err.Error(), "recipient contains a newline") {
+	if err := sender.Send(context.Background(), Message{To: "user@example.test\r\nBcc: attacker@example.test"}); err == nil ||
+		!strings.Contains(err.Error(), "recipient contains a newline") {
 		t.Fatalf("header injection error = %v", err)
 	}
 }
@@ -87,7 +88,8 @@ func TestSMTPSenderRejectsControlCharactersInAllHeadersBeforeDial(t *testing.T) 
 
 func TestSMTPSenderRejectsUnexpectedBodyControlCharactersBeforeDial(t *testing.T) {
 	sender := &SMTP{Host: "127.0.0.1", Port: 1, From: "no-reply@example.test"}
-	if err := sender.Send(context.Background(), Message{To: "user@example.test", TextBody: "body\x00"}); err == nil || !strings.Contains(err.Error(), "smtp body contains an unexpected control character") {
+	if err := sender.Send(context.Background(), Message{To: "user@example.test", TextBody: "body\x00"}); err == nil ||
+		!strings.Contains(err.Error(), "smtp body contains an unexpected control character") {
 		t.Fatalf("body control validation error = %v", err)
 	}
 }

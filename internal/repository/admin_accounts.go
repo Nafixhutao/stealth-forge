@@ -81,11 +81,6 @@ func (r *Repository) ListInstanceAccounts(ctx context.Context) ([]domain.AdminAc
 	return accounts, rows.Err()
 }
 
-// AdminAccountPlanInput carries a plan change from the Admin Console.
-type AdminAccountPlanInput struct {
-	Plan string
-}
-
 // validAccountPlans mirrors the accounts_plan_valid CHECK constraint.
 var validAccountPlans = map[string]bool{
 	"free": true, "go": true, "plus": true, "pro": true,
@@ -93,7 +88,15 @@ var validAccountPlans = map[string]bool{
 
 // UpdateInstanceAccountPlan sets one Console account's subscription plan and
 // records the change in the instance audit trail.
-func (r *Repository) UpdateInstanceAccountPlan(ctx context.Context, actorID, accountID uuid.UUID, plan string) (domain.AdminAccount, error) {
+func (r *Repository) UpdateInstanceAccountPlan(
+	ctx context.Context,
+	actorID,
+	accountID uuid.UUID,
+	plan string,
+) (
+	domain.AdminAccount,
+	error,
+) {
 	if r == nil || r.pool == nil {
 		return domain.AdminAccount{}, ErrNotFound
 	}

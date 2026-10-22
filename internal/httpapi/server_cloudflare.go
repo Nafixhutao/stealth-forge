@@ -92,8 +92,14 @@ func (s *Server) updateAdminCloudflare(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
-	} else if (request.AccountID != "" && strings.TrimSpace(request.AccountID) != accountID) || (request.TunnelID != "" && strings.TrimSpace(request.TunnelID) != tunnelID) {
-		writeError(w, http.StatusConflict, "cloudflare_tunnel_identity_conflict", "reconnection must use the existing Cloudflare account and named tunnel")
+	} else if (request.AccountID != "" && strings.TrimSpace(request.AccountID) != accountID) ||
+		(request.TunnelID != "" && strings.TrimSpace(request.TunnelID) != tunnelID) {
+		writeError(
+			w,
+			http.StatusConflict,
+			"cloudflare_tunnel_identity_conflict",
+			"reconnection must use the existing Cloudflare account and named tunnel",
+		)
 		return
 	}
 	client, err := s.cloudflareFactory(token)
@@ -122,7 +128,12 @@ func (s *Server) updateAdminCloudflare(w http.ResponseWriter, r *http.Request) {
 				"Cloudflare rejected the token or it lacks Account Tunnel Edit, Account Settings Read, Zone Read, DNS Edit, or workload-zone SSL and Certificates Read access",
 			)
 		} else {
-			writeError(w, http.StatusBadGateway, "cloudflare_validation_failed", "Cloudflare could not verify the existing account, tunnel, Console DNS, and configured workload zone. Check the scoped token and keep the existing tunnel unchanged.")
+			writeError(
+				w,
+				http.StatusBadGateway,
+				"cloudflare_validation_failed",
+				"Cloudflare could not verify the existing account, tunnel, Console DNS, and configured workload zone. Check the scoped token and keep the existing tunnel unchanged.",
+			)
 		}
 		return
 	}

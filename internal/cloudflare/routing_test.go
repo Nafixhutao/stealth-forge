@@ -37,7 +37,13 @@ func (s *routingFakeStore) CloudflareReconcileSnapshot(context.Context) (domain.
 	return cloneCloudflareConnection(s.connection), nil
 }
 
-func (s *routingFakeStore) CompleteCloudflareReconcile(_ context.Context, update domain.CloudflareRoutingUpdate) (bool, error) {
+func (s *routingFakeStore) CompleteCloudflareReconcile(
+	_ context.Context,
+	update domain.CloudflareRoutingUpdate,
+) (
+	bool,
+	error,
+) {
 	if !sameOptionalRoutingDomain(s.connection.WorkloadBaseDomain, update.ExpectedWorkloadBaseDomain) {
 		return false, nil
 	}
@@ -62,7 +68,14 @@ func (s *routingFakeStore) CompleteCloudflareReconcile(_ context.Context, update
 	return true, nil
 }
 
-func (s *routingFakeStore) CompleteCloudflareConsoleOrigin(_ context.Context, expectedOrigin, observedOrigin string) (bool, error) {
+func (s *routingFakeStore) CompleteCloudflareConsoleOrigin(
+	_ context.Context,
+	expectedOrigin,
+	observedOrigin string,
+) (
+	bool,
+	error,
+) {
 	if s.connection.ConsoleOriginDesired != expectedOrigin {
 		return false, nil
 	}
@@ -73,7 +86,11 @@ func (s *routingFakeStore) CompleteCloudflareConsoleOrigin(_ context.Context, ex
 	return true, nil
 }
 
-func (s *routingFakeStore) RecordCloudflareConsoleOriginFailure(_ context.Context, expectedOrigin, message string) error {
+func (s *routingFakeStore) RecordCloudflareConsoleOriginFailure(
+	_ context.Context,
+	expectedOrigin,
+	message string,
+) error {
 	if s.connection.ConsoleOriginDesired == expectedOrigin {
 		s.connection.ConsoleOriginStatus = "error"
 		s.connection.ConsoleOriginLastError = message
@@ -236,7 +253,15 @@ func (c *routingFakeClient) CreateDNSRecord(_ context.Context, zoneID string, re
 	c.records[zoneID][record.ID] = record
 	return record, nil
 }
-func (c *routingFakeClient) UpdateDNSRecord(_ context.Context, zoneID, recordID string, record DNSRecord) (DNSRecord, error) {
+func (c *routingFakeClient) UpdateDNSRecord(
+	_ context.Context,
+	zoneID,
+	recordID string,
+	record DNSRecord,
+) (
+	DNSRecord,
+	error,
+) {
 	c.dnsCalls++
 	c.updateCount++
 	c.events = append(c.events, "update_dns")
@@ -316,10 +341,17 @@ func TestRoutingReconcilerCreatesWildcardAndOrdersTunnelIngress(t *testing.T) {
 	if !sameIngress(client.ingress, wantIngress) {
 		t.Fatalf("tunnel ingress = %#v, want %#v", client.ingress, wantIngress)
 	}
-	if got := client.records["console-zone"][store.connection.WildcardRecordID]; got.Type != "CNAME" || got.Name != "*.apps.example.com" || got.Content != "tunnel-a.cfargotunnel.com" || !got.Proxied || got.TTL != 1 {
+	if got := client.records["console-zone"][store.connection.WildcardRecordID]; got.Type != "CNAME" ||
+		got.Name != "*.apps.example.com" ||
+		got.Content != "tunnel-a.cfargotunnel.com" ||
+		!got.Proxied ||
+		got.TTL != 1 {
 		t.Fatalf("wildcard record = %#v", got)
 	}
-	if store.connection.Status != "ready" || store.connection.WorkloadZoneID != "console-zone" || store.connection.WildcardHostname != "*.apps.example.com" || !result.Changed {
+	if store.connection.Status != "ready" ||
+		store.connection.WorkloadZoneID != "console-zone" ||
+		store.connection.WildcardHostname != "*.apps.example.com" ||
+		!result.Changed {
 		t.Fatalf("stored routing state = %#v result=%#v", store.connection, result)
 	}
 }
@@ -364,13 +396,18 @@ func TestRoutingReconcilerReportsIdentityWithoutCredentialAsReconnectRequired(t 
 		t.Fatal(err)
 	}
 	result, err := reconciler.Reconcile(context.Background())
-	if err == nil || result.Status != "error" || store.connection.Status != "error" || !strings.Contains(store.lastError, "reconnect") {
+	if err == nil ||
+		result.Status != "error" ||
+		store.connection.Status != "error" ||
+		!strings.Contains(store.lastError, "reconnect") {
 		t.Fatalf("incomplete Cloudflare identity = %#v, store=%#v, err=%v", result, store, err)
 	}
 	if clientFactoryCalls != 0 {
 		t.Fatalf("client factory called without credential %d times", clientFactoryCalls)
 	}
-	if _, err := reconciler.ReconcileConsoleOrigin(context.Background()); err == nil || !strings.Contains(err.Error(), "reconnect") || store.connection.ConsoleOriginStatus != "error" {
+	if _, err := reconciler.ReconcileConsoleOrigin(context.Background()); err == nil ||
+		!strings.Contains(err.Error(), "reconnect") ||
+		store.connection.ConsoleOriginStatus != "error" {
 		t.Fatalf("Console-origin recovery without credential = %v, state=%#v", err, store.connection)
 	}
 }
@@ -381,17 +418,28 @@ func TestTLSInspectionFailureKeepsWildcardAndTunnelResources(t *testing.T) {
 	client.certificatePacksErr = errors.New("provider echoed cf-secret-token")
 	reconciler := newRoutingTestReconciler(t, store, client)
 	result, err := reconciler.Reconcile(context.Background())
-	if err == nil || result.Status != "error" || result.EdgeTLSStatus != EdgeTLSError || store.connection.Status != "error" {
+	if err == nil ||
+		result.Status != "error" ||
+		result.EdgeTLSStatus != EdgeTLSError ||
+		store.connection.Status != "error" {
 		t.Fatalf("TLS API failure result=%#v state=%#v error=%v", result, store.connection, err)
 	}
-	if strings.Contains(err.Error(), "cf-secret-token") || strings.Contains(store.connection.EdgeTLSError, "cf-secret-token") {
+	if strings.Contains(err.Error(), "cf-secret-token") ||
+		strings.Contains(store.connection.EdgeTLSError, "cf-secret-token") {
 		t.Fatalf("TLS inspection leaked token: err=%q tls_error=%q", err, store.connection.EdgeTLSError)
 	}
-	if store.connection.WildcardRecordID == "" || client.records["apps-zone"][store.connection.WildcardRecordID].Name != "*.apps.example.com" {
+	if store.connection.WildcardRecordID == "" ||
+		client.records["apps-zone"][store.connection.WildcardRecordID].Name != "*.apps.example.com" {
 		t.Fatalf("TLS failure removed or failed to save wildcard DNS: %#v", store.connection)
 	}
-	if store.connection.ConsoleOriginStatus != "ready" || !sameIngress(client.ingress, desiredTunnelIngress("cloud.example.com", "*.apps.example.com")) || client.deleteCount != 0 {
-		t.Fatalf("TLS failure changed working tunnel or cleaned provider state: ingress=%#v deletes=%d", client.ingress, client.deleteCount)
+	if store.connection.ConsoleOriginStatus != "ready" ||
+		!sameIngress(client.ingress, desiredTunnelIngress("cloud.example.com", "*.apps.example.com")) ||
+		client.deleteCount != 0 {
+		t.Fatalf(
+			"TLS failure changed working tunnel or cleaned provider state: ingress=%#v deletes=%d",
+			client.ingress,
+			client.deleteCount,
+		)
 	}
 }
 
@@ -405,9 +453,15 @@ func TestTLSCertificatePermissionUnauthorizedPreservesRouting(t *testing.T) {
 		t.Fatalf("unauthorized certificate inspection result=%#v err=%v", result, err)
 	}
 	if strings.Contains(err.Error(), "cf-secret-token") || store.connection.EdgeTLSError == "" {
-		t.Fatalf("certificate permission failure leaked credential or omitted status: err=%q tls_error=%q", err, store.connection.EdgeTLSError)
+		t.Fatalf(
+			"certificate permission failure leaked credential or omitted status: err=%q tls_error=%q",
+			err,
+			store.connection.EdgeTLSError,
+		)
 	}
-	if store.connection.WildcardRecordID == "" || client.deleteCount != 0 || !sameIngress(client.ingress, desiredTunnelIngress("cloud.example.com", "*.apps.example.com")) {
+	if store.connection.WildcardRecordID == "" ||
+		client.deleteCount != 0 ||
+		!sameIngress(client.ingress, desiredTunnelIngress("cloud.example.com", "*.apps.example.com")) {
 		t.Fatalf("unauthorized TLS read destroyed routing: state=%#v ingress=%#v", store.connection, client.ingress)
 	}
 }
@@ -428,7 +482,8 @@ func TestRoutingRequiresActiveExactWorkloadWildcardAndPreservesDNSAndTunnel(t *t
 	if !strings.Contains(result.EdgeTLSReason, "*.apps.example.com") || store.connection.LastError != "" {
 		t.Fatalf("missing wildcard coverage reason/status = %q/%q", result.EdgeTLSReason, store.connection.LastError)
 	}
-	if store.connection.WildcardRecordID == "" || client.records["console-zone"][store.connection.WildcardRecordID].Name != "*.apps.example.com" {
+	if store.connection.WildcardRecordID == "" ||
+		client.records["console-zone"][store.connection.WildcardRecordID].Name != "*.apps.example.com" {
 		t.Fatalf("DNS wildcard was not retained: state=%#v records=%#v", store.connection, client.records)
 	}
 	wantIngress := desiredTunnelIngress("cloud.example.com", "*.apps.example.com")
@@ -440,7 +495,11 @@ func TestRoutingRequiresActiveExactWorkloadWildcardAndPreservesDNSAndTunnel(t *t
 func TestRoutingReconcilerDiscoversDifferentWorkloadZoneAndLongestSuffix(t *testing.T) {
 	workload := "apps.sub.example.net"
 	store, client := newRoutingTestStore(&workload), newRoutingFakeClient()
-	client.zones = []Zone{{ID: "console-zone", Name: "example.com"}, {ID: "net-zone", Name: "example.net"}, {ID: "nested-zone", Name: "sub.example.net"}}
+	client.zones = []Zone{
+		{ID: "console-zone", Name: "example.com"},
+		{ID: "net-zone", Name: "example.net"},
+		{ID: "nested-zone", Name: "sub.example.net"},
+	}
 	reconciler := newRoutingTestReconciler(t, store, client)
 	if _, err := reconciler.Reconcile(context.Background()); err != nil {
 		t.Fatal(err)
@@ -527,7 +586,12 @@ func TestRoutingReconcilerRetriesIdempotently(t *testing.T) {
 		t.Fatal(err)
 	}
 	if result.Changed || client.createCount != creates || client.configureCount != configures {
-		t.Fatalf("retry was not a no-op: result=%#v creates=%d configures=%d", result, client.createCount, client.configureCount)
+		t.Fatalf(
+			"retry was not a no-op: result=%#v creates=%d configures=%d",
+			result,
+			client.createCount,
+			client.configureCount,
+		)
 	}
 }
 
@@ -556,12 +620,21 @@ func TestRoutingReconcilerSwitchesOnlyConsoleOriginAndPreservesWorkloadRoute(t *
 				{Service: "http_status:404"},
 			}
 			if !sameIngress(client.ingress, want) || client.configureCount != 1 || client.createCount != 1 {
-				t.Fatalf("origin transition ingress=%#v configure=%d dns_create=%d", client.ingress, client.configureCount, client.createCount)
+				t.Fatalf(
+					"origin transition ingress=%#v configure=%d dns_create=%d",
+					client.ingress,
+					client.configureCount,
+					client.createCount,
+				)
 			}
-			if result.ConsoleOriginDesired != test.wantedOrigin || result.ConsoleOriginObserved != test.wantedOrigin || store.connection.ConsoleOriginObserved != test.wantedOrigin {
+			if result.ConsoleOriginDesired != test.wantedOrigin ||
+				result.ConsoleOriginObserved != test.wantedOrigin ||
+				store.connection.ConsoleOriginObserved != test.wantedOrigin {
 				t.Fatalf("origin observation result=%#v state=%#v", result, store.connection)
 			}
-			if client.ingress[1].Hostname != "*.apps.example.com" || client.ingress[1].Service != "http://traefik:8080" || client.ingress[2].Service != "http_status:404" {
+			if client.ingress[1].Hostname != "*.apps.example.com" ||
+				client.ingress[1].Service != "http://traefik:8080" ||
+				client.ingress[2].Service != "http_status:404" {
 				t.Fatalf("Console origin change disturbed workload route/catch-all: %#v", client.ingress)
 			}
 		})
@@ -618,7 +691,9 @@ func TestConsoleOriginRollbackIsIndependentOfWorkloadFailures(t *testing.T) {
 			if err != nil || origin != ConsoleOriginProxy {
 				t.Fatalf("Console-only rollback = %q, %v", origin, err)
 			}
-			if client.ingress[0].Service != "http://proxy:80" || client.ingress[1].Service != "http://traefik:8080" || client.ingress[2].Service != "http_status:404" {
+			if client.ingress[0].Service != "http://proxy:80" ||
+				client.ingress[1].Service != "http://traefik:8080" ||
+				client.ingress[2].Service != "http_status:404" {
 				t.Fatalf("Console rollback did not preserve workload/catch-all rules: %#v", client.ingress)
 			}
 			if string(client.ingress[0].Origin) != `{"connectTimeout":3000}` || string(client.ingress[1].Origin) != `{"httpHostHeader":"site.example"}` {
@@ -628,12 +703,20 @@ func TestConsoleOriginRollbackIsIndependentOfWorkloadFailures(t *testing.T) {
 				t.Fatalf("Console rollback dropped an unrelated Tunnel rule field: %#v", client.ingress[1].Extra)
 			}
 			if client.zoneReads != 0 || client.dnsCalls != 0 || client.certificateReads != 0 || client.deleteCount != 0 {
-				t.Fatalf("Console rollback called workload APIs: zones=%d DNS=%d certificates=%d deletes=%d", client.zoneReads, client.dnsCalls, client.certificateReads, client.deleteCount)
+				t.Fatalf(
+					"Console rollback called workload APIs: zones=%d DNS=%d certificates=%d deletes=%d",
+					client.zoneReads,
+					client.dnsCalls,
+					client.certificateReads,
+					client.deleteCount,
+				)
 			}
 			if store.connection.ConsoleOriginObserved != ConsoleOriginProxy || store.connection.ConsoleOriginStatus != "ready" {
 				t.Fatalf("Console rollback state = %#v", store.connection)
 			}
-			if store.connection.Status != "error" || store.connection.LastError != "wildcard workload reconciliation failed" || store.connection.EdgeTLSError != "workload certificate inspection failed" {
+			if store.connection.Status != "error" ||
+				store.connection.LastError != "wildcard workload reconciliation failed" ||
+				store.connection.EdgeTLSError != "workload certificate inspection failed" {
 				t.Fatalf("Console rollback overwrote independent workload state: %#v", store.connection)
 			}
 		})
@@ -645,10 +728,22 @@ func TestConsoleOriginReconcileNoOpsWhenAlreadyConverged(t *testing.T) {
 	client.ingress = desiredTunnelIngress("cloud.example.com", "", ConsoleOriginProxy)
 	origin, err := newRoutingTestReconciler(t, store, client).ReconcileConsoleOrigin(context.Background())
 	if err != nil || origin != ConsoleOriginProxy || client.configureCount != 0 || store.consoleOriginCompletions != 1 {
-		t.Fatalf("already-converged Console origin = %q, %v; writes=%d state=%#v", origin, err, client.configureCount, store.connection)
+		t.Fatalf(
+			"already-converged Console origin = %q, %v; writes=%d state=%#v",
+			origin,
+			err,
+			client.configureCount,
+			store.connection,
+		)
 	}
 	if client.zoneReads != 0 || client.dnsCalls != 0 || client.certificateReads != 0 || client.deleteCount != 0 {
-		t.Fatalf("Console-only no-op called workload APIs: zones=%d DNS=%d certificates=%d deletes=%d", client.zoneReads, client.dnsCalls, client.certificateReads, client.deleteCount)
+		t.Fatalf(
+			"Console-only no-op called workload APIs: zones=%d DNS=%d certificates=%d deletes=%d",
+			client.zoneReads,
+			client.dnsCalls,
+			client.certificateReads,
+			client.deleteCount,
+		)
 	}
 }
 
@@ -671,7 +766,9 @@ func TestConsoleOriginMutationFailureAndReadbackMismatchFailClosed(t *testing.T)
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("Console origin failure = %v, want %q", err, test.want)
 			}
-			if store.connection.ConsoleOriginStatus != "error" || store.connection.ConsoleOriginObserved != "unknown" || store.consoleOriginCompletions != 0 {
+			if store.connection.ConsoleOriginStatus != "error" ||
+				store.connection.ConsoleOriginObserved != "unknown" ||
+				store.consoleOriginCompletions != 0 {
 				t.Fatalf("failed Console origin mutation was reported ready: %#v", store.connection)
 			}
 		})
@@ -706,7 +803,9 @@ func TestWorkloadReconcileFailureDoesNotPoisonReadyConsoleOrigin(t *testing.T) {
 	if _, err := newRoutingTestReconciler(t, store, client).Reconcile(context.Background()); err == nil {
 		t.Fatal("wildcard DNS conflict should fail workload reconciliation")
 	}
-	if store.connection.Status != "error" || store.connection.ConsoleOriginStatus != "ready" || store.connection.ConsoleOriginLastError != "" {
+	if store.connection.Status != "error" ||
+		store.connection.ConsoleOriginStatus != "ready" ||
+		store.connection.ConsoleOriginLastError != "" {
 		t.Fatalf("workload failure contaminated Console origin status: %#v", store.connection)
 	}
 }
@@ -716,10 +815,13 @@ func TestRoutingReconcilerRejectsTunnelConfigurationThatDoesNotVerify(t *testing
 	store.connection.ConsoleOriginDesired = ConsoleOriginTraefik
 	client.ignoreConfigure = true
 	reconciler := newRoutingTestReconciler(t, store, client)
-	if _, err := reconciler.Reconcile(context.Background()); err == nil || !strings.Contains(err.Error(), "did not match") {
+	if _, err := reconciler.Reconcile(context.Background()); err == nil ||
+		!strings.Contains(err.Error(), "did not match") {
 		t.Fatalf("unverified provider write error = %v", err)
 	}
-	if client.configureCount != 1 || client.ingress[0].Service != "http://proxy:80" || store.connection.ConsoleOriginObserved != "unknown" {
+	if client.configureCount != 1 ||
+		client.ingress[0].Service != "http://proxy:80" ||
+		store.connection.ConsoleOriginObserved != "unknown" {
 		t.Fatalf("unverified provider write mutated observed state: ingress=%#v state=%#v", client.ingress, store.connection)
 	}
 }
@@ -752,8 +854,17 @@ func TestRoutingReconcilerChangesDomainBeforeSafeDNSCleanup(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []IngressRule{{Hostname: "cloud.example.com", Service: "http://proxy:80"}, {Service: "http_status:404"}}
-	if !sameIngress(client.ingress, want) || client.deleteCount != 1 || len(client.records["net-zone"]) != 0 || store.connection.WildcardRecordID != "" {
-		t.Fatalf("clear result ingress=%#v deletes=%d records=%#v state=%#v", client.ingress, client.deleteCount, client.records, store.connection)
+	if !sameIngress(client.ingress, want) ||
+		client.deleteCount != 1 ||
+		len(client.records["net-zone"]) != 0 ||
+		store.connection.WildcardRecordID != "" {
+		t.Fatalf(
+			"clear result ingress=%#v deletes=%d records=%#v state=%#v",
+			client.ingress,
+			client.deleteCount,
+			client.records,
+			store.connection,
+		)
 	}
 }
 
@@ -789,7 +900,9 @@ func TestRoutingReconcilerEstablishesNewDomainBeforeRemovingOldWildcard(t *testi
 	if _, exists := client.records["net-zone"]["old-record"]; exists {
 		t.Fatal("previous owned wildcard record remains after safe replacement")
 	}
-	if got := client.records["apps-zone"][store.connection.WildcardRecordID]; got.Name != "*.apps.example.com" || !got.Proxied || got.TTL != 1 {
+	if got := client.records["apps-zone"][store.connection.WildcardRecordID]; got.Name != "*.apps.example.com" ||
+		!got.Proxied ||
+		got.TTL != 1 {
 		t.Fatalf("new wildcard record = %#v", got)
 	}
 }
@@ -809,8 +922,15 @@ func TestRoutingReconcilerRefusesDeletionAfterOwnershipDrift(t *testing.T) {
 	if !errors.Is(err, ErrRoutingConflict) {
 		t.Fatalf("Reconcile() error = %v, want ownership drift", err)
 	}
-	if client.deleteCount != 0 || client.records["net-zone"]["old-record"].Content != "operator.example.net" || store.connection.Status != "error" {
-		t.Fatalf("ownership drift cleanup state=%#v records=%#v deletes=%d", store.connection, client.records, client.deleteCount)
+	if client.deleteCount != 0 ||
+		client.records["net-zone"]["old-record"].Content != "operator.example.net" ||
+		store.connection.Status != "error" {
+		t.Fatalf(
+			"ownership drift cleanup state=%#v records=%#v deletes=%d",
+			store.connection,
+			client.records,
+			client.deleteCount,
+		)
 	}
 }
 
@@ -829,7 +949,9 @@ func TestRoutingReconcilerPreservesLastKnownGoodRecordOnIngressFailure(t *testin
 	if _, err := reconciler.Reconcile(context.Background()); err == nil {
 		t.Fatal("Reconcile() succeeded despite tunnel configuration failure")
 	}
-	if _, ok := client.records["console-zone"]["old-record"]; !ok || client.deleteCount != 0 || store.connection.WildcardRecordID != "old-record" {
+	if _, ok := client.records["console-zone"]["old-record"]; !ok ||
+		client.deleteCount != 0 ||
+		store.connection.WildcardRecordID != "old-record" {
 		t.Fatalf("old route was destroyed: state=%#v records=%#v", store.connection, client.records)
 	}
 }
@@ -852,7 +974,11 @@ func TestRoutingReconcilerLeavesOldProviderStateWhenNewZoneIsUnavailable(t *test
 		t.Fatalf("unavailable target zone status=%#v err=%v", store.connection, err)
 	}
 	if _, ok := client.records["old-zone"]["old-record"]; !ok || client.configureCount != 0 || client.deleteCount != 0 {
-		t.Fatalf("inaccessible new zone changed last-known provider state: state=%#v records=%#v", store.connection, client.records)
+		t.Fatalf(
+			"inaccessible new zone changed last-known provider state: state=%#v records=%#v",
+			store.connection,
+			client.records,
+		)
 	}
 }
 
@@ -874,7 +1000,9 @@ func TestRoutingReconcilerUnauthorizedTokenIsSanitizedAndDoesNotMutateProvider(t
 	if !errors.Is(err, ErrUnauthorized) {
 		t.Fatalf("Reconcile() error = %v, want unauthorized", err)
 	}
-	if strings.Contains(store.lastError, "cf-secret-token") || strings.Contains(err.Error(), "cf-secret-token") || strings.Contains(logs.String(), "cf-secret-token") {
+	if strings.Contains(store.lastError, "cf-secret-token") ||
+		strings.Contains(err.Error(), "cf-secret-token") ||
+		strings.Contains(logs.String(), "cf-secret-token") {
 		t.Fatalf("unauthorized token leaked: status=%q error=%q logs=%q", store.lastError, err, logs.String())
 	}
 	if store.connection.Status != "error" || client.configureCount != 0 || client.createCount != 0 {

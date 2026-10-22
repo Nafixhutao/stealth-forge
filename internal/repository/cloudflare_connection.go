@@ -165,7 +165,14 @@ func (r *Repository) SaveCloudflareConnectionFromSetup(ctx context.Context, inpu
 // PostgreSQL. It never replaces a row that already has a credential or a
 // different identity and can persist an identity without a recoverable token
 // so an Instance Owner can reconnect explicitly.
-func (r *Repository) ImportCloudflareConnectionOnce(ctx context.Context, input CloudflareConnectionInput, unavailableReason string) (bool, error) {
+func (r *Repository) ImportCloudflareConnectionOnce(
+	ctx context.Context,
+	input CloudflareConnectionInput,
+	unavailableReason string,
+) (
+	bool,
+	error,
+) {
 	if r == nil || r.pool == nil {
 		return false, ErrNotFound
 	}

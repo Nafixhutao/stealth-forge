@@ -15,7 +15,13 @@ import (
 	dto "github.com/prometheus/client_model/go"
 )
 
-func cacheEntry(t *testing.T, deploymentID uuid.UUID, imageCharacter byte, size int64, createdAt time.Time) RuntimeImageCacheEntry {
+func cacheEntry(
+	t *testing.T,
+	deploymentID uuid.UUID,
+	imageCharacter byte,
+	size int64,
+	createdAt time.Time,
+) RuntimeImageCacheEntry {
 	t.Helper()
 	if deploymentID == uuid.Nil || deploymentID.Version() != uuid.Version(7) {
 		t.Fatalf("test deployment identity is not UUIDv7: %s", deploymentID)
@@ -86,7 +92,13 @@ func TestRuntimeImageCacheSweepUsesStableDeploymentOrdering(t *testing.T) {
 	worker.ImageCacheMaxBytes = 4 << 20
 	worker.ImageCacheTargetBytes = 1 << 20
 	created := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
-	ids := []uuid.UUID{newCacheDeploymentID(t), newCacheDeploymentID(t), newCacheDeploymentID(t), newCacheDeploymentID(t), newCacheDeploymentID(t)}
+	ids := []uuid.UUID{
+		newCacheDeploymentID(t),
+		newCacheDeploymentID(t),
+		newCacheDeploymentID(t),
+		newCacheDeploymentID(t),
+		newCacheDeploymentID(t),
+	}
 	entries := make([]RuntimeImageCacheEntry, 0, len(ids))
 	for index, id := range ids {
 		entries = append(entries, cacheEntry(t, id, byte('f'-index), 1<<20, created.Add(-time.Duration(index)*24*time.Hour)))
@@ -116,7 +128,11 @@ func TestRuntimeImageCacheSweepBoundsRemovalsAndFailsClosed(t *testing.T) {
 	}
 	worker.sweepRuntimeImageCacheIfDue(context.Background(), uuid.Nil)
 	if len(driver.removedImageTags) != maxRuntimeImageGCRemovalsPerSweep {
-		t.Fatalf("image removals in one sweep = %d, want at most %d", len(driver.removedImageTags), maxRuntimeImageGCRemovalsPerSweep)
+		t.Fatalf(
+			"image removals in one sweep = %d, want at most %d",
+			len(driver.removedImageTags),
+			maxRuntimeImageGCRemovalsPerSweep,
+		)
 	}
 
 	worker, store, driver := newImageCacheWorker(t)
@@ -135,7 +151,11 @@ func TestRuntimeImageCacheSweepBoundsRemovalsAndFailsClosed(t *testing.T) {
 	driver.runtimeImageCache = []RuntimeImageCacheEntry{malformed}
 	worker.sweepRuntimeImageCacheIfDue(context.Background(), uuid.Nil)
 	if len(driver.removedImageTags) != 0 || store.failureCalls != 0 {
-		t.Fatalf("malformed ownership affected deletion/App state: removed=%#v app failures=%d", driver.removedImageTags, store.failureCalls)
+		t.Fatalf(
+			"malformed ownership affected deletion/App state: removed=%#v app failures=%d",
+			driver.removedImageTags,
+			store.failureCalls,
+		)
 	}
 
 	worker, _, driver = newImageCacheWorker(t)
@@ -183,14 +203,21 @@ func TestRuntimeImageCacheSweepMakesBoundedProgressAcrossHighCardinalitySweeps(t
 
 	firstSweepAt := time.Now()
 	worker.sweepRuntimeImageCacheIfDue(context.Background(), currentID)
-	if len(driver.removedImageTags) != maxRuntimeImageGCRemovalsPerSweep || !slices.Equal(driver.removedImageTags, wantRemovals[:4]) {
-		t.Fatalf("first high-cardinality sweep removed %v; want oldest safe four %v", driver.removedImageTags, wantRemovals[:4])
+	if len(driver.removedImageTags) != maxRuntimeImageGCRemovalsPerSweep ||
+		!slices.Equal(driver.removedImageTags, wantRemovals[:4]) {
+		t.Fatalf(
+			"first high-cardinality sweep removed %v; want oldest safe four %v",
+			driver.removedImageTags,
+			wantRemovals[:4],
+		)
 	}
-	if !worker.nextImageCacheSweep.After(firstSweepAt) || worker.nextImageCacheSweep.After(firstSweepAt.Add(2*time.Minute)) {
+	if !worker.nextImageCacheSweep.After(firstSweepAt) ||
+		worker.nextImageCacheSweep.After(firstSweepAt.Add(2*time.Minute)) {
 		t.Fatalf("pressure recovery cadence = %s, want a bounded one-minute retry", worker.nextImageCacheSweep.Sub(firstSweepAt))
 	}
 	var pressure dto.Metric
-	if err := worker.Metrics.AppRuntimeImageCachePressure.Write(&pressure); err != nil || pressure.GetGauge().GetValue() != 1 {
+	if err := worker.Metrics.AppRuntimeImageCachePressure.Write(&pressure); err != nil ||
+		pressure.GetGauge().GetValue() != 1 {
 		t.Fatalf("large cache pressure after partial progress = %v, %v", pressure.GetGauge(), err)
 	}
 	for _, protectedID := range []uuid.UUID{currentID, desiredID, containerID} {
@@ -201,11 +228,16 @@ func TestRuntimeImageCacheSweepMakesBoundedProgressAcrossHighCardinalitySweeps(t
 
 	worker.nextImageCacheSweep = time.Time{}
 	worker.sweepRuntimeImageCacheIfDue(context.Background(), currentID)
-	if len(driver.removedImageTags) != 2*maxRuntimeImageGCRemovalsPerSweep || !slices.Equal(driver.removedImageTags[4:], wantRemovals[4:8]) {
+	if len(driver.removedImageTags) != 2*maxRuntimeImageGCRemovalsPerSweep ||
+		!slices.Equal(driver.removedImageTags[4:], wantRemovals[4:8]) {
 		t.Fatalf("second due sweep did not continue deterministic bounded progress: %v", driver.removedImageTags)
 	}
 	if len(driver.runtimeImageCache) != len(entries)-2*maxRuntimeImageGCRemovalsPerSweep {
-		t.Fatalf("remaining runtime cache tags = %d, want %d", len(driver.runtimeImageCache), len(entries)-2*maxRuntimeImageGCRemovalsPerSweep)
+		t.Fatalf(
+			"remaining runtime cache tags = %d, want %d",
+			len(driver.runtimeImageCache),
+			len(entries)-2*maxRuntimeImageGCRemovalsPerSweep,
+		)
 	}
 	if len(store.protectedQuerySizes) == 0 || store.protectedQuerySizes[0] != len(entries) {
 		t.Fatalf("worker did not provide the full candidate set for repository batching: %#v", store.protectedQuerySizes)
@@ -226,10 +258,15 @@ func TestRuntimeImageCacheSweepReportsPressureForLargeAllProtectedInventory(t *t
 	}
 	worker.sweepRuntimeImageCacheIfDue(context.Background(), uuid.Nil)
 	if len(driver.removedImageTags) != 0 || worker.imageCacheFailureCount != 0 {
-		t.Fatalf("large all-protected inventory was not safely retained: removals=%d failures=%d", len(driver.removedImageTags), worker.imageCacheFailureCount)
+		t.Fatalf(
+			"large all-protected inventory was not safely retained: removals=%d failures=%d",
+			len(driver.removedImageTags),
+			worker.imageCacheFailureCount,
+		)
 	}
 	var pressure dto.Metric
-	if err := worker.Metrics.AppRuntimeImageCachePressure.Write(&pressure); err != nil || pressure.GetGauge().GetValue() != 1 {
+	if err := worker.Metrics.AppRuntimeImageCachePressure.Write(&pressure); err != nil ||
+		pressure.GetGauge().GetValue() != 1 {
 		t.Fatalf("all-protected cache pressure = %v, %v", pressure.GetGauge(), err)
 	}
 	if len(store.protectedQuerySizes) == 0 || store.protectedQuerySizes[0] != 500 {
@@ -248,7 +285,11 @@ func TestRuntimeImageCacheSweepDeletesNothingWhenContainerProtectionInventoryFai
 	}
 	worker.sweepRuntimeImageCacheIfDue(context.Background(), uuid.Nil)
 	if len(driver.removedImageTags) != 0 || store.failureCalls != 0 {
-		t.Fatalf("incomplete container protection caused deletion or App failure: removed=%d App failures=%d", len(driver.removedImageTags), store.failureCalls)
+		t.Fatalf(
+			"incomplete container protection caused deletion or App failure: removed=%d App failures=%d",
+			len(driver.removedImageTags),
+			store.failureCalls,
+		)
 	}
 	if worker.imageCacheFailureCount != 1 {
 		t.Fatalf("container protection inventory failure count = %d, want one bounded maintenance retry", worker.imageCacheFailureCount)
@@ -265,10 +306,18 @@ func TestRuntimeImageCacheRemovalFailureIsMaintenanceOnlyAndRetriesLater(t *test
 	before := time.Now()
 	worker.sweepRuntimeImageCacheIfDue(context.Background(), uuid.Nil)
 	if len(driver.removedImageTags) != 1 || store.failureCalls != 0 {
-		t.Fatalf("cache removal failure changed App state: removals=%v app failures=%d", driver.removedImageTags, store.failureCalls)
+		t.Fatalf(
+			"cache removal failure changed App state: removals=%v app failures=%d",
+			driver.removedImageTags,
+			store.failureCalls,
+		)
 	}
 	if worker.imageCacheFailureCount != 1 || !worker.nextImageCacheSweep.After(before) {
-		t.Fatalf("cache failure did not schedule a bounded retry: count=%d at=%s", worker.imageCacheFailureCount, worker.nextImageCacheSweep)
+		t.Fatalf(
+			"cache failure did not schedule a bounded retry: count=%d at=%s",
+			worker.imageCacheFailureCount,
+			worker.nextImageCacheSweep,
+		)
 	}
 	worker.sweepRuntimeImageCacheIfDue(context.Background(), uuid.Nil)
 	if len(driver.removedImageTags) != 1 {
@@ -288,7 +337,11 @@ func TestRuntimeImageCacheRemovalFailureIsMaintenanceOnlyAndRetriesLater(t *test
 	worker.nextImageCacheSweep = time.Time{}
 	worker.sweepRuntimeImageCacheIfDue(context.Background(), uuid.Nil)
 	if len(driver.removedImageTags) != 2 || store.failureCalls != 0 {
-		t.Fatalf("later cache sweep did not retry independently of App state: removals=%v app failures=%d", driver.removedImageTags, store.failureCalls)
+		t.Fatalf(
+			"later cache sweep did not retry independently of App state: removals=%v app failures=%d",
+			driver.removedImageTags,
+			store.failureCalls,
+		)
 	}
 	if worker.imageCacheFailureCount != 0 {
 		t.Fatalf("successful cache sweep did not reset failure count: %d", worker.imageCacheFailureCount)

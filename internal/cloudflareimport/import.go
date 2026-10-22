@@ -78,7 +78,16 @@ type FileOwner struct {
 // one-shot preparation process, derives only Cloudflare connection fields,
 // and atomically publishes an encrypted narrow artifact. A missing source or
 // a valid non-Cloudflare setup removes any stale derived artifact.
-func Prepare(ctx context.Context, sourcePath, destinationPath string, cipher *functionsecret.Cipher, owner *FileOwner) (string, error) {
+func Prepare(
+	ctx context.Context,
+	sourcePath,
+	destinationPath string,
+	cipher *functionsecret.Cipher,
+	owner *FileOwner,
+) (
+	string,
+	error,
+) {
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
@@ -87,7 +96,9 @@ func Prepare(ctx context.Context, sourcePath, destinationPath string, cipher *fu
 	}
 	importDirectory := filepath.Dir(destinationPath)
 	relativeSource, err := filepath.Rel(importDirectory, sourcePath)
-	if err != nil || relativeSource == "." || (relativeSource != ".." && !strings.HasPrefix(relativeSource, ".."+string(filepath.Separator))) {
+	if err != nil ||
+		relativeSource == "." ||
+		(relativeSource != ".." && !strings.HasPrefix(relativeSource, ".."+string(filepath.Separator))) {
 		return "", errInvalidPath
 	}
 	if err := cleanWorkerImportDirectory(importDirectory, filepath.Base(destinationPath)); err != nil {
@@ -100,7 +111,11 @@ func Prepare(ctx context.Context, sourcePath, destinationPath string, cipher *fu
 		}
 		return OutcomeNoImport, nil
 	}
-	if err != nil || sourceInfo.Mode()&os.ModeSymlink != 0 || !sourceInfo.Mode().IsRegular() || sourceInfo.Size() <= 0 || sourceInfo.Size() > maxSetupSnapshotBytes {
+	if err != nil ||
+		sourceInfo.Mode()&os.ModeSymlink != 0 ||
+		!sourceInfo.Mode().IsRegular() ||
+		sourceInfo.Size() <= 0 ||
+		sourceInfo.Size() > maxSetupSnapshotBytes {
 		return "", clearArtifactAfterFailure(destinationPath, errInvalidSource)
 	}
 	state, err := setupstate.LoadEncryptedSnapshot(ctx, sourcePath, cipher)

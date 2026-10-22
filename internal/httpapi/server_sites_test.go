@@ -17,7 +17,9 @@ func TestParseSiteBuildOptions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if options.Runtime != "python-3.13" || options.Command != "python -m build" || options.OutputDirectory != "dist/assets" {
+	if options.Runtime != "python-3.13" ||
+		options.Command != "python -m build" ||
+		options.OutputDirectory != "dist/assets" {
 		t.Fatalf("unexpected build options: %+v", options)
 	}
 

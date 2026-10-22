@@ -39,13 +39,31 @@ func (*appRuntimeLogTelemetryFake) QueryLogs(context.Context, telemetry.LogsQuer
 func (*appRuntimeLogTelemetryFake) QueryTraces(context.Context, telemetry.TracesQuery) (telemetry.TracesResult, error) {
 	return telemetry.TracesResult{}, nil
 }
-func (*appRuntimeLogTelemetryFake) QueryMetrics(context.Context, telemetry.MetricsQuery) (telemetry.MetricsResult, error) {
+func (*appRuntimeLogTelemetryFake) QueryMetrics(
+	context.Context,
+	telemetry.MetricsQuery,
+) (
+	telemetry.MetricsResult,
+	error,
+) {
 	return telemetry.MetricsResult{}, nil
 }
-func (*appRuntimeLogTelemetryFake) ListSources(context.Context, telemetry.SourcesQuery) (telemetry.SourcesResult, error) {
+func (*appRuntimeLogTelemetryFake) ListSources(
+	context.Context,
+	telemetry.SourcesQuery,
+) (
+	telemetry.SourcesResult,
+	error,
+) {
 	return telemetry.SourcesResult{}, nil
 }
-func (f *appRuntimeLogTelemetryFake) QueryContainerLogs(_ context.Context, query telemetry.ContainerLogsQuery) (telemetry.ContainerLogsResult, error) {
+func (f *appRuntimeLogTelemetryFake) QueryContainerLogs(
+	_ context.Context,
+	query telemetry.ContainerLogsQuery,
+) (
+	telemetry.ContainerLogsResult,
+	error,
+) {
 	f.calls++
 	f.query = query
 	return f.result, f.err
@@ -181,7 +199,15 @@ func TestAppsAPIControlPlaneAuthorizationAndProjectionIntegration(t *testing.T) 
 			} `json:"key"`
 			Secret string `json:"secret"`
 		}
-		requestJSON(t, ownerClient, http.MethodPost, project+"/api-keys", map[string]any{"name": name, "scopes": scopes}, http.StatusCreated, &response)
+		requestJSON(
+			t,
+			ownerClient,
+			http.MethodPost,
+			project+"/api-keys",
+			map[string]any{"name": name, "scopes": scopes},
+			http.StatusCreated,
+			&response,
+		)
 		if response.Key.ID == "" || response.Secret == "" {
 			t.Fatalf("API key response was incomplete for %s", name)
 		}
@@ -197,7 +223,15 @@ func TestAppsAPIControlPlaneAuthorizationAndProjectionIntegration(t *testing.T) 
 	writeHeaders := map[string]string{"X-Stealth-Key": writeSecret}
 	wrongProjectHeaders := map[string]string{"X-Stealth-Key": wrongProjectSecret}
 
-	requestJSON(t, viewerClient, http.MethodPost, projectURL+"/apps", map[string]any{"name": "viewer-app"}, http.StatusForbidden, nil)
+	requestJSON(
+		t,
+		viewerClient,
+		http.MethodPost,
+		projectURL+"/apps",
+		map[string]any{"name": "viewer-app"},
+		http.StatusForbidden,
+		nil,
+	)
 
 	var created struct {
 		App domain.App `json:"app"`
@@ -213,14 +247,42 @@ func TestAppsAPIControlPlaneAuthorizationAndProjectionIntegration(t *testing.T) 
 			},
 		},
 	}, http.StatusCreated, &created)
-	if created.App.ID == "" || created.App.RuntimeStatus != "not_deployed" || created.App.DesiredGeneration != 1 || created.App.ObservedGeneration != 0 || created.App.RuntimeError != nil {
+	if created.App.ID == "" ||
+		created.App.RuntimeStatus != "not_deployed" ||
+		created.App.DesiredGeneration != 1 ||
+		created.App.ObservedGeneration != 0 ||
+		created.App.RuntimeError != nil {
 		t.Fatalf("created App fabricated runtime state: %+v", created.App)
 	}
 	diagnosticsURL := projectURL + "/apps/" + created.App.ID + "/diagnostics"
 	requestJSON(t, newIntegrationClient(t), http.MethodGet, diagnosticsURL, nil, http.StatusUnauthorized, nil)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, diagnosticsURL, nil, http.StatusForbidden, writeHeaders)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, secondProjectURL+"/apps/"+created.App.ID+"/diagnostics", nil, http.StatusNotFound, wrongProjectHeaders)
-	diagnosticsBody := requestJSONRawWithHeaders(t, newIntegrationClient(t), http.MethodGet, diagnosticsURL, nil, http.StatusOK, readHeaders)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		diagnosticsURL,
+		nil,
+		http.StatusForbidden,
+		writeHeaders,
+	)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		secondProjectURL+"/apps/"+created.App.ID+"/diagnostics",
+		nil,
+		http.StatusNotFound,
+		wrongProjectHeaders,
+	)
+	diagnosticsBody := requestJSONRawWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		diagnosticsURL,
+		nil,
+		http.StatusOK,
+		readHeaders,
+	)
 	var freshDiagnostics domain.AppDiagnostics
 	if err := json.Unmarshal(diagnosticsBody, &freshDiagnostics); err != nil {
 		t.Fatal(err)
@@ -235,18 +297,54 @@ func TestAppsAPIControlPlaneAuthorizationAndProjectionIntegration(t *testing.T) 
 	}
 	variablesURL := projectURL + "/apps/" + created.App.ID + "/variables"
 	requestJSON(t, newIntegrationClient(t), http.MethodGet, variablesURL, nil, http.StatusUnauthorized, nil)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, variablesURL, nil, http.StatusForbidden, writeHeaders)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, secondProjectURL+"/apps/"+created.App.ID+"/variables", nil, http.StatusNotFound, wrongProjectHeaders)
-	requestJSON(t, ownerClient, http.MethodGet, secondProjectURL+"/apps/"+created.App.ID+"/variables", nil, http.StatusNotFound, nil)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		variablesURL,
+		nil,
+		http.StatusForbidden,
+		writeHeaders,
+	)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		secondProjectURL+"/apps/"+created.App.ID+"/variables",
+		nil,
+		http.StatusNotFound,
+		wrongProjectHeaders,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		secondProjectURL+"/apps/"+created.App.ID+"/variables",
+		nil,
+		http.StatusNotFound,
+		nil,
+	)
 	secretValue := "API-SECRET-HTTP-NEVER-RETURN-THIS"
 	variableBody := requestJSONRaw(t, ownerClient, http.MethodPost, variablesURL, map[string]any{
 		"key": "PROVIDER_TOKEN", "is_secret": true, "value": secretValue, "description": "provider access token",
 	}, http.StatusCreated)
-	if strings.Contains(string(variableBody), secretValue) || strings.Contains(string(variableBody), "ciphertext") || strings.Contains(string(variableBody), "nonce") {
+	if strings.Contains(string(variableBody), secretValue) ||
+		strings.Contains(string(variableBody), "ciphertext") ||
+		strings.Contains(string(variableBody), "nonce") {
 		t.Fatalf("App environment mutation response exposed plaintext or crypto fields: %s", variableBody)
 	}
-	diagnosticsBody = requestJSONRawWithHeaders(t, newIntegrationClient(t), http.MethodGet, diagnosticsURL, nil, http.StatusOK, readHeaders)
-	if strings.Contains(string(diagnosticsBody), secretValue) || strings.Contains(string(diagnosticsBody), "ciphertext") || strings.Contains(string(diagnosticsBody), "nonce") {
+	diagnosticsBody = requestJSONRawWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		diagnosticsURL,
+		nil,
+		http.StatusOK,
+		readHeaders,
+	)
+	if strings.Contains(string(diagnosticsBody), secretValue) ||
+		strings.Contains(string(diagnosticsBody), "ciphertext") ||
+		strings.Contains(string(diagnosticsBody), "nonce") {
 		t.Fatalf("App diagnostics exposed environment plaintext or ciphertext: %s", diagnosticsBody)
 	}
 	var variableResponse struct {
@@ -255,12 +353,39 @@ func TestAppsAPIControlPlaneAuthorizationAndProjectionIntegration(t *testing.T) 
 	if err := json.Unmarshal(variableBody, &variableResponse); err != nil {
 		t.Fatal(err)
 	}
-	if variableResponse.Variable.Key != "PROVIDER_TOKEN" || !variableResponse.Variable.IsSecret || !variableResponse.Variable.HasValue || variableResponse.Variable.ID == "" {
+	if variableResponse.Variable.Key != "PROVIDER_TOKEN" ||
+		!variableResponse.Variable.IsSecret ||
+		!variableResponse.Variable.HasValue ||
+		variableResponse.Variable.ID == "" {
 		t.Fatalf("App environment response metadata = %+v", variableResponse.Variable)
 	}
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodPost, variablesURL, map[string]any{"key": "READ_DENIED", "value": "x"}, http.StatusForbidden, readHeaders)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodPost, variablesURL, map[string]any{"key": "WRITE_ALLOWED", "value": "written-by-key"}, http.StatusCreated, writeHeaders)
-	listBody := requestJSONRawWithHeaders(t, newIntegrationClient(t), http.MethodGet, variablesURL, nil, http.StatusOK, readHeaders)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodPost,
+		variablesURL,
+		map[string]any{"key": "READ_DENIED", "value": "x"},
+		http.StatusForbidden,
+		readHeaders,
+	)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodPost,
+		variablesURL,
+		map[string]any{"key": "WRITE_ALLOWED", "value": "written-by-key"},
+		http.StatusCreated,
+		writeHeaders,
+	)
+	listBody := requestJSONRawWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		variablesURL,
+		nil,
+		http.StatusOK,
+		readHeaders,
+	)
 	if strings.Contains(string(listBody), secretValue) || strings.Contains(string(listBody), "ciphertext") {
 		t.Fatalf("App environment list exposed plaintext or ciphertext: %s", listBody)
 	}
@@ -275,16 +400,36 @@ func TestAppsAPIControlPlaneAuthorizationAndProjectionIntegration(t *testing.T) 
 		t.Fatalf("apps.read variable page = %+v", variablesPage)
 	}
 	oldGeneration := created.App.DesiredGeneration
-	requestJSON(t, ownerClient, http.MethodPatch, variablesURL+"/"+variableResponse.Variable.ID, map[string]any{"description": "rotated by ops"}, http.StatusOK, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPatch,
+		variablesURL+"/"+variableResponse.Variable.ID,
+		map[string]any{"description": "rotated by ops"},
+		http.StatusOK,
+		nil,
+	)
 	var updatedApp struct {
 		App domain.App `json:"app"`
 	}
 	requestJSON(t, ownerClient, http.MethodGet, projectURL+"/apps/"+created.App.ID, nil, http.StatusOK, &updatedApp)
 	if updatedApp.App.DesiredGeneration != oldGeneration+2 {
-		t.Fatalf("metadata-only edit advanced desired generation; current=%d prior=%d", updatedApp.App.DesiredGeneration, oldGeneration)
+		t.Fatalf(
+			"metadata-only edit advanced desired generation; current=%d prior=%d",
+			updatedApp.App.DesiredGeneration,
+			oldGeneration,
+		)
 	}
 	newSecretValue := "APP-SECRET-REPLACED"
-	requestJSON(t, ownerClient, http.MethodPatch, variablesURL+"/"+variableResponse.Variable.ID, map[string]any{"value": newSecretValue}, http.StatusOK, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPatch,
+		variablesURL+"/"+variableResponse.Variable.ID,
+		map[string]any{"value": newSecretValue},
+		http.StatusOK,
+		nil,
+	)
 	var auditMetadata string
 	if err := pool.QueryRow(ctx, `SELECT COALESCE(string_agg(metadata::text,' '),'') FROM audit_events WHERE target_id=$1`, created.App.ID).Scan(&auditMetadata); err != nil {
 		t.Fatal(err)
@@ -292,7 +437,15 @@ func TestAppsAPIControlPlaneAuthorizationAndProjectionIntegration(t *testing.T) 
 	if strings.Contains(auditMetadata, secretValue) || strings.Contains(auditMetadata, newSecretValue) {
 		t.Fatalf("App environment plaintext appeared in audit metadata: %s", auditMetadata)
 	}
-	requestJSON(t, ownerClient, http.MethodDelete, variablesURL+"/"+variableResponse.Variable.ID, nil, http.StatusNoContent, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodDelete,
+		variablesURL+"/"+variableResponse.Variable.ID,
+		nil,
+		http.StatusNoContent,
+		nil,
+	)
 	var writeVariableID string
 	for _, variable := range variablesPage.Variables {
 		if variable.Key == "WRITE_ALLOWED" {
@@ -313,7 +466,14 @@ func TestAppsAPIControlPlaneAuthorizationAndProjectionIntegration(t *testing.T) 
 		App domain.App `json:"app"`
 	}
 	requestJSON(t, ownerClient, http.MethodGet, projectURL+"/apps/"+created.App.ID, nil, http.StatusOK, &atLimitApp)
-	overLimitBody := requestJSONRaw(t, ownerClient, http.MethodPost, variablesURL, map[string]any{"key": "OVER_LIMIT", "value": "x"}, http.StatusConflict)
+	overLimitBody := requestJSONRaw(
+		t,
+		ownerClient,
+		http.MethodPost,
+		variablesURL,
+		map[string]any{"key": "OVER_LIMIT", "value": "x"},
+		http.StatusConflict,
+	)
 	var overLimitResponse struct {
 		Error struct {
 			Code    string `json:"code"`
@@ -323,7 +483,8 @@ func TestAppsAPIControlPlaneAuthorizationAndProjectionIntegration(t *testing.T) 
 	if err := json.Unmarshal(overLimitBody, &overLimitResponse); err != nil {
 		t.Fatal(err)
 	}
-	if overLimitResponse.Error.Code != "limit_exceeded" || overLimitResponse.Error.Message != "App environment exceeds the maximum total configured value size" {
+	if overLimitResponse.Error.Code != "limit_exceeded" ||
+		overLimitResponse.Error.Message != "App environment exceeds the maximum total configured value size" {
 		t.Fatalf("aggregate size error = %+v", overLimitResponse.Error)
 	}
 	var afterLimitApp struct {
@@ -331,9 +492,16 @@ func TestAppsAPIControlPlaneAuthorizationAndProjectionIntegration(t *testing.T) 
 	}
 	requestJSON(t, ownerClient, http.MethodGet, projectURL+"/apps/"+created.App.ID, nil, http.StatusOK, &afterLimitApp)
 	if afterLimitApp.App.DesiredGeneration != atLimitApp.App.DesiredGeneration {
-		t.Fatalf("over-limit API mutation advanced desired generation from %d to %d", atLimitApp.App.DesiredGeneration, afterLimitApp.App.DesiredGeneration)
+		t.Fatalf(
+			"over-limit API mutation advanced desired generation from %d to %d",
+			atLimitApp.App.DesiredGeneration,
+			afterLimitApp.App.DesiredGeneration,
+		)
 	}
-	if created.App.Workload.SchemaVersion != "v1" || created.App.Workload.Port != 8080 || created.App.Workload.Resources.MemoryBytes != 536870912 || created.App.Workload.RestartPolicy != "always" {
+	if created.App.Workload.SchemaVersion != "v1" ||
+		created.App.Workload.Port != 8080 ||
+		created.App.Workload.Resources.MemoryBytes != 536870912 ||
+		created.App.Workload.RestartPolicy != "always" {
 		t.Fatalf("created App did not return complete normalized WorkloadSpec: %+v", created.App.Workload)
 	}
 	if len(created.App.WorkloadSpecSHA256) != 64 || created.App.PlatformHostname != nil {
@@ -353,23 +521,79 @@ func TestAppsAPIControlPlaneAuthorizationAndProjectionIntegration(t *testing.T) 
 	if !adminPage.CanManage {
 		t.Fatal("project admin did not receive App management capability")
 	}
-	requestJSON(t, adminClient, http.MethodPatch, projectURL+"/apps/"+created.App.ID, map[string]any{"name": created.App.Name}, http.StatusOK, nil)
+	requestJSON(
+		t,
+		adminClient,
+		http.MethodPatch,
+		projectURL+"/apps/"+created.App.ID,
+		map[string]any{"name": created.App.Name},
+		http.StatusOK,
+		nil,
+	)
 	requestJSON(t, newIntegrationClient(t), http.MethodGet, projectURL+"/apps", nil, http.StatusUnauthorized, nil)
 	requestJSON(t, ownerClient, http.MethodGet, projectURL+"/apps/"+created.App.ID, nil, http.StatusOK, &struct{}{})
-	requestJSON(t, ownerClient, http.MethodGet, projectURL+"/apps/"+created.App.ID+"/deploy", nil, http.StatusNotFound, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		projectURL+"/apps/"+created.App.ID+"/deploy",
+		nil,
+		http.StatusNotFound,
+		nil,
+	)
 
 	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, projectURL+"/apps", nil, http.StatusOK, readHeaders)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, projectURL+"/apps/"+created.App.ID, nil, http.StatusOK, readHeaders)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodPost, projectURL+"/apps", map[string]any{"name": "read-key-write"}, http.StatusForbidden, readHeaders)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		projectURL+"/apps/"+created.App.ID,
+		nil,
+		http.StatusOK,
+		readHeaders,
+	)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodPost,
+		projectURL+"/apps",
+		map[string]any{"name": "read-key-write"},
+		http.StatusForbidden,
+		readHeaders,
+	)
 	var writeKeyApp struct {
 		App domain.App `json:"app"`
 	}
-	writeKeyAppBody := requestJSONRawWithHeaders(t, newIntegrationClient(t), http.MethodPost, projectURL+"/apps", map[string]any{"name": "write-key-app"}, http.StatusCreated, writeHeaders)
+	writeKeyAppBody := requestJSONRawWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodPost,
+		projectURL+"/apps",
+		map[string]any{"name": "write-key-app"},
+		http.StatusCreated,
+		writeHeaders,
+	)
 	if err := json.Unmarshal(writeKeyAppBody, &writeKeyApp); err != nil {
 		t.Fatal(err)
 	}
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, projectURL+"/apps", nil, http.StatusForbidden, writeHeaders)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, projectURL+"/apps", nil, http.StatusUnauthorized, wrongProjectHeaders)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		projectURL+"/apps",
+		nil,
+		http.StatusForbidden,
+		writeHeaders,
+	)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		projectURL+"/apps",
+		nil,
+		http.StatusUnauthorized,
+		wrongProjectHeaders,
+	)
 
 	// Runtime log source IDs are inserted here only to exercise the HTTP read
 	// boundary. Production mappings are registered by fenced runtime converge.
@@ -382,17 +606,29 @@ func TestAppsAPIControlPlaneAuthorizationAndProjectionIntegration(t *testing.T) 
 		Logs       []domain.AppRuntimeLog `json:"logs"`
 		NextCursor string                 `json:"next_cursor"`
 	}
-	runtimeBody := requestJSONRawWithHeaders(t, newIntegrationClient(t), http.MethodGet, logsURL, nil, http.StatusOK, readHeaders)
+	runtimeBody := requestJSONRawWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		logsURL,
+		nil,
+		http.StatusOK,
+		readHeaders,
+	)
 	if err := json.Unmarshal(runtimeBody, &runtimeLogsPage); err != nil {
 		t.Fatal(err)
 	}
-	if len(runtimeLogsPage.Logs) != 1 || runtimeLogsPage.Logs[0].Message != "runtime-output-marker" || runtimeLogsPage.NextCursor == "" {
+	if len(runtimeLogsPage.Logs) != 1 ||
+		runtimeLogsPage.Logs[0].Message != "runtime-output-marker" ||
+		runtimeLogsPage.NextCursor == "" {
 		t.Fatalf("runtime log API response = %+v", runtimeLogsPage)
 	}
 	if strings.Contains(string(runtimeBody), containerID) || strings.Contains(string(runtimeBody), "event_id") {
 		t.Fatalf("runtime log API exposed internal container or event identity: %s", runtimeBody)
 	}
-	if len(runtimeLogs.query.ContainerIDs) != 1 || runtimeLogs.query.ContainerIDs[0] != containerID || runtimeLogs.query.Limit != 100 {
+	if len(runtimeLogs.query.ContainerIDs) != 1 ||
+		runtimeLogs.query.ContainerIDs[0] != containerID ||
+		runtimeLogs.query.Limit != 100 {
 		t.Fatalf("runtime query did not use only trusted PG mapping/default bound: %+v", runtimeLogs.query)
 	}
 	requestJSONRaw(t, viewerClient, http.MethodGet, logsURL, nil, http.StatusOK)
@@ -411,8 +647,15 @@ func TestAppsAPIControlPlaneAuthorizationAndProjectionIntegration(t *testing.T) 
 	})
 	oldCursorURL := projectURL + "/apps/" + created.App.ID + "/logs?cursor=" + url.QueryEscape(oldCursor)
 	requestJSONRawWithHeaders(t, newIntegrationClient(t), http.MethodGet, oldCursorURL, nil, http.StatusOK, readHeaders)
-	if runtimeLogs.query.Range.From.IsZero() || !runtimeLogs.query.Range.From.Equal(oldCursorAt) || runtimeLogs.query.After == nil || !runtimeLogs.query.After.Timestamp.Equal(oldCursorAt) {
-		t.Fatalf("old cursor did not anchor query range at its timestamp: range=%+v cursor=%+v", runtimeLogs.query.Range, runtimeLogs.query.After)
+	if runtimeLogs.query.Range.From.IsZero() ||
+		!runtimeLogs.query.Range.From.Equal(oldCursorAt) ||
+		runtimeLogs.query.After == nil ||
+		!runtimeLogs.query.After.Timestamp.Equal(oldCursorAt) {
+		t.Fatalf(
+			"old cursor did not anchor query range at its timestamp: range=%+v cursor=%+v",
+			runtimeLogs.query.Range,
+			runtimeLogs.query.After,
+		)
 	}
 
 	assertRuntimeCursorRejectedWithoutQuery := func(name, cursor string, from *time.Time) []byte {
@@ -458,12 +701,52 @@ func TestAppsAPIControlPlaneAuthorizationAndProjectionIntegration(t *testing.T) 
 	fromAfterCursor := contradictoryCursorAt.Add(time.Minute)
 	assertRuntimeCursorRejectedWithoutQuery("from after cursor", contradictoryCursor, &fromAfterCursor)
 
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, projectURL+"/apps/"+created.App.ID+"/logs", nil, http.StatusForbidden, writeHeaders)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, projectURL+"/apps/"+created.App.ID+"/logs", nil, http.StatusUnauthorized, wrongProjectHeaders)
-	requestJSON(t, newIntegrationClient(t), http.MethodGet, projectURL+"/apps/"+created.App.ID+"/logs", nil, http.StatusUnauthorized, nil)
-	requestJSON(t, ownerClient, http.MethodGet, secondProjectURL+"/apps/"+created.App.ID+"/logs", nil, http.StatusNotFound, nil)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		projectURL+"/apps/"+created.App.ID+"/logs",
+		nil,
+		http.StatusForbidden,
+		writeHeaders,
+	)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		projectURL+"/apps/"+created.App.ID+"/logs",
+		nil,
+		http.StatusUnauthorized,
+		wrongProjectHeaders,
+	)
+	requestJSON(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		projectURL+"/apps/"+created.App.ID+"/logs",
+		nil,
+		http.StatusUnauthorized,
+		nil,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		secondProjectURL+"/apps/"+created.App.ID+"/logs",
+		nil,
+		http.StatusNotFound,
+		nil,
+	)
 	runtimeLogs.err = fmt.Errorf("clickhouse password=must-not-leak")
-	unavailableBody := requestJSONRawWithHeaders(t, newIntegrationClient(t), http.MethodGet, projectURL+"/apps/"+created.App.ID+"/logs", nil, http.StatusServiceUnavailable, readHeaders)
+	unavailableBody := requestJSONRawWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		projectURL+"/apps/"+created.App.ID+"/logs",
+		nil,
+		http.StatusServiceUnavailable,
+		readHeaders,
+	)
 	var unavailableResponse struct {
 		Error struct {
 			Code    string `json:"code"`
@@ -473,41 +756,145 @@ func TestAppsAPIControlPlaneAuthorizationAndProjectionIntegration(t *testing.T) 
 	if err := json.Unmarshal(unavailableBody, &unavailableResponse); err != nil {
 		t.Fatalf("telemetry failure response JSON: %v", err)
 	}
-	if strings.Contains(string(unavailableBody), "must-not-leak") || unavailableResponse.Error.Code != "telemetry_unavailable" || unavailableResponse.Error.Message != "telemetry backend is unavailable" {
+	if strings.Contains(string(unavailableBody), "must-not-leak") ||
+		unavailableResponse.Error.Code != "telemetry_unavailable" ||
+		unavailableResponse.Error.Message != "telemetry backend is unavailable" {
 		t.Fatalf("telemetry failure response was not generic: %s", unavailableBody)
 	}
 
 	deploymentURL := projectURL + "/apps/" + writeKeyApp.App.ID + "/deployments"
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, deploymentURL, nil, http.StatusForbidden, writeHeaders)
-	queuedBody := uploadFunctionMultipart(t, newIntegrationClient(t), deploymentURL, "source.tgz", gitArchiveBytes(t), writeHeaders, http.StatusAccepted)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		deploymentURL,
+		nil,
+		http.StatusForbidden,
+		writeHeaders,
+	)
+	queuedBody := uploadFunctionMultipart(
+		t,
+		newIntegrationClient(t),
+		deploymentURL,
+		"source.tgz",
+		gitArchiveBytes(t),
+		writeHeaders,
+		http.StatusAccepted,
+	)
 	var queued struct {
 		Deployment domain.AppDeployment `json:"deployment"`
 	}
 	if err := json.Unmarshal(queuedBody, &queued); err != nil {
 		t.Fatal(err)
 	}
-	if queued.Deployment.Status != "queued" || queued.Deployment.BuildStatus != "queued" || queued.Deployment.SourceChecksumSHA256 == "" || queued.Deployment.ImageDigest != nil || queued.Deployment.Selected {
+	if queued.Deployment.Status != "queued" ||
+		queued.Deployment.BuildStatus != "queued" ||
+		queued.Deployment.SourceChecksumSHA256 == "" ||
+		queued.Deployment.ImageDigest != nil ||
+		queued.Deployment.Selected {
 		t.Fatalf("deployment upload did not return truthful queued state: %+v", queued.Deployment)
 	}
 	encodedDeployment, err := json.Marshal(queued.Deployment)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(encodedDeployment), "source_path") || strings.Contains(string(encodedDeployment), "image_path") || strings.Contains(string(encodedDeployment), "build_worker_id") {
+	if strings.Contains(string(encodedDeployment), "source_path") ||
+		strings.Contains(string(encodedDeployment), "image_path") ||
+		strings.Contains(string(encodedDeployment), "build_worker_id") {
 		t.Fatalf("deployment API exposed private artifact or lease data: %s", encodedDeployment)
 	}
 	deploymentID := queued.Deployment.ID
 	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, deploymentURL, nil, http.StatusOK, readHeaders)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, deploymentURL+"/"+deploymentID, nil, http.StatusOK, readHeaders)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, deploymentURL+"/"+deploymentID+"/logs", nil, http.StatusOK, readHeaders)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, deploymentURL, nil, http.StatusUnauthorized, wrongProjectHeaders)
-	requestJSON(t, newIntegrationClient(t), http.MethodPost, deploymentURL+"/"+deploymentID+"/rollback", nil, http.StatusUnauthorized, nil)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodPost, deploymentURL+"/"+deploymentID+"/rollback", nil, http.StatusForbidden, readHeaders)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodPost, deploymentURL+"/"+deploymentID+"/rollback", nil, http.StatusConflict, writeHeaders)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodPost, deploymentURL+"/"+deploymentID+"/rollback", nil, http.StatusUnauthorized, wrongProjectHeaders)
-	requestJSON(t, ownerClient, http.MethodPost, secondProjectURL+"/apps/"+writeKeyApp.App.ID+"/deployments/"+deploymentID+"/rollback", nil, http.StatusNotFound, nil)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodPost, deploymentURL+"/"+deploymentID+"/select", nil, http.StatusConflict, writeHeaders)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodDelete, deploymentURL+"/"+deploymentID, nil, http.StatusNoContent, writeHeaders)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		deploymentURL+"/"+deploymentID,
+		nil,
+		http.StatusOK,
+		readHeaders,
+	)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		deploymentURL+"/"+deploymentID+"/logs",
+		nil,
+		http.StatusOK,
+		readHeaders,
+	)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		deploymentURL,
+		nil,
+		http.StatusUnauthorized,
+		wrongProjectHeaders,
+	)
+	requestJSON(
+		t,
+		newIntegrationClient(t),
+		http.MethodPost,
+		deploymentURL+"/"+deploymentID+"/rollback",
+		nil,
+		http.StatusUnauthorized,
+		nil,
+	)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodPost,
+		deploymentURL+"/"+deploymentID+"/rollback",
+		nil,
+		http.StatusForbidden,
+		readHeaders,
+	)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodPost,
+		deploymentURL+"/"+deploymentID+"/rollback",
+		nil,
+		http.StatusConflict,
+		writeHeaders,
+	)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodPost,
+		deploymentURL+"/"+deploymentID+"/rollback",
+		nil,
+		http.StatusUnauthorized,
+		wrongProjectHeaders,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		secondProjectURL+"/apps/"+writeKeyApp.App.ID+"/deployments/"+deploymentID+"/rollback",
+		nil,
+		http.StatusNotFound,
+		nil,
+	)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodPost,
+		deploymentURL+"/"+deploymentID+"/select",
+		nil,
+		http.StatusConflict,
+		writeHeaders,
+	)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodDelete,
+		deploymentURL+"/"+deploymentID,
+		nil,
+		http.StatusNoContent,
+		writeHeaders,
+	)
 
 	for _, field := range []string{
 		"platform_label",
@@ -518,7 +905,15 @@ func TestAppsAPIControlPlaneAuthorizationAndProjectionIntegration(t *testing.T) 
 		"observed_generation",
 		"workload_spec_sha256",
 	} {
-		requestJSON(t, ownerClient, http.MethodPatch, projectURL+"/apps/"+created.App.ID, map[string]any{field: "client-value"}, http.StatusBadRequest, nil)
+		requestJSON(
+			t,
+			ownerClient,
+			http.MethodPatch,
+			projectURL+"/apps/"+created.App.ID,
+			map[string]any{field: "client-value"},
+			http.StatusBadRequest,
+			nil,
+		)
 	}
 	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/apps", map[string]any{
 		"name":     "unsafe-workload",
@@ -528,7 +923,15 @@ func TestAppsAPIControlPlaneAuthorizationAndProjectionIntegration(t *testing.T) 
 		"name":     "future-workload",
 		"workload": map[string]any{"schema_version": "v2", "port": 8080},
 	}, http.StatusUnprocessableEntity, nil)
-	requestJSON(t, ownerClient, http.MethodPatch, projectURL+"/apps/"+created.App.ID, map[string]any{}, http.StatusUnprocessableEntity, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPatch,
+		projectURL+"/apps/"+created.App.ID,
+		map[string]any{},
+		http.StatusUnprocessableEntity,
+		nil,
+	)
 
 	newName := "backend"
 	var beforeRename struct {
@@ -538,7 +941,15 @@ func TestAppsAPIControlPlaneAuthorizationAndProjectionIntegration(t *testing.T) 
 	var renamed struct {
 		App domain.App `json:"app"`
 	}
-	requestJSON(t, ownerClient, http.MethodPatch, projectURL+"/apps/"+created.App.ID, map[string]any{"name": newName}, http.StatusOK, &renamed)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPatch,
+		projectURL+"/apps/"+created.App.ID,
+		map[string]any{"name": newName},
+		http.StatusOK,
+		&renamed,
+	)
 	if renamed.App.DesiredGeneration != beforeRename.App.DesiredGeneration ||
 		renamed.App.WorkloadSpecSHA256 != beforeRename.App.WorkloadSpecSHA256 ||
 		renamed.App.RuntimeStatus != beforeRename.App.RuntimeStatus {
@@ -552,7 +963,15 @@ func TestAppsAPIControlPlaneAuthorizationAndProjectionIntegration(t *testing.T) 
 		} `json:"pagination"`
 		CanManage bool `json:"can_manage"`
 	}
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, projectURL+"/apps?limit=1", nil, http.StatusOK, readHeaders)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		projectURL+"/apps?limit=1",
+		nil,
+		http.StatusOK,
+		readHeaders,
+	)
 	requestJSON(t, ownerClient, http.MethodGet, projectURL+"/apps?limit=1", nil, http.StatusOK, &page)
 	if len(page.Apps) != 1 || !page.CanManage || page.Pagination.NextCursor == nil {
 		t.Fatalf("App pagination response = %+v", page)
@@ -567,7 +986,15 @@ func TestAppsAPIControlPlaneAuthorizationAndProjectionIntegration(t *testing.T) 
 			} `json:"usage"`
 		} `json:"plan"`
 	}
-	requestJSON(t, ownerClient, http.MethodGet, server.URL+"/v1/organizations/"+ownerRegistration.Organization.ID+"/plan", nil, http.StatusOK, &plan)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		server.URL+"/v1/organizations/"+ownerRegistration.Organization.ID+"/plan",
+		nil,
+		http.StatusOK,
+		&plan,
+	)
 	if plan.Plan.Limits.Apps != 3 || plan.Plan.Usage.Apps != 2 {
 		t.Fatalf("organization App plan projection = limit %d, usage %d", plan.Plan.Limits.Apps, plan.Plan.Usage.Apps)
 	}
@@ -612,5 +1039,13 @@ func TestAppsAPIControlPlaneAuthorizationAndProjectionIntegration(t *testing.T) 
 		t.Fatalf("App deletion left %d platform claims", claimCount)
 	}
 	requestJSON(t, ownerClient, http.MethodDelete, projectURL+"/api-keys/"+readKeyID, nil, http.StatusNoContent, nil)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, diagnosticsURL, nil, http.StatusUnauthorized, readHeaders)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		diagnosticsURL,
+		nil,
+		http.StatusUnauthorized,
+		readHeaders,
+	)
 }

@@ -30,7 +30,14 @@ type uninstallTestRunner struct {
 	volumeLabels map[string]string
 }
 
-func (r *uninstallTestRunner) Run(_ context.Context, dir string, _ io.Writer, _ io.Writer, name string, args ...string) error {
+func (r *uninstallTestRunner) Run(
+	_ context.Context,
+	dir string,
+	_ io.Writer,
+	_ io.Writer,
+	name string,
+	args ...string,
+) error {
 	r.calls = append(r.calls, uninstallCommandCall{dir: dir, name: name, args: append([]string(nil), args...)})
 	if name == "docker" && containsArgs(args, "volume", "rm") && len(args) > 0 {
 		removed := args[len(args)-1]
@@ -162,7 +169,9 @@ func TestSafeUninstallPreservesDataAndNeverUsesVolumeDeletion(t *testing.T) {
 		if call.name != "docker" {
 			continue
 		}
-		if containsArgs(call.args, "system", "prune") || containsArgs(call.args, "volume", "prune") || containsArgs(call.args, "down", "--volumes") {
+		if containsArgs(call.args, "system", "prune") ||
+			containsArgs(call.args, "volume", "prune") ||
+			containsArgs(call.args, "down", "--volumes") {
 			t.Fatalf("safe uninstall issued destructive Docker command: %#v", call.args)
 		}
 	}
@@ -390,7 +399,8 @@ func TestPurgeRemovesCurrentManagedTelemetryVolumesAndPreservesSentinel(t *testi
 	if got := app.run([]string{"uninstall", "--purge", "--yes"}); got != 0 {
 		t.Fatalf("exit code = %d, stdout=%q stderr=%q", got, out.String(), errOut.String())
 	}
-	if !strings.Contains(runner.volumeList, "unrelated-sentinel") || strings.TrimSpace(runner.volumeList) != "unrelated-sentinel" {
+	if !strings.Contains(runner.volumeList, "unrelated-sentinel") ||
+		strings.TrimSpace(runner.volumeList) != "unrelated-sentinel" {
 		t.Fatalf("managed purge changed unrelated volume list to %q", runner.volumeList)
 	}
 	for name := range managed {
@@ -585,7 +595,13 @@ func TestPurgeRequiresExactStrongConfirmation(t *testing.T) {
 	layout := writeUninstallFixture(t)
 	app := NewApp(strings.NewReader(""), io.Discard, io.Discard)
 	plan := buildUninstallPlan(layout, uninstallPurge)
-	model := newUninstallModel(context.Background(), app, func() {}, plan, uninstallOptions{mode: uninstallPurge, modeSet: true})
+	model := newUninstallModel(
+		context.Background(),
+		app,
+		func() {},
+		plan,
+		uninstallOptions{mode: uninstallPurge, modeSet: true},
+	)
 	updated, _ := model.updatePlan(tea.KeyMsg{Type: tea.KeyEnter})
 	confirmation := updated.(uninstallModel)
 	confirmation.confirmInput.SetValue("stealtx")
@@ -595,7 +611,13 @@ func TestPurgeRequiresExactStrongConfirmation(t *testing.T) {
 		t.Fatalf("wrong confirmation did not cancel: screen=%v", confirmation.screen)
 	}
 
-	model = newUninstallModel(context.Background(), app, func() {}, plan, uninstallOptions{mode: uninstallPurge, modeSet: true})
+	model = newUninstallModel(
+		context.Background(),
+		app,
+		func() {},
+		plan,
+		uninstallOptions{mode: uninstallPurge, modeSet: true},
+	)
 	updated, _ = model.updatePlan(tea.KeyMsg{Type: tea.KeyEnter})
 	confirmation = updated.(uninstallModel)
 	confirmation.confirmInput.SetValue("stealth")
@@ -634,7 +656,13 @@ func TestNOColorAndProgressRendering(t *testing.T) {
 	layout := writeUninstallFixture(t)
 	app := NewApp(strings.NewReader(""), io.Discard, io.Discard)
 	plan := buildUninstallPlan(layout, uninstallServices)
-	model := newUninstallModel(context.Background(), app, func() {}, plan, uninstallOptions{mode: uninstallServices, modeSet: true})
+	model := newUninstallModel(
+		context.Background(),
+		app,
+		func() {},
+		plan,
+		uninstallOptions{mode: uninstallServices, modeSet: true},
+	)
 	model.screen = uninstallRemoving
 	view := model.View()
 	if strings.Contains(view, "\x1b[") {

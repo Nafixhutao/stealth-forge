@@ -540,5 +540,6 @@ func Equal(left, right Spec) bool {
 }
 
 func invalid(format string, values ...any) error {
-	return fmt.Errorf("%w: %s", ErrInvalidSpec, fmt.Sprintf(format, values...))
+	args := append([]any{ErrInvalidSpec}, values...)
+	return fmt.Errorf("%w: "+format, args...)
 }

@@ -10,7 +10,12 @@ import (
 	"github.com/google/uuid"
 )
 
-func insertAdminAlertHistoryEvent(t *testing.T, fixture adminAlertHistoryFixture, occurredAt time.Time, state string) uuid.UUID {
+func insertAdminAlertHistoryEvent(
+	t *testing.T,
+	fixture adminAlertHistoryFixture,
+	occurredAt time.Time,
+	state string,
+) uuid.UUID {
 	t.Helper()
 	eventID := uuid.Must(uuid.NewV7())
 	if _, err := fixture.pool.Exec(context.Background(), `
@@ -39,7 +44,11 @@ func insertAdminAlertHistoryRule(t *testing.T, fixture adminAlertHistoryFixture)
 	return ruleID
 }
 
-func collectAdminAlertEventPages(t *testing.T, query AdminAlertEventQuery, fetch func(AdminAlertEventQuery) (AdminAlertEventPage, error)) []string {
+func collectAdminAlertEventPages(
+	t *testing.T,
+	query AdminAlertEventQuery,
+	fetch func(AdminAlertEventQuery) (AdminAlertEventPage, error),
+) []string {
 	t.Helper()
 	ids := make([]string, 0)
 	for {
@@ -111,7 +120,10 @@ func TestQueryAdminAlertEventsPerRulePaginationSurvivesDeletionIntegration(t *te
 			t.Fatal(err)
 		}
 		for _, item := range page.Items {
-			if item.ID == otherEventID.String() || seen[item.ID] || item.RuleID != fixture.ruleID.String() || item.SourceRuleExists {
+			if item.ID == otherEventID.String() ||
+				seen[item.ID] ||
+				item.RuleID != fixture.ruleID.String() ||
+				item.SourceRuleExists {
 				t.Fatalf("per-rule deleted history item = %#v, want deleted rule snapshot", item)
 			}
 			seen[item.ID] = true
@@ -151,7 +163,9 @@ func TestQueryAdminAlertEventsTimeRangeIntegration(t *testing.T) {
 	if len(global.Items) != 2 {
 		t.Fatalf("global time range = %#v, want the inclusive boundary events", global.Items)
 	}
-	if (global.Items[0].ID != insideID.String() && global.Items[0].ID != upperBoundaryID.String()) || (global.Items[1].ID != insideID.String() && global.Items[1].ID != upperBoundaryID.String()) || global.Items[0].ID == global.Items[1].ID {
+	if (global.Items[0].ID != insideID.String() && global.Items[0].ID != upperBoundaryID.String()) ||
+		(global.Items[1].ID != insideID.String() && global.Items[1].ID != upperBoundaryID.String()) ||
+		global.Items[0].ID == global.Items[1].ID {
 		t.Fatalf("global time range IDs = %#v, want %s and %s", global.Items, insideID, upperBoundaryID)
 	}
 	ruleID := fixture.ruleID

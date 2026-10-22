@@ -93,7 +93,8 @@ func TestIngressNetworkAutoSelectionUsesCIDROverlaps(t *testing.T) {
 	for index, candidate := range candidateIngressNetworkConfigs(defaultIngressNetworkName) {
 		allOccupied = append(allOccupied, testDockerNetwork{name: fmt.Sprintf("occupied-%d", index), subnet: candidate.Subnet})
 	}
-	if _, err := resolveTestIngressNetwork(t, false, allOccupied, nil); err == nil || !strings.Contains(err.Error(), "no free Stealth ingress subnet") {
+	if _, err := resolveTestIngressNetwork(t, false, allOccupied, nil); err == nil ||
+		!strings.Contains(err.Error(), "no free Stealth ingress subnet") {
 		t.Fatalf("all occupied candidates did not fail deterministically: %v", err)
 	}
 }
@@ -102,14 +103,22 @@ func TestIngressNetworkAutoSelectionIgnoresCustomNetworkName(t *testing.T) {
 	values := map[string]string{
 		"STEALTH_INGRESS_NETWORK_NAME": "stealth_b_ingress",
 	}
-	got, err := resolveTestIngressNetwork(t, false, []testDockerNetwork{{name: "installation-a", subnet: defaultIngressSubnet}}, values)
+	got, err := resolveTestIngressNetwork(
+		t,
+		false,
+		[]testDockerNetwork{{name: "installation-a", subnet: defaultIngressSubnet}},
+		values,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got.Name != "stealth_b_ingress" {
 		t.Fatalf("selected network name = %q, want custom name", got.Name)
 	}
-	if got.Subnet != "172.31.1.0/24" || got.IPRange != "172.31.1.64/26" || got.TraefikIP != "172.31.1.254" || got.CloudflaredIP != "172.31.1.10" {
+	if got.Subnet != "172.31.1.0/24" ||
+		got.IPRange != "172.31.1.64/26" ||
+		got.TraefikIP != "172.31.1.254" ||
+		got.CloudflaredIP != "172.31.1.10" {
 		t.Fatalf("custom-name installation did not select and derive the next free addressing set: %#v", got)
 	}
 }
@@ -122,20 +131,24 @@ func TestIngressNetworkExplicitCollisionAndNameLifecycle(t *testing.T) {
 		"STEALTH_TRAEFIK_INGRESS_IP":     "172.31.4.254",
 		"STEALTH_CLOUDFLARED_INGRESS_IP": "172.31.4.10",
 	}
-	if _, err := resolveTestIngressNetwork(t, false, []testDockerNetwork{{name: "other", subnet: "172.31.4.128/25"}}, values); err == nil || !strings.Contains(err.Error(), "overlaps existing Docker network") {
+	if _, err := resolveTestIngressNetwork(t, false, []testDockerNetwork{{name: "other", subnet: "172.31.4.128/25"}}, values); err == nil ||
+		!strings.Contains(err.Error(), "overlaps existing Docker network") {
 		t.Fatalf("explicit overlapping subnet did not fail: %v", err)
 	}
 	defaultValues := map[string]string{
 		"STEALTH_INGRESS_NETWORK_NAME":   "custom_default_ingress",
 		"STEALTH_INGRESS_NETWORK_SUBNET": defaultIngressSubnet,
 	}
-	if _, err := resolveTestIngressNetwork(t, false, []testDockerNetwork{{name: "other", subnet: defaultIngressSubnet}}, defaultValues); err == nil || !strings.Contains(err.Error(), "overlaps existing Docker network") {
+	if _, err := resolveTestIngressNetwork(t, false, []testDockerNetwork{{name: "other", subnet: defaultIngressSubnet}}, defaultValues); err == nil ||
+		!strings.Contains(err.Error(), "overlaps existing Docker network") {
 		t.Fatalf("explicit default subnet collision did not fail: %v", err)
 	}
-	if _, err := resolveTestIngressNetwork(t, false, []testDockerNetwork{{name: "custom_ingress", subnet: "172.31.4.0/24"}}, values); err == nil || !strings.Contains(err.Error(), "already exists") {
+	if _, err := resolveTestIngressNetwork(t, false, []testDockerNetwork{{name: "custom_ingress", subnet: "172.31.4.0/24"}}, values); err == nil ||
+		!strings.Contains(err.Error(), "already exists") {
 		t.Fatalf("fresh install reused an existing network name: %v", err)
 	}
-	if _, err := resolveTestIngressNetwork(t, true, []testDockerNetwork{{name: "custom_ingress", subnet: "172.31.5.0/24"}}, values); err == nil || !strings.Contains(err.Error(), "does not match existing Docker network") {
+	if _, err := resolveTestIngressNetwork(t, true, []testDockerNetwork{{name: "custom_ingress", subnet: "172.31.5.0/24"}}, values); err == nil ||
+		!strings.Contains(err.Error(), "does not match existing Docker network") {
 		t.Fatalf("existing installation accepted a changed network subnet: %v", err)
 	}
 }
@@ -143,7 +156,13 @@ func TestIngressNetworkExplicitCollisionAndNameLifecycle(t *testing.T) {
 func TestIngressNetworkUpgradeAdoptsExistingNamedNetwork(t *testing.T) {
 	values := map[string]string{"STEALTH_INGRESS_NETWORK_NAME": defaultIngressNetworkName, "STEALTH_INGRESS_NETWORK_SUBNET": defaultIngressSubnet}
 	original := map[string]string{"STEALTH_INGRESS_NETWORK_NAME": defaultIngressNetworkName}
-	got, err := resolveTestIngressNetwork(t, true, []testDockerNetwork{{name: defaultIngressNetworkName, subnet: "172.31.7.0/24"}}, values, original)
+	got, err := resolveTestIngressNetwork(
+		t,
+		true,
+		[]testDockerNetwork{{name: defaultIngressNetworkName, subnet: "172.31.7.0/24"}},
+		values,
+		original,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,7 +193,15 @@ func (r ingressNetworkTestRunner) Run(context.Context, string, io.Writer, io.Wri
 	return nil
 }
 
-func (r ingressNetworkTestRunner) RunWithEnv(context.Context, string, []string, io.Writer, io.Writer, string, ...string) error {
+func (r ingressNetworkTestRunner) RunWithEnv(
+	context.Context,
+	string,
+	[]string,
+	io.Writer,
+	io.Writer,
+	string,
+	...string,
+) error {
 	return nil
 }
 
@@ -199,7 +226,15 @@ func (r ingressNetworkTestRunner) Output(_ context.Context, _ string, _ string, 
 	return nil, fmt.Errorf("unexpected Docker command: %v", args)
 }
 
-func resolveTestIngressNetwork(t *testing.T, existing bool, networks []testDockerNetwork, args ...map[string]string) (IngressNetworkConfig, error) {
+func resolveTestIngressNetwork(
+	t *testing.T,
+	existing bool,
+	networks []testDockerNetwork,
+	args ...map[string]string,
+) (
+	IngressNetworkConfig,
+	error,
+) {
 	t.Helper()
 	values := map[string]string{
 		"STEALTH_INGRESS_NETWORK_NAME": defaultIngressNetworkName,
@@ -216,5 +251,10 @@ func resolveTestIngressNetwork(t *testing.T, existing bool, networks []testDocke
 		t.Fatal(err)
 	}
 	engine := New(Options{Runner: ingressNetworkTestRunner{networks: networks}})
-	return engine.resolveIngressNetworkConfig(context.Background(), Plan{Layout: layout, Existing: existing}, values, original)
+	return engine.resolveIngressNetworkConfig(
+		context.Background(),
+		Plan{Layout: layout, Existing: existing},
+		values,
+		original,
+	)
 }

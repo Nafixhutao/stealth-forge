@@ -75,7 +75,21 @@ type storageScanner interface{ Scan(...any) error }
 
 func scanStorageBucket(row storageScanner) (domain.StorageBucket, error) {
 	var item domain.StorageBucket
-	err := row.Scan(&item.ID, &item.ProjectID, &item.Name, &item.FileSecurity, &item.CreatePermissions, &item.ReadPermissions, &item.UpdatePermissions, &item.DeletePermissions, &item.MaxFileSizeBytes, &item.QuotaBytes, &item.UsedBytes, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&item.ID,
+		&item.ProjectID,
+		&item.Name,
+		&item.FileSecurity,
+		&item.CreatePermissions,
+		&item.ReadPermissions,
+		&item.UpdatePermissions,
+		&item.DeletePermissions,
+		&item.MaxFileSizeBytes,
+		&item.QuotaBytes,
+		&item.UsedBytes,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	return item, err
 }
 
@@ -83,7 +97,22 @@ func scanStorageFile(row storageScanner) (domain.StorageFile, string, error) {
 	var item domain.StorageFile
 	var path string
 	var creator *uuid.UUID
-	err := row.Scan(&item.ID, &item.BucketID, &item.ProjectID, &item.Name, &item.MimeType, &item.SizeBytes, &item.ChecksumSHA256, &path, &item.ReadPermissions, &item.UpdatePermissions, &item.DeletePermissions, &creator, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&item.ID,
+		&item.BucketID,
+		&item.ProjectID,
+		&item.Name,
+		&item.MimeType,
+		&item.SizeBytes,
+		&item.ChecksumSHA256,
+		&path,
+		&item.ReadPermissions,
+		&item.UpdatePermissions,
+		&item.DeletePermissions,
+		&creator,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	if err != nil {
 		return item, "", err
 	}

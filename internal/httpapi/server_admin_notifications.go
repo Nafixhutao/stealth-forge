@@ -40,7 +40,12 @@ func (s *Server) createAdminNotificationChannel(w http.ResponseWriter, r *http.R
 		internalError(s, w, err)
 		return
 	}
-	item, err := s.repo.CreateAdminNotificationChannel(r.Context(), mustUUID(accountFrom(r).ID), id, repository.AdminNotificationChannelInput{Name: request.Name, Kind: request.Kind, Enabled: enabled, Config: config})
+	item, err := s.repo.CreateAdminNotificationChannel(
+		r.Context(),
+		mustUUID(accountFrom(r).ID),
+		id,
+		repository.AdminNotificationChannelInput{Name: request.Name, Kind: request.Kind, Enabled: enabled, Config: config},
+	)
 	if err != nil {
 		adminControlError(s, w, err)
 		return
@@ -79,7 +84,12 @@ func (s *Server) updateAdminNotificationChannel(w http.ResponseWriter, r *http.R
 	if request.Enabled != nil {
 		enabled = *request.Enabled
 	}
-	item, err := s.repo.UpdateAdminNotificationChannel(r.Context(), mustUUID(accountFrom(r).ID), id, repository.AdminNotificationChannelInput{Name: request.Name, Kind: request.Kind, Enabled: enabled, Config: config})
+	item, err := s.repo.UpdateAdminNotificationChannel(
+		r.Context(),
+		mustUUID(accountFrom(r).ID),
+		id,
+		repository.AdminNotificationChannelInput{Name: request.Name, Kind: request.Kind, Enabled: enabled, Config: config},
+	)
 	if err != nil {
 		adminControlError(s, w, err)
 		return

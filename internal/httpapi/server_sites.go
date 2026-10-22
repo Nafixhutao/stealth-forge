@@ -168,7 +168,9 @@ func parseSiteBuildOptions(runtime, command, outputDirectory string) (siteBuildO
 	if outputDirectory == "" {
 		outputDirectory = "."
 	}
-	if len(outputDirectory) > 255 || strings.HasPrefix(outputDirectory, "/") || strings.ContainsAny(outputDirectory, "\\\x00\r\n") {
+	if len(outputDirectory) > 255 ||
+		strings.HasPrefix(outputDirectory, "/") ||
+		strings.ContainsAny(outputDirectory, "\\\x00\r\n") {
 		return siteBuildOptions{}, errors.New("output_directory must be a safe relative path")
 	}
 	if outputDirectory != "." {
@@ -208,7 +210,11 @@ func (s *Server) listSites(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"sites": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"sites": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) getSite(w http.ResponseWriter, r *http.Request) {

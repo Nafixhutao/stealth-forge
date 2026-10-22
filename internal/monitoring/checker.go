@@ -50,7 +50,11 @@ func ValidateConfig(kind, target string, config []byte) error {
 	return validate(kind, target, value)
 }
 
-func Check(ctx context.Context, job repository.AdminMonitorJob, cipher *functionsecret.Cipher) repository.AdminMonitorCheckInput {
+func Check(
+	ctx context.Context,
+	job repository.AdminMonitorJob,
+	cipher *functionsecret.Cipher,
+) repository.AdminMonitorCheckInput {
 	started := time.Now()
 	result := repository.AdminMonitorCheckInput{Details: json.RawMessage(`{}`)}
 	if cipher == nil {
@@ -111,13 +115,22 @@ func validate(kind, target string, config monitorConfig) error {
 	if target == "" || strings.ContainsAny(target, "\x00\r\n") {
 		return errors.New("target is invalid")
 	}
-	if config.LatencyThresholdMS < 0 || config.LatencyThresholdMS > 120000 || config.GraceSeconds < 0 || config.GraceSeconds > 7*86400 || config.CertificateExpiryDays < 0 || config.CertificateExpiryDays > 3650 {
+	if config.LatencyThresholdMS < 0 ||
+		config.LatencyThresholdMS > 120000 ||
+		config.GraceSeconds < 0 ||
+		config.GraceSeconds > 7*86400 ||
+		config.CertificateExpiryDays < 0 ||
+		config.CertificateExpiryDays > 3650 {
 		return errors.New("threshold is invalid")
 	}
 	switch kind {
 	case "http":
 		parsed, err := url.Parse(target)
-		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Hostname() == "" || parsed.User != nil || parsed.Fragment != "" {
+		if err != nil ||
+			(parsed.Scheme != "http" && parsed.Scheme != "https") ||
+			parsed.Hostname() == "" ||
+			parsed.User != nil ||
+			parsed.Fragment != "" {
 			return errors.New("HTTP target must be an absolute HTTP(S) URL")
 		}
 		method := strings.ToUpper(strings.TrimSpace(config.Method))

@@ -99,7 +99,26 @@ func TestAppHealthMigrationKeepsExistingRuntimeNonRoutableIntegration(t *testing
 	if routeIdentity != nil {
 		wantName = "st-" + strings.ReplaceAll(appID.String(), "-", "") + "-" + strings.ReplaceAll(*routeIdentity, "-", "")[:24]
 	}
-	if healthStatus != "pending" || healthGeneration != nil || healthDeploymentID != nil || healthContainerID != nil || address != nil || routeIdentity == nil || *routeIdentity == uuid.Nil.String() || healthRouteIdentity != nil || containerName != wantName {
-		t.Fatalf("existing runtime migration state is not safely pending: status=%q generation=%v deployment=%v container=%v address=%v route_identity=%v health_route_identity=%v name=%q want_name=%q", healthStatus, healthGeneration, healthDeploymentID, healthContainerID, address, routeIdentity, healthRouteIdentity, containerName, wantName)
+	if healthStatus != "pending" ||
+		healthGeneration != nil ||
+		healthDeploymentID != nil ||
+		healthContainerID != nil ||
+		address != nil ||
+		routeIdentity == nil ||
+		*routeIdentity == uuid.Nil.String() ||
+		healthRouteIdentity != nil ||
+		containerName != wantName {
+		t.Fatalf(
+			"existing runtime migration state is not safely pending: status=%q generation=%v deployment=%v container=%v address=%v route_identity=%v health_route_identity=%v name=%q want_name=%q",
+			healthStatus,
+			healthGeneration,
+			healthDeploymentID,
+			healthContainerID,
+			address,
+			routeIdentity,
+			healthRouteIdentity,
+			containerName,
+			wantName,
+		)
 	}
 }

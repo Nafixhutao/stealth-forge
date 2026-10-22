@@ -17,7 +17,11 @@ func TestLoadDatabaseSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if settings.URL != "postgres://example.invalid/stealth" || settings.MaxConns != 32 || settings.MinConns != 4 || settings.MaxConnLifetime != 2*time.Hour || settings.MaxConnIdleTime != 15*time.Minute {
+	if settings.URL != "postgres://example.invalid/stealth" ||
+		settings.MaxConns != 32 ||
+		settings.MinConns != 4 ||
+		settings.MaxConnLifetime != 2*time.Hour ||
+		settings.MaxConnIdleTime != 15*time.Minute {
 		t.Fatalf("unexpected database settings: %+v", settings)
 	}
 	var config Config
@@ -42,7 +46,10 @@ func TestApplyDatabaseDefaults(t *testing.T) {
 		DatabaseMaxConnIdleTime: 0,
 	}
 	config.applyDatabaseDefaults()
-	if config.DatabaseMaxConns != 256 || config.DatabaseMinConns != 256 || config.DatabaseMaxConnLifetime != time.Hour || config.DatabaseMaxConnIdleTime != 30*time.Minute {
+	if config.DatabaseMaxConns != 256 ||
+		config.DatabaseMinConns != 256 ||
+		config.DatabaseMaxConnLifetime != time.Hour ||
+		config.DatabaseMaxConnIdleTime != 30*time.Minute {
 		t.Fatalf("unexpected database defaults: %+v", config)
 	}
 }

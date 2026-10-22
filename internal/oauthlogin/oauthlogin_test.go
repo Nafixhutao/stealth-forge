@@ -125,7 +125,13 @@ func TestExchangeParsesAccessToken(t *testing.T) {
 		ClientSecret: "csecret",
 		kind:         kindGoogle,
 	}
-	token, err := NewClient(server.Client()).Exchange(context.Background(), p, "code-1", "https://cb.example.test", "verifier-1")
+	token, err := NewClient(server.Client()).Exchange(
+		context.Background(),
+		p,
+		"code-1",
+		"https://cb.example.test",
+		"verifier-1",
+	)
 	if err != nil {
 		t.Fatalf("Exchange: %v", err)
 	}

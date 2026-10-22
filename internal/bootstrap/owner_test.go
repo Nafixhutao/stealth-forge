@@ -28,7 +28,13 @@ func (*ownerStoreFake) CreateBootstrapSession(context.Context, repository.Bootst
 func (*ownerStoreFake) VerifyBootstrapCode(context.Context, []byte) (repository.BootstrapVerification, error) {
 	return repository.BootstrapVerification{}, nil
 }
-func (f *ownerStoreFake) CreateGitHubInstanceOwner(_ context.Context, input repository.GitHubOwnerInput) (domain.Account, error) {
+func (f *ownerStoreFake) CreateGitHubInstanceOwner(
+	_ context.Context,
+	input repository.GitHubOwnerInput,
+) (
+	domain.Account,
+	error,
+) {
 	f.input = input
 	if f.err != nil {
 		return domain.Account{}, f.err
@@ -72,7 +78,10 @@ func TestGitHubOwnerInputNormalizesProviderIdentityBehindBootstrapModule(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	if input.BootstrapSessionID != sessionID || string(input.BootstrapCodeHash) != string(codeHash) || input.ProviderUserID != "424242" || input.ProviderEmail != "owner@example.test" {
+	if input.BootstrapSessionID != sessionID ||
+		string(input.BootstrapCodeHash) != string(codeHash) ||
+		input.ProviderUserID != "424242" ||
+		input.ProviderEmail != "owner@example.test" {
 		t.Fatalf("owner input = %#v", input)
 	}
 }
@@ -87,7 +96,11 @@ func TestOwnerCreatorCreatesSessionAndCleansHandoffOnRepositoryFailure(t *testin
 		SessionTTL: time.Hour,
 		Now:        func() time.Time { return time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC) },
 	}
-	_, err := creator.CreateGitHubInstanceOwner(context.Background(), GitHubAuthorization{SessionID: uuid.Must(uuid.NewV7()), CodeHash: []byte("hash")}, githubauth.User{ID: 7, Login: "owner"})
+	_, err := creator.CreateGitHubInstanceOwner(
+		context.Background(),
+		GitHubAuthorization{SessionID: uuid.Must(uuid.NewV7()), CodeHash: []byte("hash")},
+		githubauth.User{ID: 7, Login: "owner"},
+	)
 	if err == nil || !handoff.saved || !handoff.discard {
 		t.Fatalf("owner creation error = %v, handoff = %#v", err, handoff)
 	}
@@ -98,7 +111,11 @@ func TestOwnerCreatorCreatesSessionAndCleansHandoffOnRepositoryFailure(t *testin
 
 func TestOwnerCreatorClassifiesInvalidProviderIdentity(t *testing.T) {
 	creator := OwnerCreator{Store: &ownerStoreFake{}, SessionTTL: time.Hour}
-	_, err := creator.CreateGitHubInstanceOwner(context.Background(), GitHubAuthorization{}, githubauth.User{ID: 7, Login: "unsafe\nlogin"})
+	_, err := creator.CreateGitHubInstanceOwner(
+		context.Background(),
+		GitHubAuthorization{},
+		githubauth.User{ID: 7, Login: "unsafe\nlogin"},
+	)
 	if !errors.Is(err, ErrInvalidGitHubIdentity) {
 		t.Fatalf("invalid identity error = %v", err)
 	}

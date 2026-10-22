@@ -173,7 +173,7 @@ paths:
   /v1/admin/telemetry/logs:
     get:
       operationId: listAdminTelemetryLogs
-      description: Query structured logs through a bounded, parameterized server-side query. Raw ClickHouse SQL is not accepted.
+      description: Query structured logs through a bounded, parameterized server-side query. Raw SQL is not accepted.
       security:
         - sessionCookie: []
       parameters:
@@ -227,7 +227,7 @@ paths:
   /v1/admin/telemetry/logs/tail:
     get:
       operationId: streamAdminTelemetryLogs
-      description: Stream bounded redacted log records over an authenticated server-sent event connection. The server owns the ClickHouse query and closes idle streams after a bounded lifetime.
+      description: Stream bounded redacted log records over an authenticated server-sent event connection. The server owns the query and closes idle streams after a bounded lifetime.
       security:
         - sessionCookie: []
       parameters:
@@ -487,7 +487,7 @@ paths:
   /v1/admin/telemetry/errors/{fingerprint}:
     patch:
       operationId: updateAdminTelemetryErrorStatus
-      description: Update the owner-managed lifecycle state of a redacted error fingerprint. Occurrences remain in ClickHouse.
+      description: Update the owner-managed lifecycle state of a redacted error fingerprint. Occurrences remain in the telemetry store.
       security:
         - sessionCookie: []
       parameters:
@@ -16731,7 +16731,7 @@ components:
         id:
           type: string
           maxLength: 2048
-          description: Opaque stable line identity; does not expose the ClickHouse event ID.
+          description: Opaque stable line identity; does not expose the telemetry event ID.
         created_at:
           type: string
           format: date-time

@@ -30,9 +30,12 @@ func newInstallPlan(layout InstallLayout, version, publicURL string, dockerGID u
 
 func validatePublicURL(raw string) (string, error) {
 	parsed, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil || parsed.Scheme != "http" && parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil ||
-		parsed.RawQuery != "" ||
-		parsed.Fragment != "" {
+	if err != nil {
+		return "", fmt.Errorf("URL must be an absolute HTTP(S) URL without credentials, query, or fragment")
+	}
+	schemeOK := parsed.Scheme == "http" || parsed.Scheme == "https"
+	noExtras := parsed.User == nil && parsed.RawQuery == "" && parsed.Fragment == ""
+	if !schemeOK || parsed.Host == "" || !noExtras {
 		return "", fmt.Errorf("URL must be an absolute HTTP(S) URL without credentials, query, or fragment")
 	}
 	if strings.ContainsAny(raw, "\r\n\x00") {

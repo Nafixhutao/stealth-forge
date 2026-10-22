@@ -51,7 +51,16 @@ type DatabaseRowTransactionResult struct {
 // DatabaseTableSchema loads schema metadata and performs the same project and
 // table-read checks used by row reads. When row security is enabled, the
 // operation may still narrow results further using each row's grant.
-func (r *Repository) DatabaseTableSchema(ctx context.Context, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor) (DatabaseTableSchema, error) {
+func (r *Repository) DatabaseTableSchema(
+	ctx context.Context,
+	projectID,
+	databaseID,
+	tableID uuid.UUID,
+	actor DatabaseActor,
+) (
+	DatabaseTableSchema,
+	error,
+) {
 	if actor.IsManagement() {
 		if _, err := r.requireDatabaseRead(ctx, projectID, actor); err != nil {
 			return DatabaseTableSchema{}, err

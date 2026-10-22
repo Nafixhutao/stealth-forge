@@ -76,7 +76,15 @@ func (r *Repository) AdminIncidentByID(ctx context.Context, id uuid.UUID) (domai
 	return item, nil
 }
 
-func (r *Repository) CreateAdminIncident(ctx context.Context, accountID, id uuid.UUID, input AdminIncidentInput) (domain.AdminIncident, error) {
+func (r *Repository) CreateAdminIncident(
+	ctx context.Context,
+	accountID,
+	id uuid.UUID,
+	input AdminIncidentInput,
+) (
+	domain.AdminIncident,
+	error,
+) {
 	normalized, err := normalizeAdminIncidentInput(input)
 	if err != nil {
 		return domain.AdminIncident{}, err
@@ -125,7 +133,15 @@ func (r *Repository) CreateAdminIncident(ctx context.Context, accountID, id uuid
 	return item, nil
 }
 
-func (r *Repository) UpdateAdminIncident(ctx context.Context, accountID, id uuid.UUID, patch AdminIncidentPatch) (domain.AdminIncident, error) {
+func (r *Repository) UpdateAdminIncident(
+	ctx context.Context,
+	accountID,
+	id uuid.UUID,
+	patch AdminIncidentPatch,
+) (
+	domain.AdminIncident,
+	error,
+) {
 	normalized, err := normalizeAdminIncidentPatch(patch)
 	if err != nil {
 		return domain.AdminIncident{}, err
@@ -205,7 +221,16 @@ func (r *Repository) UpdateAdminIncident(ctx context.Context, accountID, id uuid
 	return item, nil
 }
 
-func (r *Repository) AddAdminIncidentEvent(ctx context.Context, accountID, incidentID, eventID uuid.UUID, input AdminIncidentEventInput) (domain.AdminIncidentEvent, error) {
+func (r *Repository) AddAdminIncidentEvent(
+	ctx context.Context,
+	accountID,
+	incidentID,
+	eventID uuid.UUID,
+	input AdminIncidentEventInput,
+) (
+	domain.AdminIncidentEvent,
+	error,
+) {
 	kind, message, err := normalizeAdminIncidentEvent(input)
 	if err != nil {
 		return domain.AdminIncidentEvent{}, err
@@ -308,7 +333,11 @@ func normalizeAdminIncidentInput(input AdminIncidentInput) (AdminIncidentInput, 
 }
 
 func normalizeAdminIncidentPatch(patch AdminIncidentPatch) (AdminIncidentPatch, error) {
-	if patch.Title == nil && patch.Severity == nil && patch.Status == nil && patch.Services == nil && patch.Message == nil {
+	if patch.Title == nil &&
+		patch.Severity == nil &&
+		patch.Status == nil &&
+		patch.Services == nil &&
+		patch.Message == nil {
 		return AdminIncidentPatch{}, ErrInvalidAdminIncident
 	}
 	if patch.Title != nil {
@@ -347,7 +376,15 @@ func normalizeAdminIncidentPatch(patch AdminIncidentPatch) (AdminIncidentPatch, 
 
 func normalizeAdminIncidentEvent(input AdminIncidentEventInput) (string, string, error) {
 	kind := strings.ToLower(strings.TrimSpace(input.Kind))
-	valid := map[string]bool{"alert": true, "deployment": true, "restart": true, "backup": true, "configuration": true, "monitor": true, "note": true}
+	valid := map[string]bool{
+		"alert":         true,
+		"deployment":    true,
+		"restart":       true,
+		"backup":        true,
+		"configuration": true,
+		"monitor":       true,
+		"note":          true,
+	}
 	if !valid[kind] || !validAdminControlText(input.Message, 1, 2000) {
 		return "", "", ErrInvalidAdminIncident
 	}

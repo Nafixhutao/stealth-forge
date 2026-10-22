@@ -99,8 +99,17 @@ func TestPlatformSiteHostnameMigrationBackfillsStableGlobalLabelsIntegration(t *
 			t.Fatal(err)
 		}
 	}
-	if firstLabel != "portfolio" || secondLabel != "portfolio-018f0d5e7c197abc8d1e123456789012" || reservedLabel != "api-018f0d5e7c197abc8d1e123456789013" || trailingLabel != "a-site-018f0d5e7c197abc8d1e123456789014" {
-		t.Fatalf("unexpected backfill labels: first=%q second=%q reserved=%q trailing=%q", firstLabel, secondLabel, reservedLabel, trailingLabel)
+	if firstLabel != "portfolio" ||
+		secondLabel != "portfolio-018f0d5e7c197abc8d1e123456789012" ||
+		reservedLabel != "api-018f0d5e7c197abc8d1e123456789013" ||
+		trailingLabel != "a-site-018f0d5e7c197abc8d1e123456789014" {
+		t.Fatalf(
+			"unexpected backfill labels: first=%q second=%q reserved=%q trailing=%q",
+			firstLabel,
+			secondLabel,
+			reservedLabel,
+			trailingLabel,
+		)
 	}
 	if len(reservedLabel) > 63 || len(trailingLabel) > 63 {
 		t.Fatalf("backfill labels exceed DNS label limit: %q %q", reservedLabel, trailingLabel)

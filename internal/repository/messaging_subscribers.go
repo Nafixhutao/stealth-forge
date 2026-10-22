@@ -10,7 +10,17 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (r *Repository) CreateMessagingSubscriber(ctx context.Context, id, projectID, topicID uuid.UUID, actor MessagingActor, input MessagingSubscriberInput) (domain.MessagingSubscriber, error) {
+func (r *Repository) CreateMessagingSubscriber(
+	ctx context.Context,
+	id,
+	projectID,
+	topicID uuid.UUID,
+	actor MessagingActor,
+	input MessagingSubscriberInput,
+) (
+	domain.MessagingSubscriber,
+	error,
+) {
 	channel, err := normalizeMessagingChannel(input.Channel)
 	if err != nil {
 		return domain.MessagingSubscriber{}, err
@@ -50,7 +60,19 @@ func (r *Repository) CreateMessagingSubscriber(ctx context.Context, id, projectI
 	return item, nil
 }
 
-func (r *Repository) ListMessagingSubscribers(ctx context.Context, projectID, topicID uuid.UUID, actor MessagingActor, limit int, cursor *uuid.UUID) ([]domain.MessagingSubscriber, string, bool, error) {
+func (r *Repository) ListMessagingSubscribers(
+	ctx context.Context,
+	projectID,
+	topicID uuid.UUID,
+	actor MessagingActor,
+	limit int,
+	cursor *uuid.UUID,
+) (
+	[]domain.MessagingSubscriber,
+	string,
+	bool,
+	error,
+) {
 	canManage, err := r.requireMessagingRead(ctx, projectID, actor)
 	if err != nil {
 		return nil, "", false, err
@@ -89,7 +111,16 @@ func (r *Repository) ListMessagingSubscribers(ctx context.Context, projectID, to
 	return items, next, canManage, nil
 }
 
-func (r *Repository) GetMessagingSubscriber(ctx context.Context, projectID, topicID, subscriberID uuid.UUID, actor MessagingActor) (domain.MessagingSubscriber, error) {
+func (r *Repository) GetMessagingSubscriber(
+	ctx context.Context,
+	projectID,
+	topicID,
+	subscriberID uuid.UUID,
+	actor MessagingActor,
+) (
+	domain.MessagingSubscriber,
+	error,
+) {
 	if _, err := r.requireMessagingRead(ctx, projectID, actor); err != nil {
 		return domain.MessagingSubscriber{}, err
 	}
@@ -100,7 +131,13 @@ func (r *Repository) GetMessagingSubscriber(ctx context.Context, projectID, topi
 	return item, err
 }
 
-func (r *Repository) DeleteMessagingSubscriber(ctx context.Context, projectID, topicID, subscriberID uuid.UUID, actor MessagingActor) error {
+func (r *Repository) DeleteMessagingSubscriber(
+	ctx context.Context,
+	projectID,
+	topicID,
+	subscriberID uuid.UUID,
+	actor MessagingActor,
+) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err

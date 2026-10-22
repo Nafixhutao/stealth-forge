@@ -53,13 +53,25 @@ type Result struct {
 	ReloadUpdated bool
 }
 
-func New(store Store, generatedDir, reloadFile string, interval time.Duration, logger *slog.Logger) (*Reconciler, error) {
+func New(
+	store Store,
+	generatedDir,
+	reloadFile string,
+	interval time.Duration,
+	logger *slog.Logger,
+) (
+	*Reconciler,
+	error,
+) {
 	if store == nil {
 		return nil, errors.New("platform route store is required")
 	}
 	generatedDir = filepath.Clean(strings.TrimSpace(generatedDir))
 	reloadFile = filepath.Clean(strings.TrimSpace(reloadFile))
-	if !filepath.IsAbs(generatedDir) || !filepath.IsAbs(reloadFile) || generatedDir == string(filepath.Separator) || reloadFile == string(filepath.Separator) {
+	if !filepath.IsAbs(generatedDir) ||
+		!filepath.IsAbs(reloadFile) ||
+		generatedDir == string(filepath.Separator) ||
+		reloadFile == string(filepath.Separator) {
 		return nil, errors.New("platform route paths must be absolute non-root paths")
 	}
 	if pathWithin(generatedDir, reloadFile) {

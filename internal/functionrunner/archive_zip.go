@@ -9,7 +9,17 @@ import (
 	"os"
 )
 
-func extractZip(ctx context.Context, compressed []byte, destination string, root *os.Root, limits ArchiveLimits, allowSymlinks bool) (ArchiveStats, error) {
+func extractZip(
+	ctx context.Context,
+	compressed []byte,
+	destination string,
+	root *os.Root,
+	limits ArchiveLimits,
+	allowSymlinks bool,
+) (
+	ArchiveStats,
+	error,
+) {
 	archive, err := zip.NewReader(bytes.NewReader(compressed), int64(len(compressed)))
 	if err != nil {
 		return ArchiveStats{}, fmt.Errorf("open zip source archive: %w", err)
@@ -92,7 +102,15 @@ func extractZip(ctx context.Context, compressed []byte, destination string, root
 		if err != nil {
 			return ArchiveStats{}, fmt.Errorf("open zip entry: %w", err)
 		}
-		written, writeErr := writeEntry(ctx, root, reader, destination, relative, limits.MaxEntry, limits.MaxBytes-stats.Bytes)
+		written, writeErr := writeEntry(
+			ctx,
+			root,
+			reader,
+			destination,
+			relative,
+			limits.MaxEntry,
+			limits.MaxBytes-stats.Bytes,
+		)
 		closeErr := reader.Close()
 		if writeErr != nil {
 			return ArchiveStats{}, writeErr

@@ -133,7 +133,7 @@ type AppBuildLog struct {
 }
 
 // AppRuntimeLog is a redacted, project-scoped projection of App stdout/stderr.
-// Its stable ID is opaque and does not reveal the ClickHouse event ID.
+// Its stable ID is opaque and does not reveal the telemetry event ID.
 type AppRuntimeLog struct {
 	ID        string    `json:"id"`
 	CreatedAt time.Time `json:"created_at"`

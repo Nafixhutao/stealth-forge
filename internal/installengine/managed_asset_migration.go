@@ -2,6 +2,7 @@ package installengine
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -102,7 +103,14 @@ func (m *managedAssetMigration) stagedAssetPath(relativePath string) (string, bo
 	}
 	return "", false
 }
-func (m *managedAssetMigration) commit(plan Plan, originalEnv []byte, originalEnvExists bool, originalVersion []byte, originalVersionExists bool, originalVersionMode os.FileMode) error {
+func (m *managedAssetMigration) commit(
+	plan Plan,
+	originalEnv []byte,
+	originalEnvExists bool,
+	originalVersion []byte,
+	originalVersionExists bool,
+	originalVersionMode os.FileMode,
+) error {
 	if m == nil {
 		return errors.New("managed asset migration is nil")
 	}
@@ -168,7 +176,7 @@ func (m *managedAssetMigration) commit(plan Plan, originalEnv []byte, originalEn
 		}
 		digest := sha256.Sum256(contents)
 		m.manifest.Assets = append(m.manifest.Assets, managedAssetRecoveryEntry{
-			RelativePath: asset.spec.Path, Existed: true, SHA256: fmt.Sprintf("%x", digest),
+			RelativePath: asset.spec.Path, Existed: true, SHA256: hex.EncodeToString(digest[:]),
 		})
 	}
 	if plan.Existing && !plan.Setup && m.manifest.OriginalVersion != "" {

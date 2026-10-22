@@ -210,13 +210,27 @@ func (a *App) validateExistingVolumeOwnership(ctx context.Context, plan uninstal
 		if _, ok := existing[volume.name]; !ok {
 			continue
 		}
-		labels, inspectErr := a.runner.Output(ctx, "", "docker", "volume", "inspect", "--format", "{{ index .Labels \"com.docker.compose.project\" }}\t{{ index .Labels \"com.docker.compose.volume\" }}", volume.name)
+		labels, inspectErr := a.runner.Output(
+			ctx,
+			"",
+			"docker",
+			"volume",
+			"inspect",
+			"--format",
+			"{{ index .Labels \"com.docker.compose.project\" }}\t{{ index .Labels \"com.docker.compose.volume\" }}",
+			volume.name,
+		)
 		if inspectErr != nil {
 			return fmt.Errorf("verify ownership of Docker volume %q: %w", volume.name, inspectErr)
 		}
 		fields := strings.SplitN(strings.TrimSpace(string(labels)), "\t", 2)
 		if len(fields) != 2 || fields[0] != projectName || fields[1] != volume.composeName {
-			return fmt.Errorf("Docker volume %q is not labeled as Compose project %q volume %q; refusing purge", volume.name, projectName, volume.composeName)
+			return fmt.Errorf(
+				"Docker volume %q is not labeled as Compose project %q volume %q; refusing purge",
+				volume.name,
+				projectName,
+				volume.composeName,
+			)
 		}
 	}
 	return nil

@@ -149,6 +149,14 @@ func assertAppEnvironmentVariableSchema(t *testing.T, ctx context.Context, conn 
 		wantTable, wantIndex, wantConstraints = 1, 1, 7
 	}
 	if table != wantTable || index != wantIndex || constraints != wantConstraints {
-		t.Fatalf("App environment schema objects table:%d index:%d constraints:%d, want %d/%d/%d", table, index, constraints, wantTable, wantIndex, wantConstraints)
+		t.Fatalf(
+			"App environment schema objects table:%d index:%d constraints:%d, want %d/%d/%d",
+			table,
+			index,
+			constraints,
+			wantTable,
+			wantIndex,
+			wantConstraints,
+		)
 	}
 }

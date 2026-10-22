@@ -72,7 +72,12 @@ func TestCloudflareConnectionMigrationOnPopulatedNonCloudflareInstanceIntegratio
 		t.Fatal(err)
 	}
 	if desired != "proxy" || observed != "unknown" || originStatus != "pending" {
-		t.Fatalf("migration origin state = desired:%q observed:%q status:%q; want safe proxy default", desired, observed, originStatus)
+		t.Fatalf(
+			"migration origin state = desired:%q observed:%q status:%q; want safe proxy default",
+			desired,
+			observed,
+			originStatus,
+		)
 	}
 	var workloadDomain string
 	if err := conn.QueryRow(ctx, `SELECT workload_base_domain FROM instance_domain_settings WHERE id=TRUE`).Scan(&workloadDomain); err != nil || workloadDomain != "apps.example.net" {

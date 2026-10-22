@@ -79,16 +79,77 @@ func (r *Repository) RequeueStaleFunctionDeployments(ctx context.Context, maxAge
 
 // CompleteFunctionDeploymentBuild publishes the worker-produced immutable
 // archive and adjusts artifact quota for its final size in one transaction.
-func (r *Repository) CompleteFunctionDeploymentBuild(ctx context.Context, projectID, functionID, deploymentID uuid.UUID, workerID, buildPath string, buildSizeBytes int64, buildChecksumSHA256 string) (domain.FunctionDeployment, error) {
-	return r.completeFunctionDeploymentBuild(ctx, projectID, functionID, deploymentID, workerID, buildPath, buildSizeBytes, buildChecksumSHA256, nil)
+func (r *Repository) CompleteFunctionDeploymentBuild(
+	ctx context.Context,
+	projectID,
+	functionID,
+	deploymentID uuid.UUID,
+	workerID,
+	buildPath string,
+	buildSizeBytes int64,
+	buildChecksumSHA256 string,
+) (
+	domain.FunctionDeployment,
+	error,
+) {
+	return r.completeFunctionDeploymentBuild(
+		ctx,
+		projectID,
+		functionID,
+		deploymentID,
+		workerID,
+		buildPath,
+		buildSizeBytes,
+		buildChecksumSHA256,
+		nil,
+	)
 }
 
-func (r *Repository) CompleteFunctionDeploymentBuildWithCleanup(ctx context.Context, projectID, functionID, deploymentID uuid.UUID, workerID, buildPath string, buildSizeBytes int64, buildChecksumSHA256 string, cleanup ArtifactCleanupInput) (domain.FunctionDeployment, error) {
-	return r.completeFunctionDeploymentBuild(ctx, projectID, functionID, deploymentID, workerID, buildPath, buildSizeBytes, buildChecksumSHA256, &cleanup)
+func (r *Repository) CompleteFunctionDeploymentBuildWithCleanup(
+	ctx context.Context,
+	projectID,
+	functionID,
+	deploymentID uuid.UUID,
+	workerID,
+	buildPath string,
+	buildSizeBytes int64,
+	buildChecksumSHA256 string,
+	cleanup ArtifactCleanupInput,
+) (
+	domain.FunctionDeployment,
+	error,
+) {
+	return r.completeFunctionDeploymentBuild(
+		ctx,
+		projectID,
+		functionID,
+		deploymentID,
+		workerID,
+		buildPath,
+		buildSizeBytes,
+		buildChecksumSHA256,
+		&cleanup,
+	)
 }
 
-func (r *Repository) completeFunctionDeploymentBuild(ctx context.Context, projectID, functionID, deploymentID uuid.UUID, workerID, buildPath string, buildSizeBytes int64, buildChecksumSHA256 string, cleanup *ArtifactCleanupInput) (domain.FunctionDeployment, error) {
-	if !validFunctionWorkerID(workerID) || !validFunctionArtifactPath(buildPath) || buildSizeBytes <= 0 || !validSHA256(buildChecksumSHA256) {
+func (r *Repository) completeFunctionDeploymentBuild(
+	ctx context.Context,
+	projectID,
+	functionID,
+	deploymentID uuid.UUID,
+	workerID,
+	buildPath string,
+	buildSizeBytes int64,
+	buildChecksumSHA256 string,
+	cleanup *ArtifactCleanupInput,
+) (
+	domain.FunctionDeployment,
+	error,
+) {
+	if !validFunctionWorkerID(workerID) ||
+		!validFunctionArtifactPath(buildPath) ||
+		buildSizeBytes <= 0 ||
+		!validSHA256(buildChecksumSHA256) {
 		return domain.FunctionDeployment{}, ErrInvalidFunctionSettings
 	}
 	tx, err := r.pool.Begin(ctx)
@@ -165,7 +226,17 @@ func (r *Repository) completeFunctionDeploymentBuild(ctx context.Context, projec
 // the builder lease. A failed build is not executable and must be replaced by
 // a new deployment; the previously active deployment remains represented by
 // the function pointer until an operator activates another ready build.
-func (r *Repository) FailFunctionDeploymentBuild(ctx context.Context, projectID, functionID, deploymentID uuid.UUID, workerID, errorMessage string) (domain.FunctionDeployment, error) {
+func (r *Repository) FailFunctionDeploymentBuild(
+	ctx context.Context,
+	projectID,
+	functionID,
+	deploymentID uuid.UUID,
+	workerID,
+	errorMessage string,
+) (
+	domain.FunctionDeployment,
+	error,
+) {
 	if !validFunctionWorkerID(workerID) {
 		return domain.FunctionDeployment{}, ErrInvalidFunctionSettings
 	}

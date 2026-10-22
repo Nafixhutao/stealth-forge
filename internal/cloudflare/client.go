@@ -204,7 +204,12 @@ func NewClient(apiToken, baseURL string, httpClient *http.Client) (*APIClient, e
 		baseURL = defaultAPIBaseURL
 	}
 	parsed, err := url.Parse(baseURL)
-	if err != nil || parsed.Scheme != "http" && parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if err != nil {
+		return nil, errors.New("Cloudflare API base URL is invalid")
+	}
+	schemeOK := parsed.Scheme == "http" || parsed.Scheme == "https"
+	noExtras := parsed.User == nil && parsed.RawQuery == "" && parsed.Fragment == ""
+	if !schemeOK || parsed.Host == "" || !noExtras {
 		return nil, errors.New("Cloudflare API base URL is invalid")
 	}
 	if httpClient == nil {
@@ -278,7 +283,11 @@ func (c *APIClient) ListCertificatePacks(ctx context.Context, zoneID string) ([]
 			return nil, err
 		}
 		for _, pack := range result.Result {
-			if strings.TrimSpace(pack.ID) == "" || strings.TrimSpace(pack.Status) == "" || strings.TrimSpace(pack.Type) == "" || len(pack.Hosts) > 50 || len(pack.Certificates) > 50 {
+			if strings.TrimSpace(pack.ID) == "" ||
+				strings.TrimSpace(pack.Status) == "" ||
+				strings.TrimSpace(pack.Type) == "" ||
+				len(pack.Hosts) > 50 ||
+				len(pack.Certificates) > 50 {
 				return nil, errors.New("Cloudflare returned an invalid certificate pack")
 			}
 			for _, certificate := range pack.Certificates {

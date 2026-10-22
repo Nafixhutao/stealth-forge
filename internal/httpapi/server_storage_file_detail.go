@@ -70,7 +70,14 @@ func (s *Server) updateStorageFile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	item, err := s.repo.UpdateStorageFile(r.Context(), projectID, bucketID, fileID, storageActorFrom(r), repository.StorageFilePatch{Name: req.Name, ReadPermissions: req.ReadPermissions, UpdatePermissions: req.UpdatePermissions, DeletePermissions: req.DeletePermissions})
+	item, err := s.repo.UpdateStorageFile(
+		r.Context(),
+		projectID,
+		bucketID,
+		fileID,
+		storageActorFrom(r),
+		repository.StorageFilePatch{Name: req.Name, ReadPermissions: req.ReadPermissions, UpdatePermissions: req.UpdatePermissions, DeletePermissions: req.DeletePermissions},
+	)
 	if storageResourceError(w, err) {
 		return
 	}
@@ -168,7 +175,10 @@ func storageResourceError(w http.ResponseWriter, err error) bool {
 	case errors.Is(err, repository.ErrStorageFileTooLarge), errors.Is(err, storage.ErrTooLarge):
 		writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "file exceeds the configured maximum size")
 		return true
-	case errors.Is(err, database.ErrInvalidPermissions), errors.Is(err, database.ErrDuplicatePermission), errors.Is(err, storage.ErrInvalidFilename), errors.Is(err, storage.ErrInvalidMIME):
+	case errors.Is(err, database.ErrInvalidPermissions),
+		errors.Is(err, database.ErrDuplicatePermission),
+		errors.Is(err, storage.ErrInvalidFilename),
+		errors.Is(err, storage.ErrInvalidMIME):
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", err.Error())
 		return true
 	}

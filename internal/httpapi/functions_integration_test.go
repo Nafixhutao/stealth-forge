@@ -98,7 +98,15 @@ func TestFunctionsControlPlaneIntegration(t *testing.T) {
 			} `json:"key"`
 			Secret string `json:"secret"`
 		}
-		requestJSON(t, ownerClient, http.MethodPost, projectURL+"/api-keys", map[string]any{"name": name, "scopes": scopes}, http.StatusCreated, &response)
+		requestJSON(
+			t,
+			ownerClient,
+			http.MethodPost,
+			projectURL+"/api-keys",
+			map[string]any{"name": name, "scopes": scopes},
+			http.StatusCreated,
+			&response,
+		)
 		if response.Key.ID == "" || response.Secret == "" {
 			t.Fatalf("API key response is incomplete: %+v", response)
 		}
@@ -124,16 +132,34 @@ func TestFunctionsControlPlaneIntegration(t *testing.T) {
 		"commands":   "npm test",
 	}, http.StatusCreated, &functionResponse)
 	functionID := functionResponse.Function.ID
-	if functionID == "" || functionResponse.Function.Runtime != "node-22" || functionResponse.Function.Entrypoint != "src/main.js" {
+	if functionID == "" ||
+		functionResponse.Function.Runtime != "node-22" ||
+		functionResponse.Function.Entrypoint != "src/main.js" {
 		t.Fatalf("unexpected function response: %+v", functionResponse.Function)
 	}
 	functionsURL := projectURL + "/functions/" + functionID
 
-	listBody := requestJSONRawWithHeaders(t, newIntegrationClient(t), http.MethodGet, projectURL+"/functions", nil, http.StatusOK, readHeaders)
+	listBody := requestJSONRawWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		projectURL+"/functions",
+		nil,
+		http.StatusOK,
+		readHeaders,
+	)
 	if !bytes.Contains(listBody, []byte(`"can_manage":false`)) || !bytes.Contains(listBody, []byte(functionID)) {
 		t.Fatalf("function read response did not include safe capability metadata: %s", listBody)
 	}
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, projectURL+"/functions/"+functionID, nil, http.StatusForbidden, writeHeaders)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		projectURL+"/functions/"+functionID,
+		nil,
+		http.StatusForbidden,
+		writeHeaders,
+	)
 
 	variableBody := requestJSONRawWithHeaders(t, newIntegrationClient(t), http.MethodPost, functionsURL+"/variables", map[string]any{
 		"key":         "API_TOKEN",
@@ -165,16 +191,56 @@ func TestFunctionsControlPlaneIntegration(t *testing.T) {
 	if len(ciphertext) == 0 || bytes.Equal(ciphertext, []byte("super-secret-function-value")) {
 		t.Fatalf("variable was not encrypted at rest: %x", ciphertext)
 	}
-	variableListBody := requestJSONRawWithHeaders(t, newIntegrationClient(t), http.MethodGet, functionsURL+"/variables", nil, http.StatusOK, readHeaders)
+	variableListBody := requestJSONRawWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		functionsURL+"/variables",
+		nil,
+		http.StatusOK,
+		readHeaders,
+	)
 	if bytes.Contains(variableListBody, []byte("super-secret-function-value")) || bytes.Contains(variableListBody, []byte("ciphertext")) || !bytes.Contains(variableListBody, []byte(`"has_value":true`)) {
 		t.Fatalf("variable list exposed write-only material: %s", variableListBody)
 	}
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodPatch, functionsURL+"/variables/"+variableResponse.Variable.ID, map[string]any{"kind": "variable", "is_secret": false}, http.StatusBadRequest, writeHeaders)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodPatch, functionsURL+"/variables/"+variableResponse.Variable.ID, map[string]string{"value": "updated-secret"}, http.StatusOK, writeHeaders)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodDelete, functionsURL+"/variables/"+variableResponse.Variable.ID, nil, http.StatusNoContent, writeHeaders)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodPatch,
+		functionsURL+"/variables/"+variableResponse.Variable.ID,
+		map[string]any{"kind": "variable", "is_secret": false},
+		http.StatusBadRequest,
+		writeHeaders,
+	)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodPatch,
+		functionsURL+"/variables/"+variableResponse.Variable.ID,
+		map[string]string{"value": "updated-secret"},
+		http.StatusOK,
+		writeHeaders,
+	)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodDelete,
+		functionsURL+"/variables/"+variableResponse.Variable.ID,
+		nil,
+		http.StatusNoContent,
+		writeHeaders,
+	)
 
 	archive := []byte("function-source-opaque-bytes")
-	deploymentBody := uploadFunctionMultipart(t, newIntegrationClient(t), functionsURL+"/deployments", "source.zip", archive, writeHeaders, http.StatusCreated)
+	deploymentBody := uploadFunctionMultipart(
+		t,
+		newIntegrationClient(t),
+		functionsURL+"/deployments",
+		"source.zip",
+		archive,
+		writeHeaders,
+		http.StatusCreated,
+	)
 	if bytes.Contains(deploymentBody, []byte("source_path")) || !bytes.Contains(deploymentBody, []byte(`"source_name":"source.zip"`)) {
 		t.Fatalf("deployment response exposed private path or omitted source metadata: %s", deploymentBody)
 	}
@@ -191,12 +257,37 @@ func TestFunctionsControlPlaneIntegration(t *testing.T) {
 		t.Fatalf("unexpected deployment metadata: %+v", deploymentResponse.Deployment)
 	}
 	deploymentID := deploymentResponse.Deployment.ID
-	deploymentListBody := requestJSONRawWithHeaders(t, newIntegrationClient(t), http.MethodGet, functionsURL+"/deployments", nil, http.StatusOK, readHeaders)
-	if bytes.Contains(deploymentListBody, []byte("source_path")) || !bytes.Contains(deploymentListBody, []byte(deploymentID)) {
+	deploymentListBody := requestJSONRawWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		functionsURL+"/deployments",
+		nil,
+		http.StatusOK,
+		readHeaders,
+	)
+	if bytes.Contains(deploymentListBody, []byte("source_path")) ||
+		!bytes.Contains(deploymentListBody, []byte(deploymentID)) {
 		t.Fatalf("deployment list was not a safe metadata projection: %s", deploymentListBody)
 	}
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodPost, functionsURL+"/deployments/"+deploymentID+"/activate", nil, http.StatusForbidden, readHeaders)
-	activationBody := requestJSONRawWithHeaders(t, newIntegrationClient(t), http.MethodPost, functionsURL+"/deployments/"+deploymentID+"/activate", nil, http.StatusOK, writeHeaders)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodPost,
+		functionsURL+"/deployments/"+deploymentID+"/activate",
+		nil,
+		http.StatusForbidden,
+		readHeaders,
+	)
+	activationBody := requestJSONRawWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodPost,
+		functionsURL+"/deployments/"+deploymentID+"/activate",
+		nil,
+		http.StatusOK,
+		writeHeaders,
+	)
 	if !bytes.Contains(activationBody, []byte(`"function"`)) || !bytes.Contains(activationBody, []byte(`"deployment"`)) {
 		t.Fatalf("activation response did not contain both canonical resources: %s", activationBody)
 	}
@@ -211,11 +302,30 @@ func TestFunctionsControlPlaneIntegration(t *testing.T) {
 			Message  string `json:"message"`
 		} `json:"logs"`
 	}
-	requestJSON(t, ownerClient, http.MethodGet, functionsURL+"/deployments/"+deploymentID+"/logs?limit=100", nil, http.StatusOK, &buildLogs)
-	if len(buildLogs.Logs) != 1 || buildLogs.Logs[0].Sequence != 1 || buildLogs.Logs[0].Level != "info" || buildLogs.Logs[0].Message != "worker build completed" {
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		functionsURL+"/deployments/"+deploymentID+"/logs?limit=100",
+		nil,
+		http.StatusOK,
+		&buildLogs,
+	)
+	if len(buildLogs.Logs) != 1 ||
+		buildLogs.Logs[0].Sequence != 1 ||
+		buildLogs.Logs[0].Level != "info" ||
+		buildLogs.Logs[0].Message != "worker build completed" {
 		t.Fatalf("unexpected build logs: %+v", buildLogs.Logs)
 	}
-	executionBody := requestJSONRawWithHeaders(t, newIntegrationClient(t), http.MethodPost, functionsURL+"/executions", map[string]any{"trigger": "manual", "input": map[string]any{"hello": "world"}}, http.StatusAccepted, writeHeaders)
+	executionBody := requestJSONRawWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodPost,
+		functionsURL+"/executions",
+		map[string]any{"trigger": "manual", "input": map[string]any{"hello": "world"}},
+		http.StatusAccepted,
+		writeHeaders,
+	)
 	if !bytes.Contains(executionBody, []byte(`"status":"accepted"`)) || !bytes.Contains(executionBody, []byte(`"input_json":{"hello":"world"}`)) {
 		t.Fatalf("execution enqueue response was unexpected: %s", executionBody)
 	}
@@ -230,8 +340,24 @@ func TestFunctionsControlPlaneIntegration(t *testing.T) {
 	if executionResponse.Execution.ID == "" {
 		t.Fatalf("execution response did not include an id: %s", executionBody)
 	}
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodPatch, functionsURL, map[string]any{"execute_permissions": []string{"any"}}, http.StatusOK, writeHeaders)
-	anonymousExecution := requestJSONRawWithHeaders(t, newIntegrationClient(t), http.MethodPost, functionsURL+"/executions", map[string]any{"trigger": "public", "input": map[string]any{"anonymous": true}}, http.StatusAccepted, nil)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodPatch,
+		functionsURL,
+		map[string]any{"execute_permissions": []string{"any"}},
+		http.StatusOK,
+		writeHeaders,
+	)
+	anonymousExecution := requestJSONRawWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodPost,
+		functionsURL+"/executions",
+		map[string]any{"trigger": "public", "input": map[string]any{"anonymous": true}},
+		http.StatusAccepted,
+		nil,
+	)
 	if !bytes.Contains(anonymousExecution, []byte(`"status":"accepted"`)) {
 		t.Fatalf("anonymous execution was not accepted with any permission: %s", anonymousExecution)
 	}
@@ -259,8 +385,19 @@ func TestFunctionsControlPlaneIntegration(t *testing.T) {
 			Message  string `json:"message"`
 		} `json:"logs"`
 	}
-	requestJSON(t, ownerClient, http.MethodGet, functionsURL+"/executions/"+executionResponse.Execution.ID+"/logs?limit=100", nil, http.StatusOK, &executionLogs)
-	if len(executionLogs.Logs) != 1 || executionLogs.Logs[0].Sequence != 1 || executionLogs.Logs[0].Level != "info" || executionLogs.Logs[0].Message != "worker execution completed" {
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		functionsURL+"/executions/"+executionResponse.Execution.ID+"/logs?limit=100",
+		nil,
+		http.StatusOK,
+		&executionLogs,
+	)
+	if len(executionLogs.Logs) != 1 ||
+		executionLogs.Logs[0].Sequence != 1 ||
+		executionLogs.Logs[0].Level != "info" ||
+		executionLogs.Logs[0].Message != "worker execution completed" {
 		t.Fatalf("unexpected execution logs: %+v", executionLogs.Logs)
 	}
 	if _, err := functionRepository.TransitionFunctionExecution(ctx, uuid.Must(uuid.Parse(project.Project.ID)), uuid.Must(uuid.Parse(functionID)), uuid.Must(uuid.Parse(anonymousExecutionResponse.Execution.ID)), "failed", "test failure"); err != nil {
@@ -276,10 +413,26 @@ func TestFunctionsControlPlaneIntegration(t *testing.T) {
 	if usage.Invocations < 2 || usage.Failures < 1 {
 		t.Fatalf("function usage counters = %+v, want at least two invocations and one failure", usage)
 	}
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodDelete, functionsURL+"/deployments/"+deploymentID, nil, http.StatusConflict, writeHeaders)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodDelete,
+		functionsURL+"/deployments/"+deploymentID,
+		nil,
+		http.StatusConflict,
+		writeHeaders,
+	)
 
 	oversized := bytes.Repeat([]byte("x"), 33)
-	uploadFunctionMultipart(t, newIntegrationClient(t), functionsURL+"/deployments", "too-large.zip", oversized, writeHeaders, http.StatusRequestEntityTooLarge)
+	uploadFunctionMultipart(
+		t,
+		newIntegrationClient(t),
+		functionsURL+"/deployments",
+		"too-large.zip",
+		oversized,
+		writeHeaders,
+		http.StatusRequestEntityTooLarge,
+	)
 	var deploymentRows int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM function_deployments WHERE function_id=$1`, functionID).Scan(&deploymentRows); err != nil {
 		t.Fatal(err)
@@ -311,9 +464,25 @@ func TestFunctionsControlPlaneIntegration(t *testing.T) {
 	})
 	requestJSON(t, outsiderClient, http.MethodGet, functionsURL, nil, http.StatusNotFound, nil)
 
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodDelete, functionsURL, nil, http.StatusNoContent, writeHeaders)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodDelete,
+		functionsURL,
+		nil,
+		http.StatusNoContent,
+		writeHeaders,
+	)
 	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, functionsURL, nil, http.StatusNotFound, readHeaders)
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodDelete, functionsURL, nil, http.StatusNotFound, writeHeaders)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodDelete,
+		functionsURL,
+		nil,
+		http.StatusNotFound,
+		writeHeaders,
+	)
 	var auditCount int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM audit_events WHERE organization_id=$1 AND action IN ('function.create','function_deployment.create','function_deployment.activate','function.delete')`, registration.Organization.ID).Scan(&auditCount); err != nil {
 		t.Fatal(err)
@@ -390,7 +559,15 @@ func TestFunctionsControlPlaneIntegration(t *testing.T) {
 	}
 }
 
-func uploadFunctionMultipart(t *testing.T, client *http.Client, url, filename string, content []byte, headers map[string]string, expectedStatus int) []byte {
+func uploadFunctionMultipart(
+	t *testing.T,
+	client *http.Client,
+	url,
+	filename string,
+	content []byte,
+	headers map[string]string,
+	expectedStatus int,
+) []byte {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)

@@ -11,7 +11,19 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (r *Repository) ListDatabaseIndexes(ctx context.Context, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor, limit int, cursor *uuid.UUID) ([]domain.DatabaseIndex, string, error) {
+func (r *Repository) ListDatabaseIndexes(
+	ctx context.Context,
+	projectID,
+	databaseID,
+	tableID uuid.UUID,
+	actor DatabaseActor,
+	limit int,
+	cursor *uuid.UUID,
+) (
+	[]domain.DatabaseIndex,
+	string,
+	error,
+) {
 	if _, err := r.requireDatabaseRead(ctx, projectID, actor); err != nil {
 		return nil, "", err
 	}
@@ -42,7 +54,18 @@ func (r *Repository) ListDatabaseIndexes(ctx context.Context, projectID, databas
 	return items, next, nil
 }
 
-func (r *Repository) CreateDatabaseIndex(ctx context.Context, id, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor, input DatabaseIndexInput) (domain.DatabaseIndex, error) {
+func (r *Repository) CreateDatabaseIndex(
+	ctx context.Context,
+	id,
+	projectID,
+	databaseID,
+	tableID uuid.UUID,
+	actor DatabaseActor,
+	input DatabaseIndexInput,
+) (
+	domain.DatabaseIndex,
+	error,
+) {
 	if _, err := dbcore.ValidateName(input.Name); err != nil {
 		return domain.DatabaseIndex{}, err
 	}
@@ -132,7 +155,14 @@ func (r *Repository) CreateDatabaseIndex(ctx context.Context, id, projectID, dat
 	return item, nil
 }
 
-func (r *Repository) DeleteDatabaseIndex(ctx context.Context, projectID, databaseID, tableID, indexID uuid.UUID, actor DatabaseActor) error {
+func (r *Repository) DeleteDatabaseIndex(
+	ctx context.Context,
+	projectID,
+	databaseID,
+	tableID,
+	indexID uuid.UUID,
+	actor DatabaseActor,
+) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -229,7 +259,15 @@ func internalIndexName(id uuid.UUID) string {
 
 func quoteSQLLiteral(value string) string { return "'" + strings.ReplaceAll(value, "'", "''") + "'" }
 
-func buildIndexDDL(internalName string, tableID uuid.UUID, input DatabaseIndexInput, columns map[string]DatabaseColumnSchema) (string, error) {
+func buildIndexDDL(
+	internalName string,
+	tableID uuid.UUID,
+	input DatabaseIndexInput,
+	columns map[string]DatabaseColumnSchema,
+) (
+	string,
+	error,
+) {
 	if input.Type == "fulltext" {
 		column := columns[input.ColumnKeys[0]]
 		if column.Type != dbcore.TypeVarchar && column.Type != dbcore.TypeText {

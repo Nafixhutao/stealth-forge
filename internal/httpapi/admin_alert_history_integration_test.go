@@ -54,7 +54,15 @@ func TestDeleteAdminAlertRulePreservesHistoryIntegration(t *testing.T) {
 	var emptyHistory struct {
 		Items []json.RawMessage `json:"items"`
 	}
-	requestJSON(t, client, http.MethodGet, server.URL+"/v1/admin/alerts/"+uuid.Must(uuid.NewV7()).String()+"/events?limit=10", nil, http.StatusOK, &emptyHistory)
+	requestJSON(
+		t,
+		client,
+		http.MethodGet,
+		server.URL+"/v1/admin/alerts/"+uuid.Must(uuid.NewV7()).String()+"/events?limit=10",
+		nil,
+		http.StatusOK,
+		&emptyHistory,
+	)
 	if len(emptyHistory.Items) != 0 {
 		t.Fatalf("history for an unknown rule = %d items, want empty", len(emptyHistory.Items))
 	}
@@ -122,7 +130,15 @@ func TestDeleteAdminAlertRulePreservesHistoryIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	requestJSON(t, client, http.MethodDelete, server.URL+"/v1/admin/alerts/"+ruleID.String(), nil, http.StatusNoContent, nil)
+	requestJSON(
+		t,
+		client,
+		http.MethodDelete,
+		server.URL+"/v1/admin/alerts/"+ruleID.String(),
+		nil,
+		http.StatusNoContent,
+		nil,
+	)
 	requestJSON(t, client, http.MethodGet, server.URL+"/v1/admin/alerts/"+ruleID.String(), nil, http.StatusNotFound, nil)
 	var history struct {
 		Items []struct {
@@ -139,7 +155,15 @@ func TestDeleteAdminAlertRulePreservesHistoryIntegration(t *testing.T) {
 		} `json:"items"`
 		NextCursor *string `json:"next_cursor"`
 	}
-	requestJSON(t, client, http.MethodGet, server.URL+"/v1/admin/alerts/"+ruleID.String()+"/events?limit=1", nil, http.StatusOK, &history)
+	requestJSON(
+		t,
+		client,
+		http.MethodGet,
+		server.URL+"/v1/admin/alerts/"+ruleID.String()+"/events?limit=1",
+		nil,
+		http.StatusOK,
+		&history,
+	)
 	if len(history.Items) != 1 || history.NextCursor == nil || *history.NextCursor == "" {
 		t.Fatalf("first alert history page = %#v, want one item and next cursor", history)
 	}
@@ -150,7 +174,15 @@ func TestDeleteAdminAlertRulePreservesHistoryIntegration(t *testing.T) {
 		} `json:"items"`
 		NextCursor *string `json:"next_cursor"`
 	}
-	requestJSON(t, client, http.MethodGet, server.URL+"/v1/admin/alerts/"+ruleID.String()+"/events?limit=1&cursor="+url.QueryEscape(*history.NextCursor), nil, http.StatusOK, &nextHistory)
+	requestJSON(
+		t,
+		client,
+		http.MethodGet,
+		server.URL+"/v1/admin/alerts/"+ruleID.String()+"/events?limit=1&cursor="+url.QueryEscape(*history.NextCursor),
+		nil,
+		http.StatusOK,
+		&nextHistory,
+	)
 	if len(nextHistory.Items) != 1 || nextHistory.Items[0].ID == firstID || nextHistory.NextCursor != nil {
 		t.Fatalf("second alert history page = %#v, want final distinct item", nextHistory)
 	}
@@ -159,7 +191,15 @@ func TestDeleteAdminAlertRulePreservesHistoryIntegration(t *testing.T) {
 	}
 	from := time.Now().UTC().Add(-time.Minute).Format(time.RFC3339Nano)
 	to := time.Now().UTC().Add(time.Minute).Format(time.RFC3339Nano)
-	requestJSON(t, client, http.MethodGet, server.URL+"/v1/admin/alerts/"+ruleID.String()+"/events?limit=10&from="+url.QueryEscape(from)+"&to="+url.QueryEscape(to), nil, http.StatusOK, &filteredHistory)
+	requestJSON(
+		t,
+		client,
+		http.MethodGet,
+		server.URL+"/v1/admin/alerts/"+ruleID.String()+"/events?limit=10&from="+url.QueryEscape(from)+"&to="+url.QueryEscape(to),
+		nil,
+		http.StatusOK,
+		&filteredHistory,
+	)
 	if len(filteredHistory.Items) != 2 {
 		t.Fatalf("filtered alert history items = %d, want 2", len(filteredHistory.Items))
 	}
@@ -179,7 +219,15 @@ func TestDeleteAdminAlertRulePreservesHistoryIntegration(t *testing.T) {
 		} `json:"items"`
 		NextCursor *string `json:"next_cursor"`
 	}
-	requestJSON(t, client, http.MethodGet, server.URL+"/v1/admin/alert-events?"+globalQuery.Encode(), nil, http.StatusOK, &globalFirst)
+	requestJSON(
+		t,
+		client,
+		http.MethodGet,
+		server.URL+"/v1/admin/alert-events?"+globalQuery.Encode(),
+		nil,
+		http.StatusOK,
+		&globalFirst,
+	)
 	if len(globalFirst.Items) != 1 || globalFirst.NextCursor == nil || *globalFirst.NextCursor == "" {
 		t.Fatalf("first global alert history page = %#v, want one item and next cursor", globalFirst)
 	}
@@ -190,17 +238,39 @@ func TestDeleteAdminAlertRulePreservesHistoryIntegration(t *testing.T) {
 		} `json:"items"`
 		NextCursor *string `json:"next_cursor"`
 	}
-	requestJSON(t, client, http.MethodGet, server.URL+"/v1/admin/alert-events?"+globalQuery.Encode(), nil, http.StatusOK, &globalSecond)
-	if len(globalSecond.Items) != 1 || globalSecond.Items[0].ID == globalFirst.Items[0].ID || globalSecond.NextCursor != nil {
+	requestJSON(
+		t,
+		client,
+		http.MethodGet,
+		server.URL+"/v1/admin/alert-events?"+globalQuery.Encode(),
+		nil,
+		http.StatusOK,
+		&globalSecond,
+	)
+	if len(globalSecond.Items) != 1 ||
+		globalSecond.Items[0].ID == globalFirst.Items[0].ID ||
+		globalSecond.NextCursor != nil {
 		t.Fatalf("second global alert history page = %#v, want final distinct item", globalSecond)
 	}
-	requestJSON(t, client, http.MethodGet, server.URL+"/v1/admin/alerts/"+ruleID.String()+"/events?limit=10", nil, http.StatusOK, &history)
+	requestJSON(
+		t,
+		client,
+		http.MethodGet,
+		server.URL+"/v1/admin/alerts/"+ruleID.String()+"/events?limit=10",
+		nil,
+		http.StatusOK,
+		&history,
+	)
 	if len(history.Items) != 2 {
 		t.Fatalf("HTTP alert history items = %d, want 2", len(history.Items))
 	}
 	seenStates := map[string]bool{}
 	for _, event := range history.Items {
-		if event.RuleID != ruleID.String() || event.RuleName != "HTTP alert history" || event.RuleKind != "metric_threshold" || event.Severity != "critical" || event.SourceRuleExists {
+		if event.RuleID != ruleID.String() ||
+			event.RuleName != "HTTP alert history" ||
+			event.RuleKind != "metric_threshold" ||
+			event.Severity != "critical" ||
+			event.SourceRuleExists {
 			t.Fatalf("HTTP alert history event = %#v, want deleted-rule snapshot", event)
 		}
 		seenStates[event.State] = true
@@ -242,7 +312,16 @@ func TestDeleteAdminAlertRulePreservesHistoryIntegration(t *testing.T) {
 		WHERE actor_account_id=$1 AND action='admin.alert.delete' AND target_id=$2`, accountID, ruleID).Scan(&auditName, &auditKind, &auditSeverity); err != nil {
 		t.Fatal(err)
 	}
-	if deliveries != 2 || auditName != "HTTP alert history" || auditKind != "metric_threshold" || auditSeverity != "critical" {
-		t.Fatalf("retained deliveries=%d delete audit=%q/%q/%q, want 2 and safe rule metadata", deliveries, auditName, auditKind, auditSeverity)
+	if deliveries != 2 ||
+		auditName != "HTTP alert history" ||
+		auditKind != "metric_threshold" ||
+		auditSeverity != "critical" {
+		t.Fatalf(
+			"retained deliveries=%d delete audit=%q/%q/%q, want 2 and safe rule metadata",
+			deliveries,
+			auditName,
+			auditKind,
+			auditSeverity,
+		)
 	}
 }

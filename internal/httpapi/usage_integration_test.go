@@ -57,7 +57,15 @@ func TestProjectUsageIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"project"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects", map[string]string{"name": "usage-" + ownerID.String()[:8]}, http.StatusCreated, &project)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects",
+		map[string]string{"name": "usage-" + ownerID.String()[:8]},
+		http.StatusCreated,
+		&project,
+	)
 	t.Cleanup(func() {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM audit_events WHERE actor_account_id=$1 OR organization_id=$2`, registration.Account.ID, registration.Organization.ID)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM organizations WHERE id=$1`, registration.Organization.ID)
@@ -74,10 +82,20 @@ func TestProjectUsageIntegration(t *testing.T) {
 		} `json:"usage"`
 	}
 	requestJSON(t, ownerClient, http.MethodGet, projectURL+"/usage", nil, http.StatusOK, &initial)
-	if initial.Usage.ProjectID != project.Project.ID || initial.Usage.ApplicationUsers != 0 || initial.Usage.CapturedAt.IsZero() {
+	if initial.Usage.ProjectID != project.Project.ID ||
+		initial.Usage.ApplicationUsers != 0 ||
+		initial.Usage.CapturedAt.IsZero() {
 		t.Fatalf("unexpected initial usage: %+v", initial.Usage)
 	}
-	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/users", map[string]string{"email": "usage-user@example.test", "password": "correct-horse-battery-staple"}, http.StatusCreated, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/users",
+		map[string]string{"email": "usage-user@example.test", "password": "correct-horse-battery-staple"},
+		http.StatusCreated,
+		nil,
+	)
 	var after struct {
 		Usage struct {
 			ApplicationUsers int64 `json:"application_users"`
@@ -126,12 +144,28 @@ func TestProjectUsageIntegration(t *testing.T) {
 			} `json:"totals"`
 		} `json:"metering"`
 	}
-	requestJSON(t, ownerClient, http.MethodGet, projectURL+"/usage/metering?from="+usageDate+"&to="+usageDate, nil, http.StatusOK, &metering)
-	if metering.Metering.ProjectID != project.Project.ID || metering.Metering.From != usageDate || metering.Metering.To != usageDate || len(metering.Metering.Days) != 1 {
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		projectURL+"/usage/metering?from="+usageDate+"&to="+usageDate,
+		nil,
+		http.StatusOK,
+		&metering,
+	)
+	if metering.Metering.ProjectID != project.Project.ID ||
+		metering.Metering.From != usageDate ||
+		metering.Metering.To != usageDate ||
+		len(metering.Metering.Days) != 1 {
 		t.Fatalf("unexpected metering window: %+v", metering.Metering)
 	}
 	day := metering.Metering.Days[0]
-	if day.Date != usageDate || day.APIRequestCount != 7 || day.APIEgressBytes != 700 || day.FunctionInvocationCount != 2 || day.FunctionFailureCount != 1 || day.FunctionComputeMS != 50 {
+	if day.Date != usageDate ||
+		day.APIRequestCount != 7 ||
+		day.APIEgressBytes != 700 ||
+		day.FunctionInvocationCount != 2 ||
+		day.FunctionFailureCount != 1 ||
+		day.FunctionComputeMS != 50 {
 		t.Fatalf("unexpected metering day: %+v", day)
 	}
 	if metering.Metering.Totals.APIRequestCount != 7 || metering.Metering.Totals.FunctionComputeMS != 50 {
@@ -149,10 +183,39 @@ func TestProjectUsageIntegration(t *testing.T) {
 	if csvResponse.StatusCode != http.StatusOK || !strings.HasPrefix(csvResponse.Header.Get("Content-Type"), "text/csv") {
 		t.Fatalf("CSV response status/content type = %d/%q", csvResponse.StatusCode, csvResponse.Header.Get("Content-Type"))
 	}
-	if !strings.Contains(csvResponse.Header.Get("Content-Disposition"), "stealth-usage-"+project.Project.ID) || !strings.Contains(string(csvBody), "TOTAL,7,700,2,1,50") {
-		t.Fatalf("unexpected CSV export: disposition=%q body=%q", csvResponse.Header.Get("Content-Disposition"), string(csvBody))
+	if !strings.Contains(csvResponse.Header.Get("Content-Disposition"), "stealth-usage-"+project.Project.ID) ||
+		!strings.Contains(string(csvBody), "TOTAL,7,700,2,1,50") {
+		t.Fatalf(
+			"unexpected CSV export: disposition=%q body=%q",
+			csvResponse.Header.Get("Content-Disposition"),
+			string(csvBody),
+		)
 	}
-	requestJSON(t, ownerClient, http.MethodGet, projectURL+"/usage/metering?from=not-a-date", nil, http.StatusUnprocessableEntity, nil)
-	requestJSON(t, ownerClient, http.MethodGet, projectURL+"/usage/metering?from=2020-01-01&to=2022-01-01", nil, http.StatusUnprocessableEntity, nil)
-	requestJSON(t, ownerClient, http.MethodGet, projectURL+"/usage/metering?format=xml", nil, http.StatusUnprocessableEntity, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		projectURL+"/usage/metering?from=not-a-date",
+		nil,
+		http.StatusUnprocessableEntity,
+		nil,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		projectURL+"/usage/metering?from=2020-01-01&to=2022-01-01",
+		nil,
+		http.StatusUnprocessableEntity,
+		nil,
+	)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		projectURL+"/usage/metering?format=xml",
+		nil,
+		http.StatusUnprocessableEntity,
+		nil,
+	)
 }

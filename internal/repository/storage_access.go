@@ -68,7 +68,12 @@ func (r *Repository) requireStorageRead(ctx context.Context, projectID uuid.UUID
 	}
 }
 
-func (r *Repository) requireStorageWriteTx(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, actor StorageActor) error {
+func (r *Repository) requireStorageWriteTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	actor StorageActor,
+) error {
 	switch actor.Kind {
 	case StorageConsoleActor:
 		return requireProjectRoleTx(ctx, tx, projectID, actor.AccountID, "owner", "admin")
@@ -113,7 +118,16 @@ func requireStorageBucketPermission(bucket domain.StorageBucket, actor StorageAc
 	}
 }
 
-func (r *Repository) AuthorizeStorageBucket(ctx context.Context, projectID, bucketID uuid.UUID, actor StorageActor, operation string) (domain.StorageBucket, error) {
+func (r *Repository) AuthorizeStorageBucket(
+	ctx context.Context,
+	projectID,
+	bucketID uuid.UUID,
+	actor StorageActor,
+	operation string,
+) (
+	domain.StorageBucket,
+	error,
+) {
 	if actor.IsManagement() {
 		if operation == "read" {
 			if _, err := r.requireStorageRead(ctx, projectID, actor); err != nil {

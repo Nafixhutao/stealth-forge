@@ -14,7 +14,12 @@ import (
 // were already bound to projectID by requireProjectManagement, so only the
 // write scope remains; console actors must resolve an owner/admin role and the
 // site must exist in the project.
-func (s *Server) authorizeSiteDeploymentWrite(w http.ResponseWriter, r *http.Request, projectID, siteID uuid.UUID) bool {
+func (s *Server) authorizeSiteDeploymentWrite(
+	w http.ResponseWriter,
+	r *http.Request,
+	projectID,
+	siteID uuid.UUID,
+) bool {
 	actor := siteActorFrom(r)
 	if actor.Kind == repository.SiteAPIKeyActor {
 		if !apikey.HasScope(actor.APIKeyScopes, "sites.write") {

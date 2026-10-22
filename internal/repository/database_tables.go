@@ -9,7 +9,19 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (r *Repository) ListDatabaseTables(ctx context.Context, projectID, databaseID uuid.UUID, actor DatabaseActor, limit int, cursor *uuid.UUID) ([]domain.DatabaseTable, string, bool, error) {
+func (r *Repository) ListDatabaseTables(
+	ctx context.Context,
+	projectID,
+	databaseID uuid.UUID,
+	actor DatabaseActor,
+	limit int,
+	cursor *uuid.UUID,
+) (
+	[]domain.DatabaseTable,
+	string,
+	bool,
+	error,
+) {
 	canManage, err := r.requireDatabaseRead(ctx, projectID, actor)
 	if err != nil {
 		return nil, "", false, err
@@ -41,7 +53,16 @@ func (r *Repository) ListDatabaseTables(ctx context.Context, projectID, database
 	return items, next, canManage, nil
 }
 
-func (r *Repository) GetDatabaseTable(ctx context.Context, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor) (domain.DatabaseTable, error) {
+func (r *Repository) GetDatabaseTable(
+	ctx context.Context,
+	projectID,
+	databaseID,
+	tableID uuid.UUID,
+	actor DatabaseActor,
+) (
+	domain.DatabaseTable,
+	error,
+) {
 	if _, err := r.requireDatabaseRead(ctx, projectID, actor); err != nil {
 		return domain.DatabaseTable{}, err
 	}
@@ -52,7 +73,17 @@ func (r *Repository) GetDatabaseTable(ctx context.Context, projectID, databaseID
 	return item, err
 }
 
-func (r *Repository) CreateDatabaseTable(ctx context.Context, id, projectID, databaseID uuid.UUID, actor DatabaseActor, input DatabaseTableInput) (domain.DatabaseTable, error) {
+func (r *Repository) CreateDatabaseTable(
+	ctx context.Context,
+	id,
+	projectID,
+	databaseID uuid.UUID,
+	actor DatabaseActor,
+	input DatabaseTableInput,
+) (
+	domain.DatabaseTable,
+	error,
+) {
 	permissions, err := normalizeTablePermissions(input)
 	if err != nil {
 		return domain.DatabaseTable{}, err
@@ -86,7 +117,17 @@ func (r *Repository) CreateDatabaseTable(ctx context.Context, id, projectID, dat
 	return item, nil
 }
 
-func (r *Repository) UpdateDatabaseTable(ctx context.Context, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor, input DatabaseTableInput) (domain.DatabaseTable, error) {
+func (r *Repository) UpdateDatabaseTable(
+	ctx context.Context,
+	projectID,
+	databaseID,
+	tableID uuid.UUID,
+	actor DatabaseActor,
+	input DatabaseTableInput,
+) (
+	domain.DatabaseTable,
+	error,
+) {
 	permissions, err := normalizeTablePermissions(input)
 	if err != nil {
 		return domain.DatabaseTable{}, err
@@ -121,7 +162,13 @@ func (r *Repository) UpdateDatabaseTable(ctx context.Context, projectID, databas
 	return item, nil
 }
 
-func (r *Repository) DeleteDatabaseTable(ctx context.Context, projectID, databaseID, tableID uuid.UUID, actor DatabaseActor) error {
+func (r *Repository) DeleteDatabaseTable(
+	ctx context.Context,
+	projectID,
+	databaseID,
+	tableID uuid.UUID,
+	actor DatabaseActor,
+) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err

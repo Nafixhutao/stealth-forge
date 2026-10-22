@@ -54,7 +54,15 @@ func TestAdminRealtimeSSEIntegration(t *testing.T) {
 	streamAdmin := registerAdminTestAccount(t, streamClient, server.URL, "admin-realtime-stream")
 	mutatorClient := newIntegrationClient(t)
 	mutatorAdmin := registerAdminTestAccount(t, mutatorClient, server.URL, "admin-realtime-mutator")
-	requestJSON(t, newIntegrationClient(t), http.MethodGet, server.URL+"/v1/admin/realtime", nil, http.StatusUnauthorized, nil)
+	requestJSON(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		server.URL+"/v1/admin/realtime",
+		nil,
+		http.StatusUnauthorized,
+		nil,
+	)
 	requestJSON(t, mutatorClient, http.MethodGet, server.URL+"/v1/admin/realtime", nil, http.StatusForbidden, nil)
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO instance_roles (account_id,role) VALUES ($1,'instance_admin'),($2,'instance_admin')`, streamAdmin.accountID, mutatorAdmin.accountID); err != nil {
@@ -85,7 +93,8 @@ func TestAdminRealtimeSSEIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK || !strings.HasPrefix(response.Header.Get("Content-Type"), "text/event-stream") {
+	if response.StatusCode != http.StatusOK ||
+		!strings.HasPrefix(response.Header.Get("Content-Type"), "text/event-stream") {
 		t.Fatalf("admin SSE response status=%d content-type=%q", response.StatusCode, response.Header.Get("Content-Type"))
 	}
 	reader := bufio.NewReader(response.Body)
@@ -122,11 +131,16 @@ func TestAdminRealtimeSSEIntegration(t *testing.T) {
 	if err := json.Unmarshal([]byte(eventData), &createdEvent); err != nil {
 		t.Fatalf("decode cross-session admin event: %v; data=%q", err, eventData)
 	}
-	if eventType != "admin" || eventID == "" || createdEvent.Type != "admin.alert.create" || createdEvent.ResourceID != alertID.String() {
+	if eventType != "admin" ||
+		eventID == "" ||
+		createdEvent.Type != "admin.alert.create" ||
+		createdEvent.ResourceID != alertID.String() {
 		t.Fatalf("cross-session admin event = id %q type %q data %q", eventID, eventType, eventData)
 	}
 	assertAdminRealtimeSequenceCursor(t, eventID)
-	if strings.Contains(eventData, "password") || strings.Contains(eventData, "secret") || strings.Contains(eventData, "token") {
+	if strings.Contains(eventData, "password") ||
+		strings.Contains(eventData, "secret") ||
+		strings.Contains(eventData, "token") {
 		t.Fatalf("admin realtime event contains sensitive field name: %q", eventData)
 	}
 
@@ -174,7 +188,10 @@ func TestAdminRealtimeSSEIntegration(t *testing.T) {
 	if err := json.Unmarshal([]byte(resumedData), &updatedEvent); err != nil {
 		t.Fatalf("decode resumed admin event: %v; data=%q", err, resumedData)
 	}
-	if resumedEventID == eventID || resumedType != "admin" || updatedEvent.Type != "admin.alert.update" || updatedEvent.ResourceID != alertID.String() {
+	if resumedEventID == eventID ||
+		resumedType != "admin" ||
+		updatedEvent.Type != "admin.alert.update" ||
+		updatedEvent.ResourceID != alertID.String() {
 		t.Fatalf("admin SSE resumed event = id %q type %q data %q", resumedEventID, resumedType, resumedData)
 	}
 	assertAdminRealtimeSequenceCursor(t, resumedEventID)
@@ -305,7 +322,15 @@ func TestAdminRealtimeSSEAuthorizationLifecycleIntegration(t *testing.T) {
 	assertAdminRealtimeClosedWithoutEvent(t, sessionReader)
 }
 
-func openAdminRealtimeStream(t *testing.T, client *http.Client, baseURL string) (*http.Response, *bufio.Reader, context.CancelFunc) {
+func openAdminRealtimeStream(
+	t *testing.T,
+	client *http.Client,
+	baseURL string,
+) (
+	*http.Response,
+	*bufio.Reader,
+	context.CancelFunc,
+) {
 	t.Helper()
 	streamContext, streamCancel := context.WithTimeout(context.Background(), 3*time.Second)
 	request, err := http.NewRequestWithContext(streamContext, http.MethodGet, baseURL+"/v1/admin/realtime", nil)

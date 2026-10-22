@@ -24,7 +24,14 @@ func (s *Server) listFunctionExecutions(w http.ResponseWriter, r *http.Request) 
 		parsed := mustUUID(cursor)
 		cursorID = &parsed
 	}
-	items, next, err := s.repo.ListFunctionExecutions(r.Context(), projectID, functionID, functionActorFrom(r), limit, cursorID)
+	items, next, err := s.repo.ListFunctionExecutions(
+		r.Context(),
+		projectID,
+		functionID,
+		functionActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if functionResourceError(w, err) {
 		return
 	}
@@ -54,7 +61,12 @@ func (s *Server) createFunctionExecution(w http.ResponseWriter, r *http.Request)
 		trigger = "manual"
 	}
 	if !functionExecutionTriggerPattern.MatchString(trigger) {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "trigger must start with a letter or number and contain only letters, numbers, dots, underscores, or hyphens")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"trigger must start with a letter or number and contain only letters, numbers, dots, underscores, or hyphens",
+		)
 		return
 	}
 	input := req.Input
@@ -62,7 +74,12 @@ func (s *Server) createFunctionExecution(w http.ResponseWriter, r *http.Request)
 		input = json.RawMessage(`{}`)
 	}
 	if len(input) > 65536 {
-		writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "input must be valid JSON no larger than 65536 bytes")
+		writeError(
+			w,
+			http.StatusRequestEntityTooLarge,
+			"payload_too_large",
+			"input must be valid JSON no larger than 65536 bytes",
+		)
 		return
 	}
 	if !json.Valid(input) {
@@ -72,14 +89,30 @@ func (s *Server) createFunctionExecution(w http.ResponseWriter, r *http.Request)
 	var item domain.FunctionExecution
 	var err error
 	if _, management := r.Context().Value(projectActorContextKey).(projectActor); management {
-		item, err = s.repo.CreateFunctionExecutionForActor(r.Context(), uuid.Must(uuid.NewV7()), projectID, functionID, functionActorFrom(r), trigger, input)
+		item, err = s.repo.CreateFunctionExecutionForActor(
+			r.Context(),
+			uuid.Must(uuid.NewV7()),
+			projectID,
+			functionID,
+			functionActorFrom(r),
+			trigger,
+			input,
+		)
 	} else {
 		var projectUserID *uuid.UUID
 		if user, ok := r.Context().Value(projectUserContextKey).(domain.ApplicationUser); ok {
 			parsed := mustUUID(user.ID)
 			projectUserID = &parsed
 		}
-		item, err = s.repo.CreateFunctionExecutionForApplication(r.Context(), uuid.Must(uuid.NewV7()), projectID, functionID, projectUserID, trigger, input)
+		item, err = s.repo.CreateFunctionExecutionForApplication(
+			r.Context(),
+			uuid.Must(uuid.NewV7()),
+			projectID,
+			functionID,
+			projectUserID,
+			trigger,
+			input,
+		)
 	}
 	if functionResourceError(w, err) {
 		return
@@ -125,7 +158,15 @@ func (s *Server) listFunctionExecutionLogs(w http.ResponseWriter, r *http.Reques
 		}
 		after = parsed
 	}
-	items, err := s.repo.ListFunctionExecutionLogs(r.Context(), projectID, functionID, executionID, functionActorFrom(r), limit, after)
+	items, err := s.repo.ListFunctionExecutionLogs(
+		r.Context(),
+		projectID,
+		functionID,
+		executionID,
+		functionActorFrom(r),
+		limit,
+		after,
+	)
 	if functionResourceError(w, err) {
 		return
 	}
@@ -141,7 +182,11 @@ func (s *Server) listFunctionExecutionLogs(w http.ResponseWriter, r *http.Reques
 	if next != "" {
 		nextCursor = &next
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"logs": items, "pagination": pagination{Limit: limit, NextCursor: nextCursor}})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"logs": items, "pagination": pagination{Limit: limit, NextCursor: nextCursor}},
+	)
 }
 
 func (s *Server) listFunctionBuildLogs(w http.ResponseWriter, r *http.Request) {
@@ -162,7 +207,15 @@ func (s *Server) listFunctionBuildLogs(w http.ResponseWriter, r *http.Request) {
 		}
 		after = parsed
 	}
-	items, err := s.repo.ListFunctionBuildLogs(r.Context(), projectID, functionID, deploymentID, functionActorFrom(r), limit, after)
+	items, err := s.repo.ListFunctionBuildLogs(
+		r.Context(),
+		projectID,
+		functionID,
+		deploymentID,
+		functionActorFrom(r),
+		limit,
+		after,
+	)
 	if functionResourceError(w, err) {
 		return
 	}
@@ -178,5 +231,9 @@ func (s *Server) listFunctionBuildLogs(w http.ResponseWriter, r *http.Request) {
 	if next != "" {
 		nextCursor = &next
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"logs": items, "pagination": pagination{Limit: limit, NextCursor: nextCursor}})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"logs": items, "pagination": pagination{Limit: limit, NextCursor: nextCursor}},
+	)
 }

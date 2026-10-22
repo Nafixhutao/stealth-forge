@@ -30,7 +30,15 @@ func (s *Server) listDatabaseIndexes(w http.ResponseWriter, r *http.Request) {
 		parsed, _ := uuid.Parse(cursor)
 		cursorID = &parsed
 	}
-	items, next, err := s.repo.ListDatabaseIndexes(r.Context(), projectID, databaseID, tableID, databaseActorFrom(r), limit, cursorID)
+	items, next, err := s.repo.ListDatabaseIndexes(
+		r.Context(),
+		projectID,
+		databaseID,
+		tableID,
+		databaseActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if databaseResourceError(w, err) {
 		return
 	}
@@ -58,7 +66,15 @@ func (s *Server) createDatabaseIndex(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	item, err := s.repo.CreateDatabaseIndex(r.Context(), uuid.Must(uuid.NewV7()), projectID, databaseID, tableID, databaseActorFrom(r), repository.DatabaseIndexInput{Name: req.Name, Type: req.Type, ColumnKeys: req.ColumnKeys, Directions: req.Directions})
+	item, err := s.repo.CreateDatabaseIndex(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		projectID,
+		databaseID,
+		tableID,
+		databaseActorFrom(r),
+		repository.DatabaseIndexInput{Name: req.Name, Type: req.Type, ColumnKeys: req.ColumnKeys, Directions: req.Directions},
+	)
 	if databaseResourceError(w, err) {
 		return
 	}
@@ -86,9 +102,11 @@ func (s *Server) deleteDatabaseIndex(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.repo.DeleteDatabaseIndex(r.Context(), projectID, databaseID, tableID, indexID, databaseActorFrom(r)); databaseResourceError(w, err) {
+	err := s.repo.DeleteDatabaseIndex(r.Context(), projectID, databaseID, tableID, indexID, databaseActorFrom(r))
+	if databaseResourceError(w, err) {
 		return
-	} else if err != nil {
+	}
+	if err != nil {
 		internalError(s, w, err)
 		return
 	}

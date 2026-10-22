@@ -23,7 +23,14 @@ func (s *Server) listFunctionVariables(w http.ResponseWriter, r *http.Request) {
 		parsed := mustUUID(cursor)
 		cursorID = &parsed
 	}
-	items, next, canManage, err := s.repo.ListFunctionVariables(r.Context(), projectID, functionID, functionActorFrom(r), limit, cursorID)
+	items, next, canManage, err := s.repo.ListFunctionVariables(
+		r.Context(),
+		projectID,
+		functionID,
+		functionActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if functionResourceError(w, err) {
 		return
 	}
@@ -31,7 +38,11 @@ func (s *Server) listFunctionVariables(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"variables": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"variables": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) getFunctionVariable(w http.ResponseWriter, r *http.Request) {
@@ -60,7 +71,12 @@ func (s *Server) createFunctionVariable(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if !functionVariablePattern.MatchString(req.Key) {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "key must start with a letter or underscore and contain only letters, numbers, and underscores")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"key must start with a letter or underscore and contain only letters, numbers, and underscores",
+		)
 		return
 	}
 	if req.Value == nil || len(*req.Value) == 0 || len(*req.Value) > functionVariableMaxValueBytes {
@@ -68,7 +84,12 @@ func (s *Server) createFunctionVariable(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if req.Description != nil && (len(*req.Description) > functionVariableMaxDescriptionBytes || strings.ContainsRune(*req.Description, '\x00')) {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "description must be at most 2000 bytes and cannot contain NUL")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"description must be at most 2000 bytes and cannot contain NUL",
+		)
 		return
 	}
 	kind, secret, err := functionVariableKind(req.Kind, req.IsSecret)
@@ -80,7 +101,14 @@ func (s *Server) createFunctionVariable(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusServiceUnavailable, "not_ready", "function secret encryption is not ready")
 		return
 	}
-	item, err := s.repo.CreateFunctionVariable(r.Context(), uuid.Must(uuid.NewV7()), projectID, functionID, functionActorFrom(r), repository.FunctionVariableInput{Key: req.Key, Kind: kind, IsSecret: &secret, Value: req.Value, Description: req.Description, Cipher: s.functionCipher})
+	item, err := s.repo.CreateFunctionVariable(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		projectID,
+		functionID,
+		functionActorFrom(r),
+		repository.FunctionVariableInput{Key: req.Key, Kind: kind, IsSecret: &secret, Value: req.Value, Description: req.Description, Cipher: s.functionCipher},
+	)
 	if functionResourceError(w, err) {
 		return
 	}
@@ -100,13 +128,23 @@ func (s *Server) updateFunctionVariable(w http.ResponseWriter, r *http.Request) 
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	patch := repository.FunctionVariablePatch{Key: req.Key, Value: req.Value, Description: req.Description, Cipher: s.functionCipher}
+	patch := repository.FunctionVariablePatch{
+		Key:         req.Key,
+		Value:       req.Value,
+		Description: req.Description,
+		Cipher:      s.functionCipher,
+	}
 	patch.SetValue = req.Value != nil
 	if req.Description != nil {
 		patch.SetDescription = true
 	}
 	if patch.Key != nil && !functionVariablePattern.MatchString(*patch.Key) {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "key must start with a letter or underscore and contain only letters, numbers, and underscores")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"key must start with a letter or underscore and contain only letters, numbers, and underscores",
+		)
 		return
 	}
 	if patch.Value != nil && (len(*patch.Value) == 0 || len(*patch.Value) > functionVariableMaxValueBytes) {
@@ -114,7 +152,12 @@ func (s *Server) updateFunctionVariable(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if patch.Description != nil && (len(*patch.Description) > functionVariableMaxDescriptionBytes || strings.ContainsRune(*patch.Description, '\x00')) {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "description must be at most 2000 bytes and cannot contain NUL")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"description must be at most 2000 bytes and cannot contain NUL",
+		)
 		return
 	}
 	if patch.SetValue || patch.ClearValue {

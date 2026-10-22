@@ -19,7 +19,10 @@ func TestLoadSecretSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(settings.functionsSecretKey) != string(functionsKey) || string(settings.appsSecretKey) != string(appsKey) || string(settings.bootstrapCLIKey) != string(bootstrapKey) || settings.githubAppClientID != "Iv1.test-client-id" {
+	if string(settings.functionsSecretKey) != string(functionsKey) ||
+		string(settings.appsSecretKey) != string(appsKey) ||
+		string(settings.bootstrapCLIKey) != string(bootstrapKey) ||
+		settings.githubAppClientID != "Iv1.test-client-id" {
 		t.Fatal("secret settings were not decoded and normalized as expected")
 	}
 

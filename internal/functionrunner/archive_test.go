@@ -56,7 +56,8 @@ func TestExtractZipRejectsTraversalAndSymlink(t *testing.T) {
 				t.Fatal(err)
 			}
 			destination := t.TempDir()
-			if _, err := Extract(context.Background(), &archive, "source.zip", destination, ArchiveLimits{}); !errors.Is(err, ErrArchiveTraversal) && !errors.Is(err, ErrArchiveEntry) {
+			if _, err := Extract(context.Background(), &archive, "source.zip", destination, ArchiveLimits{}); !errors.Is(err, ErrArchiveTraversal) &&
+				!errors.Is(err, ErrArchiveEntry) {
 				t.Fatalf("Extract() error = %v, want an archive safety error", err)
 			}
 			entries, err := os.ReadDir(destination)
@@ -209,7 +210,13 @@ func TestExtractTarGzipBoundsExpandedBytes(t *testing.T) {
 	if err := gzipWriter.Close(); err != nil {
 		t.Fatal(err)
 	}
-	_, err := Extract(context.Background(), &compressed, "source.tgz", t.TempDir(), ArchiveLimits{MaxBytes: 7, MaxFiles: 2, MaxEntry: 8})
+	_, err := Extract(
+		context.Background(),
+		&compressed,
+		"source.tgz",
+		t.TempDir(),
+		ArchiveLimits{MaxBytes: 7, MaxFiles: 2, MaxEntry: 8},
+	)
 	if !errors.Is(err, ErrArchiveTooLarge) {
 		t.Fatalf("Extract() error = %v, want ErrArchiveTooLarge", err)
 	}
@@ -286,7 +293,13 @@ func TestExtractGitArchiveStripsProviderRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	destination := t.TempDir()
-	stats, err := Extract(context.Background(), &compressed, "git-github-landing-main.tar.gz", destination, ArchiveLimits{StripTopLevel: true})
+	stats, err := Extract(
+		context.Background(),
+		&compressed,
+		"git-github-landing-main.tar.gz",
+		destination,
+		ArchiveLimits{StripTopLevel: true},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -327,7 +340,13 @@ func TestExtractGitArchiveRejectsMultipleRoots(t *testing.T) {
 	if err := gzipWriter.Close(); err != nil {
 		t.Fatal(err)
 	}
-	_, err := Extract(context.Background(), &compressed, "git-github-repo-main.tar.gz", t.TempDir(), ArchiveLimits{StripTopLevel: true})
+	_, err := Extract(
+		context.Background(),
+		&compressed,
+		"git-github-repo-main.tar.gz",
+		t.TempDir(),
+		ArchiveLimits{StripTopLevel: true},
+	)
 	if !errors.Is(err, ErrArchiveEntry) {
 		t.Fatalf("error = %v, want ErrArchiveEntry", err)
 	}
@@ -346,7 +365,13 @@ func TestExtractRejectsCompressedArchiveBeyondConfiguredLimit(t *testing.T) {
 	if err := writer.Close(); err != nil {
 		t.Fatal(err)
 	}
-	_, err = Extract(context.Background(), &archive, "source.zip", t.TempDir(), ArchiveLimits{MaxCompressed: int64(archive.Len() - 1)})
+	_, err = Extract(
+		context.Background(),
+		&archive,
+		"source.zip",
+		t.TempDir(),
+		ArchiveLimits{MaxCompressed: int64(archive.Len() - 1)},
+	)
 	if !errors.Is(err, ErrArchiveTooLarge) {
 		t.Fatalf("Extract() error = %v, want ErrArchiveTooLarge", err)
 	}

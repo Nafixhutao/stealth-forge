@@ -28,11 +28,25 @@ func (f *fakePersistence) PruneExpiredAdminRealtimeEvents(context.Context, int) 
 	return 0, nil
 }
 
-func (f *fakePersistence) ClaimNextRealtimeEvent(context.Context, string, time.Duration) (repository.RealtimePublishJob, error) {
+func (f *fakePersistence) ClaimNextRealtimeEvent(
+	context.Context,
+	string,
+	time.Duration,
+) (
+	repository.RealtimePublishJob,
+	error,
+) {
 	return f.job, nil
 }
 
-func (f *fakePersistence) FinishRealtimeEvent(_ context.Context, _ uuid.UUID, _ string, success bool, _ *time.Time, _ string) error {
+func (f *fakePersistence) FinishRealtimeEvent(
+	_ context.Context,
+	_ uuid.UUID,
+	_ string,
+	success bool,
+	_ *time.Time,
+	_ string,
+) error {
 	f.finished = true
 	f.succeeded = success
 	return nil

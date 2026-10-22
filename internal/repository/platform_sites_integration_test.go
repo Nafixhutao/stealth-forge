@@ -82,15 +82,33 @@ func TestPlatformSiteAllocationAndRouteSnapshotIntegration(t *testing.T) {
 	})
 
 	repo := New(pool)
-	first, err := repo.CreateSite(ctx, uuid.Must(uuid.NewV7()), projectOneID, SiteActor{Kind: SiteConsoleActor, AccountID: accountID}, SiteInput{Name: "portfolio", Enabled: true, Status: "active", ArtifactQuotaBytes: 1 << 20})
+	first, err := repo.CreateSite(
+		ctx,
+		uuid.Must(uuid.NewV7()),
+		projectOneID,
+		SiteActor{Kind: SiteConsoleActor, AccountID: accountID},
+		SiteInput{Name: "portfolio", Enabled: true, Status: "active", ArtifactQuotaBytes: 1 << 20},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := repo.CreateSite(ctx, uuid.Must(uuid.NewV7()), projectTwoID, SiteActor{Kind: SiteConsoleActor, AccountID: accountID}, SiteInput{Name: "portfolio", Enabled: true, Status: "active", ArtifactQuotaBytes: 1 << 20})
+	second, err := repo.CreateSite(
+		ctx,
+		uuid.Must(uuid.NewV7()),
+		projectTwoID,
+		SiteActor{Kind: SiteConsoleActor, AccountID: accountID},
+		SiteInput{Name: "portfolio", Enabled: true, Status: "active", ArtifactQuotaBytes: 1 << 20},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	third, err := repo.CreateSite(ctx, uuid.Must(uuid.NewV7()), projectThreeID, SiteActor{Kind: SiteConsoleActor, AccountID: accountID}, SiteInput{Name: "portfolio", Enabled: true, Status: "active", ArtifactQuotaBytes: 1 << 20})
+	third, err := repo.CreateSite(
+		ctx,
+		uuid.Must(uuid.NewV7()),
+		projectThreeID,
+		SiteActor{Kind: SiteConsoleActor, AccountID: accountID},
+		SiteInput{Name: "portfolio", Enabled: true, Status: "active", ArtifactQuotaBytes: 1 << 20},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +133,13 @@ func TestPlatformSiteAllocationAndRouteSnapshotIntegration(t *testing.T) {
 		t.Fatalf("global labels = %#v, want portfolio plus deterministic cross-project/cross-organization collisions", labels)
 	}
 
-	reserved, err := repo.CreateSite(ctx, uuid.Must(uuid.NewV7()), projectOneID, SiteActor{Kind: SiteConsoleActor, AccountID: accountID}, SiteInput{Name: "api", Enabled: true, Status: "active", ArtifactQuotaBytes: 1 << 20})
+	reserved, err := repo.CreateSite(
+		ctx,
+		uuid.Must(uuid.NewV7()),
+		projectOneID,
+		SiteActor{Kind: SiteConsoleActor, AccountID: accountID},
+		SiteInput{Name: "api", Enabled: true, Status: "active", ArtifactQuotaBytes: 1 << 20},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +151,13 @@ func TestPlatformSiteAllocationAndRouteSnapshotIntegration(t *testing.T) {
 		t.Fatalf("reserved Site label = %q", reservedLabel)
 	}
 	longName := strings.Repeat("a", 63)
-	longSite, err := repo.CreateSite(ctx, uuid.Must(uuid.NewV7()), projectOneID, SiteActor{Kind: SiteConsoleActor, AccountID: accountID}, SiteInput{Name: longName, Enabled: true, Status: "active", ArtifactQuotaBytes: 1 << 20})
+	longSite, err := repo.CreateSite(
+		ctx,
+		uuid.Must(uuid.NewV7()),
+		projectOneID,
+		SiteActor{Kind: SiteConsoleActor, AccountID: accountID},
+		SiteInput{Name: longName, Enabled: true, Status: "active", ArtifactQuotaBytes: 1 << 20},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +176,12 @@ func TestPlatformSiteAllocationAndRouteSnapshotIntegration(t *testing.T) {
 	if _, err := repo.UpdateInstanceDomainSettings(ctx, ownerID, "cloud.example.com", stringPtr("apps.example.com")); err != nil {
 		t.Fatal(err)
 	}
-	first, err = repo.GetSite(ctx, projectOneID, mustPlatformUUID(first.ID), SiteActor{Kind: SiteConsoleActor, AccountID: accountID})
+	first, err = repo.GetSite(
+		ctx,
+		projectOneID,
+		mustPlatformUUID(first.ID),
+		SiteActor{Kind: SiteConsoleActor, AccountID: accountID},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +197,13 @@ func TestPlatformSiteAllocationAndRouteSnapshotIntegration(t *testing.T) {
 	}
 	oldHostname := *first.PlatformHostname
 	newName := "renamed-portfolio"
-	first, err = repo.UpdateSite(ctx, projectOneID, mustPlatformUUID(first.ID), SiteActor{Kind: SiteConsoleActor, AccountID: accountID}, SitePatch{Name: &newName})
+	first, err = repo.UpdateSite(
+		ctx,
+		projectOneID,
+		mustPlatformUUID(first.ID),
+		SiteActor{Kind: SiteConsoleActor, AccountID: accountID},
+		SitePatch{Name: &newName},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +213,12 @@ func TestPlatformSiteAllocationAndRouteSnapshotIntegration(t *testing.T) {
 	if _, err := repo.UpdateInstanceDomainSettings(ctx, ownerID, "cloud.example.com", stringPtr("deploy.example.net")); err != nil {
 		t.Fatal(err)
 	}
-	first, err = repo.GetSite(ctx, projectOneID, mustPlatformUUID(first.ID), SiteActor{Kind: SiteConsoleActor, AccountID: accountID})
+	first, err = repo.GetSite(
+		ctx,
+		projectOneID,
+		mustPlatformUUID(first.ID),
+		SiteActor{Kind: SiteConsoleActor, AccountID: accountID},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +235,14 @@ func TestPlatformSiteAllocationAndRouteSnapshotIntegration(t *testing.T) {
 	if _, err := repo.UpdateInstanceDomainSettings(ctx, ownerID, "cloud.example.com", nil); err != nil {
 		t.Fatal(err)
 	}
-	domain, err := repo.CreateSiteDomain(ctx, uuid.Must(uuid.NewV7()), projectOneID, mustPlatformUUID(first.ID), SiteActor{Kind: SiteConsoleActor, AccountID: accountID}, SiteDomainInput{Hostname: "foo.apps.example.com"})
+	domain, err := repo.CreateSiteDomain(
+		ctx,
+		uuid.Must(uuid.NewV7()),
+		projectOneID,
+		mustPlatformUUID(first.ID),
+		SiteActor{Kind: SiteConsoleActor, AccountID: accountID},
+		SiteDomainInput{Hostname: "foo.apps.example.com"},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -229,7 +282,12 @@ func TestPlatformSiteAllocationAndRouteSnapshotIntegration(t *testing.T) {
 	if _, err := repo.UpdateInstanceDomainSettings(ctx, ownerID, "cloud.example.com", nil); err != nil {
 		t.Fatal(err)
 	}
-	first, err = repo.GetSite(ctx, projectOneID, mustPlatformUUID(first.ID), SiteActor{Kind: SiteConsoleActor, AccountID: accountID})
+	first, err = repo.GetSite(
+		ctx,
+		projectOneID,
+		mustPlatformUUID(first.ID),
+		SiteActor{Kind: SiteConsoleActor, AccountID: accountID},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -255,7 +313,13 @@ func TestPlatformSiteAllocationAndRouteSnapshotIntegration(t *testing.T) {
 	for _, projectID := range []uuid.UUID{projectOneID, projectTwoID} {
 		go func(projectID uuid.UUID) {
 			defer concurrent.Done()
-			_, createErr := repo.CreateSite(context.Background(), uuid.Must(uuid.NewV7()), projectID, SiteActor{Kind: SiteConsoleActor, AccountID: accountID}, SiteInput{Name: "concurrent", Enabled: true, Status: "active", ArtifactQuotaBytes: 1 << 20})
+			_, createErr := repo.CreateSite(
+				context.Background(),
+				uuid.Must(uuid.NewV7()),
+				projectID,
+				SiteActor{Kind: SiteConsoleActor, AccountID: accountID},
+				SiteInput{Name: "concurrent", Enabled: true, Status: "active", ArtifactQuotaBytes: 1 << 20},
+			)
 			results <- createErr
 		}(projectID)
 	}

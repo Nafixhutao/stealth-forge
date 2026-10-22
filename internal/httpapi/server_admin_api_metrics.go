@@ -59,7 +59,12 @@ func parseWindowMinutes(w http.ResponseWriter, r *http.Request) (time.Time, bool
 	}
 	minutes, err := strconv.Atoi(raw)
 	if err != nil || minutes <= 0 || minutes > 24*60 {
-		writeError(w, http.StatusUnprocessableEntity, "validation_error", "window_minutes must be an integer between 1 and 1440")
+		writeError(
+			w,
+			http.StatusUnprocessableEntity,
+			"validation_error",
+			"window_minutes must be an integer between 1 and 1440",
+		)
 		return time.Time{}, false
 	}
 	return time.Now().UTC().Add(-time.Duration(minutes) * time.Minute), true

@@ -122,7 +122,12 @@ func normalizeDNSRecord(record DNSRecord) (DNSRecord, error) {
 	record.Type = strings.ToUpper(strings.TrimSpace(record.Type))
 	record.Name = strings.TrimSpace(record.Name)
 	record.Content = strings.TrimSpace(record.Content)
-	if record.Type != "CNAME" || record.Name == "" || record.Content == "" || len(record.Name) > 253 || len(record.Content) > 253 || strings.ContainsAny(record.Name+record.Content, "\x00\r\n") {
+	if record.Type != "CNAME" ||
+		record.Name == "" ||
+		record.Content == "" ||
+		len(record.Name) > 253 ||
+		len(record.Content) > 253 ||
+		strings.ContainsAny(record.Name+record.Content, "\x00\r\n") {
 		return DNSRecord{}, errors.New("DNS record is invalid")
 	}
 	if record.TTL == 0 {

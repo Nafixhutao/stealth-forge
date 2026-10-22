@@ -7,12 +7,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strings"
 	"time"
 
 	"github.com/Nafixhutao/stealth-forge/internal/database"
 	"github.com/Nafixhutao/stealth-forge/internal/domain"
-	"github.com/Nafixhutao/stealth-forge/internal/functionsecret"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -549,59 +547,6 @@ func (r *Repository) GetFunctionExecution(
 	return item, err
 }
 
-func (r *Repository) AppendFunctionExecutionLog(
-	ctx context.Context,
-	projectID, functionID, executionID, id uuid.UUID,
-	sequence int64,
-	level, message string,
-) (domain.FunctionExecutionLog, error) {
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return domain.FunctionExecutionLog{}, err
-	}
-	defer tx.Rollback(ctx)
-	_, err = scanFunctionExecution(
-		tx.QueryRow(
-			ctx,
-			`SELECT `+functionExecutionProjection+` FROM function_executions WHERE project_id=$1 AND function_id=$2 AND id=$3 FOR UPDATE`,
-			projectID,
-			functionID,
-			executionID,
-		),
-	)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.FunctionExecutionLog{}, ErrNotFound
-	}
-	if err != nil {
-		return domain.FunctionExecutionLog{}, err
-	}
-	if sequence <= 0 {
-		if err := tx.QueryRow(ctx, `SELECT COALESCE(MAX(sequence),0)+1 FROM function_execution_logs WHERE project_id=$1 AND execution_id=$2`, projectID, executionID).Scan(&sequence); err != nil {
-			return domain.FunctionExecutionLog{}, err
-		}
-	}
-	item, err := scanFunctionExecutionLog(
-		tx.QueryRow(
-			ctx,
-			`INSERT INTO function_execution_logs (id,execution_id,function_id,project_id,sequence,level,message) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING `+functionExecutionLogProjection,
-			id,
-			executionID,
-			functionID,
-			projectID,
-			sequence,
-			level,
-			message,
-		),
-	)
-	if err != nil {
-		return domain.FunctionExecutionLog{}, mapError(err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return domain.FunctionExecutionLog{}, err
-	}
-	return item, nil
-}
-
 // ClaimNextFunctionExecution atomically leases the oldest accepted execution.
 // PostgreSQL row locking is the source of truth, so multiple workers can poll
 // concurrently without duplicate execution. The function and deployment are
@@ -730,127 +675,4 @@ func validFunctionWorkerID(value string) bool {
 		return false
 	}
 	return true
-}
-
-// FunctionRuntimeVariables decrypts values only for the trusted execution
-// worker. It never returns metadata to an API actor and rejects malformed
-// ciphertext rather than starting a process with partial configuration.
-func (r *Repository) FunctionRuntimeVariables(
-	ctx context.Context,
-	projectID, functionID uuid.UUID,
-	cipher *functionsecret.Cipher,
-) ([]FunctionRuntimeVariable, error) {
-	if cipher == nil {
-		return nil, ErrFunctionSecretUnavailable
-	}
-	if _, err := r.functionByID(ctx, r.pool, projectID, functionID, false); err != nil {
-		return nil, err
-	}
-	rows, err := r.pool.Query(
-		ctx,
-		`SELECT key,value_ciphertext,is_secret FROM function_variables WHERE project_id=$1 AND function_id=$2 ORDER BY key`,
-		projectID,
-		functionID,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return materializeFunctionRuntimeVariables(rows, cipher)
-}
-
-// FunctionRuntimeVariablesForDeployment decrypts the ciphertext snapshot that
-// belongs to one immutable deployment. Updating function_variables therefore
-// cannot silently alter a built revision or an invocation already queued for
-// it.
-func (r *Repository) FunctionRuntimeVariablesForDeployment(
-	ctx context.Context,
-	projectID, functionID, deploymentID uuid.UUID,
-	cipher *functionsecret.Cipher,
-) ([]FunctionRuntimeVariable, error) {
-	if cipher == nil {
-		return nil, ErrFunctionSecretUnavailable
-	}
-	var exists bool
-	if err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM function_deployments WHERE project_id=$1 AND function_id=$2 AND id=$3)`, projectID, functionID, deploymentID).Scan(&exists); err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, ErrNotFound
-	}
-	rows, err := r.pool.Query(
-		ctx,
-		`SELECT key,value_ciphertext,is_secret FROM function_deployment_variables WHERE project_id=$1 AND function_id=$2 AND deployment_id=$3 ORDER BY key`,
-		projectID,
-		functionID,
-		deploymentID,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return materializeFunctionRuntimeVariables(rows, cipher)
-}
-
-func materializeFunctionRuntimeVariables(
-	rows functionVariableRows,
-	cipher *functionsecret.Cipher,
-) ([]FunctionRuntimeVariable, error) {
-	defer rows.Close()
-	variables := make([]FunctionRuntimeVariable, 0)
-	for rows.Next() {
-		var key string
-		var ciphertext []byte
-		var secret bool
-		if err := rows.Scan(&key, &ciphertext, &secret); err != nil {
-			return nil, err
-		}
-		if len(ciphertext) == 0 {
-			return nil, ErrFunctionSecretUnavailable
-		}
-		plaintext, err := cipher.Decrypt(ciphertext)
-		if err != nil || strings.IndexByte(string(plaintext), 0) >= 0 {
-			return nil, ErrFunctionSecretUnavailable
-		}
-		variables = append(variables, FunctionRuntimeVariable{Key: key, Value: string(plaintext), IsSecret: secret})
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return variables, nil
-}
-
-func (r *Repository) ListFunctionExecutionLogs(
-	ctx context.Context,
-	projectID, functionID, executionID uuid.UUID,
-	actor FunctionActor,
-	limit int,
-	after int64,
-) ([]domain.FunctionExecutionLog, error) {
-	if _, err := r.requireFunctionRead(ctx, projectID, actor); err != nil {
-		return nil, err
-	}
-	if _, err := r.functionByID(ctx, r.pool, projectID, functionID, false); err != nil {
-		return nil, err
-	}
-	rows, err := r.pool.Query(
-		ctx,
-		`SELECT `+functionExecutionLogProjection+` FROM function_execution_logs WHERE project_id=$1 AND function_id=$2 AND execution_id=$3 AND sequence>$4 ORDER BY sequence LIMIT $5`,
-		projectID,
-		functionID,
-		executionID,
-		after,
-		limit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := make([]domain.FunctionExecutionLog, 0, limit)
-	for rows.Next() {
-		item, scanErr := scanFunctionExecutionLog(rows)
-		if scanErr != nil {
-			return nil, scanErr
-		}
-		items = append(items, item)
-	}
-	return items, rows.Err()
 }

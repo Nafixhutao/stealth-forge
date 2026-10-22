@@ -93,7 +93,8 @@ func assertUpgradeSmokeTopology(t *testing.T, layout Layout) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.TrimSpace(values["TRAEFIK_IMAGE"]) == "" || strings.TrimSpace(values["STEALTH_INGRESS_NETWORK_NAME"]) == "" {
+	if strings.TrimSpace(values["TRAEFIK_IMAGE"]) == "" ||
+		strings.TrimSpace(values["STEALTH_INGRESS_NETWORK_NAME"]) == "" {
 		t.Fatal("migrated configuration is missing Traefik ingress settings")
 	}
 }

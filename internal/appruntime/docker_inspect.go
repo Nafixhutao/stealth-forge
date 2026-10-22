@@ -173,14 +173,27 @@ func validHealthCheckJobIdentity(job repository.AppHealthCheckJob) bool {
 	deploymentID, deploymentErr := uuid.Parse(*job.App.DesiredDeploymentID)
 	workload, workloadErr := workloadspec.Normalize(job.App.Workload)
 	workloadDigest, digestErr := workloadspec.Digest(workload)
-	return appErr == nil && projectErr == nil && deploymentErr == nil && appID != uuid.Nil && projectID != uuid.Nil && deploymentID != uuid.Nil &&
-		job.RouteIdentity != uuid.Nil && job.ContainerName == repository.AppRuntimeContainerNameForIncarnation(appID, job.RouteIdentity) &&
-		job.App.Enabled && job.App.RuntimeStatus == "running" && job.App.ObservedGeneration == job.App.DesiredGeneration &&
-		job.App.DesiredGeneration > 0 && validRuntimeID(job.ContainerID) && job.LeaseToken != uuid.Nil && job.WorkerID != "" &&
-		len(job.App.WorkloadSpecSHA256) == 64 &&
+	identitiesParse := appErr == nil && projectErr == nil && deploymentErr == nil
+	identitiesSet := appID != uuid.Nil && projectID != uuid.Nil && deploymentID != uuid.Nil
+	routeMatches := job.RouteIdentity != uuid.Nil &&
+		job.ContainerName == repository.AppRuntimeContainerNameForIncarnation(appID, job.RouteIdentity)
+	appReady := job.App.Enabled &&
+		job.App.RuntimeStatus == "running" &&
+		job.App.ObservedGeneration == job.App.DesiredGeneration &&
+		job.App.DesiredGeneration > 0
+	leaseValid := validRuntimeID(job.ContainerID) &&
+		job.LeaseToken != uuid.Nil &&
+		job.WorkerID != ""
+	specMatches := len(job.App.WorkloadSpecSHA256) == 64 &&
 		workloadErr == nil &&
 		digestErr == nil &&
-		workloadDigest == job.App.WorkloadSpecSHA256 &&
+		workloadDigest == job.App.WorkloadSpecSHA256
+	return identitiesParse &&
+		identitiesSet &&
+		routeMatches &&
+		appReady &&
+		leaseValid &&
+		specMatches &&
 		validPrivateProbeAddress(job.Address)
 }
 

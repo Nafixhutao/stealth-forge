@@ -26,7 +26,14 @@ func (f *fakePersistence) RequeueStaleAdminNotificationDeliveries(context.Contex
 	return 0, nil
 }
 
-func (f *fakePersistence) ClaimNextAdminNotificationDelivery(context.Context, string, time.Duration) (repository.AdminNotificationDeliveryJob, error) {
+func (f *fakePersistence) ClaimNextAdminNotificationDelivery(
+	context.Context,
+	string,
+	time.Duration,
+) (
+	repository.AdminNotificationDeliveryJob,
+	error,
+) {
 	if f.claimed {
 		return repository.AdminNotificationDeliveryJob{}, repository.ErrNoAdminNotification
 	}
@@ -34,7 +41,14 @@ func (f *fakePersistence) ClaimNextAdminNotificationDelivery(context.Context, st
 	return f.job, nil
 }
 
-func (f *fakePersistence) FinishAdminNotificationDelivery(_ context.Context, _ uuid.UUID, _ string, success bool, lastError string, retryAt *time.Time) error {
+func (f *fakePersistence) FinishAdminNotificationDelivery(
+	_ context.Context,
+	_ uuid.UUID,
+	_ string,
+	success bool,
+	lastError string,
+	retryAt *time.Time,
+) error {
 	f.success = success
 	f.lastError = lastError
 	f.retryAt = retryAt

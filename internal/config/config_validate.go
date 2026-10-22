@@ -21,7 +21,9 @@ func (c Config) ValidateSetup() error {
 	if !c.SetupMode {
 		return nil
 	}
-	if strings.TrimSpace(c.SetupStateFile) == "" || !filepath.IsAbs(c.SetupStateFile) || filepath.Clean(c.SetupStateFile) == string(filepath.Separator) {
+	if strings.TrimSpace(c.SetupStateFile) == "" ||
+		!filepath.IsAbs(c.SetupStateFile) ||
+		filepath.Clean(c.SetupStateFile) == string(filepath.Separator) {
 		return fmt.Errorf("STEALTH_SETUP_STATE_FILE must be a valid non-root absolute path in setup mode")
 	}
 	return nil
@@ -33,7 +35,12 @@ func validGitHubAppClientID(value string) bool {
 		return false
 	}
 	for _, character := range value {
-		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') || character == '.' || character == '-' || character == '_' {
+		if (character >= 'a' && character <= 'z') ||
+			(character >= 'A' && character <= 'Z') ||
+			(character >= '0' && character <= '9') ||
+			character == '.' ||
+			character == '-' ||
+			character == '_' {
 			continue
 		}
 		return false
@@ -45,7 +52,13 @@ func validGitHubAppClientID(value string) bool {
 // malformed static publication configuration. NewWithLimiter still supplies
 // safe defaults for hand-built test Config values.
 func (c Config) ValidateSites() error {
-	if c.SitesMaxArtifactSize <= 0 || c.SitesMaxExpandedBytes <= 0 || c.SitesDefaultQuotaBytes <= 0 || c.SitesMaxFiles < 1 || c.SitesMaxFiles > 100000 || c.SitesGitFetchConcurrency < 0 || c.SitesGitFetchConcurrency > 32 {
+	if c.SitesMaxArtifactSize <= 0 ||
+		c.SitesMaxExpandedBytes <= 0 ||
+		c.SitesDefaultQuotaBytes <= 0 ||
+		c.SitesMaxFiles < 1 ||
+		c.SitesMaxFiles > 100000 ||
+		c.SitesGitFetchConcurrency < 0 ||
+		c.SitesGitFetchConcurrency > 32 {
 		return fmt.Errorf("site artifact, expanded-size, file-count, and quota settings are invalid")
 	}
 	if c.SitesMaxExpandedBytes > c.SitesDefaultQuotaBytes {
@@ -67,7 +80,9 @@ func (c Config) ValidateSites() error {
 		if sameListenPort(c.ACMETLSAddress, c.HTTPAddress) || sameListenPort(c.ACMEHTTPChallengeAddress, c.HTTPAddress) {
 			return fmt.Errorf("ACME listeners must not reuse the HTTP_ADDR port")
 		}
-		if strings.TrimSpace(c.ACMECertCacheDir) == "" || !filepath.IsAbs(c.ACMECertCacheDir) || filepath.Clean(c.ACMECertCacheDir) == string(filepath.Separator) {
+		if strings.TrimSpace(c.ACMECertCacheDir) == "" ||
+			!filepath.IsAbs(c.ACMECertCacheDir) ||
+			filepath.Clean(c.ACMECertCacheDir) == string(filepath.Separator) {
 			return fmt.Errorf("ACME_CERT_CACHE_DIR must be a valid non-root filesystem path")
 		}
 	}
@@ -85,13 +100,22 @@ func (c Config) ValidateApps() error {
 	if !validBuildkitAddress(c.AppsBuildkitAddress) {
 		return fmt.Errorf("APPS_BUILDKIT_ADDRESS must be a private TCP host:port address")
 	}
-	if !validBuildKitPath(c.AppsBuildkitCACert) || !validBuildKitPath(c.AppsBuildkitClientCert) || !validBuildKitPath(c.AppsBuildkitClientKey) {
+	if !validBuildKitPath(c.AppsBuildkitCACert) ||
+		!validBuildKitPath(c.AppsBuildkitClientCert) ||
+		!validBuildKitPath(c.AppsBuildkitClientKey) {
 		return fmt.Errorf("App BuildKit TLS certificate paths must be absolute, clean, non-root paths")
 	}
-	if c.AppsBuildTimeout < time.Minute || c.AppsBuildTimeout > 24*time.Hour || c.AppsBuildLeaseAge < c.AppsBuildTimeout || c.AppsBuildLeaseAge > 48*time.Hour || c.AppsBuildPollInterval < 100*time.Millisecond || c.AppsBuildPollInterval > time.Minute {
+	if c.AppsBuildTimeout < time.Minute ||
+		c.AppsBuildTimeout > 24*time.Hour ||
+		c.AppsBuildLeaseAge < c.AppsBuildTimeout ||
+		c.AppsBuildLeaseAge > 48*time.Hour ||
+		c.AppsBuildPollInterval < 100*time.Millisecond ||
+		c.AppsBuildPollInterval > time.Minute {
 		return fmt.Errorf("App build timeout, lease, or polling settings are invalid")
 	}
-	if strings.TrimSpace(c.AppsBuildStagingRoot) == "" || !filepath.IsAbs(c.AppsBuildStagingRoot) || filepath.Clean(c.AppsBuildStagingRoot) == string(filepath.Separator) {
+	if strings.TrimSpace(c.AppsBuildStagingRoot) == "" ||
+		!filepath.IsAbs(c.AppsBuildStagingRoot) ||
+		filepath.Clean(c.AppsBuildStagingRoot) == string(filepath.Separator) {
 		return fmt.Errorf("APPS_BUILD_STAGING_ROOT must be an absolute non-root path")
 	}
 	if !isDockerName(c.AppsBuildStagingVolume) || !isDockerName(c.AppsBuildkitStateVolume) {

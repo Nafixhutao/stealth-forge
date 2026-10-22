@@ -62,7 +62,8 @@ func TestNormalizeCanonicalizesPathAndClonesCommand(t *testing.T) {
 	if spec.Command[0] != "./server" {
 		t.Fatalf("normalized command aliases caller slice: %#v", spec.Command)
 	}
-	if normalized, err := Normalize(Spec{WorkingDirectory: stringPointer("")}); err != nil || normalized.WorkingDirectory != nil {
+	if normalized, err := Normalize(Spec{WorkingDirectory: stringPointer("")}); err != nil ||
+		normalized.WorkingDirectory != nil {
 		t.Fatalf("empty working directory = %#v, %v; want null", normalized.WorkingDirectory, err)
 	}
 }
@@ -195,7 +196,9 @@ func TestWorkingDirectorySafety(t *testing.T) {
 		}
 	}
 	root := "/"
-	if spec, err := Normalize(Spec{WorkingDirectory: &root}); err != nil || spec.WorkingDirectory == nil || *spec.WorkingDirectory != "/" {
+	if spec, err := Normalize(Spec{WorkingDirectory: &root}); err != nil ||
+		spec.WorkingDirectory == nil ||
+		*spec.WorkingDirectory != "/" {
 		t.Fatalf("root working directory = %#v, %v", spec.WorkingDirectory, err)
 	}
 }
@@ -408,7 +411,9 @@ func FuzzCanonicalMarshalRoundTrip(f *testing.F) {
 	f.Add(8080, "./server", "/srv/app", "/healthz")
 	f.Add(9090, "worker", "/", "/ready")
 	f.Fuzz(func(t *testing.T, port int, argument, directory, healthPath string) {
-		if len(argument) > MaxCommandArgumentBytes || len(directory) > MaxWorkingDirectoryBytes || len(healthPath) > MaxHealthPathBytes {
+		if len(argument) > MaxCommandArgumentBytes ||
+			len(directory) > MaxWorkingDirectoryBytes ||
+			len(healthPath) > MaxHealthPathBytes {
 			return
 		}
 		workingDirectory := directory

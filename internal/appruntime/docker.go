@@ -70,12 +70,6 @@ func NewMoby(runner CommandRunner, networkName string, actionTimeout, importTime
 	}, nil
 }
 
-func IsDockerNotFound(err error) bool { return errors.Is(err, ErrDockerObjectNotFound) }
-
-func IsOwnershipConflict(err error) bool {
-	return errors.Is(err, ErrRuntimeOwnershipConflict) || errors.Is(err, ErrRuntimeNetworkConflict)
-}
-
 func safeRuntimeError(err error) string {
 	switch {
 	case errors.Is(err, ErrRuntimeNetworkConflict):

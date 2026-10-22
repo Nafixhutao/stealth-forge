@@ -30,14 +30,29 @@ type installerAcceptanceRunner struct {
 	command installengine.OSCommandRunner
 }
 
-func (r installerAcceptanceRunner) Run(ctx context.Context, dir string, stdout, stderr io.Writer, name string, args ...string) error {
+func (r installerAcceptanceRunner) Run(
+	ctx context.Context,
+	dir string,
+	stdout,
+	stderr io.Writer,
+	name string,
+	args ...string,
+) error {
 	if name == "docker" && len(args) > 0 && args[0] == "compose" && args[len(args)-1] == "pull" {
 		return nil
 	}
 	return r.command.Run(ctx, dir, stdout, stderr, name, args...)
 }
 
-func (r installerAcceptanceRunner) RunWithEnv(ctx context.Context, dir string, env []string, stdout, stderr io.Writer, name string, args ...string) error {
+func (r installerAcceptanceRunner) RunWithEnv(
+	ctx context.Context,
+	dir string,
+	env []string,
+	stdout,
+	stderr io.Writer,
+	name string,
+	args ...string,
+) error {
 	return r.command.RunWithEnv(ctx, dir, env, stdout, stderr, name, args...)
 }
 
@@ -175,7 +190,12 @@ func TestInstallerCleanHostAndRepairAcceptance(t *testing.T) {
 	app.out = &repairOutput
 	app.errOut = &repairErrors
 	if code := app.runInstall([]string{"--repair"}); code != 0 {
-		t.Fatalf("stealth install --repair exited %d: stdout=%s stderr=%s", code, repairOutput.String(), repairErrors.String())
+		t.Fatalf(
+			"stealth install --repair exited %d: stdout=%s stderr=%s",
+			code,
+			repairOutput.String(),
+			repairErrors.String(),
+		)
 	}
 	repaired, err := installengine.ReadEnvFile(layout.EnvFile)
 	if err != nil {
@@ -202,7 +222,13 @@ func TestInstallerCleanHostAndRepairAcceptance(t *testing.T) {
 	app.out = &doctorOutput
 	doctorCode := app.runDoctorCommand(nil)
 	if statusCode != 0 || doctorCode != 0 {
-		t.Fatalf("repaired clean-host checks failed: status=%d\n%s\ndoctor=%d\n%s", statusCode, statusOutput.String(), doctorCode, doctorOutput.String())
+		t.Fatalf(
+			"repaired clean-host checks failed: status=%d\n%s\ndoctor=%d\n%s",
+			statusCode,
+			statusOutput.String(),
+			doctorCode,
+			doctorOutput.String(),
+		)
 	}
 
 	evidencePath := strings.TrimSpace(os.Getenv("STEALTH_INSTALLER_ACCEPTANCE_EVIDENCE"))
@@ -300,7 +326,21 @@ func cleanupAcceptanceInstall(t *testing.T, runner installerAcceptanceRunner, la
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 		if regularFile(layout.EnvFile) && regularFile(layout.ComposeFile) {
-			_ = runner.Run(ctx, layout.Root, io.Discard, io.Discard, "docker", "compose", "--env-file", layout.EnvFile, "-f", layout.ComposeFile, "down", "--volumes", "--remove-orphans")
+			_ = runner.Run(
+				ctx,
+				layout.Root,
+				io.Discard,
+				io.Discard,
+				"docker",
+				"compose",
+				"--env-file",
+				layout.EnvFile,
+				"-f",
+				layout.ComposeFile,
+				"down",
+				"--volumes",
+				"--remove-orphans",
+			)
 			if config, err := installengine.ReadEnvFile(layout.EnvFile); err == nil {
 				network := strings.TrimSpace(config["APPS_RUNTIME_NETWORK_NAME"])
 				if safeVolumeName(network) {

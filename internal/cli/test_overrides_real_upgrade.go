@@ -23,7 +23,15 @@ func (realUpgradeCommandRunner) Run(context.Context, string, io.Writer, io.Write
 	return nil
 }
 
-func (realUpgradeCommandRunner) RunWithEnv(context.Context, string, []string, io.Writer, io.Writer, string, ...string) error {
+func (realUpgradeCommandRunner) RunWithEnv(
+	context.Context,
+	string,
+	[]string,
+	io.Writer,
+	io.Writer,
+	string,
+	...string,
+) error {
 	return nil
 }
 

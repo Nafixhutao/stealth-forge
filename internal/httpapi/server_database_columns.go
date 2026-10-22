@@ -35,7 +35,15 @@ func (s *Server) listDatabaseColumns(w http.ResponseWriter, r *http.Request) {
 		parsed, _ := uuid.Parse(cursor)
 		cursorID = &parsed
 	}
-	items, next, err := s.repo.ListDatabaseColumns(r.Context(), projectID, databaseID, tableID, databaseActorFrom(r), limit, cursorID)
+	items, next, err := s.repo.ListDatabaseColumns(
+		r.Context(),
+		projectID,
+		databaseID,
+		tableID,
+		databaseActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if databaseResourceError(w, err) {
 		return
 	}
@@ -80,7 +88,15 @@ func (s *Server) createDatabaseColumn(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	item, err := s.repo.CreateDatabaseColumn(r.Context(), uuid.Must(uuid.NewV7()), projectID, databaseID, tableID, databaseActorFrom(r), repository.DatabaseColumnInput{Key: req.Key, Type: dbcore.ColumnType(req.Type), Required: req.Required, VarcharSize: req.VarcharSize, Default: defaultValue, HasDefault: hasDefault})
+	item, err := s.repo.CreateDatabaseColumn(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		projectID,
+		databaseID,
+		tableID,
+		databaseActorFrom(r),
+		repository.DatabaseColumnInput{Key: req.Key, Type: dbcore.ColumnType(req.Type), Required: req.Required, VarcharSize: req.VarcharSize, Default: defaultValue, HasDefault: hasDefault},
+	)
 	if databaseResourceError(w, err) {
 		return
 	}
@@ -108,9 +124,11 @@ func (s *Server) deleteDatabaseColumn(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.repo.DeleteDatabaseColumn(r.Context(), projectID, databaseID, tableID, columnID, databaseActorFrom(r)); databaseResourceError(w, err) {
+	err := s.repo.DeleteDatabaseColumn(r.Context(), projectID, databaseID, tableID, columnID, databaseActorFrom(r))
+	if databaseResourceError(w, err) {
 		return
-	} else if err != nil {
+	}
+	if err != nil {
 		internalError(s, w, err)
 		return
 	}

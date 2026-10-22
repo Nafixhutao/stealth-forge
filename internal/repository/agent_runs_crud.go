@@ -10,7 +10,18 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (r *Repository) ListAgentRuns(ctx context.Context, accountID, agentID uuid.UUID, limit int, cursor *uuid.UUID) ([]domain.AgentRun, string, bool, error) {
+func (r *Repository) ListAgentRuns(
+	ctx context.Context,
+	accountID,
+	agentID uuid.UUID,
+	limit int,
+	cursor *uuid.UUID,
+) (
+	[]domain.AgentRun,
+	string,
+	bool,
+	error,
+) {
 	if limit < 1 || limit > 100 {
 		return nil, "", false, fmt.Errorf("%w: limit must be between 1 and 100", ErrInvalidAgentRun)
 	}
@@ -72,7 +83,16 @@ func (r *Repository) AgentRunByID(ctx context.Context, accountID, agentID, runID
 	return item, err
 }
 
-func (r *Repository) CreateAgentRun(ctx context.Context, id, accountID, agentID uuid.UUID, input AgentRunInput) (domain.AgentRun, error) {
+func (r *Repository) CreateAgentRun(
+	ctx context.Context,
+	id,
+	accountID,
+	agentID uuid.UUID,
+	input AgentRunInput,
+) (
+	domain.AgentRun,
+	error,
+) {
 	prompt, err := normalizeAgentRunPrompt(input.Prompt)
 	if err != nil {
 		return domain.AgentRun{}, err
@@ -83,9 +103,11 @@ func (r *Repository) CreateAgentRun(ctx context.Context, id, accountID, agentID 
 	}
 	defer tx.Rollback(ctx)
 	var projectID uuid.UUID
-	if err := tx.QueryRow(ctx, `SELECT project_id FROM project_agents WHERE id=$1 FOR UPDATE`, agentID).Scan(&projectID); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT project_id FROM project_agents WHERE id=$1 FOR UPDATE`, agentID).Scan(&projectID)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.AgentRun{}, ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return domain.AgentRun{}, err
 	}
 	if err := requireProjectRoleTx(ctx, tx, projectID, accountID, "owner", "admin"); err != nil {
@@ -125,9 +147,11 @@ func (r *Repository) CancelAgentRun(ctx context.Context, accountID, agentID, run
 	}
 	defer tx.Rollback(ctx)
 	var projectID uuid.UUID
-	if err := tx.QueryRow(ctx, `SELECT project_id FROM agent_runs WHERE agent_id=$1 AND id=$2 FOR UPDATE`, agentID, runID).Scan(&projectID); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT project_id FROM agent_runs WHERE agent_id=$1 AND id=$2 FOR UPDATE`, agentID, runID).Scan(&projectID)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.AgentRun{}, ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return domain.AgentRun{}, err
 	}
 	if err := requireProjectRoleTx(ctx, tx, projectID, accountID, "owner", "admin"); err != nil {

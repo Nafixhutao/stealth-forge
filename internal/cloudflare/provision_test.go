@@ -83,7 +83,15 @@ func (c *provisioningClient) CreateDNSRecord(_ context.Context, _ string, record
 	return record, nil
 }
 
-func (c *provisioningClient) UpdateDNSRecord(_ context.Context, _, recordID string, record DNSRecord) (DNSRecord, error) {
+func (c *provisioningClient) UpdateDNSRecord(
+	_ context.Context,
+	_,
+	recordID string,
+	record DNSRecord,
+) (
+	DNSRecord,
+	error,
+) {
 	for index := range c.records {
 		if c.records[index].ID == recordID {
 			record.ID = recordID
@@ -110,7 +118,13 @@ type failingUpdateStore struct {
 	count  int
 }
 
-func (s *failingUpdateStore) Update(ctx context.Context, mutate func(*setupstate.State) error) (setupstate.State, error) {
+func (s *failingUpdateStore) Update(
+	ctx context.Context,
+	mutate func(*setupstate.State) error,
+) (
+	setupstate.State,
+	error,
+) {
 	s.count++
 	if s.failOn > 0 && s.count == s.failOn {
 		return setupstate.State{}, errors.New("simulated durable state failure")
@@ -138,7 +152,12 @@ func TestProvisionReconcilesTunnelAfterTunnelIDStateFailure(t *testing.T) {
 	baseStore := newProvisioningStore(t)
 	store := &failingUpdateStore{Store: baseStore, failOn: 2}
 	client := &provisioningClient{zones: []Zone{{ID: "zone-1", Name: "example.test"}}}
-	request := ProvisionRequest{AccountID: "account-1", ZoneID: "zone-1", Hostname: "app.example.test", Name: "stealth-test"}
+	request := ProvisionRequest{
+		AccountID: "account-1",
+		ZoneID:    "zone-1",
+		Hostname:  "app.example.test",
+		Name:      "stealth-test",
+	}
 
 	if _, err := Provision(context.Background(), store, client, request); !errors.Is(err, ErrState) {
 		t.Fatalf("first provisioning error = %v, want durable state error", err)
@@ -164,7 +183,12 @@ func TestProvisionReconcilesDNSAfterFinalStateFailure(t *testing.T) {
 	baseStore := newProvisioningStore(t)
 	store := &failingUpdateStore{Store: baseStore, failOn: 4}
 	client := &provisioningClient{zones: []Zone{{ID: "zone-1", Name: "example.test"}}}
-	request := ProvisionRequest{AccountID: "account-1", ZoneID: "zone-1", Hostname: "app.example.test", Name: "stealth-test"}
+	request := ProvisionRequest{
+		AccountID: "account-1",
+		ZoneID:    "zone-1",
+		Hostname:  "app.example.test",
+		Name:      "stealth-test",
+	}
 
 	if _, err := Provision(context.Background(), store, client, request); !errors.Is(err, ErrState) {
 		t.Fatalf("first provisioning error = %v, want durable state error", err)
@@ -188,7 +212,12 @@ func TestProvisionRejectsPreexistingTunnelNameOnFirstAttempt(t *testing.T) {
 		zones:   []Zone{{ID: "zone-1", Name: "example.test"}},
 		tunnels: []Tunnel{{ID: "existing", Name: "stealth-test"}},
 	}
-	_, err := Provision(context.Background(), store, client, ProvisionRequest{AccountID: "account-1", ZoneID: "zone-1", Hostname: "app.example.test", Name: "stealth-test"})
+	_, err := Provision(
+		context.Background(),
+		store,
+		client,
+		ProvisionRequest{AccountID: "account-1", ZoneID: "zone-1", Hostname: "app.example.test", Name: "stealth-test"},
+	)
 	if !errors.Is(err, ErrConflict) || client.createTunnelCall != 0 {
 		t.Fatalf("preexisting tunnel result = %v, create calls = %d", err, client.createTunnelCall)
 	}
@@ -200,7 +229,12 @@ func TestProvisionRejectsExistingNonCNAMEAtDashboardHostname(t *testing.T) {
 		zones:   []Zone{{ID: "zone-1", Name: "example.test"}},
 		records: []DNSRecord{{ID: "record-a", Type: "A", Name: "app.example.test", Content: "192.0.2.10"}},
 	}
-	_, err := Provision(context.Background(), store, client, ProvisionRequest{AccountID: "account-1", ZoneID: "zone-1", Hostname: "app.example.test", Name: "stealth-test"})
+	_, err := Provision(
+		context.Background(),
+		store,
+		client,
+		ProvisionRequest{AccountID: "account-1", ZoneID: "zone-1", Hostname: "app.example.test", Name: "stealth-test"},
+	)
 	if !errors.Is(err, ErrConflict) || client.createRecordCall != 0 {
 		t.Fatalf("existing non-CNAME result = %v, create calls = %d", err, client.createRecordCall)
 	}
@@ -217,7 +251,12 @@ func TestProvisionRejectsExistingCNAMEWithoutCreatingOrphanTunnel(t *testing.T) 
 		zones:   []Zone{{ID: "zone-1", Name: "example.test"}},
 		records: []DNSRecord{{ID: "record-b", Type: "CNAME", Name: "app.example.test", Content: "11111111-2222-3333-4444-555555555555.cfargotunnel.com", Proxied: true}},
 	}
-	_, err := Provision(context.Background(), store, client, ProvisionRequest{AccountID: "account-1", ZoneID: "zone-1", Hostname: "app.example.test", Name: "stealth-test"})
+	_, err := Provision(
+		context.Background(),
+		store,
+		client,
+		ProvisionRequest{AccountID: "account-1", ZoneID: "zone-1", Hostname: "app.example.test", Name: "stealth-test"},
+	)
 	if !errors.Is(err, ErrConflict) {
 		t.Fatalf("existing CNAME result = %v, want conflict", err)
 	}
@@ -265,7 +304,11 @@ func TestProvisionRejectsCloudflareBindingSelectorChanges(t *testing.T) {
 				t.Fatalf("binding change error = %v", err)
 			}
 			if client.createTunnelCall != 0 || client.createRecordCall != 0 {
-				t.Fatalf("binding change caused provider writes: tunnel=%d record=%d", client.createTunnelCall, client.createRecordCall)
+				t.Fatalf(
+					"binding change caused provider writes: tunnel=%d record=%d",
+					client.createTunnelCall,
+					client.createRecordCall,
+				)
 			}
 		})
 	}

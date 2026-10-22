@@ -10,7 +10,15 @@ import (
 	"syscall"
 )
 
-func PublishLegacySetupSnapshot(ctx context.Context, sourcePath, inputDirectory string, owners ...*FileOwner) (published bool, resultErr error) {
+func PublishLegacySetupSnapshot(
+	ctx context.Context,
+	sourcePath,
+	inputDirectory string,
+	owners ...*FileOwner,
+) (
+	published bool,
+	resultErr error,
+) {
 	if err := ctx.Err(); err != nil {
 		return false, err
 	}
@@ -73,7 +81,11 @@ func PublishLegacySetupSnapshot(ctx context.Context, sourcePath, inputDirectory 
 	source := os.NewFile(uintptr(fd), sourcePath)
 	defer source.Close()
 	info, err := source.Stat()
-	if err != nil || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > maxSetupSnapshotBytes || info.Mode().Perm()&0o007 != 0 {
+	if err != nil ||
+		!info.Mode().IsRegular() ||
+		info.Size() <= 0 ||
+		info.Size() > maxSetupSnapshotBytes ||
+		info.Mode().Perm()&0o007 != 0 {
 		return false, errInvalidSource
 	}
 	contents, err := io.ReadAll(io.LimitReader(source, maxSetupSnapshotBytes+1))
@@ -116,7 +128,9 @@ func cleanLegacySetupInputDirectory(directory string) error {
 	removed := false
 	for _, entry := range entries {
 		name := entry.Name()
-		if name != legacySetupSnapshotName && name != legacySetupTempName && !strings.HasPrefix(name, ".setup-state.enc.tmp-") {
+		if name != legacySetupSnapshotName &&
+			name != legacySetupTempName &&
+			!strings.HasPrefix(name, ".setup-state.enc.tmp-") {
 			return errInvalidSource
 		}
 		path := filepath.Join(directory, name)

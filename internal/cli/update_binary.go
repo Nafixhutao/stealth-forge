@@ -43,7 +43,10 @@ func extractUpdateBinary(archive []byte) (string, string, error) {
 			cleanup()
 			return "", "", fmt.Errorf("read tar archive: %w", nextErr)
 		}
-		if header.Name != "stealth" || path.IsAbs(header.Name) || filepath.IsAbs(header.Name) || path.Clean(header.Name) != header.Name {
+		if header.Name != "stealth" ||
+			path.IsAbs(header.Name) ||
+			filepath.IsAbs(header.Name) ||
+			path.Clean(header.Name) != header.Name {
 			_ = reader.Close()
 			cleanup()
 			return "", "", fmt.Errorf("release archive contains unexpected path %q", header.Name)
@@ -126,7 +129,11 @@ func (a *App) replaceExecutable(ctx context.Context, source, target string) erro
 	}
 	temporary, err := os.CreateTemp(filepath.Dir(target), ".stealth-update-")
 	if err != nil {
-		return fmt.Errorf("cannot update this installation because %s is not writable; re-run the update with appropriate system permissions: %w", target, err)
+		return fmt.Errorf(
+			"cannot update this installation because %s is not writable; re-run the update with appropriate system permissions: %w",
+			target,
+			err,
+		)
 	}
 	temporaryPath := temporary.Name()
 	defer os.Remove(temporaryPath)

@@ -181,8 +181,7 @@ func (r *Repository) CreateAdminMonitor(
 		return domain.AdminMonitor{}, err
 	}
 	_, err = tx.Exec(ctx, `
-		INSERT INTO admin_monitors
-		(id,name,kind,target,interval_seconds,timeout_ms,enabled,public_config,config_encrypted,heartbeat_token_hash,next_check_at,created_by_account_id)
+		INSERT INTO admin_monitors (id,name,kind,target,interval_seconds,timeout_ms,enabled,public_config,config_encrypted,heartbeat_token_hash,next_check_at,created_by_account_id)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now(),$11)`,
 		id, input.Name, input.Kind, input.Target, input.IntervalSeconds, input.TimeoutMS,
 		input.Enabled, input.PublicConfig, encryptedConfig, nullableHeartbeatHash(input.HeartbeatTokenHash), accountID)
@@ -480,7 +479,7 @@ func completeAdminMonitorCheckTx(
 		    last_latency_ms=$4,last_status_code=$5,last_error=$6,
 		    next_check_at=now()+($7::double precision * interval '1 second'),
 		    leased_at=NULL,worker_id=NULL,updated_at=now()
-		WHERE id=$1 AND worker_id=$8`, monitorID, newStatus, input.Success, input.LatencyMS, statusCode, lastError, maxInt(inputInterval(ctx, tx, monitorID), 5), workerID)
+		WHERE id=$1 AND worker_id=$8`, monitorID, newStatus, input.Success, input.LatencyMS, statusCode, lastError, max(inputInterval(ctx, tx, monitorID), 5), workerID)
 	if err != nil {
 		return err
 	}
@@ -636,57 +635,4 @@ func inputInterval(ctx context.Context, tx pgx.Tx, monitorID uuid.UUID) int {
 		return 5
 	}
 	return interval
-}
-
-func maxInt(value, minimum int) int {
-	if value < minimum {
-		return minimum
-	}
-	return value
-}
-
-func requireInstanceAdminTx(ctx context.Context, tx pgx.Tx, accountID uuid.UUID) error {
-	if accountID == uuid.Nil {
-		return ErrForbidden
-	}
-	var allowed bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM instance_roles WHERE account_id=$1 AND role IN ('instance_owner','instance_admin'))`, accountID).Scan(&allowed); err != nil {
-		return err
-	}
-	if !allowed {
-		return ErrForbidden
-	}
-	return nil
-}
-
-func writeInstanceAuditTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	actor uuid.UUID,
-	action, targetType string,
-	target uuid.UUID,
-	metadata map[string]any,
-) error {
-	encoded, err := json.Marshal(metadata)
-	if err != nil {
-		return err
-	}
-	id, err := uuid.NewV7()
-	if err != nil {
-		return err
-	}
-	_, err = tx.Exec(
-		ctx,
-		`INSERT INTO audit_events (id,organization_id,actor_account_id,action,target_type,target_id,metadata) VALUES ($1,NULL,$2,$3,$4,$5,$6)`,
-		id,
-		actor,
-		action,
-		targetType,
-		target,
-		encoded,
-	)
-	if err != nil {
-		return err
-	}
-	return enqueueAdminRealtimeEventTx(ctx, tx, action, targetType, target, nil)
 }

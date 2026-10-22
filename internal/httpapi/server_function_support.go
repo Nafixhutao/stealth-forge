@@ -18,7 +18,12 @@ import (
 // actors were already bound to projectID by requireProjectManagement, so only
 // the write scope remains; console actors must resolve an owner/admin role and
 // the function must exist in the project.
-func (s *Server) authorizeFunctionDeploymentWrite(w http.ResponseWriter, r *http.Request, projectID, functionID uuid.UUID) bool {
+func (s *Server) authorizeFunctionDeploymentWrite(
+	w http.ResponseWriter,
+	r *http.Request,
+	projectID,
+	functionID uuid.UUID,
+) bool {
 	actor := functionActorFrom(r)
 	if actor.Kind == repository.FunctionAPIKeyActor {
 		if !apikey.HasScope(actor.APIKeyScopes, "functions.write") {
@@ -85,6 +90,10 @@ func functionExecutionPathIDs(w http.ResponseWriter, r *http.Request) (uuid.UUID
 	return projectID, functionID, executionID, true
 }
 
+// functionVariableKind validates the requested kind and its is_secret pairing
+// before the repository sees the input. The repository owns the same rule for
+// worker and internal callers; this copy only decides the HTTP status, so the
+// two must stay identical.
 func functionVariableKind(kind string, isSecret *bool) (string, bool, error) {
 	return normalizeFunctionKind(kind, isSecret)
 }
@@ -120,18 +129,36 @@ func functionResourceError(w http.ResponseWriter, err error) bool {
 		writeError(w, http.StatusConflict, "conflict", "function resource conflicts with an existing resource")
 		return true
 	case errors.Is(err, repository.ErrFunctionQuotaExceeded):
-		writeError(w, http.StatusRequestEntityTooLarge, "function_quota_exceeded", "function artifact quota would be exceeded")
+		writeError(
+			w,
+			http.StatusRequestEntityTooLarge,
+			"function_quota_exceeded",
+			"function artifact quota would be exceeded",
+		)
 		return true
 	case errors.Is(err, repository.ErrFunctionArtifactTooLarge), errors.Is(err, functionstore.ErrTooLarge):
-		writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "function source artifact exceeds the configured maximum size")
+		writeError(
+			w,
+			http.StatusRequestEntityTooLarge,
+			"payload_too_large",
+			"function source artifact exceeds the configured maximum size",
+		)
 		return true
 	case errors.Is(err, repository.ErrFunctionSecretUnavailable):
 		writeError(w, http.StatusServiceUnavailable, "not_ready", "function secret encryption is not ready")
 		return true
-	case errors.Is(err, repository.ErrDeploymentActive), errors.Is(err, repository.ErrInvalidFunctionTransition), errors.Is(err, repository.ErrExecutionNotAvailable), errors.Is(err, repository.ErrFunctionDisabled):
+	case errors.Is(err, repository.ErrDeploymentActive),
+		errors.Is(err, repository.ErrInvalidFunctionTransition),
+		errors.Is(err, repository.ErrExecutionNotAvailable),
+		errors.Is(err, repository.ErrFunctionDisabled):
 		writeError(w, http.StatusConflict, "conflict", err.Error())
 		return true
-	case errors.Is(err, repository.ErrInvalidFunctionVariable), errors.Is(err, repository.ErrInvalidFunctionSettings), errors.Is(err, database.ErrInvalidPermissions), errors.Is(err, database.ErrDuplicatePermission), errors.Is(err, storage.ErrInvalidFilename), errors.Is(err, functionstore.ErrInvalidPath):
+	case errors.Is(err, repository.ErrInvalidFunctionVariable),
+		errors.Is(err, repository.ErrInvalidFunctionSettings),
+		errors.Is(err, database.ErrInvalidPermissions),
+		errors.Is(err, database.ErrDuplicatePermission),
+		errors.Is(err, storage.ErrInvalidFilename),
+		errors.Is(err, functionstore.ErrInvalidPath):
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", err.Error())
 		return true
 	}

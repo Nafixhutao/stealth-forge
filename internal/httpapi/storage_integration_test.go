@@ -175,7 +175,10 @@ func TestStorageBinaryQuotaPermissionsAndAPIKeyRevocationIntegration(t *testing.
 		t.Fatal(err)
 	}
 	wantDigest := sha256.Sum256(content)
-	if fileResponse.File.Name != "document.bin" || fileResponse.File.MimeType != "text/plain" || fileResponse.File.Size != int64(len(content)) || fileResponse.File.Checksum != hex.EncodeToString(wantDigest[:]) {
+	if fileResponse.File.Name != "document.bin" ||
+		fileResponse.File.MimeType != "text/plain" ||
+		fileResponse.File.Size != int64(len(content)) ||
+		fileResponse.File.Checksum != hex.EncodeToString(wantDigest[:]) {
 		t.Fatalf("unexpected file metadata: %s", fileBody)
 	}
 	if len(fileResponse.File.Read) != 1 || fileResponse.File.Read[0] != "user:"+appUser.User.ID {
@@ -206,10 +209,15 @@ func TestStorageBinaryQuotaPermissionsAndAPIKeyRevocationIntegration(t *testing.
 	}
 	downloaded, readErr := io.ReadAll(downloadResponse.Body)
 	closeErr := downloadResponse.Body.Close()
-	if downloadResponse.StatusCode != http.StatusOK || readErr != nil || closeErr != nil || !bytes.Equal(downloaded, content) {
+	if downloadResponse.StatusCode != http.StatusOK ||
+		readErr != nil ||
+		closeErr != nil ||
+		!bytes.Equal(downloaded, content) {
 		t.Fatalf("download status=%d bytes=%q read=%v close=%v", downloadResponse.StatusCode, downloaded, readErr, closeErr)
 	}
-	if downloadResponse.Header.Get("Content-Disposition") == "" || downloadResponse.Header.Get("X-Content-Type-Options") != "nosniff" || downloadResponse.Header.Get("Cache-Control") != "private, no-store" {
+	if downloadResponse.Header.Get("Content-Disposition") == "" ||
+		downloadResponse.Header.Get("X-Content-Type-Options") != "nosniff" ||
+		downloadResponse.Header.Get("Cache-Control") != "private, no-store" {
 		t.Fatalf("unsafe download headers: %+v", downloadResponse.Header)
 	}
 
@@ -227,14 +235,46 @@ func TestStorageBinaryQuotaPermissionsAndAPIKeyRevocationIntegration(t *testing.
 	if len(appFiles.Files) != 1 || appFiles.Files[0].ID != fileID {
 		t.Fatalf("file grant did not authorize app list: %#v", appFiles.Files)
 	}
-	requestJSON(t, appClient, http.MethodPatch, filesURL+"/"+fileID, map[string]string{"name": "renamed.txt"}, http.StatusOK, nil)
-	requestJSON(t, appClient, http.MethodPatch, filesURL+"/"+fileID, map[string]any{"read_permissions": []string{"any"}}, http.StatusForbidden, nil)
+	requestJSON(
+		t,
+		appClient,
+		http.MethodPatch,
+		filesURL+"/"+fileID,
+		map[string]string{"name": "renamed.txt"},
+		http.StatusOK,
+		nil,
+	)
+	requestJSON(
+		t,
+		appClient,
+		http.MethodPatch,
+		filesURL+"/"+fileID,
+		map[string]any{"read_permissions": []string{"any"}},
+		http.StatusForbidden,
+		nil,
+	)
 
-	tooLarge := uploadStorageMultipart(t, ownerClient, filesURL, "six.txt", []byte("123456"), nil, http.StatusRequestEntityTooLarge)
+	tooLarge := uploadStorageMultipart(
+		t,
+		ownerClient,
+		filesURL,
+		"six.txt",
+		[]byte("123456"),
+		nil,
+		http.StatusRequestEntityTooLarge,
+	)
 	if !bytes.Contains(tooLarge, []byte("payload_too_large")) {
 		t.Fatalf("max-file response = %s", tooLarge)
 	}
-	quotaExceeded := uploadStorageMultipart(t, ownerClient, filesURL, "four.txt", []byte("1234"), nil, http.StatusRequestEntityTooLarge)
+	quotaExceeded := uploadStorageMultipart(
+		t,
+		ownerClient,
+		filesURL,
+		"four.txt",
+		[]byte("1234"),
+		nil,
+		http.StatusRequestEntityTooLarge,
+	)
 	if !bytes.Contains(quotaExceeded, []byte("storage_quota_exceeded")) {
 		t.Fatalf("quota response = %s", quotaExceeded)
 	}
@@ -300,7 +340,15 @@ func TestStorageBinaryQuotaPermissionsAndAPIKeyRevocationIntegration(t *testing.
 		"quota_bytes":         8,
 	}, http.StatusCreated, &creatorBucket)
 	creatorFilesURL := projectURL + "/storage/buckets/" + creatorBucket.Bucket.ID + "/files"
-	creatorFileBody := uploadStorageMultipart(t, appClient, creatorFilesURL, "creator.bin", []byte("ownr"), nil, http.StatusCreated)
+	creatorFileBody := uploadStorageMultipart(
+		t,
+		appClient,
+		creatorFilesURL,
+		"creator.bin",
+		[]byte("ownr"),
+		nil,
+		http.StatusCreated,
+	)
 	var creatorFile struct {
 		File struct {
 			ID string `json:"id"`
@@ -332,8 +380,17 @@ func TestStorageBinaryQuotaPermissionsAndAPIKeyRevocationIntegration(t *testing.
 	if err := pool.QueryRow(ctx, `SELECT project_id,creator_project_user_id FROM database_rows WHERE id=$1`, rowID).Scan(&databaseProjectID, &databaseCreator); err != nil {
 		t.Fatal(err)
 	}
-	if storageProjectID.String() != project.Project.ID || databaseProjectID.String() != project.Project.ID || storageCreator != nil || databaseCreator != nil {
-		t.Fatalf("creator FK delete changed tenant or retained creator: storage project=%s creator=%v database project=%s creator=%v", storageProjectID, storageCreator, databaseProjectID, databaseCreator)
+	if storageProjectID.String() != project.Project.ID ||
+		databaseProjectID.String() != project.Project.ID ||
+		storageCreator != nil ||
+		databaseCreator != nil {
+		t.Fatalf(
+			"creator FK delete changed tenant or retained creator: storage project=%s creator=%v database project=%s creator=%v",
+			storageProjectID,
+			storageCreator,
+			databaseProjectID,
+			databaseCreator,
+		)
 	}
 
 	// Anonymous writes are available only when the bucket allows create and
@@ -355,7 +412,15 @@ func TestStorageBinaryQuotaPermissionsAndAPIKeyRevocationIntegration(t *testing.
 	}, http.StatusCreated, &anonymousBucket)
 	anonymousFilesURL := projectURL + "/storage/buckets/" + anonymousBucket.Bucket.ID + "/files"
 	anonymousClient := newIntegrationClient(t)
-	missingAnonymousGrants := uploadStorageMultipart(t, anonymousClient, anonymousFilesURL, "anonymous.bin", []byte("anon"), nil, http.StatusUnprocessableEntity)
+	missingAnonymousGrants := uploadStorageMultipart(
+		t,
+		anonymousClient,
+		anonymousFilesURL,
+		"anonymous.bin",
+		[]byte("anon"),
+		nil,
+		http.StatusUnprocessableEntity,
+	)
 	if !bytes.Contains(missingAnonymousGrants, []byte("anonymous uploads")) {
 		t.Fatalf("anonymous missing-grants response = %s", missingAnonymousGrants)
 	}
@@ -375,8 +440,24 @@ func TestStorageBinaryQuotaPermissionsAndAPIKeyRevocationIntegration(t *testing.
 	if err := json.Unmarshal(readOnlyKeyBody, &readOnlyKey); err != nil {
 		t.Fatal(err)
 	}
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, projectURL+"/storage/buckets", nil, http.StatusOK, map[string]string{"X-Stealth-Key": readOnlyKey.Secret})
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodPost, projectURL+"/storage/buckets", map[string]any{"name": "read-only-cannot-write"}, http.StatusForbidden, map[string]string{"X-Stealth-Key": readOnlyKey.Secret})
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		projectURL+"/storage/buckets",
+		nil,
+		http.StatusOK,
+		map[string]string{"X-Stealth-Key": readOnlyKey.Secret},
+	)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodPost,
+		projectURL+"/storage/buckets",
+		map[string]any{"name": "read-only-cannot-write"},
+		http.StatusForbidden,
+		map[string]string{"X-Stealth-Key": readOnlyKey.Secret},
+	)
 
 	writeOnlyKeyBody := requestJSONRaw(t, ownerClient, http.MethodPost, projectURL+"/api-keys", map[string]any{
 		"name":   "storage write-only integration key",
@@ -388,8 +469,24 @@ func TestStorageBinaryQuotaPermissionsAndAPIKeyRevocationIntegration(t *testing.
 	if err := json.Unmarshal(writeOnlyKeyBody, &writeOnlyKey); err != nil {
 		t.Fatal(err)
 	}
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodGet, projectURL+"/storage/buckets", nil, http.StatusForbidden, map[string]string{"X-Stealth-Key": writeOnlyKey.Secret})
-	requestJSONWithHeaders(t, newIntegrationClient(t), http.MethodPost, projectURL+"/storage/buckets", map[string]any{"name": "write-only-bucket"}, http.StatusCreated, map[string]string{"X-Stealth-Key": writeOnlyKey.Secret})
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodGet,
+		projectURL+"/storage/buckets",
+		nil,
+		http.StatusForbidden,
+		map[string]string{"X-Stealth-Key": writeOnlyKey.Secret},
+	)
+	requestJSONWithHeaders(
+		t,
+		newIntegrationClient(t),
+		http.MethodPost,
+		projectURL+"/storage/buckets",
+		map[string]any{"name": "write-only-bucket"},
+		http.StatusCreated,
+		map[string]string{"X-Stealth-Key": writeOnlyKey.Secret},
+	)
 
 	keyBody := requestJSONRaw(t, ownerClient, http.MethodPost, projectURL+"/api-keys", map[string]any{
 		"name":   "storage integration key",
@@ -407,7 +504,15 @@ func TestStorageBinaryQuotaPermissionsAndAPIKeyRevocationIntegration(t *testing.
 	keyClient := newIntegrationClient(t)
 	keyHeaders := map[string]string{"X-Stealth-Key": createdKey.Secret}
 	requestJSONWithHeaders(t, keyClient, http.MethodGet, projectURL+"/storage/buckets", nil, http.StatusOK, keyHeaders)
-	requestJSON(t, ownerClient, http.MethodDelete, projectURL+"/storage/buckets/"+bucket.Bucket.ID+"/files/"+fileID, nil, http.StatusNoContent, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodDelete,
+		projectURL+"/storage/buckets/"+bucket.Bucket.ID+"/files/"+fileID,
+		nil,
+		http.StatusNoContent,
+		nil,
+	)
 	cleanupStore, err := storage.New(storageRoot, 1<<20)
 	if err != nil {
 		t.Fatal(err)
@@ -458,7 +563,15 @@ func TestStorageBinaryQuotaPermissionsAndAPIKeyRevocationIntegration(t *testing.
 	}
 	// Console/API-key uploads may omit file grants. Omission must persist as
 	// non-null empty arrays (default deny), never as SQL NULL.
-	defaultGrantBody := uploadStorageMultipart(t, ownerClient, filesURL, "default-deny.bin", []byte("x"), nil, http.StatusCreated)
+	defaultGrantBody := uploadStorageMultipart(
+		t,
+		ownerClient,
+		filesURL,
+		"default-deny.bin",
+		[]byte("x"),
+		nil,
+		http.StatusCreated,
+	)
 	var defaultGrantFile struct {
 		File struct {
 			ID     string   `json:"id"`
@@ -470,13 +583,34 @@ func TestStorageBinaryQuotaPermissionsAndAPIKeyRevocationIntegration(t *testing.
 	if err := json.Unmarshal(defaultGrantBody, &defaultGrantFile); err != nil {
 		t.Fatal(err)
 	}
-	if defaultGrantFile.File.Read == nil || defaultGrantFile.File.Update == nil || defaultGrantFile.File.Delete == nil || len(defaultGrantFile.File.Read) != 0 || len(defaultGrantFile.File.Update) != 0 || len(defaultGrantFile.File.Delete) != 0 {
+	if defaultGrantFile.File.Read == nil ||
+		defaultGrantFile.File.Update == nil ||
+		defaultGrantFile.File.Delete == nil ||
+		len(defaultGrantFile.File.Read) != 0 ||
+		len(defaultGrantFile.File.Update) != 0 ||
+		len(defaultGrantFile.File.Delete) != 0 {
 		t.Fatalf("omitted management grants must be non-null empty arrays: %+v", defaultGrantFile.File)
 	}
 	requestJSON(t, ownerClient, http.MethodDelete, filesURL+"/"+defaultGrantFile.File.ID, nil, http.StatusNoContent, nil)
 	requestJSONWithHeaders(t, keyClient, http.MethodGet, projectURL+"/storage/buckets", nil, http.StatusOK, keyHeaders)
-	requestJSON(t, ownerClient, http.MethodDelete, projectURL+"/api-keys/"+createdKey.Key.ID, nil, http.StatusNoContent, nil)
-	requestJSONWithHeaders(t, keyClient, http.MethodGet, projectURL+"/storage/buckets", nil, http.StatusUnauthorized, keyHeaders)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodDelete,
+		projectURL+"/api-keys/"+createdKey.Key.ID,
+		nil,
+		http.StatusNoContent,
+		nil,
+	)
+	requestJSONWithHeaders(
+		t,
+		keyClient,
+		http.MethodGet,
+		projectURL+"/storage/buckets",
+		nil,
+		http.StatusUnauthorized,
+		keyHeaders,
+	)
 
 	otherProject := struct {
 		Project struct {
@@ -486,7 +620,15 @@ func TestStorageBinaryQuotaPermissionsAndAPIKeyRevocationIntegration(t *testing.
 	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/organizations/"+ownerRegistration.Organization.ID+"/projects", map[string]string{
 		"name": "storage-other-" + ownerID.String()[:12],
 	}, http.StatusCreated, &otherProject)
-	requestJSON(t, ownerClient, http.MethodGet, server.URL+"/v1/projects/"+otherProject.Project.ID+"/storage/buckets/"+bucket.Bucket.ID, nil, http.StatusNotFound, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		server.URL+"/v1/projects/"+otherProject.Project.ID+"/storage/buckets/"+bucket.Bucket.ID,
+		nil,
+		http.StatusNotFound,
+		nil,
+	)
 
 	var auditCount int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM audit_events WHERE action='storage_file.create' AND target_id=$1`, fileID).Scan(&auditCount); err != nil {
@@ -519,7 +661,15 @@ func httptestNewStorageServer(t *testing.T, root string, pool *pgxpool.Pool, log
 	}, repository.New(pool), logger, httpapi.Dependencies{AuthLimiter: integrationLimiter(t, context.Background())}))
 }
 
-func uploadStorageMultipart(t *testing.T, client *http.Client, url, filename string, content []byte, fields map[string]string, expectedStatus int) []byte {
+func uploadStorageMultipart(
+	t *testing.T,
+	client *http.Client,
+	url,
+	filename string,
+	content []byte,
+	fields map[string]string,
+	expectedStatus int,
+) []byte {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)

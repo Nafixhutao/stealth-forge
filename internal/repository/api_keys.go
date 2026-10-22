@@ -246,7 +246,16 @@ func (r *Repository) ProjectUserByIDForAPIKey(
 	err := r.pool.QueryRow(ctx, `
 		SELECT id,project_id,email,display_name,status,email_verified,created_at,updated_at
 		FROM project_users WHERE project_id=$1 AND id=$2`, projectID, userID).
-		Scan(&item.ID, &item.ProjectID, &item.Email, &item.Name, &item.Status, &item.EmailVerified, &item.CreatedAt, &item.UpdatedAt)
+		Scan(
+			&item.ID,
+			&item.ProjectID,
+			&item.Email,
+			&item.Name,
+			&item.Status,
+			&item.EmailVerified,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+		)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ApplicationUser{}, ErrNotFound
 	}
@@ -272,7 +281,16 @@ func (r *Repository) CreateProjectUserByAPIKey(
 		INSERT INTO project_users (id,project_id,email,display_name,password_hash)
 		VALUES ($1,$2,$3,$4,$5)
 		RETURNING id,project_id,email,display_name,status,email_verified,created_at,updated_at`, id, projectID, email, name, passwordHash).
-		Scan(&item.ID, &item.ProjectID, &item.Email, &item.Name, &item.Status, &item.EmailVerified, &item.CreatedAt, &item.UpdatedAt)
+		Scan(
+			&item.ID,
+			&item.ProjectID,
+			&item.Email,
+			&item.Name,
+			&item.Status,
+			&item.EmailVerified,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+		)
 	if err != nil {
 		return domain.ApplicationUser{}, mapError(err)
 	}
@@ -310,7 +328,16 @@ func (r *Repository) UpdateProjectUserStatusByAPIKey(
 	err = tx.QueryRow(ctx, `
 		SELECT id,project_id,email,display_name,status,email_verified,created_at,updated_at
 		FROM project_users WHERE project_id=$1 AND id=$2 FOR UPDATE`, projectID, userID).
-		Scan(&item.ID, &item.ProjectID, &item.Email, &item.Name, &item.Status, &item.EmailVerified, &item.CreatedAt, &item.UpdatedAt)
+		Scan(
+			&item.ID,
+			&item.ProjectID,
+			&item.Email,
+			&item.Name,
+			&item.Status,
+			&item.EmailVerified,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+		)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ApplicationUser{}, ErrNotFound
 	}
@@ -323,7 +350,16 @@ func (r *Repository) UpdateProjectUserStatusByAPIKey(
 			UPDATE project_users SET status=$3,updated_at=now()
 			WHERE project_id=$1 AND id=$2
 			RETURNING id,project_id,email,display_name,status,email_verified,created_at,updated_at`, projectID, userID, status).
-			Scan(&item.ID, &item.ProjectID, &item.Email, &item.Name, &item.Status, &item.EmailVerified, &item.CreatedAt, &item.UpdatedAt)
+			Scan(
+				&item.ID,
+				&item.ProjectID,
+				&item.Email,
+				&item.Name,
+				&item.Status,
+				&item.EmailVerified,
+				&item.CreatedAt,
+				&item.UpdatedAt,
+			)
 		if err != nil {
 			return domain.ApplicationUser{}, err
 		}

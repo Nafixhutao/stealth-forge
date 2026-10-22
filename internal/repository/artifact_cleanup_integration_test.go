@@ -99,7 +99,12 @@ func TestArtifactPublishReservationIsDurableAndAtomicIntegration(t *testing.T) {
 	finalizedPath := pathFor()
 	repo := New(pool)
 	reserve := func(path string) ArtifactCleanupInput {
-		return ArtifactCleanupInput{ProjectID: projectID, StoreKind: ArtifactCleanupStorage, Operation: ArtifactCleanupRelative, RelativePath: path}
+		return ArtifactCleanupInput{
+			ProjectID:    projectID,
+			StoreKind:    ArtifactCleanupStorage,
+			Operation:    ArtifactCleanupRelative,
+			RelativePath: path,
+		}
 	}
 	for _, input := range []ArtifactCleanupInput{reserve(reservedPath), reserve(finalizedPath)} {
 		if err := repo.ReserveArtifactPublishCleanup(ctx, input); err != nil {

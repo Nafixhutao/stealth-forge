@@ -15,7 +15,9 @@ func TestLoadTelemetrySettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if settings.otlpEndpoint != "http://tempo.example.test:4318" || settings.serviceName != "stealth-api" || settings.sampleRatio != 0.25 {
+	if settings.otlpEndpoint != "http://tempo.example.test:4318" ||
+		settings.serviceName != "stealth-api" ||
+		settings.sampleRatio != 0.25 {
 		t.Fatalf("unexpected telemetry settings: %+v", settings)
 	}
 	var config Config
@@ -46,11 +48,6 @@ func TestLoadTelemetrySettingsRejectsUnsafeValues(t *testing.T) {
 }
 
 func TestLoadTelemetryStoreSettings(t *testing.T) {
-	t.Setenv("CLICKHOUSE_ADDR", "clickhouse.example.test:9000,[::1]:9001")
-	t.Setenv("CLICKHOUSE_DATABASE", "telemetry_v2")
-	t.Setenv("CLICKHOUSE_USER", "stealth_reader")
-	t.Setenv("CLICKHOUSE_PASSWORD", "not-logged")
-	t.Setenv("OTEL_COLLECTOR_HEALTH_URL", "http://otel-collector:13133")
 	t.Setenv("TELEMETRY_MAX_QUERY_DURATION", "15s")
 	t.Setenv("TELEMETRY_MAX_QUERY_RANGE", "48h")
 	t.Setenv("TELEMETRY_MAX_QUERY_ROWS", "2500")
@@ -60,30 +57,22 @@ func TestLoadTelemetryStoreSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if settings.addr != "clickhouse.example.test:9000,[::1]:9001" || settings.database != "telemetry_v2" || settings.user != "stealth_reader" || settings.collectorHealthURL != "http://otel-collector:13133" || settings.maxDuration != 15*time.Second || settings.maxRange != 48*time.Hour || settings.maxRows != 2500 || settings.retention != 168*time.Hour {
-		t.Fatalf("unexpected ClickHouse settings: %+v", settings)
+	if settings.maxDuration != 15*time.Second ||
+		settings.maxRange != 48*time.Hour ||
+		settings.maxRows != 2500 ||
+		settings.retention != 168*time.Hour {
+		t.Fatalf("unexpected telemetry store settings: %+v", settings)
 	}
 }
 
 func TestLoadTelemetryStoreSettingsRejectsUnsafeValues(t *testing.T) {
-	t.Setenv("CLICKHOUSE_ADDR", "clickhouse.example.test:9000;DROP TABLE")
-	if _, err := loadTelemetryStoreSettings(); err == nil || !strings.Contains(err.Error(), "CLICKHOUSE_ADDR") {
-		t.Fatalf("unsafe address returned %v", err)
-	}
-	t.Setenv("CLICKHOUSE_ADDR", "clickhouse.example.test:9000")
-	t.Setenv("OTEL_COLLECTOR_HEALTH_URL", "http://otel-collector:13133")
-	t.Setenv("CLICKHOUSE_DATABASE", "telemetry;drop")
-	if _, err := loadTelemetryStoreSettings(); err == nil || !strings.Contains(err.Error(), "CLICKHOUSE_DATABASE") {
-		t.Fatalf("unsafe database returned %v", err)
-	}
-	t.Setenv("CLICKHOUSE_DATABASE", "stealth_telemetry")
 	t.Setenv("TELEMETRY_MAX_QUERY_ROWS", "10001")
 	if _, err := loadTelemetryStoreSettings(); err == nil || !strings.Contains(err.Error(), "TELEMETRY_MAX_QUERY_ROWS") {
 		t.Fatalf("unsafe row limit returned %v", err)
 	}
 	t.Setenv("TELEMETRY_MAX_QUERY_ROWS", "1000")
-	t.Setenv("OTEL_COLLECTOR_HEALTH_URL", "otel-collector:13133")
-	if _, err := loadTelemetryStoreSettings(); err == nil || !strings.Contains(err.Error(), "OTEL_COLLECTOR_HEALTH_URL") {
-		t.Fatalf("unsafe collector health URL returned %v", err)
+	t.Setenv("TELEMETRY_MAX_QUERY_RANGE", "1m")
+	if _, err := loadTelemetryStoreSettings(); err == nil || !strings.Contains(err.Error(), "TELEMETRY_MAX_QUERY_RANGE") {
+		t.Fatalf("unsafe range returned %v", err)
 	}
 }

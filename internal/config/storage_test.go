@@ -47,7 +47,9 @@ func TestStorageDefaultsRemainAvailableToStructLiteralConfigs(t *testing.T) {
 	config := Config{}
 	config.applyStorageDefaults()
 
-	if config.StorageRoot != "/var/lib/stealth/storage" || config.StorageMaxFileSize != 50<<20 || config.StorageDefaultQuotaBytes != 1<<30 {
+	if config.StorageRoot != "/var/lib/stealth/storage" ||
+		config.StorageMaxFileSize != 50<<20 ||
+		config.StorageDefaultQuotaBytes != 1<<30 {
 		t.Fatalf("storage defaults = %+v", config)
 	}
 }

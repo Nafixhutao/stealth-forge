@@ -100,7 +100,14 @@ func (r *Repository) PublicAdminStatusPage(ctx context.Context) (domain.AdminPub
 	return page, nil
 }
 
-func (r *Repository) UpdateAdminStatusPage(ctx context.Context, accountID uuid.UUID, input AdminStatusPageInput) (domain.AdminStatusPage, error) {
+func (r *Repository) UpdateAdminStatusPage(
+	ctx context.Context,
+	accountID uuid.UUID,
+	input AdminStatusPageInput,
+) (
+	domain.AdminStatusPage,
+	error,
+) {
 	normalized, err := normalizeAdminStatusPageInput(input)
 	if err != nil {
 		return domain.AdminStatusPage{}, err
@@ -129,8 +136,14 @@ func (r *Repository) UpdateAdminStatusPage(ctx context.Context, accountID uuid.U
 	if err := json.Unmarshal(components, &item.Components); err != nil {
 		return domain.AdminStatusPage{}, err
 	}
+	if item.Components == nil {
+		item.Components = []map[string]any{}
+	}
 	if err := json.Unmarshal(published, &item.PublishedIncidents); err != nil {
 		return domain.AdminStatusPage{}, err
+	}
+	if item.PublishedIncidents == nil {
+		item.PublishedIncidents = []string{}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return domain.AdminStatusPage{}, err
@@ -150,7 +163,10 @@ func normalizeAdminStatusPageInput(input AdminStatusPageInput) (AdminStatusPageI
 		return AdminStatusPageInput{}, ErrInvalidAdminStatus
 	}
 	var components []map[string]any
-	if err := json.Unmarshal(input.Components, &components); err != nil || len(components) > 64 {
+	if err := json.Unmarshal(input.Components, &components); err != nil || components == nil || len(components) > 64 {
+		// A JSON null unmarshals to a nil slice without error. The status page
+		// requires an array, so null must be rejected rather than silently
+		// clearing every published component.
 		return AdminStatusPageInput{}, ErrInvalidAdminStatus
 	}
 	for _, component := range components {
@@ -179,12 +195,17 @@ func normalizeAdminStatusPageInput(input AdminStatusPageInput) (AdminStatusPageI
 }
 
 func validatePublicStatusComponent(component map[string]any) error {
-	if component == nil || !conditionHasBoundedString(component, "name", 120) || !conditionHasBoundedString(component, "status", 32) {
+	if component == nil ||
+		!conditionHasBoundedString(component, "name", 120) ||
+		!conditionHasBoundedString(component, "status", 32) {
 		return ErrInvalidAdminStatus
 	}
 	allowed := map[string]bool{"name": true, "status": true, "description": true, "url": true}
 	for key, value := range component {
-		if !allowed[key] || strings.Contains(strings.ToLower(key), "secret") || strings.Contains(strings.ToLower(key), "token") || strings.Contains(strings.ToLower(key), "password") {
+		if !allowed[key] ||
+			strings.Contains(strings.ToLower(key), "secret") ||
+			strings.Contains(strings.ToLower(key), "token") ||
+			strings.Contains(strings.ToLower(key), "password") {
 			return ErrInvalidAdminStatus
 		}
 		text, ok := value.(string)
@@ -200,7 +221,12 @@ func validatePublicStatusComponent(component map[string]any) error {
 		}
 		if key == "url" {
 			parsed, err := url.ParseRequestURI(text)
-			if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+			if err != nil {
+				return ErrInvalidAdminStatus
+			}
+			schemeOK := parsed.Scheme == "http" || parsed.Scheme == "https"
+			noExtras := parsed.User == nil && parsed.RawQuery == "" && parsed.Fragment == ""
+			if !schemeOK || parsed.Host == "" || !noExtras {
 				return ErrInvalidAdminStatus
 			}
 		}

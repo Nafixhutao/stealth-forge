@@ -25,7 +25,14 @@ func (f *fakeMonitoringPersistence) RequeueStaleAdminMonitors(context.Context, t
 	return 0, nil
 }
 
-func (f *fakeMonitoringPersistence) ClaimNextAdminMonitor(context.Context, string, time.Duration) (repository.AdminMonitorJob, error) {
+func (f *fakeMonitoringPersistence) ClaimNextAdminMonitor(
+	context.Context,
+	string,
+	time.Duration,
+) (
+	repository.AdminMonitorJob,
+	error,
+) {
 	if f.claimed > 0 {
 		return repository.AdminMonitorJob{}, repository.ErrNoAdminMonitor
 	}
@@ -33,7 +40,12 @@ func (f *fakeMonitoringPersistence) ClaimNextAdminMonitor(context.Context, strin
 	return f.job, nil
 }
 
-func (f *fakeMonitoringPersistence) CompleteAdminMonitorCheck(_ context.Context, _ uuid.UUID, _ string, result repository.AdminMonitorCheckInput) error {
+func (f *fakeMonitoringPersistence) CompleteAdminMonitorCheck(
+	_ context.Context,
+	_ uuid.UUID,
+	_ string,
+	result repository.AdminMonitorCheckInput,
+) error {
 	f.completed++
 	f.lastResult = result
 	return f.completeErr

@@ -483,7 +483,12 @@ func (e *Engine) resolveIngressNetworkConfig(
 		if subnet, found, subnetErr := dockerNetworkSubnetForName(networks, current.Name); subnetErr != nil {
 			return IngressNetworkConfig{}, subnetErr
 		} else if found && subnet != current.Subnet {
-			return IngressNetworkConfig{}, fmt.Errorf("configured Stealth ingress subnet %s does not match existing Docker network %q subnet %s", current.Subnet, current.Name, subnet)
+			return IngressNetworkConfig{}, fmt.Errorf(
+				"configured Stealth ingress subnet %s does not match existing Docker network %q subnet %s",
+				current.Subnet,
+				current.Name,
+				subnet,
+			)
 		}
 	}
 	if !plan.Existing && dockerNetworkNameExists(networks, current.Name) {
@@ -514,7 +519,11 @@ func (e *Engine) resolveIngressNetworkConfig(
 	if conflict, overlaps, err := ingressNetworkOverlaps(current, networks); err != nil {
 		return IngressNetworkConfig{}, err
 	} else if overlaps {
-		return IngressNetworkConfig{}, fmt.Errorf("configured Stealth ingress subnet %s overlaps existing Docker network %s; choose a non-overlapping STEALTH_INGRESS_NETWORK_SUBNET", current.Subnet, conflict)
+		return IngressNetworkConfig{}, fmt.Errorf(
+			"configured Stealth ingress subnet %s overlaps existing Docker network %s; choose a non-overlapping STEALTH_INGRESS_NETWORK_SUBNET",
+			current.Subnet,
+			conflict,
+		)
 	}
 	return current, nil
 }

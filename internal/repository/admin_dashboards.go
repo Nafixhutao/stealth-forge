@@ -48,7 +48,15 @@ func (r *Repository) AdminDashboardByID(ctx context.Context, id uuid.UUID) (doma
 	return item, err
 }
 
-func (r *Repository) CreateAdminDashboard(ctx context.Context, accountID, id uuid.UUID, input AdminDashboardInput) (domain.AdminDashboard, error) {
+func (r *Repository) CreateAdminDashboard(
+	ctx context.Context,
+	accountID,
+	id uuid.UUID,
+	input AdminDashboardInput,
+) (
+	domain.AdminDashboard,
+	error,
+) {
 	normalized, err := normalizeAdminDashboardInput(input)
 	if err != nil {
 		return domain.AdminDashboard{}, err
@@ -77,7 +85,15 @@ func (r *Repository) CreateAdminDashboard(ctx context.Context, accountID, id uui
 	return item, nil
 }
 
-func (r *Repository) UpdateAdminDashboard(ctx context.Context, accountID, id uuid.UUID, input AdminDashboardInput) (domain.AdminDashboard, error) {
+func (r *Repository) UpdateAdminDashboard(
+	ctx context.Context,
+	accountID,
+	id uuid.UUID,
+	input AdminDashboardInput,
+) (
+	domain.AdminDashboard,
+	error,
+) {
 	normalized, err := normalizeAdminDashboardInput(input)
 	if err != nil {
 		return domain.AdminDashboard{}, err
@@ -213,7 +229,11 @@ func containsForbiddenDashboardKey(value any) bool {
 	case map[string]any:
 		for key, child := range current {
 			key = strings.ToLower(key)
-			if key == "sql" || strings.Contains(key, "password") || strings.Contains(key, "token") || strings.Contains(key, "secret") || strings.Contains(key, "authorization") {
+			if key == "sql" ||
+				strings.Contains(key, "password") ||
+				strings.Contains(key, "token") ||
+				strings.Contains(key, "secret") ||
+				strings.Contains(key, "authorization") {
 				return true
 			}
 			if containsForbiddenDashboardKey(child) {

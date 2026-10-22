@@ -28,7 +28,11 @@ func TestOAuthAuthorizationAndExchangeKeepProviderSecretServerSide(t *testing.T)
 	}
 	client.Authorization = server.URL + "/authorize"
 	client.TokenURL = server.URL + "/token"
-	authorizationURL, err := client.AuthorizationURL("https://setup.example.test/v1/callback", "state-value", []string{"account:read", "zone:read"})
+	authorizationURL, err := client.AuthorizationURL(
+		"https://setup.example.test/v1/callback",
+		"state-value",
+		[]string{"account:read", "zone:read"},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +47,9 @@ func TestOAuthAuthorizationAndExchangeKeepProviderSecretServerSide(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if token.AccessToken != "access-token" || received.Get("client_secret") != "client-secret" || received.Get("code") != "temporary-code" {
+	if token.AccessToken != "access-token" ||
+		received.Get("client_secret") != "client-secret" ||
+		received.Get("code") != "temporary-code" {
 		t.Fatalf("OAuth exchange = %#v, form = %#v", token, received)
 	}
 }

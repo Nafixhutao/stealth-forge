@@ -64,7 +64,15 @@ func TestProjectServiceLayoutIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"project"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects", map[string]string{"name": "layout-" + ownerID.String()[:8]}, http.StatusCreated, &project)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects",
+		map[string]string{"name": "layout-" + ownerID.String()[:8]},
+		http.StatusCreated,
+		&project,
+	)
 	projectURL := server.URL + "/v1/projects/" + project.Project.ID
 
 	var initial struct {
@@ -81,7 +89,15 @@ func TestProjectServiceLayoutIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"function"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/functions", map[string]any{"name": "layout-worker"}, http.StatusCreated, &function)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/functions",
+		map[string]any{"name": "layout-worker"},
+		http.StatusCreated,
+		&function,
+	)
 	functionID := function.Function.ID
 	var saved struct {
 		Layout []struct {
@@ -95,7 +111,12 @@ func TestProjectServiceLayoutIntegration(t *testing.T) {
 	requestJSON(t, ownerClient, http.MethodPut, projectURL+"/service-layout", map[string]any{
 		"layout": []map[string]any{{"resource_type": "function", "resource_id": functionID, "x": 320, "y": 144}},
 	}, http.StatusOK, &saved)
-	if len(saved.Layout) != 1 || saved.Layout[0].ResourceType != "function" || saved.Layout[0].ResourceID != functionID || saved.Layout[0].X != 320 || saved.Layout[0].Y != 144 || !saved.CanManage {
+	if len(saved.Layout) != 1 ||
+		saved.Layout[0].ResourceType != "function" ||
+		saved.Layout[0].ResourceID != functionID ||
+		saved.Layout[0].X != 320 ||
+		saved.Layout[0].Y != 144 ||
+		!saved.CanManage {
 		t.Fatalf("saved layout = %+v", saved)
 	}
 
@@ -107,7 +128,10 @@ func TestProjectServiceLayoutIntegration(t *testing.T) {
 		} `json:"layout"`
 	}
 	requestJSON(t, ownerClient, http.MethodGet, projectURL+"/service-layout", nil, http.StatusOK, &listed)
-	if len(listed.Layout) != 1 || listed.Layout[0].ResourceID != functionID || listed.Layout[0].X != 320 || listed.Layout[0].Y != 144 {
+	if len(listed.Layout) != 1 ||
+		listed.Layout[0].ResourceID != functionID ||
+		listed.Layout[0].X != 320 ||
+		listed.Layout[0].Y != 144 {
 		t.Fatalf("listed layout = %+v", listed.Layout)
 	}
 

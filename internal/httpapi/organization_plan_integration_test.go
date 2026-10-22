@@ -77,7 +77,12 @@ func TestOrganizationPlanAndResourceLimitsIntegration(t *testing.T) {
 		} `json:"plan"`
 	}
 	requestJSON(t, client, http.MethodGet, organizationURL+"/plan", nil, http.StatusOK, &plan)
-	if plan.Plan.OrganizationID != registration.Organization.ID || plan.Plan.PlanKey != "free" || plan.Plan.Status != "active" || plan.Plan.Limits.Projects != 3 || plan.Plan.Limits.Databases != 5 || plan.Plan.Usage.Members != 1 {
+	if plan.Plan.OrganizationID != registration.Organization.ID ||
+		plan.Plan.PlanKey != "free" ||
+		plan.Plan.Status != "active" ||
+		plan.Plan.Limits.Projects != 3 ||
+		plan.Plan.Limits.Databases != 5 ||
+		plan.Plan.Usage.Members != 1 {
 		t.Fatalf("unexpected organization plan: %+v", plan.Plan)
 	}
 
@@ -94,13 +99,37 @@ func TestOrganizationPlanAndResourceLimitsIntegration(t *testing.T) {
 		}
 		requestJSON(t, client, http.MethodPost, organizationURL+"/projects", body, http.StatusCreated, nil)
 	}
-	requestJSON(t, client, http.MethodPost, organizationURL+"/projects", map[string]string{"name": "plan-project-over-limit"}, http.StatusConflict, nil)
+	requestJSON(
+		t,
+		client,
+		http.MethodPost,
+		organizationURL+"/projects",
+		map[string]string{"name": "plan-project-over-limit"},
+		http.StatusConflict,
+		nil,
+	)
 
 	projectURL := server.URL + "/v1/projects/" + firstProject.Project.ID
 	for index := 0; index < 5; index++ {
-		requestJSON(t, client, http.MethodPost, projectURL+"/databases", map[string]string{"name": fmt.Sprintf("plan-database-%d", index)}, http.StatusCreated, nil)
+		requestJSON(
+			t,
+			client,
+			http.MethodPost,
+			projectURL+"/databases",
+			map[string]string{"name": fmt.Sprintf("plan-database-%d", index)},
+			http.StatusCreated,
+			nil,
+		)
 	}
-	requestJSON(t, client, http.MethodPost, projectURL+"/databases", map[string]string{"name": "plan-database-over-limit"}, http.StatusConflict, nil)
+	requestJSON(
+		t,
+		client,
+		http.MethodPost,
+		projectURL+"/databases",
+		map[string]string{"name": "plan-database-over-limit"},
+		http.StatusConflict,
+		nil,
+	)
 
 	requestJSON(t, client, http.MethodGet, organizationURL+"/plan", nil, http.StatusOK, &plan)
 	if plan.Plan.Usage.Projects != 3 || plan.Plan.Usage.Databases != 5 {

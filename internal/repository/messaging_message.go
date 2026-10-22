@@ -14,7 +14,16 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (r *Repository) CreateMessagingMessage(ctx context.Context, id, projectID uuid.UUID, actor MessagingActor, input MessagingMessageInput) (MessagingMessageCreateResult, error) {
+func (r *Repository) CreateMessagingMessage(
+	ctx context.Context,
+	id,
+	projectID uuid.UUID,
+	actor MessagingActor,
+	input MessagingMessageInput,
+) (
+	MessagingMessageCreateResult,
+	error,
+) {
 	channel, payload, requestHash, err := normalizeMessagingMessageInput(input)
 	if err != nil {
 		return MessagingMessageCreateResult{}, err
@@ -68,18 +77,22 @@ func (r *Repository) CreateMessagingMessage(ctx context.Context, id, projectID u
 		}
 	}
 	var topicEnabled bool
-	if err := tx.QueryRow(ctx, `SELECT enabled FROM project_messaging_topics WHERE project_id=$1 AND id=$2 FOR SHARE`, projectID, input.TopicID).Scan(&topicEnabled); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT enabled FROM project_messaging_topics WHERE project_id=$1 AND id=$2 FOR SHARE`, projectID, input.TopicID).Scan(&topicEnabled)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return MessagingMessageCreateResult{}, ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return MessagingMessageCreateResult{}, err
 	}
 	if !topicEnabled {
 		return MessagingMessageCreateResult{}, fmt.Errorf("%w: topic is disabled", ErrInvalidMessaging)
 	}
 	var providerID uuid.UUID
-	if err := tx.QueryRow(ctx, `SELECT id FROM project_messaging_providers WHERE project_id=$1 AND channel=$2 AND enabled ORDER BY id LIMIT 1`, projectID, channel).Scan(&providerID); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT id FROM project_messaging_providers WHERE project_id=$1 AND channel=$2 AND enabled ORDER BY id LIMIT 1`, projectID, channel).Scan(&providerID)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return MessagingMessageCreateResult{}, ErrMessagingProviderUnavailable
-	} else if err != nil {
+	}
+	if err != nil {
 		return MessagingMessageCreateResult{}, err
 	}
 	rows, err := tx.Query(ctx, `SELECT id,address_ciphertext,address_preview FROM project_messaging_subscribers WHERE project_id=$1 AND topic_id=$2 AND channel=$3 AND enabled ORDER BY id LIMIT $4`, projectID, input.TopicID, channel, maxMessagingMessageRecipients+1)
@@ -141,7 +154,20 @@ func scanMessagingMessageWithHash(row messagingMessageScanner, hash *[]byte) (do
 	var item domain.MessagingMessage
 	var id, projectID uuid.UUID
 	var topicID *uuid.UUID
-	err := row.Scan(&id, &projectID, &topicID, &item.Channel, &item.Status, &item.RecipientCount, &item.SucceededCount, &item.FailedCount, &item.CancelledAt, &item.CreatedAt, &item.UpdatedAt, hash)
+	err := row.Scan(
+		&id,
+		&projectID,
+		&topicID,
+		&item.Channel,
+		&item.Status,
+		&item.RecipientCount,
+		&item.SucceededCount,
+		&item.FailedCount,
+		&item.CancelledAt,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+		hash,
+	)
 	item.ID = id.String()
 	item.ProjectID = projectID.String()
 	if topicID != nil {
@@ -158,7 +184,18 @@ func nullableMessagingIdempotencyKey(value string) *string {
 	return &value
 }
 
-func (r *Repository) ListMessagingMessages(ctx context.Context, projectID uuid.UUID, actor MessagingActor, limit int, cursor *uuid.UUID) ([]domain.MessagingMessage, string, bool, error) {
+func (r *Repository) ListMessagingMessages(
+	ctx context.Context,
+	projectID uuid.UUID,
+	actor MessagingActor,
+	limit int,
+	cursor *uuid.UUID,
+) (
+	[]domain.MessagingMessage,
+	string,
+	bool,
+	error,
+) {
 	canManage, err := r.requireMessagingRead(ctx, projectID, actor)
 	if err != nil {
 		return nil, "", false, err
@@ -190,7 +227,15 @@ func (r *Repository) ListMessagingMessages(ctx context.Context, projectID uuid.U
 	return items, next, canManage, nil
 }
 
-func (r *Repository) GetMessagingMessage(ctx context.Context, projectID, messageID uuid.UUID, actor MessagingActor) (domain.MessagingMessage, error) {
+func (r *Repository) GetMessagingMessage(
+	ctx context.Context,
+	projectID,
+	messageID uuid.UUID,
+	actor MessagingActor,
+) (
+	domain.MessagingMessage,
+	error,
+) {
 	if _, err := r.requireMessagingRead(ctx, projectID, actor); err != nil {
 		return domain.MessagingMessage{}, err
 	}
@@ -201,7 +246,18 @@ func (r *Repository) GetMessagingMessage(ctx context.Context, projectID, message
 	return item, err
 }
 
-func (r *Repository) ListMessagingDeliveries(ctx context.Context, projectID, messageID uuid.UUID, actor MessagingActor, limit int, cursor *uuid.UUID) ([]domain.MessagingDelivery, string, error) {
+func (r *Repository) ListMessagingDeliveries(
+	ctx context.Context,
+	projectID,
+	messageID uuid.UUID,
+	actor MessagingActor,
+	limit int,
+	cursor *uuid.UUID,
+) (
+	[]domain.MessagingDelivery,
+	string,
+	error,
+) {
 	if _, err := r.requireMessagingRead(ctx, projectID, actor); err != nil {
 		return nil, "", err
 	}
@@ -239,7 +295,15 @@ func (r *Repository) ListMessagingDeliveries(ctx context.Context, projectID, mes
 	return items, next, nil
 }
 
-func (r *Repository) CancelMessagingMessage(ctx context.Context, projectID, messageID uuid.UUID, actor MessagingActor) (domain.MessagingMessage, error) {
+func (r *Repository) CancelMessagingMessage(
+	ctx context.Context,
+	projectID,
+	messageID uuid.UUID,
+	actor MessagingActor,
+) (
+	domain.MessagingMessage,
+	error,
+) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.MessagingMessage{}, err
@@ -255,9 +319,11 @@ func (r *Repository) CancelMessagingMessage(ctx context.Context, projectID, mess
 		return domain.MessagingMessage{}, err
 	}
 	var status string
-	if err := tx.QueryRow(ctx, `SELECT status FROM project_messaging_messages WHERE project_id=$1 AND id=$2 FOR UPDATE`, projectID, messageID).Scan(&status); errors.Is(err, pgx.ErrNoRows) {
+	err = tx.QueryRow(ctx, `SELECT status FROM project_messaging_messages WHERE project_id=$1 AND id=$2 FOR UPDATE`, projectID, messageID).Scan(&status)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.MessagingMessage{}, ErrNotFound
-	} else if err != nil {
+	}
+	if err != nil {
 		return domain.MessagingMessage{}, err
 	}
 	if status == "succeeded" || status == "failed" {

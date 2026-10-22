@@ -41,7 +41,11 @@ func safeArchiveEntryPath(name string) (string, bool, error) {
 	if name == "." || name == "" {
 		return "", true, nil
 	}
-	if name == "" || strings.ContainsRune(name, '\x00') || strings.Contains(name, "\\") || strings.HasPrefix(name, "/") || hasWindowsDrivePrefix(name) {
+	if name == "" ||
+		strings.ContainsRune(name, '\x00') ||
+		strings.Contains(name, "\\") ||
+		strings.HasPrefix(name, "/") ||
+		hasWindowsDrivePrefix(name) {
 		return "", false, fmt.Errorf("%w: %q", ErrArchiveTraversal, name)
 	}
 	isDirectory := strings.HasSuffix(name, "/")
@@ -99,7 +103,18 @@ func makeDirectory(root *os.Root, destination, relative string) error {
 	return nil
 }
 
-func writeEntry(ctx context.Context, root *os.Root, source io.Reader, destination, relative string, maxEntry, maxRemaining int64) (int64, error) {
+func writeEntry(
+	ctx context.Context,
+	root *os.Root,
+	source io.Reader,
+	destination,
+	relative string,
+	maxEntry,
+	maxRemaining int64,
+) (
+	int64,
+	error,
+) {
 	if _, err := safeDestination(destination, relative); err != nil {
 		return 0, err
 	}
@@ -178,7 +193,13 @@ func createArchiveTemporaryFile(root *os.Root, parent string) (string, *os.File,
 }
 
 func writeSymlink(root *os.Root, destination, relative, target string) error {
-	if relative == "" || target == "" || strings.ContainsAny(target, "\\\x00\r\n") || strings.HasPrefix(target, "/") || hasWindowsDrivePrefix(target) || filepath.IsAbs(filepath.FromSlash(target)) || filepath.VolumeName(filepath.FromSlash(target)) != "" {
+	if relative == "" ||
+		target == "" ||
+		strings.ContainsAny(target, "\\\x00\r\n") ||
+		strings.HasPrefix(target, "/") ||
+		hasWindowsDrivePrefix(target) ||
+		filepath.IsAbs(filepath.FromSlash(target)) ||
+		filepath.VolumeName(filepath.FromSlash(target)) != "" {
 		return fmt.Errorf("%w: unsafe symlink target", ErrArchiveEntry)
 	}
 	if _, err := safeDestination(destination, relative); err != nil {
@@ -218,7 +239,11 @@ func safeDestination(destination, relative string) (string, error) {
 		return "", ErrArchiveTraversal
 	}
 	rel, err := filepath.Rel(base, resolved)
-	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+	if err != nil ||
+		rel == "." ||
+		rel == ".." ||
+		strings.HasPrefix(rel, ".."+string(filepath.Separator)) ||
+		filepath.IsAbs(rel) {
 		return "", ErrArchiveTraversal
 	}
 	return resolved, nil

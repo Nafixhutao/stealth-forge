@@ -119,7 +119,12 @@ func (s *Server) startOAuthLink(w http.ResponseWriter, r *http.Request) {
 func (s *Server) beginOAuth(w http.ResponseWriter, r *http.Request, intent, accountID string) {
 	provider, configured := s.oauthProvider(r.Context(), chiURLParam(r, "provider"))
 	if !configured {
-		writeError(w, http.StatusServiceUnavailable, "oauth_not_configured", "this sign-in provider is not configured on this instance")
+		writeError(
+			w,
+			http.StatusServiceUnavailable,
+			"oauth_not_configured",
+			"this sign-in provider is not configured on this instance",
+		)
 		return
 	}
 	callbackURL, err := s.oauthCallbackURL(r, provider.Name)
@@ -269,7 +274,12 @@ func (s *Server) redirectAfterOAuthLogin(w http.ResponseWriter, r *http.Request,
 // provisionOAuthAccount creates or claims the account for an unknown provider
 // identity, opens a session, and redirects. Every failure redirects back to
 // the sign-in page with a specific reason instead of leaving a dead end.
-func (s *Server) provisionOAuthAccount(w http.ResponseWriter, r *http.Request, provider oauthlogin.Provider, identity oauthlogin.Identity) {
+func (s *Server) provisionOAuthAccount(
+	w http.ResponseWriter,
+	r *http.Request,
+	provider oauthlogin.Provider,
+	identity oauthlogin.Identity,
+) {
 	if strings.TrimSpace(identity.Email) == "" {
 		s.logger.Warn("oauth signup without an email", "provider", provider.Name)
 		http.Redirect(w, r, s.consoleURL("/login?oauth=no_email"), http.StatusFound)
@@ -333,7 +343,13 @@ func (s *Server) provisionOAuthAccount(w http.ResponseWriter, r *http.Request, p
 // finishOAuthLink attaches the provider identity to the signed-in account. It
 // requires a live Console session whose account matches the one the link was
 // started from, so a stolen callback URL cannot attach an identity elsewhere.
-func (s *Server) finishOAuthLink(w http.ResponseWriter, r *http.Request, provider oauthlogin.Provider, payload oauthStatePayload, identity oauthlogin.Identity) {
+func (s *Server) finishOAuthLink(
+	w http.ResponseWriter,
+	r *http.Request,
+	provider oauthlogin.Provider,
+	payload oauthStatePayload,
+	identity oauthlogin.Identity,
+) {
 	redirectFailure := func(reason string) {
 		http.Redirect(w, r, s.consoleURL("/user?link="+reason), http.StatusFound)
 	}
@@ -406,7 +422,14 @@ func (s *Server) setOAuthStateCookie(w http.ResponseWriter, payload oauthStatePa
 
 // takeOAuthStateCookie reads and immediately clears the state cookie so a
 // callback URL cannot be replayed.
-func (s *Server) takeOAuthStateCookie(w http.ResponseWriter, r *http.Request, provider string) (oauthStatePayload, bool) {
+func (s *Server) takeOAuthStateCookie(
+	w http.ResponseWriter,
+	r *http.Request,
+	provider string,
+) (
+	oauthStatePayload,
+	bool,
+) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     oauthStateCookieName,
 		Value:    "",

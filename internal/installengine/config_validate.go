@@ -29,24 +29,29 @@ func ensureTraefikTrustedProxyCIDR(value, fallbackSubnet, traefikPeerCIDR string
 func validateConfigValues(values map[string]string) error {
 	for key, value := range values {
 		if !ValidEnvKey(key) || strings.ContainsAny(value, "\x00\r\n") {
-			return fmt.Errorf("invalid generated configuration value for %s", key)
+			return fmt.Errorf("invalid generated configuration value for %q", key)
 		}
 		if strings.TrimSpace(value) == "" && key != "GITHUB_APP_CLIENT_ID" {
-			return fmt.Errorf("generated configuration value for %s is empty", key)
+			return fmt.Errorf("generated configuration value for %q is empty", key)
 		}
 	}
-	if profile := strings.TrimSpace(values["APPS_BUILDKIT_APPARMOR_PROFILE"]); profile != "" && !validBuildKitAppArmorProfile(profile) {
+	if profile := strings.TrimSpace(values["APPS_BUILDKIT_APPARMOR_PROFILE"]); profile != "" &&
+		!validBuildKitAppArmorProfile(profile) {
 		return errorsf("APPS_BUILDKIT_APPARMOR_PROFILE must be unconfined or " + BuildKitAppArmorProfileName)
 	}
 	for _, key := range []string{"APPS_BUILDKIT_CA_CERT", "APPS_BUILDKIT_CLIENT_CERT", "APPS_BUILDKIT_CLIENT_KEY"} {
 		path := values[key]
-		if path == "" || !filepath.IsAbs(path) || filepath.Clean(path) != path || path == string(filepath.Separator) || strings.ContainsAny(path, "\x00\r\n") {
-			return fmt.Errorf("generated configuration value for %s must be an absolute clean non-root path", key)
+		if path == "" ||
+			!filepath.IsAbs(path) ||
+			filepath.Clean(path) != path ||
+			path == string(filepath.Separator) ||
+			strings.ContainsAny(path, "\x00\r\n") {
+			return fmt.Errorf("generated configuration value for %q must be an absolute clean non-root path", key)
 		}
 	}
 	for _, key := range []string{"STEALTH_API_IMAGE", "STEALTH_SETUP_IMAGE", "STEALTH_WORKER_IMAGE", "STEALTH_INGRESS_CONTROL_IMAGE", "STEALTH_MIGRATE_IMAGE", "STEALTH_CONSOLE_IMAGE", "TRAEFIK_IMAGE"} {
 		if !validImageReference(values[key]) {
-			return fmt.Errorf("generated image reference for %s is invalid", key)
+			return fmt.Errorf("generated image reference for %q is invalid", key)
 		}
 	}
 	return nil
@@ -124,7 +129,12 @@ func validatePublicURL(raw string) (string, error) {
 		return "", errorsf("URL must be an absolute HTTP(S) URL without credentials, query, or fragment")
 	}
 	parsed, err := url.Parse(raw)
-	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if err != nil {
+		return "", errorsf("URL must be an absolute HTTP(S) URL without credentials, query, or fragment")
+	}
+	schemeOK := parsed.Scheme == "http" || parsed.Scheme == "https"
+	noExtras := parsed.User == nil && parsed.RawQuery == "" && parsed.Fragment == ""
+	if !schemeOK || parsed.Host == "" || !noExtras {
 		return "", errorsf("URL must be an absolute HTTP(S) URL without credentials, query, or fragment")
 	}
 	return strings.TrimRight(parsed.String(), "/"), nil
@@ -136,7 +146,10 @@ func validClientID(raw string) bool {
 		return false
 	}
 	for _, character := range raw {
-		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') || strings.ContainsRune(".-_", character) {
+		if (character >= 'a' && character <= 'z') ||
+			(character >= 'A' && character <= 'Z') ||
+			(character >= '0' && character <= '9') ||
+			strings.ContainsRune(".-_", character) {
 			continue
 		}
 		return false

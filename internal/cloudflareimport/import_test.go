@@ -97,7 +97,15 @@ func TestPreparationPublishesOnlyCloudflareConnectionSecrets(t *testing.T) {
 	if err != nil {
 		t.Fatal("Read(worker artifact):", err)
 	}
-	if envelope.Version != Version || envelope.State != StateConnection || envelope.AccountID != "account-unique" || envelope.ConsoleZoneID != "zone-unique" || envelope.ConsoleHostname != "cloud.example.com" || envelope.TunnelID != "tunnel-unique" || envelope.TunnelName != "stealth-prod" || envelope.ConsoleRecordID != "console-record-unique" || envelope.APIToken != "SECRET-CLOUDFLARE-API" {
+	if envelope.Version != Version ||
+		envelope.State != StateConnection ||
+		envelope.AccountID != "account-unique" ||
+		envelope.ConsoleZoneID != "zone-unique" ||
+		envelope.ConsoleHostname != "cloud.example.com" ||
+		envelope.TunnelID != "tunnel-unique" ||
+		envelope.TunnelName != "stealth-prod" ||
+		envelope.ConsoleRecordID != "console-record-unique" ||
+		envelope.APIToken != "SECRET-CLOUDFLARE-API" {
 		t.Fatal("worker envelope does not contain the expected Cloudflare connection")
 	}
 	entries, err := os.ReadDir(filepath.Dir(output))
@@ -159,7 +167,9 @@ func TestPublishLegacySetupSnapshotBeforeCloudflarePreparation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if envelope.State != StateConnection || envelope.AccountID != "account-unique" || envelope.APIToken != "SECRET-CLOUDFLARE-API" {
+	if envelope.State != StateConnection ||
+		envelope.AccountID != "account-unique" ||
+		envelope.APIToken != "SECRET-CLOUDFLARE-API" {
 		t.Fatalf("narrow handoff envelope = %#v", envelope)
 	}
 	artifact, err := os.ReadFile(output)
@@ -170,7 +180,8 @@ func TestPublishLegacySetupSnapshotBeforeCloudflarePreparation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bytes.Contains(plaintext, []byte("SECRET-GITHUB-PRIVATE-KEY")) || bytes.Contains(plaintext, []byte("setup-state.enc")) {
+	if bytes.Contains(plaintext, []byte("SECRET-GITHUB-PRIVATE-KEY")) ||
+		bytes.Contains(plaintext, []byte("setup-state.enc")) {
 		t.Fatal("narrow import artifact contains unrelated setup state")
 	}
 }
@@ -276,7 +287,8 @@ func TestPublishLegacySetupSnapshotPreservesOwnerForValidAndMissingSources(t *te
 	if mode := fileMode(t, inputPath).Perm(); mode != 0o400 {
 		t.Fatalf("handoff snapshot mode = %o; want 400", mode)
 	}
-	if outcome, err := Prepare(context.Background(), inputPath, output, cipher, owner); err != nil || outcome != OutcomeConnection {
+	if outcome, err := Prepare(context.Background(), inputPath, output, cipher, owner); err != nil ||
+		outcome != OutcomeConnection {
 		t.Fatalf("Prepare(valid handoff) = %q, %v", outcome, err)
 	}
 	assertOwnerAndMode(t, filepath.Dir(output), installationUID, workerGroupID, 0o770)
@@ -293,7 +305,8 @@ func TestPublishLegacySetupSnapshotPreservesOwnerForValidAndMissingSources(t *te
 	if _, err := os.Lstat(inputPath); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("missing source left stale handoff: %v", err)
 	}
-	if outcome, err := Prepare(context.Background(), inputPath, output, cipher, owner); err != nil || outcome != OutcomeNoImport {
+	if outcome, err := Prepare(context.Background(), inputPath, output, cipher, owner); err != nil ||
+		outcome != OutcomeNoImport {
 		t.Fatalf("Prepare(missing handoff) = %q, %v", outcome, err)
 	}
 	if _, err := os.Lstat(output); !errors.Is(err, os.ErrNotExist) {
@@ -425,7 +438,8 @@ func TestMalformedEncryptedSetupSnapshotRemainsSafeNoImport(t *testing.T) {
 	if err != nil || !published {
 		t.Fatalf("bounded opaque snapshot handoff = %v, %v", published, err)
 	}
-	if outcome, err := Prepare(context.Background(), filepath.Join(inputDir, legacySetupSnapshotName), output, importTestCipher(t), nil); err == nil || outcome != "" {
+	if outcome, err := Prepare(context.Background(), filepath.Join(inputDir, legacySetupSnapshotName), output, importTestCipher(t), nil); err == nil ||
+		outcome != "" {
 		t.Fatalf("malformed encrypted snapshot Prepare() = %q, %v; expected safe recovery failure", outcome, err)
 	}
 	if _, err := os.Lstat(output); !errors.Is(err, os.ErrNotExist) {
@@ -588,6 +602,15 @@ func assertOwnerAndMode(t *testing.T, path string, uid, gid int, mode os.FileMod
 		t.Fatalf("stat data for %q does not include Unix ownership", path)
 	}
 	if int(stat.Uid) != uid || int(stat.Gid) != gid || info.Mode().Perm() != mode {
-		t.Fatalf("%s has owner %d:%d mode %04o; want %d:%d mode %04o", path, stat.Uid, stat.Gid, info.Mode().Perm(), uid, gid, mode)
+		t.Fatalf(
+			"%s has owner %d:%d mode %04o; want %d:%d mode %04o",
+			path,
+			stat.Uid,
+			stat.Gid,
+			info.Mode().Perm(),
+			uid,
+			gid,
+			mode,
+		)
 	}
 }

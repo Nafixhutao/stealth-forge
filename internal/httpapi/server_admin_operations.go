@@ -142,9 +142,8 @@ func (s *Server) writeTelemetryResultError(w http.ResponseWriter, err error) boo
 		writeError(w, http.StatusBadRequest, "validation_error", "telemetry query is invalid")
 		return true
 	}
-	// Backend failures are intentionally generic. ClickHouse errors can contain
-	// query fragments or deployment-specific details and must not reach the
-	// browser.
+	// Backend failures are intentionally generic. Store errors can contain query
+	// fragments or deployment-specific details and must not reach the browser.
 	writeError(w, http.StatusServiceUnavailable, "telemetry_unavailable", "telemetry backend is unavailable")
 	return true
 }

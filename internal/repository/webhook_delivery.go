@@ -81,7 +81,15 @@ func truncateWebhookError(value string) *string {
 	return &value
 }
 
-func (r *Repository) FinishWebhookDelivery(ctx context.Context, deliveryID uuid.UUID, workerID string, success bool, statusCode *int, lastError string, retryAt *time.Time) error {
+func (r *Repository) FinishWebhookDelivery(
+	ctx context.Context,
+	deliveryID uuid.UUID,
+	workerID string,
+	success bool,
+	statusCode *int,
+	lastError string,
+	retryAt *time.Time,
+) error {
 	if !validFunctionWorkerID(workerID) {
 		return ErrInvalidWebhook
 	}

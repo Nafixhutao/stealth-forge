@@ -27,7 +27,14 @@ func (s *Server) listDatabaseTables(w http.ResponseWriter, r *http.Request) {
 		parsed, _ := uuid.Parse(cursor)
 		cursorID = &parsed
 	}
-	items, next, canManage, err := s.repo.ListDatabaseTables(r.Context(), projectID, databaseID, databaseActorFrom(r), limit, cursorID)
+	items, next, canManage, err := s.repo.ListDatabaseTables(
+		r.Context(),
+		projectID,
+		databaseID,
+		databaseActorFrom(r),
+		limit,
+		cursorID,
+	)
 	if databaseResourceError(w, err) {
 		return
 	}
@@ -35,7 +42,11 @@ func (s *Server) listDatabaseTables(w http.ResponseWriter, r *http.Request) {
 		internalError(s, w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"tables": items, "pagination": paginationOf(limit, next), "can_manage": canManage})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{"tables": items, "pagination": paginationOf(limit, next), "can_manage": canManage},
+	)
 }
 
 func (s *Server) createDatabaseTable(w http.ResponseWriter, r *http.Request) {
@@ -60,7 +71,14 @@ func (s *Server) createDatabaseTable(w http.ResponseWriter, r *http.Request) {
 	if req.RowSecurity != nil {
 		rowSecurity = *req.RowSecurity
 	}
-	item, err := s.repo.CreateDatabaseTable(r.Context(), uuid.Must(uuid.NewV7()), projectID, databaseID, databaseActorFrom(r), repository.DatabaseTableInput{Name: name, RowSecurity: rowSecurity, CreatePermissions: req.CreatePermissions, ReadPermissions: req.ReadPermissions, UpdatePermissions: req.UpdatePermissions, DeletePermissions: req.DeletePermissions})
+	item, err := s.repo.CreateDatabaseTable(
+		r.Context(),
+		uuid.Must(uuid.NewV7()),
+		projectID,
+		databaseID,
+		databaseActorFrom(r),
+		repository.DatabaseTableInput{Name: name, RowSecurity: rowSecurity, CreatePermissions: req.CreatePermissions, ReadPermissions: req.ReadPermissions, UpdatePermissions: req.UpdatePermissions, DeletePermissions: req.DeletePermissions},
+	)
 	if databaseResourceError(w, err) {
 		return
 	}
@@ -116,7 +134,14 @@ func (s *Server) updateDatabaseTable(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 422, "validation_error", "row_security is required")
 		return
 	}
-	item, err := s.repo.UpdateDatabaseTable(r.Context(), projectID, databaseID, tableID, databaseActorFrom(r), repository.DatabaseTableInput{RowSecurity: *req.RowSecurity, CreatePermissions: req.CreatePermissions, ReadPermissions: req.ReadPermissions, UpdatePermissions: req.UpdatePermissions, DeletePermissions: req.DeletePermissions})
+	item, err := s.repo.UpdateDatabaseTable(
+		r.Context(),
+		projectID,
+		databaseID,
+		tableID,
+		databaseActorFrom(r),
+		repository.DatabaseTableInput{RowSecurity: *req.RowSecurity, CreatePermissions: req.CreatePermissions, ReadPermissions: req.ReadPermissions, UpdatePermissions: req.UpdatePermissions, DeletePermissions: req.DeletePermissions},
+	)
 	if databaseResourceError(w, err) {
 		return
 	}
@@ -140,9 +165,11 @@ func (s *Server) deleteDatabaseTable(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.repo.DeleteDatabaseTable(r.Context(), projectID, databaseID, tableID, databaseActorFrom(r)); databaseResourceError(w, err) {
+	err := s.repo.DeleteDatabaseTable(r.Context(), projectID, databaseID, tableID, databaseActorFrom(r))
+	if databaseResourceError(w, err) {
 		return
-	} else if err != nil {
+	}
+	if err != nil {
 		internalError(s, w, err)
 		return
 	}

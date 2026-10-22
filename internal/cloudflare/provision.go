@@ -59,7 +59,15 @@ func provisioningError(kind error, stage string, err error) error {
 // record. Durable intent and provider IDs are saved before and after each
 // external write so a retry can discover an already-created resource instead
 // of creating a duplicate.
-func Provision(ctx context.Context, store setupstate.Store, client Client, request ProvisionRequest) (setupstate.State, error) {
+func Provision(
+	ctx context.Context,
+	store setupstate.Store,
+	client Client,
+	request ProvisionRequest,
+) (
+	setupstate.State,
+	error,
+) {
 	if store == nil {
 		return setupstate.State{}, provisioningError(ErrState, "state", errors.New("setup state is not configured"))
 	}
@@ -75,7 +83,11 @@ func Provision(ctx context.Context, store setupstate.Store, client Client, reque
 		return setupstate.State{}, provisioningError(ErrState, "load", err)
 	}
 	if setupComplete(state) {
-		return setupstate.State{}, provisioningError(ErrConflict, "state", errors.New("installation is already in progress or complete"))
+		return setupstate.State{}, provisioningError(
+			ErrConflict,
+			"state",
+			errors.New("installation is already in progress or complete"),
+		)
 	}
 	if err := validateBinding(state, normalized); err != nil {
 		return setupstate.State{}, provisioningError(ErrConflict, "binding", err)
@@ -85,7 +97,11 @@ func Provision(ctx context.Context, store setupstate.Store, client Client, reque
 		return setupstate.State{}, provisioningError(ErrProvider, "zones", err)
 	}
 	if !zoneContainsHostname(zones, normalized.ZoneID, normalized.Hostname) {
-		return setupstate.State{}, provisioningError(ErrInvalidRequest, "zone", errors.New("hostname is not inside the selected Cloudflare zone"))
+		return setupstate.State{}, provisioningError(
+			ErrInvalidRequest,
+			"zone",
+			errors.New("hostname is not inside the selected Cloudflare zone"),
+		)
 	}
 
 	binding := state.EffectiveCloudflareBinding()
@@ -110,7 +126,11 @@ func Provision(ctx context.Context, store setupstate.Store, client Client, reque
 			}
 			matches := matchingTunnels(tunnels, tunnelName)
 			if len(matches) > 0 {
-				return setupstate.State{}, provisioningError(ErrConflict, "tunnel lookup", errors.New("a Cloudflare tunnel already uses the requested name"))
+				return setupstate.State{}, provisioningError(
+					ErrConflict,
+					"tunnel lookup",
+					errors.New("a Cloudflare tunnel already uses the requested name"),
+				)
 			}
 			state, err = saveIntent(ctx, store, normalized, tunnelName)
 			if err != nil {
@@ -131,7 +151,11 @@ func Provision(ctx context.Context, store setupstate.Store, client Client, reque
 				}
 				matches := matchingTunnels(tunnels, tunnelName)
 				if len(matches) > 1 {
-					return setupstate.State{}, provisioningError(ErrConflict, "tunnel lookup", errors.New("multiple Cloudflare tunnels have the requested name"))
+					return setupstate.State{}, provisioningError(
+						ErrConflict,
+						"tunnel lookup",
+						errors.New("multiple Cloudflare tunnels have the requested name"),
+					)
 				}
 				if len(matches) == 1 {
 					tunnelID = strings.TrimSpace(matches[0].ID)
@@ -144,7 +168,11 @@ func Provision(ctx context.Context, store setupstate.Store, client Client, reque
 			}
 			matches := matchingTunnels(tunnels, tunnelName)
 			if len(matches) > 1 {
-				return setupstate.State{}, provisioningError(ErrConflict, "tunnel lookup", errors.New("multiple Cloudflare tunnels have the requested name"))
+				return setupstate.State{}, provisioningError(
+					ErrConflict,
+					"tunnel lookup",
+					errors.New("multiple Cloudflare tunnels have the requested name"),
+				)
 			}
 			if len(matches) == 1 {
 				tunnelID = strings.TrimSpace(matches[0].ID)
@@ -164,7 +192,11 @@ func Provision(ctx context.Context, store setupstate.Store, client Client, reque
 			}
 			tunnelID = strings.TrimSpace(tunnel.ID)
 			if tunnelID == "" {
-				return setupstate.State{}, provisioningError(ErrProvider, "tunnel create", errors.New("Cloudflare returned an empty tunnel ID"))
+				return setupstate.State{}, provisioningError(
+					ErrProvider,
+					"tunnel create",
+					errors.New("Cloudflare returned an empty tunnel ID"),
+				)
 			}
 		}
 		if state.EffectiveCloudflareBinding().TunnelID == "" {
@@ -187,7 +219,11 @@ func Provision(ctx context.Context, store setupstate.Store, client Client, reque
 		}
 		tunnelToken = strings.TrimSpace(tunnelToken)
 		if tunnelToken == "" {
-			return setupstate.State{}, provisioningError(ErrProvider, "tunnel token", errors.New("Cloudflare returned an empty tunnel token"))
+			return setupstate.State{}, provisioningError(
+				ErrProvider,
+				"tunnel token",
+				errors.New("Cloudflare returned an empty tunnel token"),
+			)
 		}
 		_, err = saveTunnelToken(ctx, store, tunnelToken)
 		if err != nil {
@@ -195,7 +231,13 @@ func Provision(ctx context.Context, store setupstate.Store, client Client, reque
 		}
 	}
 
-	desiredRecord := DNSRecord{Type: "CNAME", Name: normalized.Hostname, Content: tunnelID + ".cfargotunnel.com", Proxied: true, TTL: 1}
+	desiredRecord := DNSRecord{
+		Type:    "CNAME",
+		Name:    normalized.Hostname,
+		Content: tunnelID + ".cfargotunnel.com",
+		Proxied: true,
+		TTL:     1,
+	}
 	records, listErr := client.ListDNSRecords(ctx, normalized.ZoneID, normalized.Hostname)
 	if listErr != nil {
 		return setupstate.State{}, provisioningError(ErrProvider, "DNS lookup", listErr)
@@ -277,7 +319,15 @@ func validateBinding(state setupstate.State, request ProvisionRequest) error {
 	})
 }
 
-func saveIntent(ctx context.Context, store setupstate.Store, request ProvisionRequest, name string) (setupstate.State, error) {
+func saveIntent(
+	ctx context.Context,
+	store setupstate.Store,
+	request ProvisionRequest,
+	name string,
+) (
+	setupstate.State,
+	error,
+) {
 	state, err := store.Update(ctx, func(state *setupstate.State) error {
 		if setupComplete(*state) {
 			return provisioningError(ErrConflict, "state", errors.New("installation is already in progress or complete"))
@@ -317,7 +367,16 @@ func saveIntent(ctx context.Context, store setupstate.Store, request ProvisionRe
 	return state, nil
 }
 
-func saveTunnelID(ctx context.Context, store setupstate.Store, request ProvisionRequest, name, tunnelID string) (setupstate.State, error) {
+func saveTunnelID(
+	ctx context.Context,
+	store setupstate.Store,
+	request ProvisionRequest,
+	name,
+	tunnelID string,
+) (
+	setupstate.State,
+	error,
+) {
 	state, err := store.Update(ctx, func(state *setupstate.State) error {
 		if setupComplete(*state) {
 			return provisioningError(ErrConflict, "state", errors.New("installation is already in progress or complete"))
@@ -387,14 +446,27 @@ func detectHostnameConflict(ctx context.Context, client Client, request Provisio
 			continue
 		}
 		if strings.ToUpper(strings.TrimSpace(record.Type)) != "CNAME" {
-			return provisioningError(ErrConflict, "DNS lookup", errors.New("the requested hostname already has a non-CNAME DNS record"))
+			return provisioningError(
+				ErrConflict,
+				"DNS lookup",
+				errors.New("the requested hostname already has a non-CNAME DNS record"),
+			)
 		}
 		return provisioningError(ErrConflict, "DNS lookup", errors.New("the requested hostname already has a CNAME record"))
 	}
 	return nil
 }
 
-func reconcileDNSRecord(ctx context.Context, client Client, zoneID string, desired DNSRecord, records []DNSRecord) (string, error) {
+func reconcileDNSRecord(
+	ctx context.Context,
+	client Client,
+	zoneID string,
+	desired DNSRecord,
+	records []DNSRecord,
+) (
+	string,
+	error,
+) {
 	hostname := domainname.Canonical(desired.Name)
 	target := domainname.Canonical(desired.Content)
 	var matching DNSRecord
@@ -403,13 +475,25 @@ func reconcileDNSRecord(ctx context.Context, client Client, zoneID string, desir
 			continue
 		}
 		if strings.ToUpper(strings.TrimSpace(record.Type)) != "CNAME" {
-			return "", provisioningError(ErrConflict, "DNS lookup", errors.New("the requested hostname already has a non-CNAME DNS record"))
+			return "", provisioningError(
+				ErrConflict,
+				"DNS lookup",
+				errors.New("the requested hostname already has a non-CNAME DNS record"),
+			)
 		}
 		if domainname.Canonical(record.Content) != target {
-			return "", provisioningError(ErrConflict, "DNS lookup", errors.New("the requested hostname already has a different CNAME record"))
+			return "", provisioningError(
+				ErrConflict,
+				"DNS lookup",
+				errors.New("the requested hostname already has a different CNAME record"),
+			)
 		}
 		if matching.ID != "" {
-			return "", provisioningError(ErrConflict, "DNS lookup", errors.New("multiple matching DNS records exist for the requested hostname"))
+			return "", provisioningError(
+				ErrConflict,
+				"DNS lookup",
+				errors.New("multiple matching DNS records exist for the requested hostname"),
+			)
 		}
 		matching = record
 	}

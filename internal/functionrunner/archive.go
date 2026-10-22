@@ -71,7 +71,16 @@ type ArchiveStats struct {
 // Extract accepts zip, tar, tar.gz and tgz source names. Archive entries are
 // always created below destination; absolute paths, dot segments, symlinks,
 // hard links and special files are rejected before any user file is written.
-func Extract(ctx context.Context, source io.Reader, sourceName, destination string, limits ArchiveLimits) (ArchiveStats, error) {
+func Extract(
+	ctx context.Context,
+	source io.Reader,
+	sourceName,
+	destination string,
+	limits ArchiveLimits,
+) (
+	ArchiveStats,
+	error,
+) {
 	return extractArchive(ctx, source, sourceName, destination, limits, false)
 }
 
@@ -79,11 +88,30 @@ func Extract(ctx context.Context, source io.Reader, sourceName, destination stri
 // permits only lexically in-workspace relative symlinks (package managers
 // commonly create these), while still rejecting absolute targets, dot-segment
 // escapes, hard links, and special files. Untrusted uploads must use Extract.
-func ExtractTrusted(ctx context.Context, source io.Reader, sourceName, destination string, limits ArchiveLimits) (ArchiveStats, error) {
+func ExtractTrusted(
+	ctx context.Context,
+	source io.Reader,
+	sourceName,
+	destination string,
+	limits ArchiveLimits,
+) (
+	ArchiveStats,
+	error,
+) {
 	return extractArchive(ctx, source, sourceName, destination, limits, true)
 }
 
-func extractArchive(ctx context.Context, source io.Reader, sourceName, destination string, limits ArchiveLimits, allowSymlinks bool) (ArchiveStats, error) {
+func extractArchive(
+	ctx context.Context,
+	source io.Reader,
+	sourceName,
+	destination string,
+	limits ArchiveLimits,
+	allowSymlinks bool,
+) (
+	ArchiveStats,
+	error,
+) {
 	limits = limits.withDefaults()
 	destination, root, err := prepareArchiveRoot(destination)
 	if err != nil {

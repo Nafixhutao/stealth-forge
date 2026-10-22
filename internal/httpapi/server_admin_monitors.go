@@ -231,12 +231,18 @@ func (s *Server) adminMonitorInput(
 	if expectedStatus == 0 && kind == "http" {
 		expectedStatus = http.StatusOK
 	}
+	// A DNS monitor may omit expected_values, but an array field must never be
+	// stored or returned as JSON null.
+	expectedValues := request.ExpectedValues
+	if expectedValues == nil {
+		expectedValues = []string{}
+	}
 	config := map[string]any{
 		"method": method, "headers": request.Headers, "body": request.Body,
 		"expected_status": expectedStatus, "body_contains": request.BodyContains,
 		"latency_threshold_ms": request.LatencyThresholdMS, "host": strings.TrimSpace(request.Host),
 		"port": request.Port, "record_type": strings.ToUpper(strings.TrimSpace(request.RecordType)),
-		"expected_values": request.ExpectedValues, "grace_seconds": request.GraceSeconds,
+		"expected_values": expectedValues, "grace_seconds": request.GraceSeconds,
 		"certificate_expiry_days": request.CertificateExpiryDays,
 	}
 	var heartbeatToken string
@@ -266,7 +272,7 @@ func (s *Server) adminMonitorInput(
 		"expected_status": expectedStatus, "body_assertion_enabled": request.BodyContains != "",
 		"latency_threshold_ms": request.LatencyThresholdMS, "host": strings.TrimSpace(request.Host),
 		"port": request.Port, "record_type": strings.ToUpper(strings.TrimSpace(request.RecordType)),
-		"expected_values": request.ExpectedValues, "grace_seconds": request.GraceSeconds,
+		"expected_values": expectedValues, "grace_seconds": request.GraceSeconds,
 		"certificate_expiry_days": request.CertificateExpiryDays,
 	}
 	public, err := json.Marshal(publicConfig)

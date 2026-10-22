@@ -113,7 +113,7 @@ func (w *Worker) Run(ctx context.Context) error {
 		if processed && err == nil {
 			// Monitor checks are allowed to run back-to-back when the queue is
 			// busy. Telemetry aggregates use a separate lower cadence to keep
-			// ClickHouse load bounded.
+			// database load bounded.
 		} else {
 			select {
 			case <-ctx.Done():

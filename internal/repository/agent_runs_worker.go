@@ -21,7 +21,14 @@ func (r *Repository) ClaimNextAgentRun(ctx context.Context, workerID string) (Ag
 // providers (the legacy control-plane primitive); an empty list claims
 // nothing. Comparing normalized lowercase values keeps existing agent rows
 // written with display-case provider names compatible with workers.
-func (r *Repository) ClaimNextAgentRunForProviders(ctx context.Context, workerID string, allowedProviders []string) (AgentRunJob, error) {
+func (r *Repository) ClaimNextAgentRunForProviders(
+	ctx context.Context,
+	workerID string,
+	allowedProviders []string,
+) (
+	AgentRunJob,
+	error,
+) {
 	workerID, err := normalizeAgentRunWorkerID(workerID)
 	if err != nil {
 		return AgentRunJob{}, err
@@ -96,7 +103,17 @@ func (r *Repository) ClaimNextAgentRunForProviders(ctx context.Context, workerID
 
 // TransitionAgentRun persists a worker result while fencing stale workers by
 // worker_id. Only a claimed running run may become terminal.
-func (r *Repository) TransitionAgentRun(ctx context.Context, projectID, agentID, runID uuid.UUID, workerID string, result AgentRunResult) (domain.AgentRun, error) {
+func (r *Repository) TransitionAgentRun(
+	ctx context.Context,
+	projectID,
+	agentID,
+	runID uuid.UUID,
+	workerID string,
+	result AgentRunResult,
+) (
+	domain.AgentRun,
+	error,
+) {
 	workerID, err := normalizeAgentRunWorkerID(workerID)
 	if err != nil {
 		return domain.AgentRun{}, err
@@ -149,7 +166,20 @@ func (r *Repository) TransitionAgentRun(ctx context.Context, projectID, agentID,
 	return run, nil
 }
 
-func (r *Repository) AppendAgentRunLog(ctx context.Context, projectID, agentID, runID uuid.UUID, workerID string, id uuid.UUID, sequence int64, level, message string) (domain.AgentRunLog, error) {
+func (r *Repository) AppendAgentRunLog(
+	ctx context.Context,
+	projectID,
+	agentID,
+	runID uuid.UUID,
+	workerID string,
+	id uuid.UUID,
+	sequence int64,
+	level,
+	message string,
+) (
+	domain.AgentRunLog,
+	error,
+) {
 	workerID, err := normalizeAgentRunWorkerID(workerID)
 	if err != nil {
 		return domain.AgentRunLog{}, err
@@ -196,7 +226,17 @@ func (r *Repository) AppendAgentRunLog(ctx context.Context, projectID, agentID, 
 	return item, nil
 }
 
-func (r *Repository) ListAgentRunLogs(ctx context.Context, accountID, agentID, runID uuid.UUID, limit int, after int64) ([]domain.AgentRunLog, error) {
+func (r *Repository) ListAgentRunLogs(
+	ctx context.Context,
+	accountID,
+	agentID,
+	runID uuid.UUID,
+	limit int,
+	after int64,
+) (
+	[]domain.AgentRunLog,
+	error,
+) {
 	if limit < 1 || limit > 100 {
 		return nil, fmt.Errorf("%w: limit must be between 1 and 100", ErrInvalidAgentRun)
 	}

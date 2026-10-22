@@ -365,10 +365,7 @@ func (w *Worker) RunOnce(ctx context.Context) (processed bool, runErr error) {
 		return true, w.Store.FinishWebhookDelivery(ctx, job.DeliveryID, w.WorkerID, true, &statusCode, "", nil)
 	}
 	errorText := "remote endpoint returned HTTP " + strconv.Itoa(statusCode)
-	if text := strings.TrimSpace(string(body)); text != "" {
-		if len(text) > maxResponseBytes {
-			text = text[:maxResponseBytes]
-		}
+	if text := boundedResponseText(body); text != "" {
 		errorText += ": " + text
 	}
 	if retryableStatus(statusCode) && job.AttemptCount < maxAttempts {
@@ -405,6 +402,25 @@ func (w *Worker) retryAt(attempt int, retryAfter time.Duration) time.Time {
 		attempt = 1
 	}
 	return time.Now().UTC().Add(retry.Exponential(attempt, 30*time.Second, maxRetryDelay))
+}
+
+// boundedResponseText renders a remote response body as one log-safe line.
+// The receiver is untrusted: newlines and NUL bytes are folded to spaces so a
+// response cannot forge extra log lines or break the stored last_error column.
+func boundedResponseText(body []byte) string {
+	text := strings.TrimSpace(string(body))
+	if text == "" {
+		return ""
+	}
+	if len(text) > maxResponseBytes {
+		text = text[:maxResponseBytes]
+	}
+	return strings.TrimSpace(strings.Map(func(r rune) rune {
+		if r == '\x00' || r == '\r' || r == '\n' {
+			return ' '
+		}
+		return r
+	}, text))
 }
 
 func retryableStatus(status int) bool {

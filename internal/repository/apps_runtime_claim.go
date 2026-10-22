@@ -161,7 +161,7 @@ func (r *Repository) ClaimNextAppRuntime(
 		if parseErr != nil {
 			return AppRuntimeJob{}, ErrInvalidAppRuntimeJob
 		}
-		deployment, _, imagePath, _, _, _, _, deploymentErr := appDeploymentByID(
+		fields, deploymentErr := appDeploymentByID(
 			ctx,
 			tx,
 			projectID,
@@ -173,6 +173,7 @@ func (r *Repository) ClaimNextAppRuntime(
 		if deploymentErr != nil {
 			return AppRuntimeJob{}, deploymentErr
 		}
+		deployment, imagePath := fields.Item, fields.ImagePath
 		job.Deployment = deployment
 		if imagePath != nil {
 			job.ImagePath = *imagePath

@@ -89,14 +89,27 @@ func TestOrganizationTracesIntegration(t *testing.T) {
 			NextCursor *string `json:"next_cursor"`
 		} `json:"pagination"`
 	}
-	requestJSON(t, ownerClient, http.MethodGet, server.URL+"/v1/organizations/"+owner.Organization.ID+"/traces?limit=100", nil, http.StatusOK, &listed)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		server.URL+"/v1/organizations/"+owner.Organization.ID+"/traces?limit=100",
+		nil,
+		http.StatusOK,
+		&listed,
+	)
 	var found bool
 	for _, trace := range listed.Traces {
 		if trace.TraceID != traceID {
 			continue
 		}
 		found = true
-		if trace.ID == "" || trace.OrganizationID != owner.Organization.ID || trace.Route != "/v1/organizations/{organizationID}/projects" || trace.Method != http.MethodGet || trace.Status != http.StatusOK || trace.DurationMS < 0 {
+		if trace.ID == "" ||
+			trace.OrganizationID != owner.Organization.ID ||
+			trace.Route != "/v1/organizations/{organizationID}/projects" ||
+			trace.Method != http.MethodGet ||
+			trace.Status != http.StatusOK ||
+			trace.DurationMS < 0 {
 			t.Fatalf("trace projection = %+v", trace)
 		}
 	}
@@ -112,7 +125,15 @@ func TestOrganizationTracesIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"project"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, projectsURL, map[string]string{"name": "trace-project"}, http.StatusCreated, &project)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectsURL,
+		map[string]string{"name": "trace-project"},
+		http.StatusCreated,
+		&project,
+	)
 	projectURL := server.URL + "/v1/projects/" + project.Project.ID
 	projectResponse, err := ownerClient.Get(projectURL)
 	if err != nil {
@@ -139,7 +160,11 @@ func TestOrganizationTracesIntegration(t *testing.T) {
 			continue
 		}
 		projectTraceFound = true
-		if trace.ID == "" || trace.ProjectID == nil || *trace.ProjectID != project.Project.ID || trace.Route != "/v1/projects/{projectID}" || trace.Method != http.MethodGet {
+		if trace.ID == "" ||
+			trace.ProjectID == nil ||
+			*trace.ProjectID != project.Project.ID ||
+			trace.Route != "/v1/projects/{projectID}" ||
+			trace.Method != http.MethodGet {
 			t.Fatalf("project trace projection = %+v", trace)
 		}
 	}
@@ -166,6 +191,14 @@ func TestOrganizationTracesIntegration(t *testing.T) {
 		_, _ = pool.Exec(cleanupCtx, `DELETE FROM organizations WHERE id=$1`, outsider.Organization.ID)
 		_, _ = pool.Exec(cleanupCtx, `DELETE FROM accounts WHERE id=$1`, outsider.Account.ID)
 	})
-	requestJSON(t, outsiderClient, http.MethodGet, server.URL+"/v1/organizations/"+owner.Organization.ID+"/traces", nil, http.StatusForbidden, nil)
+	requestJSON(
+		t,
+		outsiderClient,
+		http.MethodGet,
+		server.URL+"/v1/organizations/"+owner.Organization.ID+"/traces",
+		nil,
+		http.StatusForbidden,
+		nil,
+	)
 	requestJSON(t, outsiderClient, http.MethodGet, projectURL+"/traces", nil, http.StatusForbidden, nil)
 }

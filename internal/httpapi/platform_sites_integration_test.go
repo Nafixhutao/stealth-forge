@@ -96,7 +96,15 @@ func TestPlatformSiteAPIAndNarrowListenerIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"project"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, controlServer.URL+"/v1/organizations/"+registration.Organization.ID+"/projects", map[string]string{"name": "platform-api-project"}, http.StatusCreated, &project)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		controlServer.URL+"/v1/organizations/"+registration.Organization.ID+"/projects",
+		map[string]string{"name": "platform-api-project"},
+		http.StatusCreated,
+		&project,
+	)
 	projectURL := controlServer.URL + "/v1/projects/" + project.Project.ID
 	var created struct {
 		Site struct {
@@ -104,7 +112,15 @@ func TestPlatformSiteAPIAndNarrowListenerIntegration(t *testing.T) {
 			PlatformHostname *string `json:"platform_hostname"`
 		} `json:"site"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/sites", map[string]string{"name": "portfolio"}, http.StatusCreated, &created)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/sites",
+		map[string]string{"name": "portfolio"},
+		http.StatusCreated,
+		&created,
+	)
 	if created.Site.PlatformHostname != nil {
 		t.Fatalf("new Site hostname before workload domain = %q", *created.Site.PlatformHostname)
 	}
@@ -172,7 +188,12 @@ func TestPlatformSiteAPIAndNarrowListenerIntegration(t *testing.T) {
 	for _, path := range []string{"/v1/account", "/healthz", "/readyz", "/version", "/metrics"} {
 		response := platformRequest(t, platformServer.URL+path, "portfolio.apps.example.com")
 		if response.StatusCode != http.StatusNotFound {
-			t.Fatalf("platform listener exposed control path %s with status %d body %q", path, response.StatusCode, response.Body)
+			t.Fatalf(
+				"platform listener exposed control path %s with status %d body %q",
+				path,
+				response.StatusCode,
+				response.Body,
+			)
 		}
 	}
 	unknown := platformRequest(t, platformServer.URL+"/", "unknown.apps.example.com")

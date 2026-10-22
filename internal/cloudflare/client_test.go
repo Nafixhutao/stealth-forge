@@ -116,10 +116,17 @@ func TestAPIClientUsesNarrowCloudflareOperations(t *testing.T) {
 		t.Fatal(err)
 	}
 	ingress, err := client.TunnelConfiguration(ctx, "account-1", "tunnel-1")
-	if err != nil || len(ingress) != 2 || ingress[0].Service != "http://proxy:80" || ingress[1].Service != "http_status:404" {
+	if err != nil ||
+		len(ingress) != 2 ||
+		ingress[0].Service != "http://proxy:80" ||
+		ingress[1].Service != "http_status:404" {
 		t.Fatalf("TunnelConfiguration() = %#v, %v", ingress, err)
 	}
-	record, err := client.CreateDNSRecord(ctx, "zone-1", DNSRecord{Type: "cname", Name: "app.example.test", Content: "tunnel-1.cfargotunnel.com", Proxied: true})
+	record, err := client.CreateDNSRecord(
+		ctx,
+		"zone-1",
+		DNSRecord{Type: "cname", Name: "app.example.test", Content: "tunnel-1.cfargotunnel.com", Proxied: true},
+	)
 	if err != nil || record.ID != "record-1" {
 		t.Fatalf("CreateDNSRecord() = %#v, %v", record, err)
 	}
@@ -131,7 +138,12 @@ func TestAPIClientUsesNarrowCloudflareOperations(t *testing.T) {
 	if err != nil || fetched.ID != "record-1" {
 		t.Fatalf("GetDNSRecord() = %#v, %v", fetched, err)
 	}
-	updated, err := client.UpdateDNSRecord(ctx, "zone-1", "record-1", DNSRecord{Type: "CNAME", Name: "app.example.test", Content: "tunnel-1.cfargotunnel.com", Proxied: true, TTL: 1})
+	updated, err := client.UpdateDNSRecord(
+		ctx,
+		"zone-1",
+		"record-1",
+		DNSRecord{Type: "CNAME", Name: "app.example.test", Content: "tunnel-1.cfargotunnel.com", Proxied: true, TTL: 1},
+	)
 	if err != nil || updated.ID != "record-1" || !updated.Proxied || updated.TTL != 1 {
 		t.Fatalf("UpdateDNSRecord() = %#v, %v", updated, err)
 	}
@@ -157,7 +169,9 @@ func TestAPIClientReadsProductionCertificatePacksAndTotalTLS(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/zones/workload-zone/ssl/certificate_packs":
-			if r.URL.Query().Get("status") != "all" || r.URL.Query().Get("deploy") != "production" || r.URL.Query().Get("per_page") != "50" {
+			if r.URL.Query().Get("status") != "all" ||
+				r.URL.Query().Get("deploy") != "production" ||
+				r.URL.Query().Get("per_page") != "50" {
 				t.Errorf("certificate pack query = %v", r.URL.Query())
 			}
 			switch r.URL.Query().Get("page") {
@@ -180,7 +194,10 @@ func TestAPIClientReadsProductionCertificatePacksAndTotalTLS(t *testing.T) {
 		t.Fatal(err)
 	}
 	packs, err := client.ListCertificatePacks(context.Background(), "workload-zone")
-	if err != nil || len(packs) != 2 || packs[0].Certificates[0].ExpiresOn != "2099-01-01T00:00:00Z" || packs[1].Status != "pending_deployment" {
+	if err != nil ||
+		len(packs) != 2 ||
+		packs[0].Certificates[0].ExpiresOn != "2099-01-01T00:00:00Z" ||
+		packs[1].Status != "pending_deployment" {
 		t.Fatalf("ListCertificatePacks() = %#v, %v", packs, err)
 	}
 	totalTLS, err := client.TotalTLSSettings(context.Background(), "workload-zone")

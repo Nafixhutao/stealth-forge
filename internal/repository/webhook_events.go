@@ -11,7 +11,16 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (r *Repository) auditWebhook(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, actor WebhookActor, action, targetType string, target uuid.UUID, metadata map[string]any) error {
+func (r *Repository) auditWebhook(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	actor WebhookActor,
+	action,
+	targetType string,
+	target uuid.UUID,
+	metadata map[string]any,
+) error {
 	orgID, err := projectOrganizationIDValue(ctx, tx, projectID)
 	if err != nil {
 		return err
@@ -47,17 +56,42 @@ func (r *Repository) auditWebhook(ctx context.Context, tx pgx.Tx, projectID uuid
 // event independent from integration configuration lets the same transactional
 // stream power Realtime subscribers without making webhook configuration a
 // prerequisite for observing a project mutation.
-func (r *Repository) enqueueWebhookEventTx(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, eventName, targetType string, target uuid.UUID, metadata map[string]any) error {
+func (r *Repository) enqueueWebhookEventTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	eventName,
+	targetType string,
+	target uuid.UUID,
+	metadata map[string]any,
+) error {
 	return r.enqueueEventTx(ctx, tx, projectID, eventName, targetType, target, metadata, true)
 }
 
 // enqueueRealtimeOnlyEventTx records a notification in the durable outbox
 // without recursively sending that internal delivery state to user webhooks.
-func (r *Repository) enqueueRealtimeOnlyEventTx(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, eventName, targetType string, target uuid.UUID, metadata map[string]any) error {
+func (r *Repository) enqueueRealtimeOnlyEventTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	eventName,
+	targetType string,
+	target uuid.UUID,
+	metadata map[string]any,
+) error {
 	return r.enqueueEventTx(ctx, tx, projectID, eventName, targetType, target, metadata, false)
 }
 
-func (r *Repository) enqueueEventTx(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, eventName, targetType string, target uuid.UUID, metadata map[string]any, createWebhookDeliveries bool) error {
+func (r *Repository) enqueueEventTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	eventName,
+	targetType string,
+	target uuid.UUID,
+	metadata map[string]any,
+	createWebhookDeliveries bool,
+) error {
 	if len(eventName) < 3 || len(eventName) > 160 || len(targetType) < 3 || len(targetType) > 80 {
 		return ErrInvalidWebhook
 	}

@@ -153,6 +153,7 @@ func (a *App) observeBrowserSetupWithInstaller(
 	fmt.Fprintln(a.errOut, "Complete the wizard in your browser. Press Ctrl+C to stop waiting.")
 
 	interval := setupWaitInterval(a)
+	step := setupInstallerStep{source: source, installer: installer}
 	var requested bool
 	var expiredNotice bool
 	var lastStep string
@@ -160,103 +161,167 @@ func (a *App) observeBrowserSetupWithInstaller(
 	var stateReadErrorShown bool
 	for {
 		state, err := source.Load(ctx)
-		if err == nil {
-			stateReadErrorShown = false
+		if err != nil {
+			if !stateReadErrorShown {
+				stateReadErrorShown = true
+				fmt.Fprintln(a.errOut, "Waiting for the setup state file to become available...")
+			}
+			if result, stop := a.awaitSetupTick(ctx, source, interval, requested, lastPhase); stop {
+				return result
+			}
+			continue
+		}
+		stateReadErrorShown = false
+		lastPhase = state.Phase
+		if setupstate.InstallationRequested(state) && !requested {
+			requested = true
+			fmt.Fprintln(a.out, "✓ Configuration received")
+			fmt.Fprintln(a.out, "Preparing installation...")
+		}
+		if installer != nil && setupInstallationPending(state) && state.InstallRunID != "" {
+			observed, result, stop := a.runInstallerStep(ctx, step, state, requested)
+			if stop {
+				return result
+			}
+			state = observed.state
 			lastPhase = state.Phase
-			if setupstate.InstallationRequested(state) && !requested {
-				requested = true
-				fmt.Fprintln(a.out, "✓ Configuration received")
-				fmt.Fprintln(a.out, "Preparing installation...")
-			}
-			if installer != nil && setupInstallationPending(state) && state.InstallRunID != "" {
-				installerErr := installer(ctx, state)
-				latest, latestErr := reloadSetupObservationState(ctx, source)
-				if latestErr == nil {
-					state = latest
-					lastPhase = state.Phase
-					requested = requested || setupstate.InstallationRequested(state)
-				}
-
-				if installerErr != nil {
-					if latestErr == nil && setupstate.InstallationTerminal(state) {
-						// The installer already persisted the authoritative terminal
-						// state. Continue through the normal renderer below so the
-						// failure is reported exactly once.
-					} else if ctx.Err() != nil {
-						return setupObservationResult{exitCode: 0, cancelled: true, installRequested: true, lastObservedPhase: state.Phase}
-					} else {
-						return a.hostInstallerFailureResult(state, requested, installerErr, latestErr)
-					}
-				} else if latestErr != nil {
-					if ctx.Err() != nil {
-						return setupObservationResult{exitCode: 0, cancelled: true, installRequested: true, lastObservedPhase: state.Phase}
-					}
-					return a.hostInstallerFailureResult(state, requested, errHostInstallerIncomplete, latestErr)
-				} else if !setupstate.InstallationTerminal(state) {
-					if ctx.Err() != nil {
-						return setupObservationResult{exitCode: 0, cancelled: true, installRequested: true, lastObservedPhase: state.Phase}
-					}
-					return a.hostInstallerFailureResult(state, requested, errHostInstallerIncomplete, nil)
-				}
-			}
-			if state.Phase == setupstate.PhaseInstalling {
-				if step := strings.TrimSpace(state.Step); step != "" && step != lastStep {
-					lastStep = step
-					fmt.Fprintf(a.out, "  → %s\n", step)
-				}
-			}
-			if !requested && !expiredNotice && !state.SetupExpiresAt.IsZero() &&
-				time.Now().UTC().After(state.SetupExpiresAt) {
-				expiredNotice = true
-				fmt.Fprintln(
-					a.errOut,
-					"The setup session expired. Run `stealth setup` from another terminal to print a new code.",
-				)
-			}
-			switch state.Phase {
-			case setupstate.PhaseComplete:
-				fmt.Fprintln(a.out)
-				fmt.Fprintln(a.out, "✓ Installation complete")
-				if url := strings.TrimSpace(state.Draft.PublicURL); url != "" {
-					fmt.Fprintf(a.out, "Stealth is ready at %s\n", url)
-				} else {
-					fmt.Fprintln(a.out, "Stealth is ready.")
-				}
-				return setupObservationResult{exitCode: 0, installRequested: true, lastObservedPhase: state.Phase}
-			case setupstate.PhaseFailed:
-				fmt.Fprintln(a.errOut)
-				fmt.Fprintln(a.errOut, "Installation failed.")
-				if message := strings.TrimSpace(state.ErrorMessage); message != "" {
-					fmt.Fprintln(a.errOut, message)
-				}
-				fmt.Fprintln(a.errOut, "Run `stealth install --repair` to resume, or `stealth doctor` for diagnostics.")
-				return setupObservationResult{
-					exitCode:          1,
-					installRequested:  requested || setupstate.InstallationRequested(state),
-					lastObservedPhase: state.Phase,
-				}
-			}
-		} else if !stateReadErrorShown {
-			stateReadErrorShown = true
-			fmt.Fprintln(a.errOut, "Waiting for the setup state file to become available...")
+			requested = observed.requested
 		}
-		select {
-		case <-ctx.Done():
+		if state.Phase == setupstate.PhaseInstalling {
+			if current := strings.TrimSpace(state.Step); current != "" && current != lastStep {
+				lastStep = current
+				fmt.Fprintf(a.out, "  → %s\n", current)
+			}
+		}
+		if !requested && !expiredNotice && !state.SetupExpiresAt.IsZero() &&
+			time.Now().UTC().After(state.SetupExpiresAt) {
+			expiredNotice = true
+			fmt.Fprintln(
+				a.errOut,
+				"The setup session expired. Run `stealth setup` from another terminal to print a new code.",
+			)
+		}
+		switch state.Phase {
+		case setupstate.PhaseComplete:
+			fmt.Fprintln(a.out)
+			fmt.Fprintln(a.out, "✓ Installation complete")
+			if url := strings.TrimSpace(state.Draft.PublicURL); url != "" {
+				fmt.Fprintf(a.out, "Stealth is ready at %s\n", url)
+			} else {
+				fmt.Fprintln(a.out, "Stealth is ready.")
+			}
+			return setupObservationResult{exitCode: 0, installRequested: true, lastObservedPhase: state.Phase}
+		case setupstate.PhaseFailed:
 			fmt.Fprintln(a.errOut)
-			fmt.Fprintln(a.errOut, "Stopped waiting for browser setup.")
-			latest, latestErr := source.Load(context.Background())
-			if latestErr == nil {
-				lastPhase = latest.Phase
-				requested = requested || setupstate.InstallationRequested(latest)
+			fmt.Fprintln(a.errOut, "Installation failed.")
+			if message := strings.TrimSpace(state.ErrorMessage); message != "" {
+				fmt.Fprintln(a.errOut, message)
 			}
+			fmt.Fprintln(a.errOut, "Run `stealth install --repair` to resume, or `stealth doctor` for diagnostics.")
 			return setupObservationResult{
-				exitCode:          0,
-				cancelled:         true,
-				installRequested:  requested,
-				lastObservedPhase: lastPhase,
+				exitCode:          1,
+				installRequested:  requested || setupstate.InstallationRequested(state),
+				lastObservedPhase: state.Phase,
 			}
-		case <-time.After(interval):
 		}
+		if result, stop := a.awaitSetupTick(ctx, source, interval, requested, lastPhase); stop {
+			return result
+		}
+	}
+}
+
+// awaitSetupTick waits for the next poll and reports whether the caller must
+// return, which happens when the operator cancels the wait.
+func (a *App) awaitSetupTick(
+	ctx context.Context,
+	source setupProgressSource,
+	interval time.Duration,
+	requested bool,
+	lastPhase string,
+) (setupObservationResult, bool) {
+	select {
+	case <-ctx.Done():
+		fmt.Fprintln(a.errOut)
+		fmt.Fprintln(a.errOut, "Stopped waiting for browser setup.")
+		latest, latestErr := reloadSetupObservationState(context.Background(), source)
+		if latestErr == nil {
+			lastPhase = latest.Phase
+			requested = requested || setupstate.InstallationRequested(latest)
+		}
+		return setupObservationResult{
+			exitCode:          0,
+			cancelled:         true,
+			installRequested:  requested,
+			lastObservedPhase: lastPhase,
+		}, true
+	case <-time.After(interval):
+		return setupObservationResult{}, false
+	}
+}
+
+// setupInstallerStep bundles the two collaborators one installation attempt
+// needs, so the step itself takes only the state and the requested flag.
+type setupInstallerStep struct {
+	source    setupProgressSource
+	installer func(context.Context, setupstate.State) error
+}
+
+// setupStepOutcome is the observed state after one installation attempt plus
+// whether the operator had requested installation by the time it finished.
+type setupStepOutcome struct {
+	state     setupstate.State
+	requested bool
+}
+
+// runInstallerStep performs one installation attempt. It reports whether the
+// wait loop must return immediately and, when it must not, the refreshed state
+// the renderer should use.
+func (a *App) runInstallerStep(
+	ctx context.Context,
+	step setupInstallerStep,
+	state setupstate.State,
+	requested bool,
+) (setupStepOutcome, setupObservationResult, bool) {
+	installerErr := step.installer(ctx, state)
+	latest, latestErr := reloadSetupObservationState(ctx, step.source)
+	if latestErr == nil {
+		state = latest
+		requested = requested || setupstate.InstallationRequested(state)
+	}
+	observed := setupStepOutcome{state: state, requested: requested}
+	// The installer already persisted the authoritative terminal state, so the
+	// normal renderer below reports the failure exactly once.
+	installerPersistedTerminal := installerErr != nil && latestErr == nil && setupstate.InstallationTerminal(state)
+	if installerPersistedTerminal {
+		return observed, setupObservationResult{}, false
+	}
+	if installerErr != nil {
+		if ctx.Err() != nil {
+			return observed, a.cancelledSetupResult(requested, state.Phase), true
+		}
+		return observed, a.hostInstallerFailureResult(state, requested, installerErr, latestErr), true
+	}
+	if latestErr != nil {
+		if ctx.Err() != nil {
+			return observed, a.cancelledSetupResult(requested, state.Phase), true
+		}
+		return observed, a.hostInstallerFailureResult(state, requested, errHostInstallerIncomplete, latestErr), true
+	}
+	if !setupstate.InstallationTerminal(state) {
+		if ctx.Err() != nil {
+			return observed, a.cancelledSetupResult(requested, state.Phase), true
+		}
+		return observed, a.hostInstallerFailureResult(state, requested, errHostInstallerIncomplete, nil), true
+	}
+	return observed, setupObservationResult{}, false
+}
+
+func (a *App) cancelledSetupResult(requested bool, phase string) setupObservationResult {
+	return setupObservationResult{
+		exitCode:          0,
+		cancelled:         true,
+		installRequested:  requested,
+		lastObservedPhase: phase,
 	}
 }
 

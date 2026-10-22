@@ -54,7 +54,15 @@ func (r *runtimePurgeTestRunner) Output(ctx context.Context, dir, name string, a
 	return nil, nil
 }
 
-func (r *runtimePurgeTestRunner) CombinedOutput(_ context.Context, _ string, name string, args ...string) ([]byte, error) {
+func (r *runtimePurgeTestRunner) CombinedOutput(
+	_ context.Context,
+	_ string,
+	name string,
+	args ...string,
+) (
+	[]byte,
+	error,
+) {
 	if name != "docker" {
 		return nil, nil
 	}
@@ -97,7 +105,11 @@ func validRuntimePurgeFixture() (*runtimePurgeTestRunner, uninstallPlan) {
 			Name string `json:"Name"`
 		}{containerID: {Name: container.Name[1:]}},
 	}
-	runner := &runtimePurgeTestRunner{containers: []string{containerID}, inspects: map[string]appRuntimePurgeInspect{containerID: container}, network: network}
+	runner := &runtimePurgeTestRunner{
+		containers: []string{containerID},
+		inspects:   map[string]appRuntimePurgeInspect{containerID: container},
+		network:    network,
+	}
 	return runner, uninstallPlan{appRuntimeNetwork: "stealth_app_runtime"}
 }
 
@@ -192,7 +204,8 @@ func TestPurgeRefusesForeignContainerOnAppRuntimeNetwork(t *testing.T) {
 	}{Name: "unrelated"}
 	app := NewApp(strings.NewReader(""), io.Discard, io.Discard)
 	app.runner = runner
-	if err := app.validateAppRuntimePurgeScope(context.Background(), plan); err == nil || !strings.Contains(err.Error(), "outside the managed App ownership set") {
+	if err := app.validateAppRuntimePurgeScope(context.Background(), plan); err == nil ||
+		!strings.Contains(err.Error(), "outside the managed App ownership set") {
 		t.Fatalf("foreign runtime-network container validation error = %v", err)
 	}
 }
@@ -218,11 +231,19 @@ func TestPurgeRemovesOnlyValidatedAppContainersAndRuntimeNetwork(t *testing.T) {
 		if containsArgs(args, "network", "rm", "stealth_app_runtime") {
 			networkRemoved = true
 		}
-		if containsArgs(args, "system", "prune") || containsArgs(args, "container", "prune") || containsArgs(args, "network", "prune") {
+		if containsArgs(args, "system", "prune") ||
+			containsArgs(args, "container", "prune") ||
+			containsArgs(args, "network", "prune") {
 			t.Fatalf("purge used broad Docker cleanup: %#v", args)
 		}
 	}
 	if !stopped || !removed || !networkRemoved {
-		t.Fatalf("purge commands missing: stop=%t rm=%t network_rm=%t calls=%#v", stopped, removed, networkRemoved, runner.calls)
+		t.Fatalf(
+			"purge commands missing: stop=%t rm=%t network_rm=%t calls=%#v",
+			stopped,
+			removed,
+			networkRemoved,
+			runner.calls,
+		)
 	}
 }

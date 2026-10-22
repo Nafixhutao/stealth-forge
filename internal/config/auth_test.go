@@ -30,7 +30,14 @@ func TestLoadAuthSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if settings.sessionCookieName != "stealth_test" || settings.sessionTTL != 48*time.Hour || settings.appSessionTTL != 30*time.Minute || settings.publicAppURL != "https://console.example.test/auth" || settings.smtpPort != 2525 || !settings.cookieSecure || settings.authRateLimit != 20 || settings.projectOperationRateLimit != 240 {
+	if settings.sessionCookieName != "stealth_test" ||
+		settings.sessionTTL != 48*time.Hour ||
+		settings.appSessionTTL != 30*time.Minute ||
+		settings.publicAppURL != "https://console.example.test/auth" ||
+		settings.smtpPort != 2525 ||
+		!settings.cookieSecure ||
+		settings.authRateLimit != 20 ||
+		settings.projectOperationRateLimit != 240 {
 		t.Fatalf("unexpected auth settings: %+v", settings)
 	}
 	if len(settings.consoleCORSOrigins) != 2 || settings.consoleCORSOrigins[1] != "https://console.example.test" {
@@ -53,7 +60,14 @@ func TestLoadAuthSettingsRejectsInvalidDeliveryMode(t *testing.T) {
 func TestApplyAuthDefaults(t *testing.T) {
 	config := Config{}
 	config.applyAuthDefaults()
-	if config.SessionCookieName != "stealth_session" || config.SessionTTL != 720*time.Hour || config.AppSessionTTL != 720*time.Hour || config.AuthVerificationTTL != 24*time.Hour || config.AuthPasswordResetTTL != time.Hour || config.AuthRateLimit != 10 || config.ProjectOperationRateLimit != 120 || config.PublicAppURL != "http://localhost:4173" {
+	if config.SessionCookieName != "stealth_session" ||
+		config.SessionTTL != 720*time.Hour ||
+		config.AppSessionTTL != 720*time.Hour ||
+		config.AuthVerificationTTL != 24*time.Hour ||
+		config.AuthPasswordResetTTL != time.Hour ||
+		config.AuthRateLimit != 10 ||
+		config.ProjectOperationRateLimit != 120 ||
+		config.PublicAppURL != "http://localhost:4173" {
 		t.Fatalf("unexpected auth defaults: %+v", config)
 	}
 }

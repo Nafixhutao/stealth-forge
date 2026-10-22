@@ -68,10 +68,26 @@ func TestProjectWebhooksIntegration(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"project"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects", map[string]string{"name": "webhooks-" + ownerID.String()[:8]}, http.StatusCreated, &project)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		server.URL+"/v1/organizations/"+registration.Organization.ID+"/projects",
+		map[string]string{"name": "webhooks-" + ownerID.String()[:8]},
+		http.StatusCreated,
+		&project,
+	)
 	projectURL := server.URL + "/v1/projects/" + project.Project.ID
 
-	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/webhooks", map[string]string{"name": "bad", "url": "http://example.com"}, http.StatusUnprocessableEntity, nil)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/webhooks",
+		map[string]string{"name": "bad", "url": "http://example.com"},
+		http.StatusUnprocessableEntity,
+		nil,
+	)
 	var created struct {
 		Webhook struct {
 			ID     string   `json:"id"`
@@ -84,7 +100,10 @@ func TestProjectWebhooksIntegration(t *testing.T) {
 		"name": "all-events",
 		"url":  "https://hooks.example.com/stealth",
 	}, http.StatusCreated, &created)
-	if created.Webhook.ID == "" || !strings.HasPrefix(created.Secret, "whsec_") || len(created.Webhook.Events) != 1 || created.Webhook.Events[0] != "*" {
+	if created.Webhook.ID == "" ||
+		!strings.HasPrefix(created.Secret, "whsec_") ||
+		len(created.Webhook.Events) != 1 ||
+		created.Webhook.Events[0] != "*" {
 		t.Fatalf("unexpected webhook create response: %+v", created)
 	}
 	listBody := requestJSONRaw(t, ownerClient, http.MethodGet, projectURL+"/webhooks", nil, http.StatusOK)
@@ -98,30 +117,72 @@ func TestProjectWebhooksIntegration(t *testing.T) {
 		} `json:"key"`
 		Secret string `json:"secret"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/api-keys", map[string]any{"name": "webhook-read", "scopes": []string{"webhooks.read"}}, http.StatusCreated, &readKey)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/api-keys",
+		map[string]any{"name": "webhook-read", "scopes": []string{"webhooks.read"}},
+		http.StatusCreated,
+		&readKey,
+	)
 	readClient := &http.Client{}
 	readHeaders := map[string]string{"X-Stealth-Key": readKey.Secret}
 	requestJSONWithHeaders(t, readClient, http.MethodGet, projectURL+"/webhooks", nil, http.StatusOK, readHeaders)
-	requestJSONWithHeaders(t, readClient, http.MethodPost, projectURL+"/webhooks", map[string]any{"name": "denied", "url": "https://hooks.example.com/denied"}, http.StatusForbidden, readHeaders)
+	requestJSONWithHeaders(
+		t,
+		readClient,
+		http.MethodPost,
+		projectURL+"/webhooks",
+		map[string]any{"name": "denied", "url": "https://hooks.example.com/denied"},
+		http.StatusForbidden,
+		readHeaders,
+	)
 
 	// A matching project mutation is written to the transactional outbox and
 	// fan-outs to the configured endpoint before the HTTP request returns.
-	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/api-keys", map[string]any{"name": "delivery-trigger", "scopes": []string{"users.read"}}, http.StatusCreated, &struct{}{})
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/api-keys",
+		map[string]any{"name": "delivery-trigger", "scopes": []string{"users.read"}},
+		http.StatusCreated,
+		&struct{}{},
+	)
 	var deliveries struct {
 		Deliveries []struct {
 			EventName string `json:"event_name"`
 			Status    string `json:"status"`
 		} `json:"deliveries"`
 	}
-	requestJSON(t, ownerClient, http.MethodGet, projectURL+"/webhooks/"+created.Webhook.ID+"/deliveries", nil, http.StatusOK, &deliveries)
-	if len(deliveries.Deliveries) == 0 || deliveries.Deliveries[0].EventName == "" || deliveries.Deliveries[0].Status != "pending" {
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodGet,
+		projectURL+"/webhooks/"+created.Webhook.ID+"/deliveries",
+		nil,
+		http.StatusOK,
+		&deliveries,
+	)
+	if len(deliveries.Deliveries) == 0 ||
+		deliveries.Deliveries[0].EventName == "" ||
+		deliveries.Deliveries[0].Status != "pending" {
 		t.Fatalf("transactional webhook delivery was not queued: %+v", deliveries)
 	}
 
 	var rotated struct {
 		Secret string `json:"secret"`
 	}
-	requestJSON(t, ownerClient, http.MethodPost, projectURL+"/webhooks/"+created.Webhook.ID+"/rotate-secret", map[string]any{}, http.StatusOK, &rotated)
+	requestJSON(
+		t,
+		ownerClient,
+		http.MethodPost,
+		projectURL+"/webhooks/"+created.Webhook.ID+"/rotate-secret",
+		map[string]any{},
+		http.StatusOK,
+		&rotated,
+	)
 	if rotated.Secret == "" || rotated.Secret == created.Secret || !strings.HasPrefix(rotated.Secret, "whsec_") {
 		t.Fatalf("secret rotation did not return a new one-time secret: %+v", rotated)
 	}

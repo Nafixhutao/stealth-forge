@@ -56,11 +56,26 @@ func TestDecodeRealtimeEventVersionedEnvelope(t *testing.T) {
 	projectID := uuid.Must(uuid.NewV7())
 	targetID := uuid.Must(uuid.NewV7())
 	raw := []byte(`{"id":"` + id.String() + `","event":"agent.run.running","type":"agent.run.running","version":1,"organization_id":"` + organizationID.String() + `","project_id":"` + projectID.String() + `","resource_id":"` + targetID.String() + `","payload":{"agent_id":"agent-1","status":"running"},"target":{"type":"agent_run","id":"` + targetID.String() + `"}}`)
-	event, err := decodeRealtimeEventWithMetadata(id, projectID, organizationID, "agent.run.running", "agent_run", &targetID, 1, nil, raw, time.Now(), time.Now())
+	now := time.Now()
+	event, err := decodeRealtimeEventWithMetadata(realtimeEventRow{
+		ID:             id,
+		ProjectID:      projectID,
+		OrganizationID: organizationID,
+		EventName:      "agent.run.running",
+		TargetType:     "agent_run",
+		TargetID:       &targetID,
+		Version:        1,
+		Payload:        raw,
+		OccurredAt:     now,
+		CreatedAt:      now,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if event.OrganizationID != organizationID.String() || event.Version != 1 || event.ResourceID == nil || event.Data["status"] != "running" {
+	if event.OrganizationID != organizationID.String() ||
+		event.Version != 1 ||
+		event.ResourceID == nil ||
+		event.Data["status"] != "running" {
 		t.Fatalf("decoded versioned event = %#v", event)
 	}
 }

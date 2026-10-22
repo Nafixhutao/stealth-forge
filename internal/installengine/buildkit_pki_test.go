@@ -16,10 +16,19 @@ func TestLayoutSeparatesStateAndBuildKitPKI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if layout.StateDir != filepath.Join(root, "state") || layout.PrivateDir != filepath.Join(root, "private") || layout.BuildKitPKIDir != filepath.Join(root, "private", "buildkit-mtls") {
-		t.Fatalf("layout security directories = state:%q private:%q pki:%q", layout.StateDir, layout.PrivateDir, layout.BuildKitPKIDir)
+	if layout.StateDir != filepath.Join(root, "state") ||
+		layout.PrivateDir != filepath.Join(root, "private") ||
+		layout.BuildKitPKIDir != filepath.Join(root, "private", "buildkit-mtls") {
+		t.Fatalf(
+			"layout security directories = state:%q private:%q pki:%q",
+			layout.StateDir,
+			layout.PrivateDir,
+			layout.BuildKitPKIDir,
+		)
 	}
-	if relative, err := filepath.Rel(layout.StateDir, layout.BuildKitPKIDir); err != nil || relative == "." || relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+	if relative, err := filepath.Rel(layout.StateDir, layout.BuildKitPKIDir); err != nil ||
+		relative == "." ||
+		relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
 		t.Fatalf("BuildKit PKI is inside setup state: relative path %q, error %v", relative, err)
 	}
 }
@@ -34,7 +43,16 @@ func TestEnsureBuildKitPKIRelocatesLegacyBundleWithoutChangingIdentity(t *testin
 		t.Fatal(err)
 	}
 	legacy := buildkitpki.PathsAt(legacyPath)
-	identityFiles := []string{legacy.CACert, legacy.CAKey, legacy.ServerCert, legacy.ServerKey, legacy.WorkerCert, legacy.WorkerKey, legacy.HealthCert, legacy.HealthKey}
+	identityFiles := []string{
+		legacy.CACert,
+		legacy.CAKey,
+		legacy.ServerCert,
+		legacy.ServerKey,
+		legacy.WorkerCert,
+		legacy.WorkerKey,
+		legacy.HealthCert,
+		legacy.HealthKey,
+	}
 	before := make(map[string][]byte, len(identityFiles))
 	for _, path := range identityFiles {
 		contents, err := os.ReadFile(path)
@@ -135,7 +153,8 @@ func TestEnsureBuildKitPKIFailsClosedOnCorruptLegacyOrDuplicateBundle(t *testing
 		if got, err := os.ReadFile(buildkitpki.PathsAt(legacyPath).CACert); err != nil || !bytes.Equal(got, legacyCA) {
 			t.Fatalf("legacy CA changed after refusal: %v", err)
 		}
-		if got, err := os.ReadFile(buildkitpki.PathsAt(layout.BuildKitPKIDir).CACert); err != nil || !bytes.Equal(got, privateCA) {
+		if got, err := os.ReadFile(buildkitpki.PathsAt(layout.BuildKitPKIDir).CACert); err != nil ||
+			!bytes.Equal(got, privateCA) {
 			t.Fatalf("private CA changed after refusal: %v", err)
 		}
 	})

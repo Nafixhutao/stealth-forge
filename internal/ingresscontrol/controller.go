@@ -125,7 +125,12 @@ func (c *Controller) Status(ctx context.Context, out io.Writer) error {
 	if status.ConsolePublicVerifiedAt == nil {
 		fmt.Fprintln(out, "Public verification: not verified")
 	} else {
-		fmt.Fprintf(out, "Public verification: %s at %s\n", status.ConsolePublicVerifiedOrigin, status.ConsolePublicVerifiedAt.UTC().Format("2006-01-02T15:04:05Z"))
+		fmt.Fprintf(
+			out,
+			"Public verification: %s at %s\n",
+			status.ConsolePublicVerifiedOrigin,
+			status.ConsolePublicVerifiedAt.UTC().Format("2006-01-02T15:04:05Z"),
+		)
 	}
 	fmt.Fprintln(out, "Rollback origin: proxy/Nginx (retained)")
 	return nil

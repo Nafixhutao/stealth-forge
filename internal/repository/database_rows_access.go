@@ -10,7 +10,14 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (r *Repository) DeleteDatabaseRow(ctx context.Context, projectID, databaseID, tableID, rowID uuid.UUID, actor DatabaseActor) error {
+func (r *Repository) DeleteDatabaseRow(
+	ctx context.Context,
+	projectID,
+	databaseID,
+	tableID,
+	rowID uuid.UUID,
+	actor DatabaseActor,
+) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -32,7 +39,15 @@ func (r *Repository) DeleteDatabaseRow(ctx context.Context, projectID, databaseI
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) deleteDatabaseRowTx(ctx context.Context, tx pgx.Tx, projectID, tableID, rowID uuid.UUID, actor DatabaseActor, schema DatabaseTableSchema) error {
+func (r *Repository) deleteDatabaseRowTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID,
+	tableID,
+	rowID uuid.UUID,
+	actor DatabaseActor,
+	schema DatabaseTableSchema,
+) error {
 	selectSQL := `SELECT ` + rowProjection + ` FROM database_rows r WHERE r.project_id=$1 AND r.table_id=$2 AND r.id=$3`
 	selectArgs := []any{projectID, tableID, rowID}
 	if actor.IsApplication() && schema.Table.RowSecurity && !tablePermission(schema.Table.DeletePermissions, actor) {
@@ -58,7 +73,13 @@ func (r *Repository) deleteDatabaseRowTx(ctx context.Context, tx pgx.Tx, project
 	return nil
 }
 
-func authorizeRowOperationTx(ctx context.Context, tx pgx.Tx, table domain.DatabaseTable, actor DatabaseActor, operation string) error {
+func authorizeRowOperationTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	table domain.DatabaseTable,
+	actor DatabaseActor,
+	operation string,
+) error {
 	switch actor.Kind {
 	case DatabaseConsoleActor:
 		if operation != "read" {

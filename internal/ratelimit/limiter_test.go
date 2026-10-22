@@ -18,7 +18,9 @@ func TestMemoryLimiterEnforcesWindowAndResets(t *testing.T) {
 	if decision, err := limiter.Allow(context.Background(), "key", 2, time.Minute); err != nil || !decision.Allowed {
 		t.Fatalf("second request: %+v, %v", decision, err)
 	}
-	if decision, err := limiter.Allow(context.Background(), "key", 2, time.Minute); err != nil || decision.Allowed || decision.RetryAfter != time.Minute {
+	if decision, err := limiter.Allow(context.Background(), "key", 2, time.Minute); err != nil ||
+		decision.Allowed ||
+		decision.RetryAfter != time.Minute {
 		t.Fatalf("third request: %+v, %v", decision, err)
 	}
 	now = now.Add(time.Minute)

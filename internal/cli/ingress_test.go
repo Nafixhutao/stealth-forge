@@ -22,7 +22,14 @@ type ingressCommandRunner struct {
 	calls    []ingressCommandCall
 }
 
-func (r *ingressCommandRunner) Run(_ context.Context, _ string, stdout, _ io.Writer, name string, args ...string) error {
+func (r *ingressCommandRunner) Run(
+	_ context.Context,
+	_ string,
+	stdout,
+	_ io.Writer,
+	name string,
+	args ...string,
+) error {
 	r.calls = append(r.calls, ingressCommandCall{name: name, args: append([]string(nil), args...)})
 	if r.runErr == nil && len(args) > 0 {
 		_, _ = io.WriteString(stdout, "ingress-control ran\n")
@@ -81,7 +88,11 @@ func TestIngressCutoverRunsRestrictedComposeServiceWithNoDeps(t *testing.T) {
 		t.Fatalf("commands = %#v", runner.calls)
 	}
 	args := runner.calls[1].args
-	if !containsCLIArg(args, "run") || !containsCLIArg(args, "--rm") || !containsCLIArg(args, "--no-deps") || !containsCLIArg(args, "ingress-control") || !containsCLIArg(args, "cutover") {
+	if !containsCLIArg(args, "run") ||
+		!containsCLIArg(args, "--rm") ||
+		!containsCLIArg(args, "--no-deps") ||
+		!containsCLIArg(args, "ingress-control") ||
+		!containsCLIArg(args, "cutover") {
 		t.Fatalf("maintenance invocation = %#v", args)
 	}
 }
@@ -109,7 +120,9 @@ func TestIngressExternalPostgresAndRollbackDoNotUsePublicAPI(t *testing.T) {
 	if code := app.runIngress([]string{"rollback"}); code != 0 {
 		t.Fatalf("host rollback failed without an API service: %d", code)
 	}
-	if len(runner.calls) != 2 || !containsCLIArg(runner.calls[1].args, "rollback") || !containsCLIArg(runner.calls[1].args, "--no-deps") {
+	if len(runner.calls) != 2 ||
+		!containsCLIArg(runner.calls[1].args, "rollback") ||
+		!containsCLIArg(runner.calls[1].args, "--no-deps") {
 		t.Fatalf("rollback command calls = %#v", runner.calls)
 	}
 }

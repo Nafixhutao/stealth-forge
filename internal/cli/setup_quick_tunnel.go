@@ -13,11 +13,28 @@ import (
 	"github.com/Nafixhutao/stealth-forge/internal/bootstrap"
 )
 
-func (a *App) startQuickTunnel(ctx context.Context, layout InstallLayout, network, containerName string) (string, error) {
+func (a *App) startQuickTunnel(
+	ctx context.Context,
+	layout InstallLayout,
+	network,
+	containerName string,
+) (
+	string,
+	error,
+) {
 	return a.startQuickTunnelTo(ctx, layout, network, containerName, "http://proxy:80")
 }
 
-func (a *App) startQuickTunnelTo(ctx context.Context, layout InstallLayout, network, containerName, target string) (string, error) {
+func (a *App) startQuickTunnelTo(
+	ctx context.Context,
+	layout InstallLayout,
+	network,
+	containerName,
+	target string,
+) (
+	string,
+	error,
+) {
 	if !isQuickTunnelContainerName(containerName) {
 		return "", fmt.Errorf("temporary tunnel container name is invalid")
 	}
@@ -60,7 +77,14 @@ func (a *App) startQuickTunnelTo(ctx context.Context, layout InstallLayout, netw
 // container has already reached a terminal state. A missing or unreadable
 // status is treated as "unknown" so a transient Docker error never aborts a
 // tunnel that could still publish a URL.
-func (a *App) quickTunnelContainerStopped(ctx context.Context, layout InstallLayout, containerName string) (bool, error) {
+func (a *App) quickTunnelContainerStopped(
+	ctx context.Context,
+	layout InstallLayout,
+	containerName string,
+) (
+	bool,
+	error,
+) {
 	output, err := a.runner.Output(ctx, layout.Root, "docker", "inspect", "--format", "{{.State.Status}}", containerName)
 	if err != nil {
 		return false, err
@@ -102,7 +126,13 @@ func (a *App) printQuickTunnelFallback(tunnelErr error) {
 	fmt.Fprintln(a.errOut, "  http://localhost:8081/setup")
 }
 
-func (a *App) registerQuickTunnel(ctx context.Context, endpoint string, key []byte, containerName, tunnelURL string) error {
+func (a *App) registerQuickTunnel(
+	ctx context.Context,
+	endpoint string,
+	key []byte,
+	containerName,
+	tunnelURL string,
+) error {
 	body, err := json.Marshal(setupQuickTunnelPayload{ContainerName: containerName, URL: tunnelURL})
 	if err != nil {
 		return err
@@ -162,7 +192,13 @@ func findQuickTunnelURL(logs []byte) (string, bool) {
 		}
 		match := text[indexes[0]:indexes[1]]
 		parsed, err := url.Parse(match)
-		if err != nil || parsed.Scheme != "https" || parsed.User != nil || parsed.Port() != "" || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+		if err != nil ||
+			parsed.Scheme != "https" ||
+			parsed.User != nil ||
+			parsed.Port() != "" ||
+			parsed.Path != "" ||
+			parsed.RawQuery != "" ||
+			parsed.Fragment != "" {
 			continue
 		}
 		host := strings.ToLower(parsed.Hostname())

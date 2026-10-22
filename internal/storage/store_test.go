@@ -67,12 +67,21 @@ func TestBeginUploadCommitAndOpenUsesUUIDPathAndChecksum(t *testing.T) {
 	bucketID := uuid.Must(uuid.NewV7())
 	fileID := uuid.Must(uuid.NewV7())
 	content := []byte("hello storage")
-	prepared, err := store.BeginUpload(context.Background(), projectID, bucketID, fileID, strings.NewReader(string(content)), "text/plain; charset=utf-8")
+	prepared, err := store.BeginUpload(
+		context.Background(),
+		projectID,
+		bucketID,
+		fileID,
+		strings.NewReader(string(content)),
+		"text/plain; charset=utf-8",
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	wantHash := sha256.Sum256(content)
-	if prepared.Size != int64(len(content)) || prepared.Checksum != hex.EncodeToString(wantHash[:]) || prepared.ContentType != "text/plain" {
+	if prepared.Size != int64(len(content)) ||
+		prepared.Checksum != hex.EncodeToString(wantHash[:]) ||
+		prepared.ContentType != "text/plain" {
 		t.Fatalf("prepared metadata = size %d checksum %q MIME %q", prepared.Size, prepared.Checksum, prepared.ContentType)
 	}
 	wantRelative := filepath.ToSlash(filepath.Join(projectID.String(), bucketID.String(), fileID.String()))
@@ -113,7 +122,14 @@ func TestBeginUploadEnforcesLimitAndCleansTemporaryFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prepared, err := store.BeginUpload(context.Background(), uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7()), strings.NewReader("12345"), "text/plain")
+	prepared, err := store.BeginUpload(
+		context.Background(),
+		uuid.Must(uuid.NewV7()),
+		uuid.Must(uuid.NewV7()),
+		uuid.Must(uuid.NewV7()),
+		strings.NewReader("12345"),
+		"text/plain",
+	)
 	if !errors.Is(err, ErrTooLarge) {
 		t.Fatalf("BeginUpload error = %v, want ErrTooLarge", err)
 	}
@@ -139,7 +155,14 @@ func TestBeginUploadHonorsCanceledContextAndRejectsTraversal(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err = store.BeginUpload(ctx, uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7()), strings.NewReader("data"), "")
+	_, err = store.BeginUpload(
+		ctx,
+		uuid.Must(uuid.NewV7()),
+		uuid.Must(uuid.NewV7()),
+		uuid.Must(uuid.NewV7()),
+		strings.NewReader("data"),
+		"",
+	)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("canceled BeginUpload error = %v, want context.Canceled", err)
 	}

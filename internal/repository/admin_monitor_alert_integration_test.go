@@ -234,7 +234,12 @@ func TestAdminMonitorAlertLockOrderingIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	started, done, err := startAdminAlertRuleUpdateTx(ctx, fixture, ruleID, AdminAlertRulePatch{Name: stringPointer("updated while monitor is locked")})
+	started, done, err := startAdminAlertRuleUpdateTx(
+		ctx,
+		fixture,
+		ruleID,
+		AdminAlertRulePatch{Name: stringPointer("updated while monitor is locked")},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -292,7 +297,12 @@ func TestAdminMonitorWorkerAndRuleUpdateConcurrencyIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	started, done, err := startAdminAlertRuleUpdateTx(ctx, fixture, ruleID, AdminAlertRulePatch{Name: stringPointer("updated during monitor evaluation")})
+	started, done, err := startAdminAlertRuleUpdateTx(
+		ctx,
+		fixture,
+		ruleID,
+		AdminAlertRulePatch{Name: stringPointer("updated during monitor evaluation")},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -401,7 +411,11 @@ func TestAdminMonitorWorkerAndRuleDeleteConcurrencyIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	if monitorStatus != "failing" || workerStillLeased {
-		t.Fatalf("monitor after worker/delete race = status %q, worker leased %v; want failing, false", monitorStatus, workerStillLeased)
+		t.Fatalf(
+			"monitor after worker/delete race = status %q, worker leased %v; want failing, false",
+			monitorStatus,
+			workerStillLeased,
+		)
 	}
 	var checkCount int
 	if err := fixture.pool.QueryRow(ctx, `SELECT count(*) FROM admin_monitor_checks WHERE monitor_id=$1`, fixture.httpID).Scan(&checkCount); err != nil {
@@ -507,7 +521,16 @@ func TestAdminMonitorRuleCompatibilityConcurrentMutationIntegration(t *testing.T
 	}
 }
 
-func startAdminAlertRuleUpdateTx(ctx context.Context, fixture adminMonitorAlertFixture, ruleID uuid.UUID, patch AdminAlertRulePatch) (<-chan int32, <-chan error, error) {
+func startAdminAlertRuleUpdateTx(
+	ctx context.Context,
+	fixture adminMonitorAlertFixture,
+	ruleID uuid.UUID,
+	patch AdminAlertRulePatch,
+) (
+	<-chan int32,
+	<-chan error,
+	error,
+) {
 	normalized, err := normalizeAdminAlertRulePatch(patch)
 	if err != nil {
 		return nil, nil, err
@@ -536,7 +559,17 @@ func startAdminAlertRuleUpdateTx(ctx context.Context, fixture adminMonitorAlertF
 	return started, done, nil
 }
 
-func startAdminMonitorCheckTx(ctx context.Context, fixture adminMonitorAlertFixture, monitorID uuid.UUID, workerID string, input AdminMonitorCheckInput) (<-chan int32, <-chan error, error) {
+func startAdminMonitorCheckTx(
+	ctx context.Context,
+	fixture adminMonitorAlertFixture,
+	monitorID uuid.UUID,
+	workerID string,
+	input AdminMonitorCheckInput,
+) (
+	<-chan int32,
+	<-chan error,
+	error,
+) {
 	started := make(chan int32, 1)
 	done := make(chan error, 1)
 	go func() {
@@ -561,7 +594,12 @@ func startAdminMonitorCheckTx(ctx context.Context, fixture adminMonitorAlertFixt
 	return started, done, nil
 }
 
-func waitForAdminAlertRuleUpdateStart(t *testing.T, ctx context.Context, started <-chan int32, done <-chan error) int32 {
+func waitForAdminAlertRuleUpdateStart(
+	t *testing.T,
+	ctx context.Context,
+	started <-chan int32,
+	done <-chan error,
+) int32 {
 	t.Helper()
 	select {
 	case pid := <-started:

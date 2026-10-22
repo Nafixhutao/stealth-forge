@@ -76,7 +76,19 @@ type webhookScanner interface {
 func scanWebhook(row webhookScanner) (domain.Webhook, error) {
 	var item domain.Webhook
 	var id, projectID uuid.UUID
-	err := row.Scan(&id, &projectID, &item.Name, &item.URL, &item.Events, &item.Enabled, &item.FailureCount, &item.LastDeliveryAt, &item.LastFailureAt, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&id,
+		&projectID,
+		&item.Name,
+		&item.URL,
+		&item.Events,
+		&item.Enabled,
+		&item.FailureCount,
+		&item.LastDeliveryAt,
+		&item.LastFailureAt,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	item.ID = id.String()
 	item.ProjectID = projectID.String()
 	return item, err
@@ -85,7 +97,19 @@ func scanWebhook(row webhookScanner) (domain.Webhook, error) {
 func scanWebhookDelivery(row webhookScanner) (domain.WebhookDelivery, error) {
 	var item domain.WebhookDelivery
 	var id, webhookID, eventID uuid.UUID
-	err := row.Scan(&id, &webhookID, &eventID, &item.EventName, &item.Status, &item.AttemptCount, &item.LastStatusCode, &item.LastError, &item.DeliveredAt, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&id,
+		&webhookID,
+		&eventID,
+		&item.EventName,
+		&item.Status,
+		&item.AttemptCount,
+		&item.LastStatusCode,
+		&item.LastError,
+		&item.DeliveredAt,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
 	item.ID = id.String()
 	item.WebhookID = webhookID.String()
 	item.EventID = eventID.String()
@@ -204,7 +228,12 @@ func (r *Repository) requireWebhookRead(ctx context.Context, projectID uuid.UUID
 	}
 }
 
-func (r *Repository) requireWebhookWriteTx(ctx context.Context, tx pgx.Tx, projectID uuid.UUID, actor WebhookActor) error {
+func (r *Repository) requireWebhookWriteTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	projectID uuid.UUID,
+	actor WebhookActor,
+) error {
 	switch actor.Kind {
 	case WebhookConsoleActor:
 		return requireProjectRoleTx(ctx, tx, projectID, actor.AccountID, "owner", "admin")

@@ -36,7 +36,12 @@ func (s *Server) createAdminDashboard(w http.ResponseWriter, r *http.Request) {
 		adminControlError(s, w, repository.ErrInvalidAdminDashboard)
 		return
 	}
-	item, err := s.repo.CreateAdminDashboard(r.Context(), mustUUID(accountFrom(r).ID), id, repository.AdminDashboardInput{Name: request.Name, Description: request.Description, Definition: definition})
+	item, err := s.repo.CreateAdminDashboard(
+		r.Context(),
+		mustUUID(accountFrom(r).ID),
+		id,
+		repository.AdminDashboardInput{Name: request.Name, Description: request.Description, Definition: definition},
+	)
 	if err != nil {
 		adminControlError(s, w, err)
 		return
@@ -71,7 +76,12 @@ func (s *Server) updateAdminDashboard(w http.ResponseWriter, r *http.Request) {
 		adminControlError(s, w, repository.ErrInvalidAdminDashboard)
 		return
 	}
-	item, err := s.repo.UpdateAdminDashboard(r.Context(), mustUUID(accountFrom(r).ID), id, repository.AdminDashboardInput{Name: request.Name, Description: request.Description, Definition: definition})
+	item, err := s.repo.UpdateAdminDashboard(
+		r.Context(),
+		mustUUID(accountFrom(r).ID),
+		id,
+		repository.AdminDashboardInput{Name: request.Name, Description: request.Description, Definition: definition},
+	)
 	if err != nil {
 		adminControlError(s, w, err)
 		return

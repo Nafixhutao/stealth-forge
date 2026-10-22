@@ -9,7 +9,17 @@ import (
 	"github.com/google/uuid"
 )
 
-func (r *Repository) ActivateFunctionDeployment(ctx context.Context, projectID, functionID, deploymentID uuid.UUID, actor FunctionActor) (domain.FunctionDeployment, domain.Function, error) {
+func (r *Repository) ActivateFunctionDeployment(
+	ctx context.Context,
+	projectID,
+	functionID,
+	deploymentID uuid.UUID,
+	actor FunctionActor,
+) (
+	domain.FunctionDeployment,
+	domain.Function,
+	error,
+) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.FunctionDeployment{}, domain.Function{}, err
@@ -43,7 +53,16 @@ func (r *Repository) ActivateFunctionDeployment(ctx context.Context, projectID, 
 // callers that only know about source artifacts. New callers should use
 // DeleteFunctionDeploymentWithArtifacts so source and build bytes are cleaned
 // up atomically with the metadata deletion.
-func (r *Repository) DeleteFunctionDeployment(ctx context.Context, projectID, functionID, deploymentID uuid.UUID, actor FunctionActor) (string, error) {
+func (r *Repository) DeleteFunctionDeployment(
+	ctx context.Context,
+	projectID,
+	functionID,
+	deploymentID uuid.UUID,
+	actor FunctionActor,
+) (
+	string,
+	error,
+) {
 	paths, err := r.DeleteFunctionDeploymentWithArtifacts(ctx, projectID, functionID, deploymentID, actor)
 	if err != nil {
 		return "", err
@@ -56,7 +75,16 @@ func (r *Repository) DeleteFunctionDeployment(ctx context.Context, projectID, fu
 
 // DeleteFunctionDeploymentWithArtifacts removes metadata/accounting and
 // records durable cleanup jobs for its source/build paths in one transaction.
-func (r *Repository) DeleteFunctionDeploymentWithArtifacts(ctx context.Context, projectID, functionID, deploymentID uuid.UUID, actor FunctionActor) ([]string, error) {
+func (r *Repository) DeleteFunctionDeploymentWithArtifacts(
+	ctx context.Context,
+	projectID,
+	functionID,
+	deploymentID uuid.UUID,
+	actor FunctionActor,
+) (
+	[]string,
+	error,
+) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -73,7 +101,8 @@ func (r *Repository) DeleteFunctionDeploymentWithArtifacts(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
-	if (function.ActiveDeploymentID != nil && *function.ActiveDeploymentID == deploymentID.String()) || item.Status == "active" {
+	if (function.ActiveDeploymentID != nil && *function.ActiveDeploymentID == deploymentID.String()) ||
+		item.Status == "active" {
 		return nil, ErrDeploymentActive
 	}
 	buildStorage, err := r.functionDeploymentBuildStorageTx(ctx, tx, projectID, functionID, deploymentID, false)
@@ -113,7 +142,17 @@ func (r *Repository) DeleteFunctionDeploymentWithArtifacts(ctx context.Context, 
 // TransitionFunctionDeployment is an internal builder boundary. It performs
 // no source extraction or process execution; a trusted builder can call it
 // after doing that work outside this API process.
-func (r *Repository) TransitionFunctionDeployment(ctx context.Context, projectID, functionID, deploymentID uuid.UUID, next, errorMessage string) (domain.FunctionDeployment, error) {
+func (r *Repository) TransitionFunctionDeployment(
+	ctx context.Context,
+	projectID,
+	functionID,
+	deploymentID uuid.UUID,
+	next,
+	errorMessage string,
+) (
+	domain.FunctionDeployment,
+	error,
+) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.FunctionDeployment{}, err
@@ -180,7 +219,19 @@ func nullableJSON(value json.RawMessage) any {
 	return []byte(value)
 }
 
-func (r *Repository) AppendFunctionBuildLog(ctx context.Context, projectID, functionID, deploymentID, id uuid.UUID, sequence int64, level, message string) (domain.FunctionBuildLog, error) {
+func (r *Repository) AppendFunctionBuildLog(
+	ctx context.Context,
+	projectID,
+	functionID,
+	deploymentID,
+	id uuid.UUID,
+	sequence int64,
+	level,
+	message string,
+) (
+	domain.FunctionBuildLog,
+	error,
+) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.FunctionBuildLog{}, err
@@ -206,7 +257,18 @@ func (r *Repository) AppendFunctionBuildLog(ctx context.Context, projectID, func
 	return item, nil
 }
 
-func (r *Repository) ListFunctionBuildLogs(ctx context.Context, projectID, functionID, deploymentID uuid.UUID, actor FunctionActor, limit int, after int64) ([]domain.FunctionBuildLog, error) {
+func (r *Repository) ListFunctionBuildLogs(
+	ctx context.Context,
+	projectID,
+	functionID,
+	deploymentID uuid.UUID,
+	actor FunctionActor,
+	limit int,
+	after int64,
+) (
+	[]domain.FunctionBuildLog,
+	error,
+) {
 	if _, err := r.requireFunctionRead(ctx, projectID, actor); err != nil {
 		return nil, err
 	}

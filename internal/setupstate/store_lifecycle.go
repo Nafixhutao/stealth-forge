@@ -7,7 +7,13 @@ import (
 )
 
 func NewState() State {
-	return State{Version: stateVersion, Phase: PhaseCollecting, Draft: Draft{NetworkMode: "cloudflare_tunnel", DatabaseMode: "bundled", RedisMode: "bundled", StorageMode: "local"}, Secrets: make(map[string]string), UpdatedAt: time.Now().UTC()}
+	return State{
+		Version:   stateVersion,
+		Phase:     PhaseCollecting,
+		Draft:     Draft{NetworkMode: "cloudflare_tunnel", DatabaseMode: "bundled", RedisMode: "bundled", StorageMode: "local"},
+		Secrets:   make(map[string]string),
+		UpdatedAt: time.Now().UTC(),
+	}
 }
 
 func (s State) Public() PublicState {

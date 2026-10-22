@@ -30,7 +30,14 @@ type retryRecord struct {
 	lastError string
 }
 
-func (f *fakePersistence) ClaimNextArtifactCleanup(context.Context, string, time.Duration) (repository.ArtifactCleanupJob, error) {
+func (f *fakePersistence) ClaimNextArtifactCleanup(
+	context.Context,
+	string,
+	time.Duration,
+) (
+	repository.ArtifactCleanupJob,
+	error,
+) {
 	f.claimCalls++
 	if f.job == nil {
 		return repository.ArtifactCleanupJob{}, repository.ErrNoArtifactCleanup
@@ -51,7 +58,13 @@ func (f *fakePersistence) CompleteArtifactCleanup(_ context.Context, id uuid.UUI
 	return nil
 }
 
-func (f *fakePersistence) RetryArtifactCleanup(_ context.Context, id uuid.UUID, _ string, retryAt time.Time, lastError string) error {
+func (f *fakePersistence) RetryArtifactCleanup(
+	_ context.Context,
+	id uuid.UUID,
+	_ string,
+	retryAt time.Time,
+	lastError string,
+) error {
 	f.retries = append(f.retries, retryRecord{id: id, retryAt: retryAt, lastError: lastError})
 	return nil
 }

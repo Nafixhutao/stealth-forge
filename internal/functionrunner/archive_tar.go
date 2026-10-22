@@ -10,7 +10,17 @@ import (
 	"strings"
 )
 
-func extractTar(ctx context.Context, source io.Reader, destination string, root *os.Root, limits ArchiveLimits, allowSymlinks bool) (ArchiveStats, error) {
+func extractTar(
+	ctx context.Context,
+	source io.Reader,
+	destination string,
+	root *os.Root,
+	limits ArchiveLimits,
+	allowSymlinks bool,
+) (
+	ArchiveStats,
+	error,
+) {
 	reader := tar.NewReader(source)
 	stats := ArchiveStats{}
 	seen := map[string]struct{}{}
@@ -27,7 +37,10 @@ func extractTar(ctx context.Context, source io.Reader, destination string, root 
 		if err != nil {
 			return ArchiveStats{}, fmt.Errorf("read tar source archive: %w", err)
 		}
-		if header.Typeflag == tar.TypeXHeader || header.Typeflag == tar.TypeXGlobalHeader || header.Typeflag == tar.TypeGNULongName || header.Typeflag == tar.TypeGNULongLink {
+		if header.Typeflag == tar.TypeXHeader ||
+			header.Typeflag == tar.TypeXGlobalHeader ||
+			header.Typeflag == tar.TypeGNULongName ||
+			header.Typeflag == tar.TypeGNULongLink {
 			// archive/tar consumes PAX/GNU metadata while iterating. These
 			// records do not represent a filesystem object.
 			continue
@@ -69,10 +82,21 @@ func extractTar(ctx context.Context, source io.Reader, destination string, root 
 			}
 			stats.Directories++
 		case tar.TypeReg:
-			if stats.Files >= limits.MaxFiles || header.Size < 0 || header.Size > limits.MaxEntry || header.Size > limits.MaxBytes-stats.Bytes {
+			if stats.Files >= limits.MaxFiles ||
+				header.Size < 0 ||
+				header.Size > limits.MaxEntry ||
+				header.Size > limits.MaxBytes-stats.Bytes {
 				return ArchiveStats{}, ErrArchiveTooLarge
 			}
-			written, writeErr := writeEntry(ctx, root, reader, destination, relative, limits.MaxEntry, limits.MaxBytes-stats.Bytes)
+			written, writeErr := writeEntry(
+				ctx,
+				root,
+				reader,
+				destination,
+				relative,
+				limits.MaxEntry,
+				limits.MaxBytes-stats.Bytes,
+			)
 			if writeErr != nil {
 				return ArchiveStats{}, writeErr
 			}

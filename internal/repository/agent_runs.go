@@ -90,7 +90,15 @@ func scanAgentRun(row agentRunScanner) (domain.AgentRun, error) {
 
 func scanAgentRunLog(row agentRunScanner) (domain.AgentRunLog, error) {
 	var item domain.AgentRunLog
-	return item, row.Scan(&item.ID, &item.RunID, &item.ProjectID, &item.Sequence, &item.Level, &item.Message, &item.CreatedAt)
+	return item, row.Scan(
+		&item.ID,
+		&item.RunID,
+		&item.ProjectID,
+		&item.Sequence,
+		&item.Level,
+		&item.Message,
+		&item.CreatedAt,
+	)
 }
 
 func normalizeAgentRunPrompt(prompt string) (string, error) {
@@ -161,7 +169,12 @@ func normalizeAgentRunResult(result AgentRunResult) (AgentRunResult, []byte, []b
 		change := &result.Changes[index]
 		change.Path = strings.TrimSpace(change.Path)
 		change.Status = strings.TrimSpace(change.Status)
-		if change.Path == "" || len(change.Path) > agentRunMaxChangePath || strings.ContainsAny(change.Path, "\x00\r\n") || (change.Status != "added" && change.Status != "modified") || change.Additions < 0 || change.Deletions < 0 {
+		if change.Path == "" ||
+			len(change.Path) > agentRunMaxChangePath ||
+			strings.ContainsAny(change.Path, "\x00\r\n") ||
+			(change.Status != "added" && change.Status != "modified") ||
+			change.Additions < 0 ||
+			change.Deletions < 0 {
 			return AgentRunResult{}, nil, nil, fmt.Errorf("%w: change %d is invalid", ErrInvalidAgentRun, index)
 		}
 	}
@@ -180,13 +193,21 @@ func validAgentRunStep(step domain.AgentRunStep) bool {
 	if step.ID == "" || len(step.ID) > 128 || strings.ContainsAny(step.ID, "\x00\r\n\t") {
 		return false
 	}
-	if step.Type != "read" && step.Type != "edit" && step.Type != "search" && step.Type != "command" && step.Type != "check" {
+	if step.Type != "read" &&
+		step.Type != "edit" &&
+		step.Type != "search" &&
+		step.Type != "command" &&
+		step.Type != "check" {
 		return false
 	}
-	if step.Label == "" || utf8.RuneCountInString(step.Label) > agentRunMaxStepLabel || strings.ContainsAny(step.Label, "\x00\r\n") {
+	if step.Label == "" ||
+		utf8.RuneCountInString(step.Label) > agentRunMaxStepLabel ||
+		strings.ContainsAny(step.Label, "\x00\r\n") {
 		return false
 	}
-	if step.Target == "" || utf8.RuneCountInString(step.Target) > agentRunMaxStepTarget || strings.ContainsAny(step.Target, "\x00\r\n") {
+	if step.Target == "" ||
+		utf8.RuneCountInString(step.Target) > agentRunMaxStepTarget ||
+		strings.ContainsAny(step.Target, "\x00\r\n") {
 		return false
 	}
 	return step.Status == "pending" || step.Status == "done"
