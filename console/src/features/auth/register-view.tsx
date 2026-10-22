@@ -78,7 +78,7 @@ export function RegisterView() {
           src="/stealth-cat.png"
           width={56}
           height={56}
-          priority
+          preload
           unoptimized
           style={{ color: "inherit" }}
           className="size-14"

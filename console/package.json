@@ -10,7 +10,7 @@
   ],
   "scripts": {
     "dev": "next dev",
-    "build": "npm run api:generate && next build --webpack",
+    "build": "npm run api:generate && next build",
     "start": "next start",
     "lint": "node scripts/run-eslint.mjs",
     "format": "prettier --write .",
