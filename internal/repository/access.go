@@ -65,6 +65,30 @@ func projectRoleTx(ctx context.Context, tx pgx.Tx, projectID, accountID uuid.UUI
 	return role, err
 }
 
+// projectOrganizationForMember resolves the organization a project belongs to,
+// but only for an account that is a member of it. A project that does not
+// exist and a project the caller cannot see both return ErrNotFound, so a
+// caller cannot tell the two apart.
+//
+// The distinction is deliberate. Resolving the project first and checking
+// membership second answers 404 for one and 403 for the other, which turns any
+// project-scoped read into an existence oracle for guessed UUIDs.
+func (r *Repository) projectOrganizationForMember(
+	ctx context.Context,
+	projectID, accountID uuid.UUID,
+) (uuid.UUID, error) {
+	var organizationID uuid.UUID
+	err := r.pool.QueryRow(ctx, `
+		SELECT p.organization_id
+		FROM projects p
+		JOIN organization_memberships m ON m.organization_id=p.organization_id
+		WHERE p.id=$1 AND m.account_id=$2`, projectID, accountID).Scan(&organizationID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, ErrNotFound
+	}
+	return organizationID, err
+}
+
 func projectOrganizationIDValue(ctx context.Context, tx pgx.Tx, projectID uuid.UUID) (uuid.UUID, error) {
 	var orgID uuid.UUID
 	err := tx.QueryRow(ctx, `SELECT organization_id FROM projects WHERE id=$1`, projectID).Scan(&orgID)
