@@ -51,9 +51,12 @@ func (s *Server) lookupSession(w http.ResponseWriter, r *http.Request, token str
 }
 
 func accountFrom(r *http.Request) domain.Account {
-	return r.Context().Value(accountContextKey).(domain.Account)
+	return requestValue[domain.Account](r, accountContextKey, "requireSession")
 }
-func sessionFrom(r *http.Request) uuid.UUID { return r.Context().Value(sessionContextKey).(uuid.UUID) }
+
+func sessionFrom(r *http.Request) uuid.UUID {
+	return requestValue[uuid.UUID](r, sessionContextKey, "requireSession")
+}
 func (s *Server) setSessionCookie(w http.ResponseWriter, token string) {
 	http.SetCookie(
 		w,
