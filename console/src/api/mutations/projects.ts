@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "@/api/client";
-import { applyCacheChanges } from "@/api/cache-coherence";
+import { invalidate } from "@/api/cache-coherence";
 import type { components } from "@/api/generated/schema";
 
 /**
@@ -22,7 +22,7 @@ export function useCreateProject(organizationId: string | undefined) {
         }),
       ),
     onSuccess: () =>
-      applyCacheChanges(queryClient, [
+      invalidate(queryClient, [
         {
           kind: "organization-projects",
           organizationId: organizationId as string,

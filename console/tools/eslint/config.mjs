@@ -1,10 +1,19 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTypescript from "eslint-config-next/typescript";
+import stealth from "./plugins/stealth.mjs";
 
 export default defineConfig([
   ...nextVitals,
   ...nextTypescript,
+  {
+    plugins: { stealth },
+    rules: {
+      // Cache invalidation is a policy, not a per-call decision: the rule
+      // keeps `invalidate()` the only way to mark queries stale.
+      "stealth/single-cache-invalidation": "error",
+    },
+  },
   {
     // The redesigned admin console was ported from the standalone
     // stealth-console prototype. Its mock live-update simulations and

@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   adminInvalidationKeysFor,
-  applyCacheChanges,
+  invalidate,
   invalidationKeysFor,
+  planCacheChange,
 } from "@/api/cache-coherence";
 import { queryKeys } from "@/api/query-keys";
 
@@ -179,18 +180,103 @@ describe("cache coherence", () => {
 
   it("applies every unique invalidation key exactly once", async () => {
     const invalidateQueries = vi.fn().mockResolvedValue(undefined);
-    const queryClient = { invalidateQueries };
+    const removeQueries = vi.fn().mockResolvedValue(undefined);
+    const queryClient = { invalidateQueries, removeQueries };
     const change = {
       kind: "database" as const,
       projectId: "project-1",
     };
 
-    await applyCacheChanges(queryClient, [change, change]);
+    await invalidate(queryClient, [change, change]);
 
     expect(invalidateQueries).toHaveBeenCalledOnce();
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ["databases", "project-1"],
     });
+    expect(removeQueries).not.toHaveBeenCalled();
+  });
+
+  it("forgets a deleted resource instead of refetching it", async () => {
+    const invalidateQueries = vi.fn().mockResolvedValue(undefined);
+    const removeQueries = vi.fn().mockResolvedValue(undefined);
+    const queryClient = { invalidateQueries, removeQueries };
+
+    await invalidate(queryClient, [
+      { kind: "admin-monitor", resourceId: "monitor-1", forget: true },
+    ]);
+
+    // The detail query is dropped; the list and audit keys are refreshed.
+    expect(removeQueries).toHaveBeenCalledOnce();
+    expect(removeQueries).toHaveBeenCalledWith({
+      queryKey: ["admin", "monitor", "monitor-1"],
+    });
+    expect(invalidateQueries).toHaveBeenCalledTimes(2);
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["admin", "audit-events"],
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["admin", "monitors"],
+    });
+  });
+
+  it("never both forgets and refetches the same key", async () => {
+    const invalidateQueries = vi.fn().mockResolvedValue(undefined);
+    const removeQueries = vi.fn().mockResolvedValue(undefined);
+    const queryClient = { invalidateQueries, removeQueries };
+
+    await invalidate(queryClient, [
+      { kind: "admin-alert", resourceId: "alert-1", forget: true },
+    ]);
+
+    const refreshed = invalidateQueries.mock.calls.map(
+      ([call]) => JSON.stringify(call.queryKey),
+    );
+    expect(refreshed).not.toContain(JSON.stringify(["admin", "alert", "alert-1"]));
+    expect(removeQueries).toHaveBeenCalledWith({
+      queryKey: ["admin", "alert", "alert-1"],
+    });
+  });
+
+  it("forgets the account when a password reset discards it", async () => {
+    const invalidateQueries = vi.fn().mockResolvedValue(undefined);
+    const removeQueries = vi.fn().mockResolvedValue(undefined);
+    const queryClient = { invalidateQueries, removeQueries };
+
+    await invalidate(queryClient, [{ kind: "account", forget: true }]);
+
+    expect(removeQueries).toHaveBeenCalledWith({ queryKey: ["account"] });
+    expect(invalidateQueries).not.toHaveBeenCalled();
+  });
+
+  it("refreshes the usage snapshot through the policy, not a raw key", async () => {
+    const invalidateQueries = vi.fn().mockResolvedValue(undefined);
+    const removeQueries = vi.fn().mockResolvedValue(undefined);
+    const queryClient = { invalidateQueries, removeQueries };
+
+    await invalidate(queryClient, [
+      { kind: "site", projectId: "project-1", siteId: "site-1" },
+      { kind: "usage", projectId: "project-1" },
+    ]);
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["usage", "project-1"],
+    });
+  });
+
+  it("resolves both policies through one plan", () => {
+    const admin = planCacheChange({ kind: "admin-account" });
+    expect(admin.forget).toEqual([]);
+    expect(admin.invalidate).toEqual([
+      ["admin", "audit-events"],
+      ["admin", "accounts"],
+    ]);
+
+    const project = planCacheChange({
+      kind: "project",
+      projectId: "project-1",
+    });
+    expect(project.forget).toEqual([]);
+    expect(project.invalidate).toEqual([["project", "project-1"]]);
   });
 
   it("invalidates the project key alone, since it already covers its audit key", () => {
