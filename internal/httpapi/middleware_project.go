@@ -208,7 +208,7 @@ func (s *Server) allowFailedProjectAPIKeyAuth(w http.ResponseWriter, r *http.Req
 }
 
 func projectActorFrom(r *http.Request) projectActor {
-	return r.Context().Value(projectActorContextKey).(projectActor)
+	return requestValue[projectActor](r, projectActorContextKey, "requireProjectManagement or requireFunctionExecutionActor")
 }
 
 func (s *Server) requireProjectAppSession(next http.Handler) http.Handler {
@@ -243,11 +243,11 @@ func (s *Server) requireProjectAppSession(next http.Handler) http.Handler {
 }
 
 func projectUserFrom(r *http.Request) domain.ApplicationUser {
-	return r.Context().Value(projectUserContextKey).(domain.ApplicationUser)
+	return requestValue[domain.ApplicationUser](r, projectUserContextKey, "requireProjectAppSession")
 }
 
 func projectUserSessionFrom(r *http.Request) uuid.UUID {
-	return r.Context().Value(projectUserSessionContextKey).(uuid.UUID)
+	return requestValue[uuid.UUID](r, projectUserSessionContextKey, "requireProjectAppSession")
 }
 
 func projectSessionCookieName(projectID uuid.UUID) string {
