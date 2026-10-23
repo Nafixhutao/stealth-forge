@@ -117,6 +117,11 @@ func (s *Server) startOAuthLink(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) beginOAuth(w http.ResponseWriter, r *http.Request, intent, accountID string) {
+	// Minting a state/PKCE pair and writing a cookie happens on every request,
+	// so the start endpoint is gated like the other public credential handlers.
+	if !s.allowOAuthAttempt(w, r, "oauth_start") {
+		return
+	}
 	provider, configured := s.oauthProvider(r.Context(), chiURLParam(r, "provider"))
 	if !configured {
 		writeError(
@@ -163,6 +168,13 @@ func (s *Server) beginOAuth(w http.ResponseWriter, r *http.Request, intent, acco
 // linked account, and open a Console session. An identity that is not linked to
 // an account is rejected; external login never creates accounts.
 func (s *Server) oauthCallback(w http.ResponseWriter, r *http.Request) {
+	// The callback performs provider round trips and session writes per
+	// accepted request; gate it before any of that work. A gated request leaves
+	// the state cookie uncleared, which stays safe because the cookie is only
+	// consumed by this handler and expires with the state TTL.
+	if !s.allowOAuthAttempt(w, r, "oauth_callback") {
+		return
+	}
 	providerName := strings.ToLower(strings.TrimSpace(chiURLParam(r, "provider")))
 	provider, configured := s.oauthProvider(r.Context(), providerName)
 	if !configured {

@@ -87,6 +87,29 @@ func (s *Server) allowAccountAuth(w http.ResponseWriter, r *http.Request, operat
 	return true
 }
 
+// allowOAuthAttempt applies the console IP-keyed auth limit to the OAuth
+// start/callback endpoints. No email dimension exists before the provider
+// round trip, so the project+IP bucket is the only stable key; like the other
+// public gates it fails closed when the limiter is unavailable.
+func (s *Server) allowOAuthAttempt(w http.ResponseWriter, r *http.Request, operation string) bool {
+	key := ratelimit.ProjectIPKey(operation, "console", s.requestClientIP(r))
+	decision, err := s.limiter.Allow(r.Context(), key, s.config.AuthRateLimit, s.config.AuthRateWindow)
+	if err != nil {
+		s.logger.Error("oauth rate limiter failed", "operation", operation, "error", err)
+		writeError(
+			w,
+			http.StatusServiceUnavailable,
+			"service_unavailable",
+			"authentication protection is temporarily unavailable",
+		)
+		return false
+	}
+	if !decision.Allowed {
+		return writeRateLimited(w, decision.RetryAfter)
+	}
+	return true
+}
+
 // rateLimitProjectOperation applies a bounded safety budget after the route's
 // authentication middleware has established an actor. Authenticated requests
 // use a stable project/actor bucket; anonymous function calls use a separate
