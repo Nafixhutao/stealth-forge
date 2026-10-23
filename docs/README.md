@@ -63,6 +63,7 @@ The API contract is the detailed reference for each product surface. Operational
 
 - [Console caching and data-layer audit](console-caching-audit-2026-10-15.md): TanStack Query key registry, invalidation coherence, staleness policy, realtime integration, and unused Next.js 16 server caching.
 - [Console server-side caching: design proposal](console-server-caching-design-2026-10-15.md): why Next.js 16 Cache Components is blocked by cookie-authorized reads, and what to do instead.
+- [Architecture review](architecture-review-2026-10-22.md): six deepening opportunities across the Admin read model, cache invalidation, the repository contract, the error vocabulary, actor resolution, and handler testability.
 
 ## Project Direction
 
