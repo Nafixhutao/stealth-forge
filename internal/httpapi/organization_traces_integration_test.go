@@ -200,5 +200,11 @@ func TestOrganizationTracesIntegration(t *testing.T) {
 		http.StatusForbidden,
 		nil,
 	)
-	requestJSON(t, outsiderClient, http.MethodGet, projectURL+"/traces", nil, http.StatusForbidden, nil)
+	// A project the outsider cannot see answers exactly as a project that does
+	// not exist: 404, not 403. Returning 403 here would confirm the project is
+	// real, which is the reconnaissance step before a targeted request. The
+	// organization route above may answer 403 because it checks membership
+	// without first resolving the organization, so both of its cases are
+	// refused identically.
+	requestJSON(t, outsiderClient, http.MethodGet, projectURL+"/traces", nil, http.StatusNotFound, nil)
 }

@@ -267,15 +267,7 @@ func (r *Repository) ListProjectHTTPTraces(
 	if limit < 1 || limit > 100 {
 		return nil, "", fmt.Errorf("%w: limit must be between 1 and 100", ErrInvalidHTTPTrace)
 	}
-	var organizationID uuid.UUID
-	err := r.pool.QueryRow(ctx, `SELECT organization_id FROM projects WHERE id=$1`, projectID).Scan(&organizationID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, "", ErrNotFound
-	}
-	if err != nil {
-		return nil, "", err
-	}
-	if err := r.requireMembership(ctx, organizationID, accountID); err != nil {
+	if _, err := r.projectOrganizationForMember(ctx, projectID, accountID); err != nil {
 		return nil, "", err
 	}
 	rows, err := r.pool.Query(ctx, `

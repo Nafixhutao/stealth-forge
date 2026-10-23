@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"encoding/json"
-	"errors"
 
 	"github.com/Nafixhutao/stealth-forge/internal/domain"
 	"github.com/google/uuid"
@@ -89,15 +88,8 @@ func (r *Repository) ListProjectAuditEvents(
 	limit int,
 	cursor string,
 ) ([]domain.AuditEvent, string, error) {
-	var organizationID uuid.UUID
-	err := r.pool.QueryRow(ctx, `SELECT organization_id FROM projects WHERE id=$1`, projectID).Scan(&organizationID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, "", ErrNotFound
-	}
+	organizationID, err := r.projectOrganizationForMember(ctx, projectID, accountID)
 	if err != nil {
-		return nil, "", err
-	}
-	if err := r.requireMembership(ctx, organizationID, accountID); err != nil {
 		return nil, "", err
 	}
 	return r.listAuditEvents(ctx, organizationID, accountID, projectID.String(), limit, cursor)
