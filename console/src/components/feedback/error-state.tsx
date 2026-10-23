@@ -8,6 +8,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 const NETWORK_ERROR_PATTERN =
   /failed to fetch|networkerror|load failed|network request failed|fetch failed|the operation was aborted/i;
 
+/**
+ * True when the API rejected the credentials themselves rather than a missing
+ * or expired session. Only the sign-in screen can say what to do about it,
+ * because only there do provider buttons exist; this module cannot know which
+ * providers an instance has configured.
+ */
+export function isCredentialRejection(error: unknown) {
+  return error instanceof ApiError && error.code === "invalid_credentials";
+}
+
 export function errorMessage(error: unknown) {
   if (
     error instanceof TypeError ||
@@ -16,8 +26,11 @@ export function errorMessage(error: unknown) {
     return "Could not reach the Stealth API. Check your connection and retry.";
   }
   if (error instanceof ApiError) {
+    // Deliberately does not name a provider: this mapper is shared by sign-in,
+    // email verification, and the Admin provider settings, and the account may
+    // be linked to any provider or to none.
     if (error.code === "invalid_credentials")
-      return "That email and password do not match. If this account uses Google sign-in, choose Google above.";
+      return "That email and password do not match.";
     if (error.status === 401)
       return "Your session has expired. Sign in again to continue.";
     if (error.status === 403)
