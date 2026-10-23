@@ -100,8 +100,7 @@ export function useUpdateAdminErrorStatus() {
           body: { status },
         }),
       ),
-    onSuccess: () =>
-      invalidate(queryClient, [{ kind: "admin-error-group" }]),
+    onSuccess: () => invalidate(queryClient, [{ kind: "admin-error-group" }]),
   });
 }
 
@@ -111,8 +110,7 @@ export function useCreateAdminNotificationChannel() {
     mutationFn: async (
       body: components["schemas"]["CreateAdminNotificationChannelRequest"],
     ) => unwrap(await api.POST("/v1/admin/notifications", { body })),
-    onSuccess: () =>
-      invalidate(queryClient, [{ kind: "admin-notification" }]),
+    onSuccess: () => invalidate(queryClient, [{ kind: "admin-notification" }]),
   });
 }
 
@@ -125,8 +123,7 @@ export function useDeleteAdminNotificationChannel() {
           params: { path: { channelID: channelId } },
         }),
       ),
-    onSuccess: () =>
-      invalidate(queryClient, [{ kind: "admin-notification" }]),
+    onSuccess: () => invalidate(queryClient, [{ kind: "admin-notification" }]),
   });
 }
 
@@ -139,8 +136,7 @@ export function useTestAdminNotificationChannel() {
           params: { path: { channelID: channelId } },
         }),
       ),
-    onSuccess: () =>
-      invalidate(queryClient, [{ kind: "admin-notification" }]),
+    onSuccess: () => invalidate(queryClient, [{ kind: "admin-notification" }]),
   });
 }
 
@@ -243,8 +239,7 @@ export function useUpdateAdminStatusPage() {
     mutationFn: async (
       body: components["schemas"]["UpdateAdminStatusPageRequest"],
     ) => unwrap(await api.PUT("/v1/admin/status-page", { body })),
-    onSuccess: () =>
-      invalidate(queryClient, [{ kind: "admin-status-page" }]),
+    onSuccess: () => invalidate(queryClient, [{ kind: "admin-status-page" }]),
   });
 }
 

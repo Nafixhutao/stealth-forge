@@ -228,10 +228,12 @@ describe("cache coherence", () => {
       { kind: "admin-alert", resourceId: "alert-1", forget: true },
     ]);
 
-    const refreshed = invalidateQueries.mock.calls.map(
-      ([call]) => JSON.stringify(call.queryKey),
+    const refreshed = invalidateQueries.mock.calls.map(([call]) =>
+      JSON.stringify(call.queryKey),
     );
-    expect(refreshed).not.toContain(JSON.stringify(["admin", "alert", "alert-1"]));
+    expect(refreshed).not.toContain(
+      JSON.stringify(["admin", "alert", "alert-1"]),
+    );
     expect(removeQueries).toHaveBeenCalledWith({
       queryKey: ["admin", "alert", "alert-1"],
     });

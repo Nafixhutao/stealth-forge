@@ -20,7 +20,9 @@ function calleeName(node) {
     return node.property.type === "Identifier" ? node.property.name : undefined;
   }
   if (node.type === "MemberExpression" && node.computed) {
-    return node.property.type === "Literal" ? String(node.property.value) : undefined;
+    return node.property.type === "Literal"
+      ? String(node.property.value)
+      : undefined;
   }
   return undefined;
 }

@@ -88,7 +88,8 @@ export function useConfirmAccountRecovery() {
     mutationFn: async (body: components["schemas"]["PasswordResetRequest"]) =>
       unwrap(await api.PUT("/v1/account/recovery", { body })),
     // The password was reset, so the cached account is gone rather than stale.
-    onSuccess: () => invalidate(queryClient, [{ kind: "account", forget: true }]),
+    onSuccess: () =>
+      invalidate(queryClient, [{ kind: "account", forget: true }]),
   });
 }
 
@@ -109,8 +110,7 @@ export function useRevokeAccountSession() {
           params: { path: { sessionID: sessionId } },
         }),
       ),
-    onSuccess: () =>
-      invalidate(queryClient, [{ kind: "account-sessions" }]),
+    onSuccess: () => invalidate(queryClient, [{ kind: "account-sessions" }]),
   });
 }
 
@@ -118,8 +118,7 @@ export function useRevokeOtherAccountSessions() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => unwrap(await api.DELETE("/v1/account/sessions")),
-    onSuccess: () =>
-      invalidate(queryClient, [{ kind: "account-sessions" }]),
+    onSuccess: () => invalidate(queryClient, [{ kind: "account-sessions" }]),
   });
 }
 
@@ -129,7 +128,6 @@ export function useUpdateAccountPassword() {
     mutationFn: async (
       body: components["schemas"]["UpdateAccountPasswordRequest"],
     ) => unwrap(await api.PATCH("/v1/account/password", { body })),
-    onSuccess: () =>
-      invalidate(queryClient, [{ kind: "account-sessions" }]),
+    onSuccess: () => invalidate(queryClient, [{ kind: "account-sessions" }]),
   });
 }

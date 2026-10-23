@@ -26,8 +26,4 @@ export {
   adminInvalidationKeysFor,
   type AdminCacheChange,
 } from "./admin";
-export {
-  invalidate,
-  planCacheChange,
-  type CacheOperation,
-} from "./invalidate";
+export { invalidate, planCacheChange, type CacheOperation } from "./invalidate";

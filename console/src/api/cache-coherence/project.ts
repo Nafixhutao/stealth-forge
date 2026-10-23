@@ -515,7 +515,5 @@ export function invalidationKeysFor(change: CacheChange): CacheQueryKey[] {
 export function forgottenKeysFor(change: CacheChange): CacheQueryKey[] {
   // Only a discarded account has nothing left to refetch. Every other change
   // describes a resource that still exists, so invalidation is enough.
-  return change.kind === "account" && change.forget
-    ? [queryKeys.account]
-    : [];
+  return change.kind === "account" && change.forget ? [queryKeys.account] : [];
 }
