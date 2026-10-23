@@ -1,7 +1,7 @@
 "use client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "@/api/client";
-import { queryKeys } from "@/api/query-keys";
+import { invalidate } from "@/api/cache-coherence";
 import type {
   components,
   PathsV1AdminOauthProvidersProviderDeleteParametersPathProvider,
@@ -34,9 +34,7 @@ export function useUpdateAdminOAuthProvider() {
         }),
       ),
     onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.adminOAuthProviders,
-      }),
+      invalidate(queryClient, [{ kind: "admin-oauth-provider" }]),
   });
 }
 
@@ -56,8 +54,6 @@ export function useDeleteAdminOAuthProvider() {
         }),
       ),
     onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.adminOAuthProviders,
-      }),
+      invalidate(queryClient, [{ kind: "admin-oauth-provider" }]),
   });
 }

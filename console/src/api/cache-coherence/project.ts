@@ -1,6 +1,5 @@
-import type { QueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/api/query-keys";
-import { addCacheKey, dedupeCacheKeys, type CacheQueryKey } from "./keys";
+import { addCacheKey, type CacheQueryKey } from "./keys";
 
 /**
  * A domain change that can be translated into the queries whose source of
@@ -17,8 +16,11 @@ export type CacheChange =
       kind: "account";
       includeOrganizations?: boolean;
       includeBootstrapStatus?: boolean;
+      /** The account was discarded, so forget it instead of refetching it. */
+      forget?: boolean;
     }
   | { kind: "account-sessions" }
+  | { kind: "usage"; projectId: string }
   | { kind: "auth-settings"; projectId: string }
   | { kind: "service-layout"; projectId: string }
   | { kind: "agent"; projectId: string; agentId?: string }
@@ -63,6 +65,12 @@ export type CacheChange =
       siteId?: string;
       deploymentId?: string;
       includeScope?: boolean;
+    }
+  | {
+      kind: "site-deployment-files";
+      projectId: string;
+      siteId: string;
+      deploymentId: string;
     }
   | {
       kind: "webhook";
@@ -150,6 +158,12 @@ export function invalidationKeysFor(change: CacheChange): CacheQueryKey[] {
 
     case "account-sessions":
       addCacheKey(keys, queryKeys.accountSessions);
+      return keys;
+
+    case "usage":
+      // Every metered write moves the project's usage snapshot, which the
+      // section headers read instead of counting rows themselves.
+      addCacheKey(keys, queryKeys.usage(change.projectId));
       return keys;
 
     case "auth-settings":
@@ -325,6 +339,19 @@ export function invalidationKeysFor(change: CacheChange): CacheQueryKey[] {
       }
       return keys;
 
+    case "site-deployment-files":
+      // Editing a file creates a new release, so the files listing for the
+      // previous one no longer describes anything that exists.
+      addCacheKey(
+        keys,
+        queryKeys.siteDeploymentFiles(
+          change.projectId,
+          change.siteId,
+          change.deploymentId,
+        ),
+      );
+      return keys;
+
     case "webhook":
       if (change.delivery && change.webhookId) {
         addCacheKey(
@@ -485,13 +512,8 @@ export function invalidationKeysFor(change: CacheChange): CacheQueryKey[] {
   }
 }
 
-export async function applyCacheChanges(
-  queryClient: Pick<QueryClient, "invalidateQueries">,
-  changes: readonly CacheChange[],
-) {
-  const uniqueKeys = dedupeCacheKeys(changes.flatMap(invalidationKeysFor));
-
-  await Promise.all(
-    uniqueKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
-  );
+export function forgottenKeysFor(change: CacheChange): CacheQueryKey[] {
+  // Only a discarded account has nothing left to refetch. Every other change
+  // describes a resource that still exists, so invalidation is enough.
+  return change.kind === "account" && change.forget ? [queryKeys.account] : [];
 }

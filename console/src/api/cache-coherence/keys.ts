@@ -34,3 +34,16 @@ export function dedupeCacheKeys(
   }
   return unique;
 }
+
+/**
+ * Drops every key present in `remove`. Used when a change both refreshes a
+ * list and forgets a detail query: the detail must not be refetched, so it is
+ * subtracted from the invalidation set rather than added to it as well.
+ */
+export function withoutCacheKeys(
+  keys: readonly CacheQueryKey[],
+  remove: readonly CacheQueryKey[],
+): CacheQueryKey[] {
+  const removed = new Set(remove.map((key) => JSON.stringify(key)));
+  return keys.filter((key) => !removed.has(JSON.stringify(key)));
+}

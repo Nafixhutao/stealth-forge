@@ -1,23 +1,29 @@
 /**
- * Cache invalidation policy, split by domain so a reviewer reads one policy at
- * a time:
+ * Cache invalidation policy. One operation, one vocabulary:
  *
  * - `./keys` — domain-free primitives (`CacheQueryKey`, `addCacheKey`,
- *   `dedupeCacheKeys`).
- * - `./project` — project-scoped changes (`CacheChange`,
- *   `invalidationKeysFor`, `applyCacheChanges`).
+ *   `dedupeCacheKeys`, `withoutCacheKeys`).
+ * - `./project` — project-scoped changes (`CacheChange`, `invalidationKeysFor`,
+ *   `forgottenKeysFor`).
  * - `./admin` — instance-Admin control-room changes (`AdminCacheChange`,
- *   `adminInvalidationKeysFor`).
+ *   `adminInvalidationKeysFor`, `adminForgottenKeysFor`).
+ * - `./invalidate` — `invalidate(queryClient, changes)`, the only entry point.
  *
- * Both policies resolve to one shared vocabulary, so realtime and mutation
- * adapters cannot quietly grow different key lists. Import from this module
- * rather than the files above.
+ * Both policies resolve to one shared vocabulary, so mutation and realtime
+ * adapters cannot grow different key lists. Callers describe *what changed*
+ * and this module decides *what goes stale*; nothing outside this directory
+ * names a query key for invalidation.
  */
 
 export { addCacheKey, dedupeCacheKeys, type CacheQueryKey } from "./keys";
 export {
-  applyCacheChanges,
+  forgottenKeysFor,
   invalidationKeysFor,
   type CacheChange,
 } from "./project";
-export { adminInvalidationKeysFor, type AdminCacheChange } from "./admin";
+export {
+  adminForgottenKeysFor,
+  adminInvalidationKeysFor,
+  type AdminCacheChange,
+} from "./admin";
+export { invalidate, planCacheChange, type CacheOperation } from "./invalidate";

@@ -2,8 +2,16 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "@/api/client";
-import { queryKeys } from "@/api/query-keys";
+import { invalidate } from "@/api/cache-coherence";
 import type { components } from "@/api/generated/schema";
+
+/**
+ * The Admin control room's writes.
+ *
+ * Each mutation states what changed and lets the cache-coherence module decide
+ * which queries go stale. Deleting a resource marks the change `forget`, so its
+ * detail query is dropped rather than refetched into a 404.
+ */
 
 export function useCreateAdminMonitor() {
   const queryClient = useQueryClient();
@@ -11,8 +19,7 @@ export function useCreateAdminMonitor() {
     mutationFn: async (
       body: components["schemas"]["CreateAdminMonitorRequest"],
     ) => unwrap(await api.POST("/v1/admin/monitors", { body })),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminMonitors }),
+    onSuccess: () => invalidate(queryClient, [{ kind: "admin-monitor" }]),
   });
 }
 
@@ -28,14 +35,10 @@ export function useUpdateAdminMonitor(monitorId: string) {
           body,
         }),
       ),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.adminMonitors,
-      });
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.adminMonitor(monitorId),
-      });
-    },
+    onSuccess: () =>
+      invalidate(queryClient, [
+        { kind: "admin-monitor", resourceId: monitorId },
+      ]),
   });
 }
 
@@ -48,14 +51,10 @@ export function useDeleteAdminMonitor() {
           params: { path: { monitorID: monitorId } },
         }),
       ),
-    onSuccess: (_, monitorId) => {
-      queryClient.removeQueries({
-        queryKey: queryKeys.adminMonitor(monitorId),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.adminMonitors,
-      });
-    },
+    onSuccess: (_, monitorId) =>
+      invalidate(queryClient, [
+        { kind: "admin-monitor", resourceId: monitorId, forget: true },
+      ]),
   });
 }
 
@@ -65,8 +64,7 @@ export function useCreateAdminAlert() {
     mutationFn: async (
       body: components["schemas"]["CreateAdminAlertRuleRequest"],
     ) => unwrap(await api.POST("/v1/admin/alerts", { body })),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminAlerts }),
+    onSuccess: () => invalidate(queryClient, [{ kind: "admin-alert" }]),
   });
 }
 
@@ -79,15 +77,10 @@ export function useDeleteAdminAlert() {
           params: { path: { alertRuleID: alertRuleId } },
         }),
       ),
-    onSuccess: (_, alertRuleId) => {
-      queryClient.removeQueries({
-        queryKey: queryKeys.adminAlert(alertRuleId),
-      });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.adminAlerts });
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.adminAlertEvents,
-      });
-    },
+    onSuccess: (_, alertRuleId) =>
+      invalidate(queryClient, [
+        { kind: "admin-alert", resourceId: alertRuleId, forget: true },
+      ]),
   });
 }
 
@@ -107,10 +100,7 @@ export function useUpdateAdminErrorStatus() {
           body: { status },
         }),
       ),
-    onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: ["admin", "telemetry", "errors"],
-      }),
+    onSuccess: () => invalidate(queryClient, [{ kind: "admin-error-group" }]),
   });
 }
 
@@ -120,8 +110,7 @@ export function useCreateAdminNotificationChannel() {
     mutationFn: async (
       body: components["schemas"]["CreateAdminNotificationChannelRequest"],
     ) => unwrap(await api.POST("/v1/admin/notifications", { body })),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminNotifications }),
+    onSuccess: () => invalidate(queryClient, [{ kind: "admin-notification" }]),
   });
 }
 
@@ -134,8 +123,7 @@ export function useDeleteAdminNotificationChannel() {
           params: { path: { channelID: channelId } },
         }),
       ),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminNotifications }),
+    onSuccess: () => invalidate(queryClient, [{ kind: "admin-notification" }]),
   });
 }
 
@@ -148,8 +136,7 @@ export function useTestAdminNotificationChannel() {
           params: { path: { channelID: channelId } },
         }),
       ),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminNotifications }),
+    onSuccess: () => invalidate(queryClient, [{ kind: "admin-notification" }]),
   });
 }
 
@@ -159,8 +146,7 @@ export function useCreateAdminIncident() {
     mutationFn: async (
       body: components["schemas"]["CreateAdminIncidentRequest"],
     ) => unwrap(await api.POST("/v1/admin/incidents", { body })),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminIncidents }),
+    onSuccess: () => invalidate(queryClient, [{ kind: "admin-incident" }]),
   });
 }
 
@@ -176,14 +162,10 @@ export function useUpdateAdminIncident(incidentId: string) {
           body,
         }),
       ),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.adminIncidents,
-      });
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.adminIncident(incidentId),
-      });
-    },
+    onSuccess: () =>
+      invalidate(queryClient, [
+        { kind: "admin-incident", resourceId: incidentId },
+      ]),
   });
 }
 
@@ -200,9 +182,9 @@ export function useAddAdminIncidentEvent(incidentId: string) {
         }),
       ),
     onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.adminIncident(incidentId),
-      }),
+      invalidate(queryClient, [
+        { kind: "admin-incident", resourceId: incidentId },
+      ]),
   });
 }
 
@@ -212,8 +194,7 @@ export function useCreateAdminDashboard() {
     mutationFn: async (
       body: components["schemas"]["CreateAdminDashboardRequest"],
     ) => unwrap(await api.POST("/v1/admin/dashboards", { body })),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminDashboards }),
+    onSuccess: () => invalidate(queryClient, [{ kind: "admin-dashboard" }]),
   });
 }
 
@@ -229,14 +210,10 @@ export function useUpdateAdminDashboard(dashboardId: string) {
           body,
         }),
       ),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.adminDashboards,
-      });
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.adminDashboard(dashboardId),
-      });
-    },
+    onSuccess: () =>
+      invalidate(queryClient, [
+        { kind: "admin-dashboard", resourceId: dashboardId },
+      ]),
   });
 }
 
@@ -249,14 +226,10 @@ export function useDeleteAdminDashboard() {
           params: { path: { dashboardID: dashboardId } },
         }),
       ),
-    onSuccess: (_, dashboardId) => {
-      queryClient.removeQueries({
-        queryKey: queryKeys.adminDashboard(dashboardId),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.adminDashboards,
-      });
-    },
+    onSuccess: (_, dashboardId) =>
+      invalidate(queryClient, [
+        { kind: "admin-dashboard", resourceId: dashboardId, forget: true },
+      ]),
   });
 }
 
@@ -266,8 +239,7 @@ export function useUpdateAdminStatusPage() {
     mutationFn: async (
       body: components["schemas"]["UpdateAdminStatusPageRequest"],
     ) => unwrap(await api.PUT("/v1/admin/status-page", { body })),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminStatusPage }),
+    onSuccess: () => invalidate(queryClient, [{ kind: "admin-status-page" }]),
   });
 }
 
@@ -287,7 +259,6 @@ export function useUpdateAdminAccountPlan() {
           body: { plan },
         }),
       ),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminAccounts }),
+    onSuccess: () => invalidate(queryClient, [{ kind: "admin-account" }]),
   });
 }

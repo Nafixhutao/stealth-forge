@@ -2,8 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "@/api/client";
-import { applyCacheChanges } from "@/api/cache-coherence";
-import { queryKeys } from "@/api/query-keys";
+import { invalidate } from "@/api/cache-coherence";
 import type { components } from "@/api/generated/schema";
 
 /**
@@ -27,12 +26,12 @@ export function useCreateBucket(projectId: string | undefined) {
         }),
       ),
     onSuccess: async () => {
-      await applyCacheChanges(queryClient, [
+      await invalidate(queryClient, [
         { kind: "storage-bucket", projectId: projectId as string },
       ]);
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.usage(projectId as string),
-      });
+      await invalidate(queryClient, [
+        { kind: "usage", projectId: projectId as string },
+      ]);
     },
   });
 }
@@ -52,12 +51,12 @@ export function useDeleteBucket(projectId: string | undefined) {
         ),
       ),
     onSuccess: async (_result, bucketId) => {
-      await applyCacheChanges(queryClient, [
+      await invalidate(queryClient, [
         { kind: "storage-bucket", projectId: projectId as string, bucketId },
       ]);
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.usage(projectId as string),
-      });
+      await invalidate(queryClient, [
+        { kind: "usage", projectId: projectId as string },
+      ]);
     },
   });
 }

@@ -2,8 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap, uploadMultipart } from "@/api/client";
-import { applyCacheChanges } from "@/api/cache-coherence";
-import { queryKeys } from "@/api/query-keys";
+import { invalidate } from "@/api/cache-coherence";
 import type { components } from "@/api/generated/schema";
 
 /**
@@ -29,12 +28,10 @@ export function useCreateSite(projectId: string | undefined) {
         }),
       ),
     onSuccess: async () => {
-      await applyCacheChanges(queryClient, [
+      await invalidate(queryClient, [
         { kind: "site", projectId: projectId as string },
+        { kind: "usage", projectId: projectId as string },
       ]);
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.usage(projectId as string),
-      });
     },
   });
 }
@@ -70,15 +67,13 @@ export function useDeploySite(projectId: string | undefined) {
       );
     },
     onSuccess: async (_deployment, { siteId }) => {
-      await applyCacheChanges(queryClient, [
+      await invalidate(queryClient, [
         // Refreshes the site row: artifact bytes and the active deployment.
         { kind: "site", projectId: projectId as string, siteId },
         // Refreshes the deployment history for the site.
         { kind: "site-deployment", projectId: projectId as string, siteId },
+        { kind: "usage", projectId: projectId as string },
       ]);
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.usage(projectId as string),
-      });
     },
   });
 }
@@ -113,12 +108,10 @@ export function useCreateGitDeployment(projectId: string | undefined) {
         ),
       ),
     onSuccess: async (_deployment, { siteId }) => {
-      await applyCacheChanges(queryClient, [
+      await invalidate(queryClient, [
         { kind: "site-deployment", projectId: projectId as string, siteId },
+        { kind: "usage", projectId: projectId as string },
       ]);
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.usage(projectId as string),
-      });
     },
   });
 }
@@ -149,18 +142,16 @@ export function useActivateSiteDeployment(projectId: string | undefined) {
         ),
       ),
     onSuccess: async (_result, { siteId, deploymentId }) => {
-      await applyCacheChanges(queryClient, [
+      await invalidate(queryClient, [
         // The site row carries the active deployment, so it moves too.
         { kind: "site", projectId: projectId as string, siteId },
-        { kind: "site-deployment", projectId: projectId as string, siteId },
-      ]);
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.siteDeployment(
-          projectId as string,
+        {
+          kind: "site-deployment",
+          projectId: projectId as string,
           siteId,
           deploymentId,
-        ),
-      });
+        },
+      ]);
     },
   });
 }
@@ -194,12 +185,10 @@ export function useDeleteSiteDeployment(projectId: string | undefined) {
         ),
       ),
     onSuccess: async (_result, { siteId }) => {
-      await applyCacheChanges(queryClient, [
+      await invalidate(queryClient, [
         { kind: "site-deployment", projectId: projectId as string, siteId },
+        { kind: "usage", projectId: projectId as string },
       ]);
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.usage(projectId as string),
-      });
     },
   });
 }
@@ -242,22 +231,21 @@ export function useEditSiteDeploymentFile(projectId: string | undefined) {
         ),
       ),
     onSuccess: async (_result, { siteId, deploymentId }) => {
-      await applyCacheChanges(queryClient, [
+      await invalidate(queryClient, [
         // The new release becomes live, so the site row moves with it.
         { kind: "site", projectId: projectId as string, siteId },
         { kind: "site-deployment", projectId: projectId as string, siteId },
       ]);
       // The edited file belongs to a release that no longer exists as such.
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.siteDeploymentFiles(
-          projectId as string,
+      await invalidate(queryClient, [
+        {
+          kind: "site-deployment-files",
+          projectId: projectId as string,
           siteId,
           deploymentId,
-        ),
-      });
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.usage(projectId as string),
-      });
+        },
+        { kind: "usage", projectId: projectId as string },
+      ]);
     },
   });
 }
