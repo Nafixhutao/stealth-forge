@@ -30,38 +30,14 @@ func (s *Server) requireProjectManagement(next http.Handler) http.Handler {
 		// browser session. The application-user cookie is intentionally ignored.
 		secret := r.Header.Get("X-Stealth-Key")
 		if secret != "" {
-			if err := apikey.ValidateSecret(secret); err != nil {
-				if !s.allowFailedProjectAPIKeyAuth(w, r, projectID) {
-					return
-				}
-				writeError(w, http.StatusUnauthorized, "unauthorized", "authentication is required")
-				return
-			}
-			key, err := s.repo.AuthenticateProjectAPIKey(r.Context(), projectID, apikey.HashSecret(secret))
-			if errors.Is(err, repository.ErrNotFound) {
-				if !s.allowFailedProjectAPIKeyAuth(w, r, projectID) {
-					return
-				}
-				writeError(w, http.StatusUnauthorized, "unauthorized", "authentication is required")
-				return
-			}
-			if err != nil {
-				internalError(s, w, err)
-				return
-			}
-			keyID, err := repository.ParseUUID(key.ID)
-			if err != nil {
-				internalError(s, w, err)
-				return
-			}
-			if err := s.repo.TouchProjectAPIKey(r.Context(), keyID); err != nil {
-				internalError(s, w, err)
+			identity, ok := s.authenticateProjectAPIKey(w, r, projectID, secret)
+			if !ok {
 				return
 			}
 			ctx := context.WithValue(
 				r.Context(),
 				projectActorContextKey,
-				projectActor{kind: apiKeyProjectActor, apiKeyID: keyID, scopes: key.Scopes},
+				projectActor{kind: apiKeyProjectActor, apiKeyID: identity.id, scopes: identity.scopes},
 			)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
@@ -116,38 +92,14 @@ func (s *Server) requireFunctionExecutionActor(next http.Handler) http.Handler {
 			return
 		}
 		if secret := r.Header.Get("X-Stealth-Key"); secret != "" {
-			if err := apikey.ValidateSecret(secret); err != nil {
-				if !s.allowFailedProjectAPIKeyAuth(w, r, projectID) {
-					return
-				}
-				writeError(w, http.StatusUnauthorized, "unauthorized", "authentication is required")
-				return
-			}
-			key, err := s.repo.AuthenticateProjectAPIKey(r.Context(), projectID, apikey.HashSecret(secret))
-			if errors.Is(err, repository.ErrNotFound) {
-				if !s.allowFailedProjectAPIKeyAuth(w, r, projectID) {
-					return
-				}
-				writeError(w, http.StatusUnauthorized, "unauthorized", "authentication is required")
-				return
-			}
-			if err != nil {
-				internalError(s, w, err)
-				return
-			}
-			keyID, err := repository.ParseUUID(key.ID)
-			if err != nil {
-				internalError(s, w, err)
-				return
-			}
-			if err := s.repo.TouchProjectAPIKey(r.Context(), keyID); err != nil {
-				internalError(s, w, err)
+			identity, ok := s.authenticateProjectAPIKey(w, r, projectID, secret)
+			if !ok {
 				return
 			}
 			ctx := context.WithValue(
 				r.Context(),
 				projectActorContextKey,
-				projectActor{kind: apiKeyProjectActor, apiKeyID: keyID, scopes: key.Scopes},
+				projectActor{kind: apiKeyProjectActor, apiKeyID: identity.id, scopes: identity.scopes},
 			)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
@@ -205,6 +157,58 @@ func (s *Server) allowFailedProjectAPIKeyAuth(w http.ResponseWriter, r *http.Req
 		return writeRateLimited(w, decision.RetryAfter)
 	}
 	return true
+}
+
+// projectAPIKeyIdentity is what a validated X-Stealth-Key proves: which key it
+// is and what it may do. Each route wraps it in the actor type its repository
+// expects, so key validation and touch semantics live in one place.
+type projectAPIKeyIdentity struct {
+	id     uuid.UUID
+	scopes []string
+}
+
+// authenticateProjectAPIKey validates an explicit server key for a project and
+// records the touch. It writes the response and returns ok == false on any
+// failure, so callers only handle the success path.
+//
+// A malformed key and an unknown key take the same path: both count against the
+// failed-auth limiter before answering 401, so a caller cannot use the limiter's
+// response to distinguish "badly formed" from "not a real key".
+func (s *Server) authenticateProjectAPIKey(
+	w http.ResponseWriter,
+	r *http.Request,
+	projectID uuid.UUID,
+	secret string,
+) (projectAPIKeyIdentity, bool) {
+	if err := apikey.ValidateSecret(secret); err != nil {
+		if !s.allowFailedProjectAPIKeyAuth(w, r, projectID) {
+			return projectAPIKeyIdentity{}, false
+		}
+		writeError(w, http.StatusUnauthorized, "unauthorized", "authentication is required")
+		return projectAPIKeyIdentity{}, false
+	}
+	key, err := s.repo.AuthenticateProjectAPIKey(r.Context(), projectID, apikey.HashSecret(secret))
+	if errors.Is(err, repository.ErrNotFound) {
+		if !s.allowFailedProjectAPIKeyAuth(w, r, projectID) {
+			return projectAPIKeyIdentity{}, false
+		}
+		writeError(w, http.StatusUnauthorized, "unauthorized", "authentication is required")
+		return projectAPIKeyIdentity{}, false
+	}
+	if err != nil {
+		internalError(s, w, err)
+		return projectAPIKeyIdentity{}, false
+	}
+	keyID, err := repository.ParseUUID(key.ID)
+	if err != nil {
+		internalError(s, w, err)
+		return projectAPIKeyIdentity{}, false
+	}
+	if err := s.repo.TouchProjectAPIKey(r.Context(), keyID); err != nil {
+		internalError(s, w, err)
+		return projectAPIKeyIdentity{}, false
+	}
+	return projectAPIKeyIdentity{id: keyID, scopes: key.Scopes}, true
 }
 
 func projectActorFrom(r *http.Request) projectActor {

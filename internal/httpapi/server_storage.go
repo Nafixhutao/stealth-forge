@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/Nafixhutao/stealth-forge/internal/apikey"
 	"github.com/Nafixhutao/stealth-forge/internal/auth"
 	"github.com/Nafixhutao/stealth-forge/internal/domain"
 	"github.com/Nafixhutao/stealth-forge/internal/repository"
@@ -28,38 +27,14 @@ func (s *Server) requireProjectStorageActor(next http.Handler) http.Handler {
 			return
 		}
 		if secret := r.Header.Get("X-Stealth-Key"); secret != "" {
-			if err := apikey.ValidateSecret(secret); err != nil {
-				if !s.allowFailedProjectAPIKeyAuth(w, r, projectID) {
-					return
-				}
-				writeError(w, http.StatusUnauthorized, "unauthorized", "authentication is required")
-				return
-			}
-			key, err := s.repo.AuthenticateProjectAPIKey(r.Context(), projectID, apikey.HashSecret(secret))
-			if errors.Is(err, repository.ErrNotFound) {
-				if !s.allowFailedProjectAPIKeyAuth(w, r, projectID) {
-					return
-				}
-				writeError(w, http.StatusUnauthorized, "unauthorized", "authentication is required")
-				return
-			}
-			if err != nil {
-				internalError(s, w, err)
-				return
-			}
-			keyID, err := repository.ParseUUID(key.ID)
-			if err != nil {
-				internalError(s, w, err)
-				return
-			}
-			if err := s.repo.TouchProjectAPIKey(r.Context(), keyID); err != nil {
-				internalError(s, w, err)
+			identity, ok := s.authenticateProjectAPIKey(w, r, projectID, secret)
+			if !ok {
 				return
 			}
 			ctx := context.WithValue(
 				r.Context(),
 				projectStorageActorContextKey,
-				repository.StorageActor{Kind: repository.StorageAPIKeyActor, APIKeyID: keyID, APIKeyScopes: key.Scopes},
+				repository.StorageActor{Kind: repository.StorageAPIKeyActor, APIKeyID: identity.id, APIKeyScopes: identity.scopes},
 			)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
