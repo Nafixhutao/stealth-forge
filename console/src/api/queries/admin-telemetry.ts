@@ -1,7 +1,6 @@
 "use client";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api, apiUrl, cancellableQuery } from "@/api/client";
-import type { PathsV1AdminInfrastructureMetricsGetParametersQueryScope } from "@/api/generated/schema";
 import { queryKeys, type AdminTelemetryQueryParams } from "@/api/query-keys";
 import {
   POLL_FAST_MS,
@@ -183,20 +182,6 @@ export function useAdminOverview(options?: {
     ...polledQuery(options?.refetchInterval, POLL_SLOW_MS),
   });
 }
-export function useAdminOperations(
-  query: Pick<AdminTelemetryQuery, "from" | "to" | "limit"> = {},
-  options?: { refetchInterval?: number | false },
-) {
-  return useQuery({
-    queryKey: [...queryKeys.adminOperations, query],
-    queryFn: cancellableQuery((signal) =>
-      api.GET("/v1/admin/operations", { params: { query }, signal }),
-    ),
-    placeholderData: keepPreviousData,
-    ...polledQuery(options?.refetchInterval),
-  });
-}
-
 // Host resource metrics are sampled in-process by the API (no telemetry
 // backend). Poll a little faster than the heavier admin queries so the Overview
 // resource cards and chart stay close to live. `windowMinutes` narrows the
@@ -286,152 +271,5 @@ export function useAdminAccounts(options?: {
       api.GET("/v1/admin/accounts", { signal }),
     ),
     ...polledQuery(options?.refetchInterval, POLL_SLOW_MS),
-  });
-}
-
-export function useAdminAuditEvents(
-  query: { before?: string; limit?: number } = {},
-  options?: { refetchInterval?: number | false },
-) {
-  return useQuery({
-    queryKey: queryKeys.adminAuditEvents(query),
-    queryFn: cancellableQuery((signal) =>
-      api.GET("/v1/admin/audit-events", { params: { query }, signal }),
-    ),
-    placeholderData: keepPreviousData,
-    ...polledQuery(options?.refetchInterval),
-  });
-}
-
-export function useAdminLogs(
-  query: AdminTelemetryQuery = {},
-  options?: { enabled?: boolean; refetchInterval?: number | false },
-) {
-  return useQuery({
-    queryKey: queryKeys.adminTelemetry("logs", query),
-    queryFn: cancellableQuery((signal) =>
-      api.GET("/v1/admin/telemetry/logs", {
-        params: { query },
-        signal,
-      }),
-    ),
-    placeholderData: keepPreviousData,
-    enabled: options?.enabled ?? true,
-    ...polledQuery(options?.refetchInterval),
-  });
-}
-
-export function useAdminLogVolume(
-  query: AdminTelemetryQuery = {},
-  options?: { refetchInterval?: number | false },
-) {
-  return useQuery({
-    queryKey: queryKeys.adminTelemetry("log-volume", query),
-    queryFn: cancellableQuery((signal) =>
-      api.GET("/v1/admin/telemetry/log-volume", { params: { query }, signal }),
-    ),
-    placeholderData: keepPreviousData,
-    ...polledQuery(options?.refetchInterval),
-  });
-}
-
-export function useAdminTraces(
-  query: AdminTelemetryQuery = {},
-  options?: { refetchInterval?: number | false },
-) {
-  return useQuery({
-    queryKey: queryKeys.adminTelemetry("traces", query),
-    queryFn: cancellableQuery((signal) =>
-      api.GET("/v1/admin/telemetry/traces", {
-        params: { query },
-        signal,
-      }),
-    ),
-    placeholderData: keepPreviousData,
-    ...polledQuery(options?.refetchInterval),
-  });
-}
-
-export function useAdminErrors(
-  query: Pick<
-    AdminTelemetryQuery,
-    "from" | "to" | "service" | "query" | "limit"
-  > = {},
-  options?: { refetchInterval?: number | false },
-) {
-  return useQuery({
-    queryKey: queryKeys.adminTelemetry("errors", query),
-    queryFn: cancellableQuery((signal) =>
-      api.GET("/v1/admin/telemetry/errors", { params: { query }, signal }),
-    ),
-    placeholderData: keepPreviousData,
-    ...polledQuery(options?.refetchInterval),
-  });
-}
-
-export function useAdminServiceMap(
-  query: Pick<AdminTelemetryQuery, "from" | "to" | "limit"> = {},
-  options?: { refetchInterval?: number | false },
-) {
-  return useQuery({
-    queryKey: queryKeys.adminTelemetry("services", query),
-    queryFn: cancellableQuery((signal) =>
-      api.GET("/v1/admin/telemetry/services", { params: { query }, signal }),
-    ),
-    placeholderData: keepPreviousData,
-    ...polledQuery(options?.refetchInterval),
-  });
-}
-
-export function useAdminInfrastructure(
-  query: Pick<AdminTelemetryQuery, "from" | "to" | "limit"> & {
-    scope?: PathsV1AdminInfrastructureMetricsGetParametersQueryScope;
-  } = {},
-  options?: { refetchInterval?: number | false },
-) {
-  return useQuery({
-    queryKey: queryKeys.adminInfrastructure(query),
-    queryFn: cancellableQuery((signal) =>
-      api.GET("/v1/admin/infrastructure/metrics", {
-        params: { query },
-        signal,
-      }),
-    ),
-    placeholderData: keepPreviousData,
-    ...polledQuery(options?.refetchInterval),
-  });
-}
-
-export function useAdminMetrics(
-  query: AdminTelemetryQuery = {},
-  options?: { refetchInterval?: number | false },
-) {
-  return useQuery({
-    queryKey: queryKeys.adminTelemetry("metrics", query),
-    queryFn: cancellableQuery((signal) =>
-      api.GET("/v1/admin/telemetry/metrics", {
-        params: { query },
-        signal,
-      }),
-    ),
-    placeholderData: keepPreviousData,
-    ...polledQuery(options?.refetchInterval),
-  });
-}
-
-export function useAdminSources(
-  query: Pick<AdminTelemetryQuery, "from" | "to" | "limit"> = {},
-  options?: { refetchInterval?: number | false },
-) {
-  return useQuery({
-    queryKey: queryKeys.adminTelemetry("sources", query),
-    queryFn: cancellableQuery((signal) =>
-      api.GET("/v1/admin/telemetry/sources", {
-        params: { query },
-        signal,
-      }),
-    ),
-    placeholderData: keepPreviousData,
-    ...polledQuery(options?.refetchInterval),
   });
 }

@@ -6,7 +6,11 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import { api, cancellableQuery } from "@/api/client";
-import { useAdminLogTail } from "@/api/queries/admin-telemetry";
+import {
+  useAdminHostMetrics,
+  useAdminLogTail,
+  useAdminOverview,
+} from "@/api/queries/admin-telemetry";
 import { polledQuery } from "@/api/polling";
 import { queryKeys } from "@/api/query-keys";
 import { useMemo } from "react";
@@ -130,13 +134,10 @@ function useSecondaryReadState<T>(
 }
 
 function useAdminOverviewQuery() {
-  return useQuery({
-    queryKey: queryKeys.adminOverview,
-    queryFn: cancellableQuery((signal) =>
-      api.GET("/v1/admin/overview", { signal }),
-    ),
-    ...polledQuery(30_000),
-  });
+  // The typed hook owns this request, its key, and its cadence. Wrapping it
+  // instead of re-declaring the query keeps one HTTP request on one cache key,
+  // so the Overview page and this read model share a cache entry.
+  return useAdminOverview({ refetchInterval: 30_000 });
 }
 
 function useOperationsQuery(
@@ -167,18 +168,10 @@ export function useInfrastructureReadModel(
   snapshot: AdminHostMetricsSnapshot | undefined;
   operations: AdminOperationSummary | undefined;
 }> {
-  const host = useQuery({
-    queryKey: [...queryKeys.adminHostMetrics, range],
-    queryFn: cancellableQuery((signal) =>
-      api.GET("/v1/admin/host-metrics", {
-        params: {
-          query: { window_minutes: HOST_RANGE_MINUTES[range] },
-        },
-        signal,
-      }),
-    ),
-    ...polledQuery(5_000),
-  });
+  // Keyed by the minutes actually sent, not by the range label, so this shares
+  // a cache entry with the Overview page instead of polling the same URL twice
+  // under two different keys.
+  const host = useAdminHostMetrics(HOST_RANGE_MINUTES[range]);
   const overview = useAdminOverviewQuery();
   const snapshot = host.data;
   const operations = overview.data?.operations;
