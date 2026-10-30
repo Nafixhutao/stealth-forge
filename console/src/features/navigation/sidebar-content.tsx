@@ -44,8 +44,8 @@ const NAV_ITEM_VARIANTS: Variants = {
   },
 };
 
-/** The reference sidebar renders search as its own bordered field — an input
- * that never receives focus — with the shortcut pinned on the right. */
+/** The reference sidebar renders search as a filled field — no border, the
+ * shortcut sits as plain muted text on the right. */
 function SearchField({
   onOpen,
   onIntent,
@@ -67,18 +67,18 @@ function SearchField({
       aria-hidden={collapsed}
       tabIndex={collapsed ? -1 : undefined}
       className={cn(
-        "mx-2 flex h-10 w-[calc(100%-1rem)] items-center gap-2.5 rounded-lg px-2.5 text-left text-[14px] text-[#8a8791] transition-colors",
+        "mx-2 flex h-10 w-[calc(100%-1rem)] items-center gap-2.5 rounded-lg px-3 text-left text-[14px] transition-colors",
         collapsed
-          ? "justify-center border border-transparent hover:bg-white/[0.04]"
-          : "border border-[#26242C] hover:border-[#3a373f]",
+          ? "justify-center hover:bg-white/[0.04]"
+          : "bg-white/[0.04] text-[#efedf0] hover:bg-white/[0.06]",
       )}
     >
       {NavIcon(Search)}
       <span className="min-w-0 flex-1 truncate">Search</span>
       <RailLabel collapsed={collapsed}>
-        <kbd className="shrink-0 rounded-[5px] bg-[#201E22] px-[6px] py-[2px] text-[12px] font-medium leading-[16px] text-[#C9C5CD]">
+        <span className="shrink-0 text-[13px] font-medium text-[#8a8791]">
           Ctrl K
-        </kbd>
+        </span>
       </RailLabel>
     </motion.button>
   );
@@ -428,7 +428,7 @@ function SidebarContentImpl({
         onToggleCollapse={onToggleCollapse}
       />
       <motion.nav
-        className="sidebar-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto pb-1 [overscroll-behavior:contain]"
+        className="sidebar-scrollbar flex min-h-0 flex-1 flex-col gap-1.5 overflow-x-hidden overflow-y-auto pb-1 [overscroll-behavior:contain]"
         aria-label="Sidebar links"
         variants={NAV_VARIANTS}
         initial={reduce || !entrance ? false : "hidden"}
@@ -439,7 +439,7 @@ function SidebarContentImpl({
           onIntent={preloadSearch}
           collapsed={collapsed}
         />
-        <p className="mt-3 px-4 pb-1 text-[12px] font-medium text-[#737078]">
+        <p className="mt-3 px-5 pb-1 text-[12px] font-medium text-[#737078]">
           Projects
         </p>
         {primaryNavItems.map(renderNavItem)}

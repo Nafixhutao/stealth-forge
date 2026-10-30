@@ -238,18 +238,17 @@ html [data-user-surface] {
   --projects-border-hover: #34333a;
   --projects-divider: #232326;
   --projects-ring: #55555b;
-  font-family:
-    "Geist Variable",
-    "Geist",
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
   --font-sans:
-    "Geist Variable", "Geist", ui-sans-serif, system-ui, -apple-system,
-    "Segoe UI", sans-serif;
+    "Geist Variable", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  /* The reference UI's base text: 14/20 regular in near-white ink. Elements
+     that declare their own size, weight, or colour override these on purpose;
+     this is what text with no explicit classes inherits. */
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  color: #efedf0;
 }
 
 /* The user console accent: the pink from the reference design.
@@ -343,6 +342,20 @@ html[data-theme="light"] [data-user][class~="bg-[#100F13]"] {
   background-color: #ececef;
 }
 
+/* The reference-style filled search field and the rounded row cards hover on
+   translucent white in the dark palette; on the light palette those need the
+   faint ink equivalents or they vanish against the white panel. */
+html[data-theme="light"] [data-user] [class~="bg-white/[0.04]"] {
+  background-color: #eef0ef;
+}
+html[data-theme="light"] [data-user] [class~="hover:bg-white/[0.04]"]:hover {
+  background-color: rgb(0 0 0 / 0.03);
+}
+html[data-theme="light"] [data-user] [class~="hover:bg-white/[0.05]"]:hover,
+html[data-theme="light"] [data-user] [class~="hover:bg-white/[0.06]"]:hover {
+  background-color: rgb(0 0 0 / 0.04);
+}
+
 html[data-theme="light"] [data-user] [class~="border-[#322F37]"],
 html[data-theme="light"] [data-user] [class~="border-[#26242C]"],
 html[data-theme="light"] [data-user] [class~="border-[#302E34]"],
@@ -353,6 +366,7 @@ html[data-theme="light"] [data-user] [class~="border-[#3A373F]"] {
 }
 
 html[data-theme="light"] [data-user] [class~="text-[#edecf1]"],
+html[data-theme="light"] [data-user] [class~="text-[#efedf0]"],
 html[data-theme="light"] [data-user] [class~="text-[#EEEAF0]"],
 html[data-theme="light"] [data-user] [class~="text-[#C5C1C9]"] {
   color: #1a181d;

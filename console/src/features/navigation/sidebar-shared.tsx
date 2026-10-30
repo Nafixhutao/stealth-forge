@@ -48,11 +48,12 @@ export const NavIcon = (Icon: LucideIcon) => (
 // `relative isolate` turns the row into its own stacking context so the
 // active pill (-z-10) paints above the row background but below the content.
 export const rowClass =
-  // Reference rows: a rounded 40px row inset from the panel edge, so hover and
-  // the active pill are cards rather than full-bleed stripes. Below `lg` the
-  // row keeps the 44px minimum touch target, because the same list is the
-  // mobile sheet and a 40px row is a miss waiting to happen under a thumb.
-  "relative isolate mx-2 flex h-11 w-[calc(100%-1rem)] items-center gap-2.5 rounded-lg px-2.5 text-left text-[14px] font-normal text-[#C5C1C9] transition-colors hover:bg-white/[0.04] lg:h-10";
+  // Reference rows: a rounded card inset from the panel edge so hover and the
+  // active pill read as cards, not full-bleed stripes, and the label ink is
+  // the near-white base. Under `lg` the row keeps the 44px minimum touch
+  // target, because the same list is the mobile sheet and a smaller row is a
+  // miss waiting to happen under a thumb.
+  "relative isolate mx-2 flex h-11 w-[calc(100%-1rem)] items-center gap-2.5 rounded-lg px-3 text-left text-[14px] font-normal text-[#efedf0] transition-colors hover:bg-white/[0.05] lg:h-9";
 
 /** Rail-only separator between nav groups: folds away while the panel is
  * expanded (reference rail shows the two dividers at 8px/12px gutters). */

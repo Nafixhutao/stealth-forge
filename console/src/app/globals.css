@@ -7,10 +7,11 @@
 @theme {
   /* Stealth's visual language: a quiet operations surface with one action accent. */
   --font-sans:
-    "Geist Variable", "Geist", ui-sans-serif, system-ui, -apple-system,
-    "Segoe UI", sans-serif;
+    "Geist Variable", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
   --font-ui-variable:
-    "Geist Variable", "Geist", ui-sans-serif, system-ui, sans-serif;
+    "Geist Variable", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
   --font-mono:
     "Berkeley Mono", "JetBrains Mono", "IBM Plex Mono", ui-monospace,
     SFMono-Regular, Menlo, Monaco, Consolas, monospace;
