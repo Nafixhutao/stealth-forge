@@ -1175,7 +1175,11 @@ verify_nginx_traefik_parity() {
 			traefik_first_status="$(http_probe_first_status "$traefik_response")"
 			nginx_location="$(http_probe_header "$nginx_response" Location)"
 			traefik_location="$(http_probe_header "$traefik_response" Location)"
-			if [ "$nginx_first_status" != "307" ] || [ "$traefik_first_status" != "307" ] || [ "$nginx_location" != "/admin" ] || [ "$traefik_location" != "/admin" ] || [ "$nginx_status" != "200" ] || [ "$traefik_status" != "200" ]; then
+			# The Console root resolves the session on the server, so this
+			# anonymous probe lands on the sign-in page. Both ingresses must
+			# agree on the destination and must serve that page, which proves
+			# the console container and its routing are both up.
+			if [ "$nginx_first_status" != "307" ] || [ "$traefik_first_status" != "307" ] || [ "$nginx_location" != "/login" ] || [ "$traefik_location" != "/login" ] || [ "$nginx_status" != "200" ] || [ "$traefik_status" != "200" ]; then
 				printf 'Console root redirect mismatch: Nginx initial=%s location=%q final=%s; Traefik initial=%s location=%q final=%s\n' "$nginx_first_status" "$nginx_location" "$nginx_status" "$traefik_first_status" "$traefik_location" "$traefik_status" >&2
 				return 1
 			fi
@@ -3357,9 +3361,9 @@ verify_app_control_plane_restarts() {
 	console_root_response="$(curl --silent --show-error --max-time 10 --dump-header - --output /dev/null "${console_url%/}/")"
 	status="$(http_probe_first_status "$console_root_response")"
 	console_location="$(http_probe_header "$console_root_response" Location)"
-	console_landing_status="$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' "${console_url%/}/admin")"
-	if [ "$status" != 307 ] || [ "$console_location" != '/admin' ] || [ "$console_landing_status" != 200 ]; then
-		printf 'Console root after restart mismatch: initial=%s location=%q /admin=%s\n' "$status" "$console_location" "$console_landing_status" >&2
+	console_landing_status="$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' "${console_url%/}/login")"
+	if [ "$status" != 307 ] || [ "$console_location" != '/login' ] || [ "$console_landing_status" != 200 ]; then
+		printf 'Console root after restart mismatch: initial=%s location=%q /login=%s\n' "$status" "$console_location" "$console_landing_status" >&2
 		return 1
 	fi
 	fetch_app_runtime
