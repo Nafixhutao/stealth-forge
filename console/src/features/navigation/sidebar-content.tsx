@@ -16,7 +16,7 @@ import { useCurrentAccount } from "@/api/queries/account";
 import { useOrganizationPlan } from "@/api/queries/organizations";
 import { planLabel, planUsageText } from "@/lib/plans";
 import { useCurrentOrganizationId } from "./use-current-organization";
-import { FolderKanban, Search, X } from "lucide-react";
+import { ChevronsUpDown, FolderKanban, Search, X } from "lucide-react";
 import { BottomProfile } from "./profile-menu";
 import {
   ActiveRowPill,
@@ -25,6 +25,7 @@ import {
   NavIcon,
   RailLabel,
   rowClass,
+  rowWidthClass,
   tap,
 } from "./sidebar-shared";
 import type { NavItem, NavRowProps } from "./types";
@@ -67,10 +68,10 @@ function SearchField({
       aria-hidden={collapsed}
       tabIndex={collapsed ? -1 : undefined}
       className={cn(
-        "mx-2 flex h-10 w-[calc(100%-1rem)] items-center gap-2.5 rounded-lg px-3 text-left text-[14px] transition-colors",
+        "flex items-center gap-2.5 rounded-[10px] text-left text-[14px] transition-colors",
         collapsed
-          ? "justify-center hover:bg-white/[0.04]"
-          : "bg-white/[0.04] text-[#efedf0] hover:bg-white/[0.06]",
+          ? "mx-auto size-10 justify-center px-0 hover:bg-white/[0.05]"
+          : "mx-3 h-10 w-[calc(100%-1.5rem)] bg-white/[0.05] px-3 text-[#efedf0] hover:bg-white/[0.07]",
       )}
     >
       {NavIcon(Search)}
@@ -134,7 +135,10 @@ function NavRow({
     >
       <motion.button
         type="button"
-        className={rowClass}
+        className={cn(
+          rowClass,
+          rowWidthClass[collapsed ? "collapsed" : "expanded"],
+        )}
         onClick={onSelect}
         onHoverStart={onIntent}
         onFocus={onIntent}
@@ -200,6 +204,8 @@ function Header({
   const account = useCurrentAccount();
   const organizationId = useCurrentOrganizationId();
   const plan = useOrganizationPlan(organizationId ?? undefined);
+  const pathname = usePathname();
+  const router = useRouter();
   const identity = account.data?.account;
   const name =
     identity?.display_name?.trim() ||
@@ -252,18 +258,33 @@ function Header({
         >
           <span
             title={name}
-            className="ml-2 min-w-0 flex-1 truncate text-[14px] font-medium leading-[20px] tracking-[-0.01em] text-[oklch(0.949_0.0035_305)]"
+            className="ml-2 min-w-0 shrink truncate text-[14px] font-medium leading-[20px] tracking-[-0.01em] text-[#efedf0]"
           >
             {name}
           </span>
           {label ? (
             <span
               title={planTitle}
-              className="ml-2 shrink-0 whitespace-nowrap rounded-[5px] bg-[#201E22] px-[6px] py-[2px] text-[12px] font-medium leading-[16px] text-[oklch(0.767_0.0105_305)]"
+              className="ml-2 shrink-0 whitespace-nowrap rounded-[6px] bg-[#201E22] px-[6px] py-[2px] text-[12px] font-medium leading-[16px] text-[#C9C5CD]"
             >
               {label}
             </span>
           ) : null}
+          {/* The reference puts the switcher affordance with the identity
+              cluster rather than pinning it to the far edge. It is a real
+              control, not decoration: it opens the organization home, where
+              the switcher lives, so the chevron never promises a menu that
+              does not exist. */}
+          <button
+            type="button"
+            onClick={() => {
+              if (pathname !== "/user") router.push("/user");
+            }}
+            aria-label="Switch organization"
+            className="-mr-1 ml-1.5 inline-flex size-6 shrink-0 items-center justify-center rounded-md text-[#8a8791] transition-colors hover:bg-white/[0.06] hover:text-[#efedf0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+          >
+            <ChevronsUpDown size={13} strokeWidth={1.8} aria-hidden="true" />
+          </button>
         </RailLabel>
       </motion.div>
       {onClose ? (
@@ -428,7 +449,7 @@ function SidebarContentImpl({
         onToggleCollapse={onToggleCollapse}
       />
       <motion.nav
-        className="sidebar-scrollbar flex min-h-0 flex-1 flex-col gap-1.5 overflow-x-hidden overflow-y-auto pb-1 [overscroll-behavior:contain]"
+        className="sidebar-scrollbar flex min-h-0 flex-1 flex-col gap-0.5 overflow-x-hidden overflow-y-auto pb-1 [overscroll-behavior:contain]"
         aria-label="Sidebar links"
         variants={NAV_VARIANTS}
         initial={reduce || !entrance ? false : "hidden"}
@@ -439,7 +460,12 @@ function SidebarContentImpl({
           onIntent={preloadSearch}
           collapsed={collapsed}
         />
-        <p className="mt-3 px-5 pb-1 text-[12px] font-medium text-[#737078]">
+        <p
+          className={cn(
+            "mt-2.5 pb-1 text-[12px] font-medium text-[#8a8791]",
+            collapsed ? "hidden" : "mx-3 px-3",
+          )}
+        >
           Projects
         </p>
         {primaryNavItems.map(renderNavItem)}

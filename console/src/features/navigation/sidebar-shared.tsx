@@ -42,7 +42,7 @@ export function PanelToggleIcon({
 }
 
 export const NavIcon = (Icon: LucideIcon) => (
-  <Icon size={15} strokeWidth={1.8} className="shrink-0 text-[#AAA6AE]" />
+  <Icon size={17} strokeWidth={1.6} className="shrink-0 text-[#8a8791]" />
 );
 
 // `relative isolate` turns the row into its own stacking context so the
@@ -53,7 +53,14 @@ export const rowClass =
   // the near-white base. Under `lg` the row keeps the 44px minimum touch
   // target, because the same list is the mobile sheet and a smaller row is a
   // miss waiting to happen under a thumb.
-  "relative isolate mx-2 flex h-11 w-[calc(100%-1rem)] items-center gap-2.5 rounded-lg px-3 text-left text-[14px] font-normal text-[#efedf0] transition-colors hover:bg-white/[0.05] lg:h-9";
+  "relative isolate flex h-11 items-center gap-2.5 rounded-[10px] text-left text-[14px] font-normal text-[#efedf0] transition-colors hover:bg-white/[0.05] lg:h-9";
+
+/** Row geometry differs by state: the expanded panel insets the card from the
+ * panel edge (12px), while the 52px rail only has room for a centered square. */
+export const rowWidthClass = {
+  expanded: "mx-3 w-[calc(100%-1.5rem)] px-3",
+  collapsed: "mx-auto size-10 justify-center px-0",
+} as const;
 
 /** Rail-only separator between nav groups: folds away while the panel is
  * expanded (reference rail shows the two dividers at 8px/12px gutters). */
@@ -89,7 +96,7 @@ export function ActiveRowPill({
       aria-hidden="true"
       layoutId={layoutId}
       transition={reduce ? { duration: 0 } : SPRING_LAYOUT}
-      className="absolute inset-0 -z-10 rounded-lg bg-white/[0.06]"
+      className="absolute inset-0 -z-10 rounded-lg bg-white/[0.045]"
     />
   );
 }

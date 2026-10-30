@@ -22,9 +22,14 @@ vi.mock("@/features/navigation/use-current-organization", () => ({
   useCurrentOrganizationId: () => useCurrentOrganizationId(),
 }));
 
+const nav = vi.hoisted(() => ({
+  push: vi.fn(),
+  pathname: "/user",
+}));
+
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/user",
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => nav.pathname,
+  useRouter: () => ({ push: nav.push, replace: vi.fn() }),
 }));
 
 vi.mock("@/features/navigation/profile-menu", () => ({
@@ -141,11 +146,21 @@ describe("SidebarContent header", () => {
     );
   });
 
-  it("does not render a switcher glyph with no action behind it", () => {
+  it("gives the switcher glyph an action instead of a dead affordance", () => {
+    // Off the organization home, the chevron has somewhere to go.
+    nav.pathname = "/projects/11111111-1111-1111-1111-111111111111";
+    nav.push.mockClear();
+
     render(<SidebarContent />);
 
-    const header = screen.getByText("Aulia Rahma Putri").closest("header");
-    expect(header?.querySelectorAll("svg")).toHaveLength(0);
+    // The reference draws a chevron beside the identity cluster. Shipping it
+    // as decoration would promise a menu that does not exist, so it is a
+    // control: it opens the organization home, where the switcher lives.
+    fireEvent.click(screen.getByRole("button", { name: "Switch organization" }));
+
+    expect(nav.push).toHaveBeenCalledWith("/user");
+
+    nav.pathname = "/user";
   });
 
   it("offers the collapse control on the desktop panel", () => {
@@ -205,11 +220,12 @@ describe("SidebarContent header", () => {
   it("gives the name the room the row actually has", () => {
     render(<SidebarContent />);
 
-    // The name is a truncating flex child, not a fixed 220px slot that cut
-    // "Aulia Rahma Putri" short while the row still had empty space.
+    // The name is a truncating flex child that shrinks to fit, not a fixed
+    // 220px slot that cut "Aulia Rahma Putri" short while the row still had
+    // empty space beside it. The plan chip and switcher follow it inline.
     const name = screen.getByText("Aulia Rahma Putri");
     expect(name.className).toContain("truncate");
-    expect(name.className).toContain("flex-1");
+    expect(name.className).toContain("shrink");
     expect(name).toHaveAttribute("title", "Aulia Rahma Putri");
   });
 });
