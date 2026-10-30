@@ -58,10 +58,11 @@ export function DesktopSidebar({ hasTopBar = false }: { hasTopBar?: boolean }) {
     >
       <div
         className={cn(
-          // The right edge is rounded, reference-style: the elevated panel
-          // floats on the canvas instead of abutting a hard divider, and the
-          // shell's --projects-bg shows through the two corners.
-          "sticky flex w-full flex-col overflow-hidden rounded-r-xl border-r border-[#2B2933] bg-[#151318]",
+          // Flush with the shell canvas: the navigation rail sits directly on
+          // the darkest background, and only the content panel opposite it is
+          // rounded (the shell draws that). No divider — the panel's edge
+          // provides the separation, reference-style.
+          "sticky flex w-full flex-col overflow-hidden bg-[#100F13]",
           hasTopBar ? "top-20 h-[calc(100dvh-80px)]" : "top-0 h-dvh",
         )}
       >

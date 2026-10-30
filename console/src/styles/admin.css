@@ -327,7 +327,7 @@ html[data-theme="light"]
 }
 
 html[data-theme="light"] [data-user] [class~="bg-[#121014]"],
-html[data-theme="light"] [data-user] [class~="bg-[#151318]"],
+html[data-theme="light"] [data-user] [class~="bg-[#100F13]"],
 html[data-theme="light"] [data-user] [class~="bg-[#1A181D]"],
 html[data-theme="light"] [data-user] [class~="bg-[#1a181d]"],
 html[data-theme="light"] [data-user] [class~="bg-[#201E22]"],
@@ -336,8 +336,15 @@ html[data-theme="light"] [data-user] [class~="bg-[#2b2930]"] {
   background-color: #f7f7f8;
 }
 
+/* The shell root itself paints the canvas with a literal class, and the
+   descendant remaps above only reach its children — so the canvas gets its
+   own, slightly darker light value to keep the floating panel distinct. */
+html[data-theme="light"] [data-user][class~="bg-[#100F13]"] {
+  background-color: #ececef;
+}
+
 html[data-theme="light"] [data-user] [class~="border-[#322F37]"],
-html[data-theme="light"] [data-user] [class~="border-[#2B2933]"],
+html[data-theme="light"] [data-user] [class~="border-[#26242C]"],
 html[data-theme="light"] [data-user] [class~="border-[#302E34]"],
 html[data-theme="light"] [data-user] [class~="border-[#2d2d35]"],
 html[data-theme="light"] [data-user] [class~="border-[#3a373f]"],

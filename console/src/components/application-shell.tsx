@@ -58,7 +58,7 @@ export function ApplicationShell({
       <div
         data-user
         data-console={userConsole ? "user" : undefined}
-        className="min-h-dvh w-full max-w-full overflow-x-hidden bg-[var(--projects-bg)]"
+        className="min-h-dvh w-full max-w-full overflow-x-hidden bg-[#100F13]"
       >
         {/* Mobile-only nav opener, pinned top-left like the CodeRabbit reference.
             Pages that render their own top bar provide the opener inside it
@@ -90,7 +90,13 @@ export function ApplicationShell({
             desktop={desktopSidebar}
           />
           <main className="relative min-h-dvh min-w-0 w-full max-w-full overflow-x-hidden flex-1">
-            {children}
+            {/* Desktop: the page content floats on the canvas as a rounded
+                panel (reference layout) — a slightly lighter card inset from
+                every edge, scrolling inside itself so the frame stays put.
+                Mobile keeps the full-bleed layout it was designed with. */}
+            <div className="sidebar-scrollbar lg:sticky lg:top-2 lg:ml-3 lg:mb-2 lg:mr-2 lg:h-[calc(100dvh-1rem)] lg:overflow-y-auto lg:rounded-2xl lg:border lg:border-[#26242C] lg:bg-[var(--projects-bg)]">
+              {children}
+            </div>
           </main>
         </div>
       </div>
