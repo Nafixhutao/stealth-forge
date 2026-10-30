@@ -13,6 +13,12 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      // Unit tests import server modules (e.g. session.server.ts) whose
+      // "server-only" guard throws outside a React Server bundler; this stub
+      // only applies to vitest, never to next build.
+      "server-only": fileURLToPath(
+        new URL("./src/test/server-only.ts", import.meta.url),
+      ),
     },
   },
   test: {

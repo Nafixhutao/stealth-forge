@@ -3,16 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getSafeNextPath } from "@/lib/navigation";
 import { consoleHomeForRole } from "./console-home";
-
-// The setup API and the console share the internal alias `stealth-api` in both
-// the production and setup Compose projects, so one default covers both.
-const INTERNAL_API_URL = (
-  process.env.STEALTH_API_INTERNAL_URL ?? "http://stealth-api:8080"
-).replace(/\/+$/, "");
-
-const PROBE_TIMEOUT_MS = 2_000;
-
-type AccountResponse = { account?: { instance_role?: string | null } };
+import { resolveSession } from "./session.server";
 
 /**
  * Keeps an already-authenticated visitor off a signed-out-only page.
@@ -27,24 +18,11 @@ type AccountResponse = { account?: { instance_role?: string | null } };
 export async function redirectIfAuthenticated(
   rawNext: string | null,
 ): Promise<void> {
-  const cookieHeader = (await cookies()).toString();
-  if (!cookieHeader) return;
-
-  let account: AccountResponse | null = null;
-  try {
-    const response = await fetch(`${INTERNAL_API_URL}/v1/account`, {
-      headers: { cookie: cookieHeader },
-      cache: "no-store",
-      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
-    });
-    if (response.ok) account = (await response.json()) as AccountResponse;
-  } catch {
-    return;
-  }
-  if (!account) return;
+  const session = await resolveSession((await cookies()).toString());
+  if (session.status !== "authenticated") return;
 
   // An explicit ?next= wins, so invitations and deep links keep working. It is
   // validated here rather than trusted from the query string.
   const next = rawNext === null ? null : getSafeNextPath(rawNext);
-  redirect(next ?? consoleHomeForRole(account.account?.instance_role));
+  redirect(next ?? consoleHomeForRole(session.role));
 }
