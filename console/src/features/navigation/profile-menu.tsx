@@ -323,7 +323,7 @@ export function BottomProfile({
   const { name, handle, avatar } = useIdentity();
 
   return (
-    <footer className="relative shrink-0">
+    <footer className="relative shrink-0 border-t border-[#26242C]">
       <motion.button
         type="button"
         onClick={() => {

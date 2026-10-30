@@ -44,6 +44,46 @@ const NAV_ITEM_VARIANTS: Variants = {
   },
 };
 
+/** The reference sidebar renders search as its own bordered field — an input
+ * that never receives focus — with the shortcut pinned on the right. */
+function SearchField({
+  onOpen,
+  onIntent,
+  collapsed = false,
+}: {
+  onOpen: () => void;
+  onIntent: () => void;
+  collapsed?: boolean;
+}) {
+  const reduce = useReducedMotion() ?? false;
+  return (
+    <motion.button
+      type="button"
+      onClick={onOpen}
+      onHoverStart={onIntent}
+      onFocus={onIntent}
+      whileTap={tap(reduce)}
+      transition={SPRING_PRESS}
+      aria-hidden={collapsed}
+      tabIndex={collapsed ? -1 : undefined}
+      className={cn(
+        "mx-2 flex h-10 w-[calc(100%-1rem)] items-center gap-2.5 rounded-lg px-2.5 text-left text-[14px] text-[#8a8791] transition-colors",
+        collapsed
+          ? "justify-center border border-transparent hover:bg-white/[0.04]"
+          : "border border-[#26242C] hover:border-[#3a373f]",
+      )}
+    >
+      {NavIcon(Search)}
+      <span className="min-w-0 flex-1 truncate">Search</span>
+      <RailLabel collapsed={collapsed}>
+        <kbd className="shrink-0 rounded-[5px] bg-[#201E22] px-[6px] py-[2px] text-[12px] font-medium leading-[16px] text-[#C9C5CD]">
+          Ctrl K
+        </kbd>
+      </RailLabel>
+    </motion.button>
+  );
+}
+
 /**
  * The rows the user console can actually open.
  *
@@ -54,11 +94,6 @@ const NAV_ITEM_VARIANTS: Variants = {
  * commit that ships the surface behind them.
  */
 const primaryNavItems: NavItem[] = [
-  {
-    icon: NavIcon(Search),
-    label: "Search",
-    labelClassName: "text-[14px] leading-[20px] text-[oklch(0.949_0.0035_305)]",
-  },
   { icon: NavIcon(FolderKanban), label: "Projects" },
 ];
 
@@ -203,11 +238,11 @@ function Header({
             transition={
               collapsed ? LABEL_EXIT_TRANSITION : LABEL_ENTER_TRANSITION
             }
-            className="size-5 shrink-0 rounded-md object-cover"
+            className="size-6 shrink-0 rounded-full object-cover"
             src={avatar}
           />
         ) : (
-          <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-[#2b2930] text-[10px] font-semibold text-[#edecf1]">
+          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[#2b2930] text-[10px] font-semibold text-[#edecf1]">
             {name.slice(0, 1).toUpperCase()}
           </span>
         )}
@@ -217,7 +252,7 @@ function Header({
         >
           <span
             title={name}
-            className="ml-2 min-w-0 flex-1 truncate text-[13.5px] font-medium leading-[20px] tracking-[-0.01em] text-[oklch(0.949_0.0035_305)]"
+            className="ml-2 min-w-0 flex-1 truncate text-[14px] font-medium leading-[20px] tracking-[-0.01em] text-[oklch(0.949_0.0035_305)]"
           >
             {name}
           </span>
@@ -399,6 +434,14 @@ function SidebarContentImpl({
         initial={reduce || !entrance ? false : "hidden"}
         animate="visible"
       >
+        <SearchField
+          onOpen={openSearch}
+          onIntent={preloadSearch}
+          collapsed={collapsed}
+        />
+        <p className="mt-3 px-4 pb-1 text-[12px] font-medium text-[#737078]">
+          Projects
+        </p>
         {primaryNavItems.map(renderNavItem)}
       </motion.nav>
       <BottomProfile

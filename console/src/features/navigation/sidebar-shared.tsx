@@ -48,10 +48,11 @@ export const NavIcon = (Icon: LucideIcon) => (
 // `relative isolate` turns the row into its own stacking context so the
 // active pill (-z-10) paints above the row background but below the content.
 export const rowClass =
-  // 34px is the reference's desktop row; below `lg` the row grows to the 44px
-  // minimum touch target, because the same list is the mobile sheet and a
-  // 34px row is a miss waiting to happen under a thumb.
-  "relative isolate flex h-11 w-full items-center gap-[10px] px-4 text-left text-[13px] font-normal text-[#C5C1C9] transition-colors hover:bg-white/[0.035] lg:h-[38px] lg:text-[14px]";
+  // Reference rows: a rounded 40px row inset from the panel edge, so hover and
+  // the active pill are cards rather than full-bleed stripes. Below `lg` the
+  // row keeps the 44px minimum touch target, because the same list is the
+  // mobile sheet and a 40px row is a miss waiting to happen under a thumb.
+  "relative isolate mx-2 flex h-11 w-[calc(100%-1rem)] items-center gap-2.5 rounded-lg px-2.5 text-left text-[14px] font-normal text-[#C5C1C9] transition-colors hover:bg-white/[0.04] lg:h-10";
 
 /** Rail-only separator between nav groups: folds away while the panel is
  * expanded (reference rail shows the two dividers at 8px/12px gutters). */
@@ -87,7 +88,7 @@ export function ActiveRowPill({
       aria-hidden="true"
       layoutId={layoutId}
       transition={reduce ? { duration: 0 } : SPRING_LAYOUT}
-      className="absolute inset-0 -z-10 bg-white/[0.06]"
+      className="absolute inset-0 -z-10 rounded-lg bg-white/[0.06]"
     />
   );
 }
