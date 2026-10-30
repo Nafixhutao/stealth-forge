@@ -220,8 +220,8 @@ html[data-theme="light"] [data-user] [class~="text-mist"] {
 }
 
 /* The user console's own dark palette, matched to the reference: the page sits
-   on #19191b, cards lift to #1a191e, the controls (search field, view toggle)
-   hold a #1f1e23 surface, and the organization mark and plan badge a lighter
+   on #1A181D, cards lift to #201e26, the controls (search field, view toggle)
+   hold a #24222b surface, and the organization mark and plan badge a lighter
    #2d2c31. Borders and dividers share one quiet #232326 hairline.
    Scoped to the user console's own surface — `data-console` is set by the
    shell only for `/user` — plus its portaled surfaces, so the admin console
@@ -229,10 +229,10 @@ html[data-theme="light"] [data-user] [class~="text-mist"] {
    specificity. */
 [data-user][data-console="user"],
 html [data-user-surface] {
-  --projects-bg: #19191b;
-  --projects-surface: #19191b;
-  --projects-card-bg: #1a191e;
-  --projects-control: #1f1e23;
+  --projects-bg: #1a181d;
+  --projects-surface: #1a181d;
+  --projects-card-bg: #201e26;
+  --projects-control: #24222b;
   --projects-chip: #2d2c31;
   --projects-border: #232326;
   --projects-border-hover: #34333a;
@@ -327,6 +327,7 @@ html[data-theme="light"]
 }
 
 html[data-theme="light"] [data-user] [class~="bg-[#121014]"],
+html[data-theme="light"] [data-user] [class~="bg-[#151318]"],
 html[data-theme="light"] [data-user] [class~="bg-[#1A181D]"],
 html[data-theme="light"] [data-user] [class~="bg-[#1a181d]"],
 html[data-theme="light"] [data-user] [class~="bg-[#201E22]"],
@@ -336,6 +337,7 @@ html[data-theme="light"] [data-user] [class~="bg-[#2b2930]"] {
 }
 
 html[data-theme="light"] [data-user] [class~="border-[#322F37]"],
+html[data-theme="light"] [data-user] [class~="border-[#2B2933]"],
 html[data-theme="light"] [data-user] [class~="border-[#302E34]"],
 html[data-theme="light"] [data-user] [class~="border-[#2d2d35]"],
 html[data-theme="light"] [data-user] [class~="border-[#3a373f]"],

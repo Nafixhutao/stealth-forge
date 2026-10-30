@@ -58,7 +58,10 @@ export function DesktopSidebar({ hasTopBar = false }: { hasTopBar?: boolean }) {
     >
       <div
         className={cn(
-          "sticky flex w-full flex-col overflow-hidden border-r border-[#322F37] bg-[#121014]",
+          // The right edge is rounded, reference-style: the elevated panel
+          // floats on the canvas instead of abutting a hard divider, and the
+          // shell's --projects-bg shows through the two corners.
+          "sticky flex w-full flex-col overflow-hidden rounded-r-xl border-r border-[#2B2933] bg-[#151318]",
           hasTopBar ? "top-20 h-[calc(100dvh-80px)]" : "top-0 h-dvh",
         )}
       >
