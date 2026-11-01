@@ -18,6 +18,7 @@ import {
   useOrganizations,
   useOrganizationPlan,
 } from "@/api/queries/organizations";
+import { organizationDisplayName } from "@/lib/format";
 import { planLabel, planUsageText } from "@/lib/plans";
 import { useCurrentOrganizationId } from "./use-current-organization";
 import {
@@ -94,7 +95,7 @@ function SearchField({
       )}
     >
       <Search
-        size={collapsed ? 18 : 16}
+        size={16}
         strokeWidth={1.7}
         className="shrink-0 text-[#B5B2B9]"
         aria-hidden="true"
@@ -251,7 +252,7 @@ function NavRow({
             }
             className="overflow-hidden"
           >
-            <ChevronToggle className="size-[13px] shrink-0 text-[#737078]" />
+            <ChevronToggle className="size-4 shrink-0 text-[#737078]" />
           </motion.span>
         )}
       </motion.button>
@@ -290,7 +291,9 @@ function Header({
   const organization =
     orgs.find((item) => item.id === organizationId) ??
     (organizationId ? null : (orgs[0] ?? null));
-  const name = organization?.name?.trim() || accountName;
+  // The selector names the person, not the generated "<name>'s organization"
+  // that signup and OAuth create; a hand-named organization keeps its name.
+  const name = organizationDisplayName(organization?.name) || accountName;
 
   // The chip reads the plan endpoint for whichever organization this surface
   // belongs to. It renders nothing until that answer exists: an empty slot is
@@ -355,7 +358,7 @@ function Header({
             </span>
           ) : null}
           <ChevronsUpDown
-            size={14}
+            size={16}
             strokeWidth={1.7}
             className="shrink-0 text-[#7E7A84]"
             aria-hidden="true"
@@ -389,7 +392,7 @@ function Header({
             collapsed ? "mx-auto" : "ml-auto -mr-2",
           )}
         >
-          <PanelToggleIcon className="size-[18px]" />
+          <PanelToggleIcon className="size-4" />
         </motion.button>
       ) : null}
     </header>

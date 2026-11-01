@@ -78,6 +78,17 @@ export function pluralize(
   return `${formatCount(count)} ${count === 1 ? singular : plural}`;
 }
 
+/**
+ * Signup and OAuth both name a personal organization `<person>'s organization`.
+ * The sidebar names the person, so the generated suffix is dropped there; an
+ * organization the owner named themselves comes back untouched.
+ */
+export function organizationDisplayName(name: string | null | undefined) {
+  const trimmed = name?.trim() ?? "";
+  if (!trimmed) return "";
+  return trimmed.replace(/\s*['’]s\s+organization$/i, "").trim();
+}
+
 export function formatDuration(value: number | null | undefined) {
   if (value === null || value === undefined) return "Not available";
   if (value < 1000) return `${value} ms`;

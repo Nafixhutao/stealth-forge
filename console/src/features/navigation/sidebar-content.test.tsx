@@ -118,6 +118,17 @@ describe("SidebarContent header", () => {
     expect(screen.getByText("Nafixhutao")).toBeInTheDocument();
   });
 
+  it("drops the generated '<name>'s organization' suffix", () => {
+    useOrganizations.mockReturnValue(organizations("Aku Nafi's organization"));
+
+    render(<SidebarContent />);
+
+    expect(screen.getByText("Aku Nafi")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Aku Nafi's organization"),
+    ).not.toBeInTheDocument();
+  });
+
   it("falls back to the account name while organizations are loading", () => {
     useOrganizations.mockReturnValue({ data: undefined });
 

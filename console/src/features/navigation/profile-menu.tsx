@@ -421,7 +421,7 @@ export function BottomProfile({
             transition={SPRING_PRESS}
             className="flex size-8 shrink-0 items-center justify-center rounded-md text-[#B5B2B9] transition-colors hover:bg-white/[0.05] hover:text-[#EEEDF0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
           >
-            <Bell size={18} strokeWidth={1.7} aria-hidden="true" />
+            <Bell size={16} strokeWidth={1.7} aria-hidden="true" />
           </motion.button>
         ) : null}
       </div>

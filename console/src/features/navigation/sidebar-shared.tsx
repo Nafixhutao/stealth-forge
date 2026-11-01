@@ -48,18 +48,18 @@ export function PanelToggleIcon({
   );
 }
 
-/** The reference's navigation glyphs: 18px boxes, light 1.7 stroke, and the
+/** The sidebar's navigation glyphs: 16px boxes, light 1.7 stroke, and the
  * same ink as the row label. A 6px gap keeps the label on the reference's
  * 40px inset. */
 export const NavIcon = (Icon: LucideIcon) => (
-  <Icon size={18} strokeWidth={1.7} className="shrink-0 text-[#B5B2B9]" />
+  <Icon size={16} strokeWidth={1.7} className="shrink-0 text-[#B5B2B9]" />
 );
 
 // `relative isolate` turns the row into its own stacking context so the
 // active pill (-z-10) paints above the row background but below the content.
 export const rowClass =
   // Reference rows: 32px tall cards inset 12px from the panel edge, 4px radius,
-  // a 20px glyph and a 4px gap to the label. Under `lg` the row keeps a 40px
+  // a 16px glyph and a 6px gap to the label. Under `lg` the row keeps a 40px
   // minimum touch target, because the same list is the mobile sheet.
   "relative isolate flex h-10 items-center rounded-[4px] px-1 text-left text-[14px] font-normal leading-5 text-[#B5B2B9] transition-colors hover:bg-white/[0.05] lg:h-8";
 
@@ -185,17 +185,16 @@ export function ChevronToggle({
   );
 }
 
-/** The Slack mark is a brand glyph, not a stroke icon: it sits in the same
- * 18px slot as the lucide glyphs but is drawn at 14px so its optical weight
- * matches theirs. */
+/** The Slack mark is a brand glyph rather than a stroke icon, so it fills the
+ * same 16px slot as the lucide glyphs. */
 export function BrandIcon({ brand }: { brand: "slack" | "discord" }) {
   if (brand === "slack") {
     return (
-      <span className="flex size-[18px] shrink-0 items-center justify-center text-[#B5B2B9]">
+      <span className="flex size-4 shrink-0 items-center justify-center text-[#B5B2B9]">
         <svg
           aria-hidden="true"
           viewBox="0 0 24 24"
-          className="size-3.5 shrink-0 fill-current"
+          className="size-4 shrink-0 fill-current"
         >
           <path d="M6.2 14.5a2.2 2.2 0 1 1-2.2-2.2h2.2v2.2ZM7.3 14.5a2.2 2.2 0 1 1 4.4 0V20a2.2 2.2 0 1 1-4.4 0v-5.5Z" />
           <path d="M9.5 6.2a2.2 2.2 0 1 1 2.2-2.2v2.2H9.5ZM9.5 7.3a2.2 2.2 0 1 1 0 4.4H4a2.2 2.2 0 1 1 0-4.4h5.5Z" />
@@ -207,7 +206,7 @@ export function BrandIcon({ brand }: { brand: "slack" | "discord" }) {
   }
 
   return (
-    <span className="flex size-5 shrink-0 items-center justify-start text-[#B5B2B9]">
+    <span className="flex size-4 shrink-0 items-center justify-start text-[#B5B2B9]">
       <svg
         viewBox="-32 -60.5 320 320"
         fill="currentColor"
