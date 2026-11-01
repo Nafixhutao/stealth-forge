@@ -66,7 +66,7 @@ describe("SearchPalette", () => {
     fireEvent.click(screen.getByRole("button", { name: /Go to Projects/ }));
 
     expect(onSelect).toHaveBeenCalledWith(
-      expect.objectContaining({ navigateTo: "Projects" }),
+      expect.objectContaining({ navigateTo: "/user" }),
     );
   });
 

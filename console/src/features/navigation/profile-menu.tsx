@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useRouter } from "next/navigation";
 import {
+  Bell,
   ChevronsUpDown,
   ExternalLink,
   LogOut,
@@ -180,10 +181,18 @@ function useIdentity() {
     identity?.display_name?.trim() ||
     identity?.email?.split("@")[0] ||
     "Account";
+  // The user console labels instance owners and admins as Admin (the same
+  // convention as its footer); everyone else is a member.
+  const role =
+    identity?.instance_role === "instance_owner" ||
+    identity?.instance_role === "instance_admin"
+      ? "Admin"
+      : "Member";
   return {
     name,
     handle: identity?.email ?? "",
     avatar: identity?.avatar_url ?? "",
+    role: identity ? role : "",
   };
 }
 
@@ -320,75 +329,102 @@ export function BottomProfile({
   const [open, setOpen] = useState(false);
   const reduce = useReducedMotion() ?? false;
   const close = useCallback(() => setOpen(false), []);
-  const { name, handle, avatar } = useIdentity();
+  const { name, avatar, role } = useIdentity();
 
   return (
-    <footer className="relative shrink-0 border-t border-[#26242C]">
-      <motion.button
-        type="button"
-        onClick={() => {
-          // the profile menu cannot live in the rail either — unfold first
-          if (collapsed) onToggleCollapse?.();
-          else setOpen((v) => !v);
-        }}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        whileTap={tap(reduce)}
-        transition={SPRING_PRESS}
-        className="flex w-full items-center px-[14px] py-[10px] text-left transition-colors hover:bg-white/[0.035]"
-      >
-        {/* rail shows a small 20px avatar, the panel wraps it in the full row */}
-        {avatar ? (
-          <motion.img
-            alt=""
-            initial={false}
-            animate={{
-              width: collapsed ? 20 : 32,
-              height: collapsed ? 20 : 32,
-            }}
-            transition={
-              collapsed ? LABEL_EXIT_TRANSITION : LABEL_ENTER_TRANSITION
-            }
-            className="shrink-0 object-cover rounded-full"
-            src={avatar}
-          />
-        ) : (
-          <motion.span
-            initial={false}
-            animate={{
-              width: collapsed ? 20 : 32,
-              height: collapsed ? 20 : 32,
-            }}
-            transition={
-              collapsed ? LABEL_EXIT_TRANSITION : LABEL_ENTER_TRANSITION
-            }
-            className="flex shrink-0 items-center justify-center rounded-full bg-[#2b2930] text-[12px] font-semibold text-[#edecf1]"
-          >
-            {name.slice(0, 1).toUpperCase()}
-          </motion.span>
+    <footer className="relative shrink-0">
+      <div
+        className={cn(
+          "flex items-center gap-2 pb-[13px] pt-3.5",
+          collapsed ? "justify-center px-0" : "pl-3.5 pr-2",
         )}
-        <RailLabel
-          collapsed={collapsed}
-          className="flex min-w-0 flex-1 items-center"
+      >
+        <motion.button
+          type="button"
+          onClick={() => {
+            // the profile menu cannot live in the rail either — unfold first
+            if (collapsed) onToggleCollapse?.();
+            else setOpen((v) => !v);
+          }}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          whileTap={tap(reduce)}
+          transition={SPRING_PRESS}
+          className={cn(
+            "flex min-w-0 flex-1 items-center rounded-md text-left transition-colors",
+            collapsed
+              ? "justify-center gap-0"
+              : "gap-1.5 hover:bg-white/[0.035]",
+          )}
         >
-          <div className="ml-2 min-w-0 leading-tight">
-            <p className="m-0 truncate text-[14px] leading-[20px] text-[oklch(0.767_0.0105_305)]">
-              {name}
-            </p>
-            {handle ? (
-              <p className="m-0 mt-[2px] truncate text-[12px] leading-[16px] text-[oklch(0.585_0.0161_305)]">
-                {handle}
-              </p>
-            ) : null}
-          </div>
-          <ChevronsUpDown
-            size={12}
-            strokeWidth={1.7}
-            className="ml-auto shrink-0 text-[#737078]"
-            aria-hidden="true"
-          />
-        </RailLabel>
-      </motion.button>
+          {/* rail shows a small 20px avatar, the panel wraps it in the full row */}
+          {avatar ? (
+            <motion.img
+              alt=""
+              initial={false}
+              animate={{
+                width: collapsed ? 20 : 32,
+                height: collapsed ? 20 : 32,
+              }}
+              transition={
+                collapsed ? LABEL_EXIT_TRANSITION : LABEL_ENTER_TRANSITION
+              }
+              className="shrink-0 rounded-full object-cover"
+              src={avatar}
+            />
+          ) : (
+            <motion.span
+              initial={false}
+              animate={{
+                width: collapsed ? 20 : 32,
+                height: collapsed ? 20 : 32,
+              }}
+              transition={
+                collapsed ? LABEL_EXIT_TRANSITION : LABEL_ENTER_TRANSITION
+              }
+              className="flex shrink-0 items-center justify-center rounded-full bg-[#2b2930] text-[12px] font-semibold text-[#EEEDF0]"
+            >
+              {name.slice(0, 1).toUpperCase()}
+            </motion.span>
+          )}
+          <RailLabel
+            collapsed={collapsed}
+            className={cn(
+              "flex min-w-0 items-center",
+              collapsed ? "w-0 flex-none overflow-hidden" : "flex-1",
+            )}
+          >
+            <span className="flex min-w-0 flex-1 flex-col leading-none">
+              <span className="block truncate text-[14px] font-medium leading-[17px] text-[#B5B2B9]">
+                {name}
+              </span>
+              {role ? (
+                <span className="block truncate text-[12px] leading-[15px] text-[#7E7A84]">
+                  {role}
+                </span>
+              ) : null}
+            </span>
+            <ChevronsUpDown
+              size={16}
+              strokeWidth={1.7}
+              className="ml-auto shrink-0 text-[#7E7A84]"
+              aria-hidden="true"
+            />
+          </RailLabel>
+        </motion.button>
+        {!collapsed ? (
+          <motion.button
+            type="button"
+            aria-label="Notifications"
+            onClick={() => toast("No new notifications")}
+            whileTap={tap(reduce)}
+            transition={SPRING_PRESS}
+            className="flex size-8 shrink-0 items-center justify-center rounded-md text-[#B5B2B9] transition-colors hover:bg-white/[0.05] hover:text-[#EEEDF0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+          >
+            <Bell size={18} strokeWidth={1.7} aria-hidden="true" />
+          </motion.button>
+        ) : null}
+      </div>
       <AnimatePresence>
         {open && <ProfileMenu key="profile-menu" onClose={close} />}
       </AnimatePresence>

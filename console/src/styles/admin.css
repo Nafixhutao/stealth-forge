@@ -331,8 +331,22 @@ html[data-theme="light"] [data-user] [class~="bg-[#1A181D]"],
 html[data-theme="light"] [data-user] [class~="bg-[#1a181d]"],
 html[data-theme="light"] [data-user] [class~="bg-[#201E22]"],
 html[data-theme="light"] [data-user] [class~="bg-[#232127]"],
+html[data-theme="light"] [data-user] [class~="bg-[#1F1D21]"],
 html[data-theme="light"] [data-user] [class~="bg-[#2b2930]"] {
   background-color: #f7f7f8;
+}
+
+/* The reference's filled search field and the selected row card are solid
+   near-black steps in the dark palette; the light panel needs the equivalent
+   ink steps or the field and the selection vanish. */
+html[data-theme="light"] [data-user] [class~="bg-[#171519]"] {
+  background-color: #eef0ef;
+}
+html[data-theme="light"] [data-user] [class~="bg-[#161418]"] {
+  background-color: rgb(0 0 0 / 0.05);
+}
+html[data-theme="light"] [data-user] [class~="hover:bg-[#1C1A1F]"]:hover {
+  background-color: rgb(0 0 0 / 0.04);
 }
 
 /* The shell root itself paints the canvas with a literal class, and the
@@ -368,6 +382,7 @@ html[data-theme="light"] [data-user] [class~="border-[#3A373F]"] {
 html[data-theme="light"] [data-user] [class~="text-[#edecf1]"],
 html[data-theme="light"] [data-user] [class~="text-[#efedf0]"],
 html[data-theme="light"] [data-user] [class~="text-[#EEEAF0]"],
+html[data-theme="light"] [data-user] [class~="text-[#EEEDF0]"],
 html[data-theme="light"] [data-user] [class~="text-[#C5C1C9]"] {
   color: #1a181d;
 }
@@ -375,9 +390,17 @@ html[data-theme="light"] [data-user] [class~="text-[#C5C1C9]"] {
 html[data-theme="light"] [data-user] [class~="text-[#aaa6ae]"],
 html[data-theme="light"] [data-user] [class~="text-[#AAA6AE]"],
 html[data-theme="light"] [data-user] [class~="text-[#b3b0ba]"],
+html[data-theme="light"] [data-user] [class~="text-[#B5B2B9]"],
 html[data-theme="light"] [data-user] [class~="text-[#737078]"],
+html[data-theme="light"] [data-user] [class~="text-[#7E7A84]"],
 html[data-theme="light"] [data-user] [class~="text-[#8a8791]"] {
   color: #68636d;
+}
+
+/* The gift accent is the one warm colour in the reference nav; it keeps its
+   meaning on the light panel at a darker orange so it stays legible. */
+html[data-theme="light"] [data-user] [class~="text-[#FFA057]"] {
+  color: #b45309;
 }
 
 /* The sidebar's primary labels and the palette use oklch text colors. The

@@ -22,6 +22,8 @@ export type NavRowProps = {
   badge?: BadgeKind;
   expandable?: boolean;
   labelClassName?: string;
+  /** Right-aligned accent inside the row (the gift on Coding Agent). */
+  trailing?: ReactNode;
   /** Renders the shared layoutId pill behind the row when selected. */
   isActive?: boolean;
   /** Shared layoutId — every row in a sidebar passes the same one so the
@@ -37,5 +39,5 @@ export type NavRowProps = {
 
 export type NavItem = Pick<
   NavRowProps,
-  "icon" | "label" | "badge" | "expandable" | "labelClassName"
+  "icon" | "label" | "badge" | "expandable" | "labelClassName" | "trailing"
 >;

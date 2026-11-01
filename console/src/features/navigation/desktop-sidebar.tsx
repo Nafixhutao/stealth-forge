@@ -14,7 +14,7 @@ import { SidebarContent } from "./sidebar-content";
  * reference rail capture: 51px content + 1px border. */
 const RAIL_WIDTH = 52;
 /** Expanded desktop sidebar width. */
-const PANEL_WIDTH = 268;
+const PANEL_WIDTH = 264;
 
 // Module-level so the rail choice survives SPA route changes, where every
 // page mounts its own DesktopSidebar instance and would reset to expanded.
@@ -62,7 +62,7 @@ export function DesktopSidebar({ hasTopBar = false }: { hasTopBar?: boolean }) {
           // the darkest background, and only the content panel opposite it is
           // rounded (the shell draws that). No divider — the panel's edge
           // provides the separation, reference-style.
-          "sticky flex w-full flex-col overflow-hidden bg-[#100F13]",
+          "sticky flex w-full flex-col overflow-hidden bg-[#121014]",
           hasTopBar ? "top-20 h-[calc(100dvh-80px)]" : "top-0 h-dvh",
         )}
       >

@@ -41,7 +41,8 @@ const SEARCH_RESULTS: SearchResult[] = [
     section: "Navigation",
     label: "Go to Projects",
     Icon: FolderKanban,
-    navigateTo: "Projects",
+    // The organization home is the projects surface in the user console.
+    navigateTo: "/user",
   },
   {
     section: "Help Center",

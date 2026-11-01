@@ -13,16 +13,35 @@ import {
 } from "@/lib/ease";
 import { cn } from "@/lib/utils";
 import { useCurrentAccount } from "@/api/queries/account";
-import { useOrganizationPlan } from "@/api/queries/organizations";
+import {
+  organizationItems,
+  useOrganizations,
+  useOrganizationPlan,
+} from "@/api/queries/organizations";
 import { planLabel, planUsageText } from "@/lib/plans";
 import { useCurrentOrganizationId } from "./use-current-organization";
-import { ChevronsUpDown, FolderKanban, Search, X } from "lucide-react";
+import {
+  ChartPie,
+  ChevronsUpDown,
+  Code,
+  GitPullRequestArrow,
+  Gift,
+  Inbox,
+  ScanFace,
+  Search,
+  Settings,
+  ShieldCheck,
+  X,
+  Zap,
+} from "lucide-react";
 import { BottomProfile } from "./profile-menu";
 import {
   ActiveRowPill,
   Badge,
+  BrandIcon,
   ChevronToggle,
   NavIcon,
+  PanelToggleIcon,
   RailLabel,
   rowClass,
   rowWidthClass,
@@ -68,34 +87,64 @@ function SearchField({
       aria-hidden={collapsed}
       tabIndex={collapsed ? -1 : undefined}
       className={cn(
-        "flex items-center gap-2.5 rounded-[10px] text-left text-[14px] transition-colors",
+        "flex items-center gap-2 rounded-[6px] text-left transition-colors",
         collapsed
-          ? "mx-auto size-10 justify-center px-0 hover:bg-white/[0.05]"
-          : "mx-3 h-10 w-[calc(100%-1.5rem)] bg-white/[0.05] px-3 text-[#efedf0] hover:bg-white/[0.07]",
+          ? "mx-auto size-8 justify-center px-0 hover:bg-white/[0.05]"
+          : "mx-2 mt-1.5 h-10 w-[calc(100%-1rem)] bg-[#171519] pl-2 pr-3.5 hover:bg-[#1C1A1F] lg:h-8",
       )}
     >
-      {NavIcon(Search)}
-      <span className="min-w-0 flex-1 truncate">Search</span>
-      <RailLabel collapsed={collapsed}>
-        <span className="shrink-0 text-[13px] font-medium text-[#8a8791]">
-          Ctrl K
-        </span>
-      </RailLabel>
+      <Search
+        size={collapsed ? 18 : 16}
+        strokeWidth={1.7}
+        className="shrink-0 text-[#B5B2B9]"
+        aria-hidden="true"
+      />
+      {!collapsed ? (
+        <>
+          <span className="min-w-0 flex-1 truncate text-[14px] font-medium leading-5 text-[#EEEDF0]">
+            Search
+          </span>
+          <span className="shrink-0 text-[12px] font-[500] leading-[15px] text-[#B5B2B9]">
+            Ctrl K
+          </span>
+        </>
+      ) : null}
     </motion.button>
   );
 }
 
 /**
- * The rows the user console can actually open.
+ * The navigation the reference sidebar draws, in its order.
  *
- * Everything else that used to sit here — Explore, Agent, Analytics, Slack,
- * Discord, Security, Plan, Account, Documentation, Contact Support — had no
- * destination: the console has no route for any of them, so a click either did
- * nothing or (for Agent) answered 404. They come back one at a time, in the
- * commit that ships the surface behind them.
+ * None of these surfaces has a route yet, so the rows hold the selection
+ * locally instead of promising a destination; each becomes a link in the
+ * commit that ships its surface. The bottom group's Organization settings is
+ * the one row that opens a real surface (`/user`, where the switcher lives).
  */
 const primaryNavItems: NavItem[] = [
-  { icon: NavIcon(FolderKanban), label: "Projects" },
+  { icon: NavIcon(Inbox), label: "Triage" },
+  { icon: NavIcon(GitPullRequestArrow), label: "Reviews" },
+  {
+    icon: NavIcon(Code),
+    label: "Coding Agent",
+    trailing: (
+      <Gift
+        size={16}
+        strokeWidth={1.7}
+        className="shrink-0 text-[#FFA057]"
+        aria-hidden="true"
+      />
+    ),
+  },
+  { icon: NavIcon(ShieldCheck), label: "Security" },
+  { icon: NavIcon(ChartPie), label: "Analytics" },
+  { icon: NavIcon(Zap), label: "Automations" },
+  { icon: <BrandIcon brand="slack" />, label: "Slack Bot" },
+];
+
+const secondaryNavItems: NavItem[] = [
+  { icon: NavIcon(ScanFace), label: "Scopes" },
+  { icon: NavIcon(Settings), label: "Organization settings" },
 ];
 
 // The command palette is 245 lines plus 14 icons and renders nothing until the
@@ -108,17 +157,13 @@ const SearchPalette = dynamic(
   { ssr: false },
 );
 
-/** The user console's project surfaces: its home and any single project. */
-function isProjectsPath(pathname: string) {
-  return pathname === "/user" || pathname.startsWith("/projects/");
-}
-
 function NavRow({
   icon,
   label,
   badge,
   expandable = false,
   labelClassName = "",
+  trailing,
   isActive = false,
   layoutId,
   onSelect,
@@ -138,6 +183,9 @@ function NavRow({
         className={cn(
           rowClass,
           rowWidthClass[collapsed ? "collapsed" : "expanded"],
+          // the rail has nothing beside the glyph, so the label gap would push
+          // the icon off-centre even though the label itself is zero-width
+          collapsed ? "gap-0" : "gap-1.5",
         )}
         onClick={onSelect}
         onHoverStart={onIntent}
@@ -150,7 +198,11 @@ function NavRow({
         {icon}
         <RailLabel
           collapsed={collapsed}
-          className={`flex-1 origin-left truncate ${labelClassName}`}
+          className={cn(
+            "origin-left truncate",
+            collapsed ? "w-0 flex-none overflow-hidden" : "flex-1",
+            labelClassName,
+          )}
         >
           {label}
         </RailLabel>
@@ -170,6 +222,22 @@ function NavRow({
             <Badge kind={badge} />
           </motion.span>
         )}
+        {trailing ? (
+          <motion.span
+            initial={false}
+            aria-hidden={collapsed}
+            animate={{
+              opacity: collapsed ? 0 : 1,
+              maxWidth: collapsed ? 0 : 24,
+            }}
+            transition={
+              collapsed ? LABEL_EXIT_TRANSITION : LABEL_ENTER_TRANSITION
+            }
+            className="flex shrink-0 items-center overflow-hidden"
+          >
+            {trailing}
+          </motion.span>
+        ) : null}
         {expandable && (
           <motion.span
             initial={false}
@@ -202,16 +270,27 @@ function Header({
 }) {
   const reduce = useReducedMotion() ?? false;
   const account = useCurrentAccount();
+  const organizations = useOrganizations();
   const organizationId = useCurrentOrganizationId();
   const plan = useOrganizationPlan(organizationId ?? undefined);
   const pathname = usePathname();
   const router = useRouter();
   const identity = account.data?.account;
-  const name =
+  const accountName =
     identity?.display_name?.trim() ||
     identity?.email?.split("@")[0] ||
     "Account";
   const avatar = identity?.avatar_url ?? "";
+
+  // The selector names the organization the surface belongs to, falling back
+  // to the account while the organization list is still in flight. The first
+  // organization is only a preview when no organization is selected yet; a
+  // selected id missing from the loaded page must not borrow another name.
+  const orgs = organizationItems(organizations.data);
+  const organization =
+    orgs.find((item) => item.id === organizationId) ??
+    (organizationId ? null : (orgs[0] ?? null));
+  const name = organization?.name?.trim() || accountName;
 
   // The chip reads the plan endpoint for whichever organization this surface
   // belongs to. It renders nothing until that answer exists: an empty slot is
@@ -223,69 +302,65 @@ function Header({
     : undefined;
 
   return (
-    <header className="flex h-[44px] shrink-0 items-center gap-2 px-4 lg:h-[48px]">
+    <header
+      className={cn(
+        "flex h-12 shrink-0 items-center",
+        collapsed ? "gap-0 px-0" : "gap-2 px-4",
+      )}
+    >
       {/* The identity slot folds away entirely in the rail — it must not
-       * reserve space, or it pushes the collapse toggle out of the rail.
-       *
-       * The ceiling is the widest panel this header can appear in, not a
-       * design width: at 220px the name was cut short ("Aulia Rahma…") while
-       * the row still had empty space beside it. */}
+       * reserve space, or it pushes the collapse toggle out of the rail. */}
       <motion.div
         initial={false}
         animate={{ maxWidth: collapsed ? 0 : 560 }}
         transition={collapsed ? LABEL_EXIT_TRANSITION : LABEL_ENTER_TRANSITION}
         className="flex min-w-0 flex-1 items-center overflow-hidden"
       >
-        {avatar ? (
-          <motion.img
-            alt=""
-            initial={false}
-            animate={{ opacity: collapsed ? 0 : 1 }}
-            transition={
-              collapsed ? LABEL_EXIT_TRANSITION : LABEL_ENTER_TRANSITION
-            }
-            className="size-6 shrink-0 rounded-full object-cover"
-            src={avatar}
-          />
-        ) : (
-          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[#2b2930] text-[10px] font-semibold text-[#edecf1]">
-            {name.slice(0, 1).toUpperCase()}
-          </span>
-        )}
-        <RailLabel
-          collapsed={collapsed}
-          className="flex min-w-0 flex-1 items-center"
+        <button
+          type="button"
+          onClick={() => {
+            if (pathname !== "/user") router.push("/user");
+          }}
+          aria-label="Switch organization"
+          className="flex min-w-0 items-center gap-2 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
         >
+          {avatar ? (
+            <motion.img
+              alt=""
+              initial={false}
+              animate={{ opacity: collapsed ? 0 : 1 }}
+              transition={
+                collapsed ? LABEL_EXIT_TRANSITION : LABEL_ENTER_TRANSITION
+              }
+              className="size-5 shrink-0 rounded-[6px] object-cover"
+              src={avatar}
+            />
+          ) : (
+            <span className="flex size-5 shrink-0 items-center justify-center rounded-[6px] bg-[#2b2930] text-[10px] font-semibold text-[#EEEDF0]">
+              {name.slice(0, 1).toUpperCase()}
+            </span>
+          )}
           <span
             title={name}
-            className="ml-2 min-w-0 shrink truncate text-[14px] font-medium leading-[20px] tracking-[-0.01em] text-[#efedf0]"
+            className="min-w-0 shrink truncate text-[14px] font-semibold leading-5 tracking-[-0.01em] text-[#EEEDF0]"
           >
             {name}
           </span>
           {label ? (
             <span
               title={planTitle}
-              className="ml-2 shrink-0 whitespace-nowrap rounded-[6px] bg-[#201E22] px-[6px] py-[2px] text-[12px] font-medium leading-[16px] text-[#C9C5CD]"
+              className="inline-flex h-5 shrink-0 items-center whitespace-nowrap rounded-[4px] bg-[#1F1D21] px-1.5 text-[12px] font-medium leading-[15px] text-[#B5B2B9]"
             >
               {label}
             </span>
           ) : null}
-          {/* The reference puts the switcher affordance with the identity
-              cluster rather than pinning it to the far edge. It is a real
-              control, not decoration: it opens the organization home, where
-              the switcher lives, so the chevron never promises a menu that
-              does not exist. */}
-          <button
-            type="button"
-            onClick={() => {
-              if (pathname !== "/user") router.push("/user");
-            }}
-            aria-label="Switch organization"
-            className="-mr-1 ml-1.5 inline-flex size-6 shrink-0 items-center justify-center rounded-md text-[#8a8791] transition-colors hover:bg-white/[0.06] hover:text-[#efedf0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-          >
-            <ChevronsUpDown size={13} strokeWidth={1.8} aria-hidden="true" />
-          </button>
-        </RailLabel>
+          <ChevronsUpDown
+            size={14}
+            strokeWidth={1.7}
+            className="shrink-0 text-[#7E7A84]"
+            aria-hidden="true"
+          />
+        </button>
       </motion.div>
       {onClose ? (
         <motion.button
@@ -293,7 +368,7 @@ function Header({
           onClick={onClose}
           whileTap={tap(reduce)}
           transition={SPRING_PRESS}
-          className="-mr-2 inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-[#AAA6AE] transition-colors hover:bg-white/[0.06] hover:text-[#EEEAF0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 lg:hidden"
+          className="-mr-2 inline-flex size-8 shrink-0 items-center justify-center rounded-md text-[#B5B2B9] transition-colors hover:bg-white/[0.06] hover:text-[#EEEDF0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 lg:hidden"
           aria-label="Close sidebar"
         >
           <X size={16} strokeWidth={1.8} />
@@ -308,39 +383,13 @@ function Header({
           whileTap={tap(reduce)}
           transition={SPRING_PRESS}
           className={cn(
-            "group/btn hidden size-7 shrink-0 items-center justify-center rounded-md text-[#AAA6AE] transition-colors hover:bg-white/[0.06] hover:text-[#EEEAF0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 lg:inline-flex",
-            // in the rail the toggle belongs to the icon column (reference
-            // center 23.5); only the expanded panel pins it to the right edge
-            collapsed ? "mr-auto" : "ml-auto",
+            "group/btn hidden size-8 shrink-0 items-center justify-center rounded-md text-[#B5B2B9] transition-colors hover:bg-white/[0.06] hover:text-[#EEEDF0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 lg:inline-flex",
+            // in the rail the toggle belongs to the icon column (center of the
+            // 52px rail); only the expanded panel pins it to the right edge
+            collapsed ? "mx-auto" : "ml-auto -mr-2",
           )}
         >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            className="size-4"
-            aria-hidden="true"
-          >
-            <rect
-              x="2"
-              y="3"
-              width="12"
-              height="10"
-              rx="2"
-              stroke="currentColor"
-              strokeWidth="2"
-            />
-            <rect
-              x="4"
-              y="5"
-              width="2"
-              height="6"
-              rx="1"
-              fill="currentColor"
-              className="transition-[width] duration-300 ease-out [width:2px] group-hover/btn:[width:1px]"
-            />
-          </svg>
+          <PanelToggleIcon className="size-[18px]" />
         </motion.button>
       ) : null}
     </header>
@@ -367,9 +416,9 @@ function SidebarContentImpl({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [active, setActive] = useState<string | null>(() =>
-    isProjectsPath(pathname) ? "Projects" : null,
-  );
+  // The reference opens on Triage; the console has no route for the other
+  // surfaces yet, so the selection is local until they ship.
+  const [active, setActive] = useState<string | null>("Triage");
   const [searchOpen, setSearchOpen] = useState(false);
   // The palette is mounted only once it is first wanted, so its chunk is not
   // pulled into every page load.
@@ -390,11 +439,6 @@ function SidebarContentImpl({
   const reduce = useReducedMotion() ?? false;
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (isProjectsPath(pathname)) setActive("Projects");
-  }, [pathname]);
-
-  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
@@ -413,14 +457,6 @@ function SidebarContentImpl({
   // sidebar stays closed when jumping to another page.
   const select = (label: string) => {
     setActive(label);
-  };
-
-  const selectNavigation = (label: string) => {
-    select(label);
-    // "Projects" is the user console's front page. It used to be the root path,
-    // which now belongs to the admin console, so a user tapping it landed in
-    // the wrong product entirely.
-    if (label === "Projects" && pathname !== "/user") router.push("/user");
     // The mobile sheet covers most of the screen, so choosing a destination
     // dismisses it; on the desktop rail this prop is undefined.
     onMobileClose?.();
@@ -434,7 +470,13 @@ function SidebarContentImpl({
       layoutId={pillId}
       onSelect={() => {
         if (item.label === "Search") openSearch();
-        else selectNavigation(item.label);
+        else if (item.label === "Organization settings") {
+          // The organization home is the closest real surface: it is where the
+          // organization is named and switched.
+          setActive(item.label);
+          if (pathname !== "/user") router.push("/user");
+          onMobileClose?.();
+        } else select(item.label);
       }}
       onIntent={item.label === "Search" ? preloadSearch : undefined}
       collapsed={collapsed}
@@ -448,32 +490,36 @@ function SidebarContentImpl({
         collapsed={collapsed}
         onToggleCollapse={onToggleCollapse}
       />
+      <SearchField
+        onOpen={openSearch}
+        onIntent={preloadSearch}
+        collapsed={collapsed}
+      />
       <motion.nav
-        className="sidebar-scrollbar flex min-h-0 flex-1 flex-col gap-0.5 overflow-x-hidden overflow-y-auto pb-1 [overscroll-behavior:contain]"
+        className="sidebar-scrollbar mt-2 flex min-h-0 flex-1 flex-col gap-0.5 overflow-x-hidden overflow-y-auto pb-2 [overscroll-behavior:contain]"
         aria-label="Sidebar links"
         variants={NAV_VARIANTS}
         initial={reduce || !entrance ? false : "hidden"}
         animate="visible"
       >
-        <SearchField
-          onOpen={openSearch}
-          onIntent={preloadSearch}
-          collapsed={collapsed}
-        />
-        <p
-          className={cn(
-            "mt-2.5 pb-1 text-[12px] font-medium text-[#8a8791]",
-            collapsed ? "hidden" : "mx-3 px-3",
-          )}
-        >
-          Projects
-        </p>
         {primaryNavItems.map(renderNavItem)}
       </motion.nav>
-      <BottomProfile
-        collapsed={collapsed}
-        onToggleCollapse={onToggleCollapse}
-      />
+      {/* Bottom group: pinned to the base of the panel, never part of the
+       * scrolling list. The two hairlines are inset 8px like the reference. */}
+      <div className="shrink-0">
+        <div aria-hidden="true" className="mx-2 h-px bg-[#322F37]" />
+        <nav
+          aria-label="Organization links"
+          className="flex flex-col gap-0.5 pt-2"
+        >
+          {secondaryNavItems.map(renderNavItem)}
+        </nav>
+        <div aria-hidden="true" className="mx-2 h-px bg-[#322F37]" />
+        <BottomProfile
+          collapsed={collapsed}
+          onToggleCollapse={onToggleCollapse}
+        />
+      </div>
       {searchMounted ? (
         <SearchPalette
           open={searchOpen}
@@ -481,7 +527,10 @@ function SidebarContentImpl({
           onSelect={(result) => {
             setSearchOpen(false);
             // The palette only emits entries that name a real destination.
-            if (result.navigateTo) selectNavigation(result.navigateTo);
+            if (result.navigateTo) {
+              router.push(result.navigateTo);
+              onMobileClose?.();
+            }
           }}
         />
       ) : null}
@@ -491,8 +540,8 @@ function SidebarContentImpl({
 
 /**
  * Memoised on purpose: opening the mobile sheet re-renders its parent, and
- * without this the whole nav tree (176 nodes, 25 icons) re-rendered in the same
- * commit that starts the animation — a 183ms frame on a throttled CPU, right
- * where the motion needed to begin. Its props are stable, so nothing is lost.
+ * without this the whole nav tree re-rendered in the same commit that starts
+ * the animation — a 183ms frame on a throttled CPU, right where the motion
+ * needed to begin. Its props are stable, so nothing is lost.
  */
 export const SidebarContent = memo(SidebarContentImpl);
