@@ -117,10 +117,10 @@ function SearchField({
 /**
  * The navigation the reference sidebar draws, in its order.
  *
- * None of these surfaces has a route yet, so the rows hold the selection
- * locally instead of promising a destination; each becomes a link in the
- * commit that ships its surface. The bottom group's Organization settings is
- * the one row that opens a real surface (`/user`, where the switcher lives).
+ * Rows without an `href` hold the selection locally instead of promising a
+ * destination; each becomes a link in the commit that ships its surface. The
+ * Coding Agent row opens the agent conversation surface, and Organization
+ * settings opens the organization home.
  */
 const primaryNavItems: NavItem[] = [
   { icon: NavIcon(Inbox), label: "Triage" },
@@ -128,6 +128,7 @@ const primaryNavItems: NavItem[] = [
   {
     icon: NavIcon(Code),
     label: "Coding Agent",
+    href: "/agent",
     trailing: (
       <Gift
         size={16}
@@ -273,7 +274,6 @@ function Header({
   const account = useCurrentAccount();
   const organizations = useOrganizations();
   const organizationId = useCurrentOrganizationId();
-  const plan = useOrganizationPlan(organizationId ?? undefined);
   const pathname = usePathname();
   const router = useRouter();
   const identity = account.data?.account;
@@ -295,9 +295,12 @@ function Header({
   // that signup and OAuth create; a hand-named organization keeps its name.
   const name = organizationDisplayName(organization?.name) || accountName;
 
-  // The chip reads the plan endpoint for whichever organization this surface
-  // belongs to. It renders nothing until that answer exists: an empty slot is
-  // honest, a placeholder that always says the same word is not.
+  // The chip reads the plan endpoint for the same organization the selector
+  // names — including the first-organization preview, so a surface that has not
+  // published a scope yet still shows its plan. It renders nothing until that
+  // answer exists: an empty slot is honest, a placeholder that always says the
+  // same word is not.
+  const plan = useOrganizationPlan(organization?.id);
   const orgPlan = plan.data?.plan;
   const label = planLabel(orgPlan?.plan_key);
   const planTitle = orgPlan
@@ -456,6 +459,17 @@ function SidebarContentImpl({
     };
   }, [openSearch]);
 
+  // A route-backed row owns the selection, so the locally-held default
+  // (Triage) never stays lit beside the row that matches the address.
+  const routeLabel =
+    [...primaryNavItems, ...secondaryNavItems].find(
+      (item) =>
+        item.href &&
+        (pathname === item.href || pathname.startsWith(`${item.href}/`)),
+    )?.label ?? null;
+  const isActive = (item: NavItem) =>
+    routeLabel ? item.label === routeLabel : active === item.label;
+
   // Selecting from the rail navigates without unfolding the panel, so the
   // sidebar stays closed when jumping to another page.
   const select = (label: string) => {
@@ -469,11 +483,16 @@ function SidebarContentImpl({
     <NavRow
       key={item.label}
       {...item}
-      isActive={active === item.label}
+      isActive={isActive(item)}
       layoutId={pillId}
       onSelect={() => {
         if (item.label === "Search") openSearch();
-        else if (item.label === "Organization settings") {
+        else if (item.href) {
+          // A real destination: the row follows the route instead of holding a
+          // selection that would disagree with the address bar.
+          if (pathname !== item.href) router.push(item.href);
+          onMobileClose?.();
+        } else if (item.label === "Organization settings") {
           // The organization home is the closest real surface: it is where the
           // organization is named and switched.
           setActive(item.label);

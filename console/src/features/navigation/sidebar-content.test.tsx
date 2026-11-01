@@ -173,6 +173,14 @@ describe("SidebarContent header", () => {
     expect(useOrganizationPlan).toHaveBeenCalledWith(ORGANIZATION_ID);
   });
 
+  it("reads the plan of the previewed organization when no scope is set", () => {
+    useCurrentOrganizationId.mockReturnValue(null);
+
+    render(<SidebarContent />);
+
+    expect(useOrganizationPlan).toHaveBeenCalledWith(ORGANIZATION_ID);
+  });
+
   it("shows a free organization as Free", () => {
     useOrganizationPlan.mockReturnValue(plan("free", 1, 3));
 
@@ -299,5 +307,26 @@ describe("SidebarContent navigation", () => {
     expect(
       screen.getByRole("button", { name: /Search\s*Ctrl K/ }),
     ).toBeInTheDocument();
+  });
+
+  it("opens the Agent surface from the Coding Agent row", () => {
+    render(<SidebarContent />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Coding Agent" }));
+
+    expect(nav.push).toHaveBeenCalledWith("/agent");
+  });
+
+  it("marks Coding Agent as current on the agent route, not Triage", () => {
+    nav.pathname = "/agent";
+
+    render(<SidebarContent />);
+
+    expect(
+      screen.getByRole("button", { name: "Coding Agent" }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "Triage" })).not.toHaveAttribute(
+      "aria-current",
+    );
   });
 });

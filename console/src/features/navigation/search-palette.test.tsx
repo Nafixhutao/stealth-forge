@@ -70,6 +70,16 @@ describe("SearchPalette", () => {
     );
   });
 
+  it("offers the Agent surface", () => {
+    const { onSelect } = renderPalette();
+
+    fireEvent.click(screen.getByRole("button", { name: /Go to Agent$/ }));
+
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ navigateTo: "/agent" }),
+    );
+  });
+
   it("logs out without involving the sidebar", () => {
     const { onClose, onSelect } = renderPalette();
 

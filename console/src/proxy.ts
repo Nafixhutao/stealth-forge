@@ -30,7 +30,14 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Only the two guarded surfaces. Assets, the API proxy, and the auth pages
-  // stay untouched, so this cannot block CSS, JS, or the sign-in flow.
-  matcher: ["/admin", "/admin/:path*", "/user", "/user/:path*"],
+  // Only the guarded customer surfaces. Assets, the API proxy, and the auth
+  // pages stay untouched, so this cannot block CSS, JS, or the sign-in flow.
+  matcher: [
+    "/admin",
+    "/admin/:path*",
+    "/user",
+    "/user/:path*",
+    "/agent",
+    "/agent/:path*",
+  ],
 };

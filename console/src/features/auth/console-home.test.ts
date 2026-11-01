@@ -33,13 +33,16 @@ describe("isInstanceAdminRole", () => {
 });
 
 describe("isGuardedConsolePath", () => {
-  it("matches the two console surfaces and nothing else", () => {
+  it("matches the guarded customer surfaces and nothing else", () => {
     expect(isGuardedConsolePath("/admin")).toBe(true);
     expect(isGuardedConsolePath("/admin/logs")).toBe(true);
     expect(isGuardedConsolePath("/user")).toBe(true);
     expect(isGuardedConsolePath("/user/settings")).toBe(true);
+    expect(isGuardedConsolePath("/agent")).toBe(true);
+    expect(isGuardedConsolePath("/agent/thread")).toBe(true);
     expect(isGuardedConsolePath("/login")).toBe(false);
     expect(isGuardedConsolePath("/administrator")).toBe(false);
+    expect(isGuardedConsolePath("/agents")).toBe(false);
   });
 });
 

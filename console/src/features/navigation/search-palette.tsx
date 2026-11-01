@@ -3,6 +3,7 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  Bot,
   FolderKanban,
   LogOut,
   Search,
@@ -43,6 +44,12 @@ const SEARCH_RESULTS: SearchResult[] = [
     Icon: FolderKanban,
     // The organization home is the projects surface in the user console.
     navigateTo: "/user",
+  },
+  {
+    section: "Navigation",
+    label: "Go to Agent",
+    Icon: Bot,
+    navigateTo: "/agent",
   },
   {
     section: "Help Center",

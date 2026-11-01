@@ -15,13 +15,15 @@ export function consoleHomeForRole(role: string | null | undefined) {
   return isInstanceAdminRole(role) ? "/admin" : "/user";
 }
 
-/** True for the two surfaces the proxy guards. */
+/** True for the customer console surfaces the proxy guards. */
 export function isGuardedConsolePath(pathname: string) {
   return (
     pathname === "/admin" ||
     pathname.startsWith("/admin/") ||
     pathname === "/user" ||
-    pathname.startsWith("/user/")
+    pathname.startsWith("/user/") ||
+    pathname === "/agent" ||
+    pathname.startsWith("/agent/")
   );
 }
 

@@ -170,6 +170,9 @@ export const queryKeys = {
   webhookDeliveries: (projectId: string, webhookId: string) =>
     ["webhook-deliveries", projectId, webhookId] as const,
   agents: (projectId: string) => ["agents", projectId] as const,
+  /** Every agent the account can see, across projects. Also the prefix that
+   * invalidates each project-scoped agent list at once. */
+  allAgents: ["agents"] as const,
   agent: (agentId: string) => ["agent", agentId] as const,
   agentCatalog: ["agent-catalog"] as const,
   agentRuns: (agentId: string) => ["agent-runs", agentId] as const,
