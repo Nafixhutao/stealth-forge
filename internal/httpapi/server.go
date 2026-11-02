@@ -21,6 +21,7 @@ import (
 	"github.com/Nafixhutao/stealth-forge/internal/githubauth"
 	"github.com/Nafixhutao/stealth-forge/internal/hostmetrics"
 	"github.com/Nafixhutao/stealth-forge/internal/mailer"
+	"github.com/Nafixhutao/stealth-forge/internal/manageddb"
 	"github.com/Nafixhutao/stealth-forge/internal/oauthlogin"
 	"github.com/Nafixhutao/stealth-forge/internal/observability"
 	"github.com/Nafixhutao/stealth-forge/internal/ratelimit"
@@ -50,6 +51,7 @@ type Server struct {
 	functions         *functionstore.Store
 	functionCipher    *functionsecret.Cipher
 	appSecretCipher   *appsecret.Cipher
+	managedDatabases  *manageddb.Service
 	functionsReady    bool
 	sites             *sitestore.Store
 	siteArchives      *functionstore.Store
@@ -107,6 +109,7 @@ type Dependencies struct {
 	DBMetrics         *dbmetrics.Collector
 	RedisMetrics      *redismetrics.Collector
 	Redis             *redis.Client
+	ManagedDatabases  *manageddb.Service
 
 	// AdminRealtimeAuthRecheckInterval is primarily useful for deterministic
 	// integration tests. Production defaults to the bounded interval defined by
@@ -289,6 +292,7 @@ func NewWithDependenciesAndPlatformSiteHandler(
 		functions:                        functionStore,
 		functionCipher:                   functionCipher,
 		appSecretCipher:                  appSecretCipher,
+		managedDatabases:                 deps.ManagedDatabases,
 		functionsReady:                   functionsReady,
 		sites:                            siteStore,
 		siteArchives:                     siteArchiveStore,

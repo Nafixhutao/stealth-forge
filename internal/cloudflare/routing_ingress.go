@@ -26,6 +26,13 @@ func consoleOriginService(origin string) string {
 }
 
 func desiredTunnelIngress(consoleHostname, wildcardHostname string, consoleOrigins ...string) []IngressRule {
+	return desiredTunnelIngressWithDatabase(consoleHostname, wildcardHostname, "", consoleOrigins...)
+}
+
+// desiredTunnelIngressWithDatabase adds the optional hosted-database hostname.
+// phpMyAdmin is served directly by the tunnel so it does not depend on the
+// Console's nginx path and can live on its own origin.
+func desiredTunnelIngressWithDatabase(consoleHostname, wildcardHostname, databaseHostname string, consoleOrigins ...string) []IngressRule {
 	consoleOrigin := ConsoleOriginProxy
 	if len(consoleOrigins) > 0 && consoleOriginService(consoleOrigins[0]) != "" {
 		consoleOrigin = consoleOrigins[0]
@@ -33,6 +40,9 @@ func desiredTunnelIngress(consoleHostname, wildcardHostname string, consoleOrigi
 	result := []IngressRule{consoleIngressRule(consoleHostname, consoleOrigin)}
 	if wildcardHostname != "" {
 		result = append(result, IngressRule{Hostname: wildcardHostname, Service: "http://traefik:8080"})
+	}
+	if databaseHostname != "" {
+		result = append(result, IngressRule{Hostname: databaseHostname, Service: "http://tenant-phpmyadmin:80"})
 	}
 	return append(result, IngressRule{Service: "http_status:404"})
 }

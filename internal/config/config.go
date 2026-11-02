@@ -87,6 +87,16 @@ type Config struct {
 	FunctionsSecretKey         []byte
 	// AppsSecretKey is a dedicated operator key for App environment values.
 	AppsSecretKey []byte
+	// ManagedDatabasesEnabled turns on the hosted MySQL free tier. The
+	// tenant cluster is a separate MySQL server; the control-plane PostgreSQL
+	// is never exposed to customers.
+	ManagedDatabasesEnabled  bool
+	ManagedDatabaseSecretKey []byte
+	TenantMySQLAdminDSN      string
+	TenantMySQLHost          string
+	TenantMySQLPort          int
+	TenantPHPMyAdminURL      string
+	ManagedDatabaseHostname  string
 	// BootstrapCLIKey authenticates the local CLI when it asks the API to mint
 	// a first-run setup session and encrypts short-lived GitHub authorization state.
 	// It is a separate security domain from FunctionsSecretKey.
@@ -132,6 +142,12 @@ type Config struct {
 	// queued runs.
 	AgentRunnerEnabled          bool
 	AgentRunnerExecutionTimeout time.Duration
+	// AgentRuntimeBinary is the trusted Rust agent executable. An empty path
+	// keeps the worker queue-only.
+	AgentRuntimeBinary string
+	// AgentWorkRoot is the worker path where the shared agent staging volume is
+	// mounted. Produced files are collected from its `agent/` subtree.
+	AgentWorkRoot string
 	// Sites accept pre-built static archives. The compressed upload limit is
 	// separate from the expanded publication limit because quota accounting is
 	// based on bytes that are actually served from the immutable directory.
@@ -221,6 +237,10 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	managedDatabaseSettings, err := loadManagedDatabaseSettings()
+	if err != nil {
+		return Config{}, err
+	}
 	storageSettings, err := loadStorageSettings()
 	if err != nil {
 		return Config{}, err
@@ -244,6 +264,7 @@ func Load() (Config, error) {
 	telemetryStoreSettings.apply(&config)
 	agentSettings.apply(&config)
 	secretSettings.apply(&config)
+	managedDatabaseSettings.apply(&config)
 	transportSettings.apply(&config)
 	storageSettings.apply(&config)
 	tlsSettings.apply(&config)

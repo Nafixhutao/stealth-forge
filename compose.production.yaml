@@ -14,6 +14,7 @@ x-backend-environment: &backend-environment
   REDIS_URL: "${REDIS_URL:-redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379/0}"
   FUNCTIONS_SECRET_KEY: "${FUNCTIONS_SECRET_KEY:?set FUNCTIONS_SECRET_KEY}"
   APPS_SECRET_KEY: "${APPS_SECRET_KEY:?set APPS_SECRET_KEY}"
+  MANAGED_DATABASE_HOSTNAME: "${MANAGED_DATABASE_HOSTNAME:-}"
   PUBLIC_APP_URL: "${PUBLIC_APP_URL:?set PUBLIC_APP_URL}"
   CLOUDFLARE_API_BASE_URL: "${CLOUDFLARE_API_BASE_URL:-}"
   CLOUDFLARE_RECONCILE_INTERVAL: "${CLOUDFLARE_RECONCILE_INTERVAL:-1m}"
@@ -68,6 +69,29 @@ x-backend-environment: &backend-environment
   FUNCTIONS_RUNNER_NODE_IMAGE: "${FUNCTIONS_RUNNER_NODE_IMAGE:-node:22-alpine}"
   FUNCTIONS_RUNNER_PYTHON_IMAGE: "${FUNCTIONS_RUNNER_PYTHON_IMAGE:-python:3.13-alpine}"
   FUNCTIONS_RUNNER_GO_IMAGE: "${FUNCTIONS_RUNNER_GO_IMAGE:-golang:1.24-alpine}"
+  # The Agent runtime is opt-in. The Rust binary registers under the "rinsdev"
+  # provider; its LLM credential stays in the worker environment.
+  AGENT_RUNNER_ENABLED: "${AGENT_RUNNER_ENABLED:-false}"
+  AGENT_RUNNER_EXECUTION_TIMEOUT: "${AGENT_RUNNER_EXECUTION_TIMEOUT:-15m}"
+  AGENT_RUNTIME_BINARY: "${AGENT_RUNTIME_BINARY:-/usr/local/bin/stealth-agent}"
+  AGENT_PROVIDER_CATALOG: "${AGENT_PROVIDER_CATALOG:-}"
+  AGENT_LLM_BASE_URL: "${AGENT_LLM_BASE_URL:-https://api.rinsdev.cloud/v1}"
+  AGENT_LLM_MODEL: "${AGENT_LLM_MODEL:-deepseek-v4.1-flash-1017}"
+  AGENT_LLM_API_KEY: "${AGENT_LLM_API_KEY:-}"
+  AGENT_MAX_STEPS: "${AGENT_MAX_STEPS:-20}"
+  AGENT_MAX_TOKENS: "${AGENT_MAX_TOKENS:-4096}"
+  AGENT_TEMPERATURE: "${AGENT_TEMPERATURE:-0.2}"
+  AGENT_REQUEST_TIMEOUT_SECS: "${AGENT_REQUEST_TIMEOUT_SECS:-120}"
+  AGENT_MAX_OUTPUT_BYTES: "${AGENT_MAX_OUTPUT_BYTES:-65536}"
+  AGENT_SANDBOX_ENABLED: "${AGENT_SANDBOX_ENABLED:-true}"
+  AGENT_SANDBOX_IMAGE: "${AGENT_SANDBOX_IMAGE:-stealth-agent-sandbox:latest}"
+  AGENT_SANDBOX_MEMORY: "${AGENT_SANDBOX_MEMORY:-512m}"
+  AGENT_SANDBOX_CPUS: "${AGENT_SANDBOX_CPUS:-1}"
+  AGENT_SANDBOX_PIDS: "${AGENT_SANDBOX_PIDS:-128}"
+  AGENT_SANDBOX_TIMEOUT_SECS: "${AGENT_SANDBOX_TIMEOUT_SECS:-120}"
+  AGENT_WORK_ROOT: "${AGENT_WORK_ROOT:-/var/lib/stealth/runner-staging}"
+  AGENT_SANDBOX_VOLUME: "${AGENT_SANDBOX_VOLUME:-stealth_function_runner_staging}"
+  AGENT_SANDBOX_VOLUME_WORKDIR: "${AGENT_SANDBOX_VOLUME_WORKDIR:-/workspace}"
   AGENT_RUNNER_ENABLED: "${AGENT_RUNNER_ENABLED:-false}"
   AGENT_RUNNER_EXECUTION_TIMEOUT: "${AGENT_RUNNER_EXECUTION_TIMEOUT:-15m}"
   SITES_MAX_ARTIFACT_SIZE: "${SITES_MAX_ARTIFACT_SIZE:-50MiB}"
@@ -265,6 +289,12 @@ services:
       <<: *backend-environment
       BOOTSTRAP_CLI_KEY: "${BOOTSTRAP_CLI_KEY:?set BOOTSTRAP_CLI_KEY}"
       GITHUB_APP_CLIENT_ID: "${GITHUB_APP_CLIENT_ID:-}"
+      MANAGED_DATABASES_ENABLED: "${MANAGED_DATABASES_ENABLED:-false}"
+      TENANT_MYSQL_ADMIN_DSN: "${TENANT_MYSQL_ADMIN_DSN:-}"
+      MANAGED_DATABASE_SECRET_KEY: "${MANAGED_DATABASE_SECRET_KEY:-}"
+      TENANT_MYSQL_HOST: "${TENANT_MYSQL_HOST:-tenant-mysql}"
+      TENANT_MYSQL_PORT: "${TENANT_MYSQL_PORT:-3306}"
+      TENANT_PHPMYADMIN_URL: "${TENANT_PHPMYADMIN_URL:-/db/}"
     volumes:
       - stealth_storage:/var/lib/stealth/storage
       # Host-wide network counters for the admin Overview. Inside the container
@@ -295,6 +325,7 @@ services:
       stealth:
         aliases: [stealth-api]
       stealth_ingress:
+      tenant_data:
 
   buildkit-worker-credentials-init:
     image: "${STATE_INIT_IMAGE:-alpine:3.24}"
@@ -550,6 +581,53 @@ services:
         # outside the dynamic workload pool.
         ipv4_address: "${STEALTH_TRAEFIK_INGRESS_IP:?set STEALTH_TRAEFIK_INGRESS_IP}"
 
+  tenant-mysql:
+    image: "${TENANT_MYSQL_IMAGE:-mysql:8.4}"
+    restart: unless-stopped
+    profiles: [managed-databases]
+    environment:
+      MYSQL_ROOT_PASSWORD: "${TENANT_MYSQL_ROOT_PASSWORD:-}"
+    command:
+      - "--character-set-server=utf8mb4"
+      - "--collation-server=utf8mb4_0900_ai_ci"
+      - "--max-connections=200"
+      - "--mysqlx=0"
+    volumes:
+      - tenant_mysql_data:/var/lib/mysql
+    labels:
+      stealth.managed: "true"
+      stealth.resource_type: "tenant_mysql"
+      stealth.runtime_schema: "v1"
+    mem_limit: "${TENANT_MYSQL_MEMORY_LIMIT:-768m}"
+    cpus: "${TENANT_MYSQL_CPUS:-1}"
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    networks: [tenant_data]
+
+  tenant-phpmyadmin:
+    image: "${TENANT_PHPMYADMIN_IMAGE:-phpmyadmin:5.2-apache}"
+    restart: unless-stopped
+    profiles: [managed-databases]
+    depends_on:
+      tenant-mysql:
+        condition: service_healthy
+    environment:
+      PHPMYADMIN_BLOWFISH_SECRET: "${TENANT_PHPMYADMIN_BLOWFISH_SECRET:-}"
+    volumes:
+      - ./tenant-phpmyadmin/config.user.inc.php:/etc/phpmyadmin/config.user.inc.php:ro
+      - ./tenant-phpmyadmin/apache-subpath.conf:/etc/apache2/conf-enabled/zz-stealth-db.conf:ro
+    mem_limit: "${TENANT_PHPMYADMIN_MEMORY_LIMIT:-256m}"
+    cpus: "${TENANT_PHPMYADMIN_CPUS:-0.5}"
+    security_opt:
+      - no-new-privileges:true
+    networks: [stealth, tenant_data]
+
   cloudflared:
     image: "${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:2026.9.0}"
     profiles: [cloudflare]
@@ -589,6 +667,8 @@ volumes:
     name: "${COMPOSE_PROJECT_NAME:-stealth}_app_buildkit_server_credentials"
   cloudflare_setup_state_input:
     name: "${COMPOSE_PROJECT_NAME:-stealth}_cloudflare_setup_state_input"
+  tenant_mysql_data:
+    name: "${TENANT_MYSQL_VOLUME_NAME:-stealth_tenant_mysql_data}"
 networks:
   stealth:
     name: "${STEALTH_NETWORK_NAME:-stealth_network}"
@@ -609,3 +689,6 @@ networks:
           ip_range: "${STEALTH_INGRESS_IP_RANGE:?set STEALTH_INGRESS_IP_RANGE}"
   app_build:
     name: "${APPS_BUILD_NETWORK_NAME:-stealth_app_build}"
+  tenant_data:
+    name: "${TENANT_DATA_NETWORK_NAME:-stealth_tenant_data}"
+    internal: true
