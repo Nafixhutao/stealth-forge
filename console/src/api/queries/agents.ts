@@ -61,3 +61,24 @@ export function useAgentCatalog() {
     staleTime: 5 * 60_000,
   });
 }
+
+/**
+ * Files the agent produced, newest first, across its runs. The panel polls
+ * because a revision completes asynchronously on the worker.
+ */
+export function useAgentArtifacts(agentId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.agentArtifacts(agentId),
+    enabled: Boolean(agentId),
+    queryFn: cancellableQuery((signal) =>
+      api.GET("/v1/agents/{agentID}/artifacts", {
+        params: {
+          path: { agentID: agentId as string },
+          query: { limit: 50 },
+          signal,
+        },
+      }),
+    ),
+    refetchInterval: 5_000,
+  });
+}

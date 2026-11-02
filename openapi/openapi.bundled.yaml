@@ -3961,6 +3961,68 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
+  /v1/agents/{agentID}/artifacts:
+    get:
+      operationId: listAgentArtifacts
+      description: List the files an agent produced, newest first, across its runs.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/AgentID'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Agent artifacts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentArtifactsPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /v1/agents/{agentID}/artifacts/{artifactID}/download:
+    get:
+      operationId: downloadAgentArtifact
+      description: Download a produced document. Pass inline=1 to render it in the browser.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/AgentID'
+        - name: artifactID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: inline
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - '1'
+      responses:
+        '200':
+          description: Artifact bytes
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /v1/projects/{projectID}/users:
     get:
       operationId: listProjectUsers
@@ -6977,6 +7039,139 @@ paths:
           $ref: '#/components/responses/NotFound'
         '429':
           $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/projects/{projectID}/managed-databases:
+    get:
+      operationId: listManagedDatabases
+      description: Console-only list of the project's hosted MySQL databases. Server API keys cannot read database credentials.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectID'
+      responses:
+        '200':
+          description: Managed databases
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagedDatabasesPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    post:
+      operationId: createManagedDatabase
+      description: Creates the free-tier MySQL database and user for this project. The free tier allows one database per project.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateManagedDatabaseRequest'
+      responses:
+        '201':
+          description: Managed database created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagedDatabaseResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/projects/{projectID}/managed-databases/{databaseID}:
+    delete:
+      operationId: deleteManagedDatabase
+      description: Drops the MySQL database and user, then removes the metadata. This is irreversible.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectID'
+        - $ref: '#/components/parameters/DatabaseID'
+      responses:
+        '204':
+          description: Managed database deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/projects/{projectID}/managed-databases/{databaseID}/password:
+    post:
+      operationId: revealManagedDatabasePassword
+      description: Decrypts and returns the MySQL password. Every reveal writes an audit event.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectID'
+        - $ref: '#/components/parameters/DatabaseID'
+      responses:
+        '200':
+          description: Database password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagedDatabasePasswordResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/projects/{projectID}/managed-databases/{databaseID}/password/rotate:
+    post:
+      operationId: rotateManagedDatabasePassword
+      description: Replaces the MySQL password and returns the new value once.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectID'
+        - $ref: '#/components/parameters/DatabaseID'
+      responses:
+        '200':
+          description: New database password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagedDatabasePasswordResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
         '503':
@@ -18603,6 +18798,93 @@ components:
           $ref: '#/components/schemas/Pagination'
         can_manage:
           type: boolean
+    ManagedDatabase:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - project_id
+        - name
+        - status
+        - host
+        - port
+        - database_name
+        - username
+        - phpmyadmin_url
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          type: string
+          enum:
+            - provisioning
+            - ready
+            - failed
+        host:
+          type: string
+          description: Internal MySQL hostname reachable from the project's worked workloads.
+        port:
+          type: integer
+        database_name:
+          type: string
+        username:
+          type: string
+        phpmyadmin_url:
+          type: string
+          description: Console-relative URL for the shared phpMyAdmin login.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ManagedDatabasesPage:
+      type: object
+      additionalProperties: false
+      required:
+        - databases
+        - can_manage
+      properties:
+        databases:
+          type: array
+          items:
+            $ref: '#/components/schemas/ManagedDatabase'
+        can_manage:
+          type: boolean
+    ManagedDatabaseResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - database
+      properties:
+        database:
+          $ref: '#/components/schemas/ManagedDatabase'
+    CreateManagedDatabaseRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 120
+    ManagedDatabasePasswordResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - password
+      properties:
+        password:
+          type: string
     DatabaseTablesPage:
       type: object
       additionalProperties: false
@@ -18792,6 +19074,68 @@ components:
           type: integer
           minimum: 1
           maximum: 100
+    AgentArtifact:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - project_id
+        - agent_id
+        - run_id
+        - kind
+        - title
+        - version
+        - mime_type
+        - size_bytes
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        agent_id:
+          type: string
+          format: uuid
+        run_id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - document
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        version:
+          type: integer
+          minimum: 1
+        mime_type:
+          type: string
+          minLength: 1
+          maxLength: 200
+        size_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        created_at:
+          type: string
+          format: date-time
+    AgentArtifactsPage:
+      type: object
+      additionalProperties: false
+      required:
+        - artifacts
+        - pagination
+      properties:
+        artifacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentArtifact'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
     SiteDeploymentFile:
       type: object
       additionalProperties: false

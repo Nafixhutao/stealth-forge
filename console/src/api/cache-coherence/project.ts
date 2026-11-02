@@ -81,6 +81,7 @@ export type CacheChange =
     }
   | { kind: "messaging"; projectId: string }
   | { kind: "database"; projectId: string; databaseId?: string }
+  | { kind: "managed-database"; projectId: string }
   | {
       kind: "database-table";
       projectId: string;
@@ -372,6 +373,10 @@ export function invalidationKeysFor(change: CacheChange): CacheQueryKey[] {
       addCacheKey(keys, queryKeys.messagingProviders(change.projectId));
       addCacheKey(keys, queryKeys.messagingTopics(change.projectId));
       addCacheKey(keys, queryKeys.messagingMessages(change.projectId));
+      return keys;
+
+    case "managed-database":
+      addCacheKey(keys, queryKeys.managedDatabases(change.projectId));
       return keys;
 
     case "database":
