@@ -17,4 +17,6 @@ func (s *Server) registerAgentRoutes(r chi.Router) {
 	r.With(s.requireSession).Get("/agents/{agentID}/runs/{runID}", s.getAgentRun)
 	r.With(s.requireSession).Post("/agents/{agentID}/runs/{runID}/cancel", s.cancelAgentRun)
 	r.With(s.requireSession).Get("/agents/{agentID}/runs/{runID}/logs", s.listAgentRunLogs)
+	r.With(s.requireSession).Get("/agents/{agentID}/artifacts", s.listAgentArtifacts)
+	r.With(s.requireSession).Get("/agents/{agentID}/artifacts/{artifactID}/download", s.downloadAgentArtifact)
 }

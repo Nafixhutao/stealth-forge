@@ -70,3 +70,19 @@ type AgentRunLog struct {
 	Message   string    `json:"message"`
 	CreatedAt time.Time `json:"created_at"`
 }
+
+// AgentArtifact is a file a run produced. StoragePath is the opaque blob path
+// and is never serialized to a client; downloads resolve it server-side.
+type AgentArtifact struct {
+	ID          string    `json:"id"`
+	ProjectID   string    `json:"project_id"`
+	AgentID     string    `json:"agent_id"`
+	RunID       string    `json:"run_id"`
+	Kind        string    `json:"kind"`
+	Title       string    `json:"title"`
+	Version     int       `json:"version"`
+	MimeType    string    `json:"mime_type"`
+	StoragePath string    `json:"-"`
+	SizeBytes   int64     `json:"size_bytes"`
+	CreatedAt   time.Time `json:"created_at"`
+}

@@ -23,6 +23,7 @@ const (
 	agentRunMaxError      = 4_000
 	agentRunMaxSteps      = 256
 	agentRunMaxChanges    = 256
+	agentRunMaxArtifacts  = 16
 	agentRunMaxLogBytes   = 16_000
 	agentRunMaxWorkerID   = 128
 	agentRunMaxStepLabel  = 256
@@ -51,6 +52,7 @@ type AgentRunResult struct {
 	ErrorMessage *string
 	Steps        []domain.AgentRunStep
 	Changes      []domain.AgentRunChange
+	Artifacts    []domain.AgentArtifact
 }
 
 type AgentRunJob struct {
@@ -147,6 +149,12 @@ func normalizeAgentRunResult(result AgentRunResult) (AgentRunResult, []byte, []b
 	}
 	if len(result.Steps) > agentRunMaxSteps || len(result.Changes) > agentRunMaxChanges {
 		return AgentRunResult{}, nil, nil, fmt.Errorf("%w: result contains too many steps or changes", ErrInvalidAgentRun)
+	}
+	if len(result.Artifacts) > agentRunMaxArtifacts {
+		return AgentRunResult{}, nil, nil, fmt.Errorf("%w: result contains too many artifacts", ErrInvalidAgentRun)
+	}
+	if result.Artifacts == nil {
+		result.Artifacts = []domain.AgentArtifact{}
 	}
 	if result.Steps == nil {
 		result.Steps = []domain.AgentRunStep{}
