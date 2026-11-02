@@ -76,6 +76,11 @@ describe("consoleRedirectFor", () => {
     expect(consoleRedirectFor(admin, "/user")).toBe("/admin");
   });
 
+  it("lets an admin use the Agent surface", () => {
+    expect(consoleRedirectFor(admin, "/agent")).toBeNull();
+    expect(consoleRedirectFor(admin, "/agent/thread")).toBeNull();
+  });
+
   it("lets a non-admin stay on the customer console", () => {
     expect(consoleRedirectFor(member, "/user")).toBeNull();
   });

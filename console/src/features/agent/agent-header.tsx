@@ -1,8 +1,6 @@
 "use client";
 
-import { ChevronDown, Ellipsis, Star } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { ChevronDown, FileText } from "lucide-react";
 import type { components } from "@/api/generated/schema";
 import { useApplicationShell } from "@/components/application-shell";
 import {
@@ -15,7 +13,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { PanelToggleIcon } from "@/features/navigation/sidebar-shared";
-import { useFavoriteAgents } from "./use-favorite-agents";
 
 type Agent = components["schemas"]["Agent"];
 
@@ -23,8 +20,10 @@ const FOCUS =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--projects-ring)]";
 
 /**
- * The conversation header: which agent this thread belongs to, the personal
- * star, the agent's own menu, and the control that folds the navigation rail.
+ * The Agent surface header: a single "New chat" control that also switches the
+ * conversation to another agent, and the control that folds the navigation
+ * rail. It deliberately has no project language — the surface is the account's
+ * agent, not a project page.
  *
  * The rail toggle is the same control the sidebar header draws, so the page
  * never invents a second way to hide the navigation. Below `lg` there is no
@@ -34,15 +33,18 @@ export function AgentHeader({
   agents,
   agent,
   onSelectAgent,
+  onNewChat,
+  hasArtifacts = false,
+  onOpenArtifacts,
 }: {
   agents: Agent[];
   agent: Agent | null;
   onSelectAgent: (agentId: string) => void;
+  onNewChat: () => void;
+  hasArtifacts?: boolean;
+  onOpenArtifacts?: () => void;
 }) {
-  const router = useRouter();
   const shell = useApplicationShell();
-  const { favorites, toggle } = useFavoriteAgents();
-  const favorite = agent ? favorites.includes(agent.id) : false;
 
   const toggleNavigation = () => {
     if (window.matchMedia("(min-width: 1024px)").matches) {
@@ -52,29 +54,17 @@ export function AgentHeader({
     shell?.openSidebar();
   };
 
-  const copyAgentId = async () => {
-    if (!agent) return;
-    try {
-      await navigator.clipboard.writeText(agent.id);
-      toast.success("Agent ID copied");
-    } catch {
-      toast.error("Could not copy the agent ID");
-    }
-  };
-
   return (
-    <header className="flex h-14 shrink-0 items-center gap-1 border-b border-[var(--projects-divider)] px-2 sm:px-3">
+    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-[#232326] px-3 sm:px-4">
       <DropdownMenu>
         <DropdownMenuTrigger
           className={cn(
-            "flex min-w-0 max-w-[calc(100%-3rem)] items-center gap-1.5 rounded-full bg-[var(--projects-card-bg)] py-1.5 pl-3 pr-2 text-left transition-colors hover:bg-[var(--projects-control)] data-[state=open]:bg-[var(--projects-control)]",
+            "flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[14px] font-semibold leading-5 text-[var(--projects-text)] transition-colors hover:bg-[var(--projects-control)] data-[state=open]:bg-[var(--projects-control)]",
             FOCUS,
           )}
-          aria-label="Switch agent"
+          aria-label="Agent chat menu"
         >
-          <span className="truncate text-[13px] font-semibold leading-5 text-[var(--projects-text)]">
-            {agent ? agent.name : "No agent"}
-          </span>
+          <span className="truncate">New chat</span>
           <ChevronDown
             size={14}
             strokeWidth={2}
@@ -83,94 +73,62 @@ export function AgentHeader({
           />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" data-user-surface="">
-          <DropdownMenuLabel>Agents</DropdownMenuLabel>
-          {agents.length === 0 ? (
-            <DropdownMenuItem disabled>No agents yet</DropdownMenuItem>
+          <DropdownMenuItem onSelect={onNewChat}>New chat</DropdownMenuItem>
+          {agents.length > 0 ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Agents</DropdownMenuLabel>
+              {agents.map((item) => (
+                <DropdownMenuItem
+                  key={item.id}
+                  onSelect={() => onSelectAgent(item.id)}
+                >
+                  <span className="truncate">{item.name}</span>
+                  {item.id === agent?.id ? (
+                    <span className="ml-auto text-[11px] uppercase tracking-[0.08em] text-[var(--projects-muted)]">
+                      Current
+                    </span>
+                  ) : null}
+                </DropdownMenuItem>
+              ))}
+            </>
           ) : (
-            agents.map((item) => (
-              <DropdownMenuItem
-                key={item.id}
-                onSelect={() => onSelectAgent(item.id)}
-                className="flex-col items-start gap-0"
-              >
-                <span className="w-full truncate text-[13px] text-[var(--projects-text)]">
-                  {item.name}
-                </span>
-                <span className="w-full truncate text-[12px] text-[var(--projects-muted)]">
-                  {item.project_name}
-                </span>
-              </DropdownMenuItem>
-            ))
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem disabled>No agents yet</DropdownMenuItem>
+            </>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {agent ? (
-        <>
+      <div className="ml-auto flex items-center gap-1">
+        {hasArtifacts ? (
           <button
             type="button"
-            onClick={() => toggle(agent.id)}
-            aria-pressed={favorite}
-            aria-label={favorite ? "Unfavorite agent" : "Favorite agent"}
-            title={favorite ? "Unfavorite agent" : "Favorite agent"}
+            onClick={onOpenArtifacts}
+            aria-label="Open artifacts"
+            title="Open artifacts"
             className={cn(
-              "inline-flex size-8 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-[var(--projects-control)]",
-              favorite
-                ? "text-[#FFA057]"
-                : "text-[var(--projects-muted)] hover:text-[var(--projects-text)]",
+              "inline-flex size-8 shrink-0 items-center justify-center rounded-md text-[var(--projects-muted)] transition-colors hover:bg-[var(--projects-control)] hover:text-[var(--projects-text)] lg:hidden",
               FOCUS,
             )}
           >
-            <Star
-              size={16}
-              strokeWidth={1.8}
-              fill={favorite ? "currentColor" : "none"}
-              aria-hidden="true"
-            />
+            <FileText size={16} strokeWidth={1.8} aria-hidden="true" />
           </button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label="Agent options"
-              title="Agent options"
-              className={cn(
-                "inline-flex size-8 shrink-0 items-center justify-center rounded-md text-[var(--projects-muted)] transition-colors hover:bg-[var(--projects-control)] hover:text-[var(--projects-text)]",
-                FOCUS,
-              )}
-            >
-              <Ellipsis size={16} strokeWidth={1.8} aria-hidden="true" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" data-user-surface="">
-              <DropdownMenuLabel>This agent</DropdownMenuLabel>
-              <DropdownMenuItem onSelect={() => void copyAgentId()}>
-                Copy agent ID
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => router.push(`/projects/${agent.project_id}`)}
-              >
-                Open project
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem disabled>
-                {agent.role} · {agent.provider}/{agent.model}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </>
-      ) : null}
-
-      <button
-        type="button"
-        onClick={toggleNavigation}
-        aria-label="Toggle navigation"
-        title="Toggle navigation"
-        className={cn(
-          "ml-auto inline-flex size-8 shrink-0 items-center justify-center rounded-md text-[var(--projects-muted)] transition-colors hover:bg-[var(--projects-control)] hover:text-[var(--projects-text)]",
-          FOCUS,
-        )}
-      >
-        <PanelToggleIcon className="size-4" />
-      </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={toggleNavigation}
+          aria-label="Toggle navigation"
+          title="Toggle navigation"
+          className={cn(
+            "inline-flex size-8 shrink-0 items-center justify-center rounded-md text-[var(--projects-muted)] transition-colors hover:bg-[var(--projects-control)] hover:text-[var(--projects-text)]",
+            FOCUS,
+          )}
+        >
+          <PanelToggleIcon className="size-4" />
+        </button>
+      </div>
     </header>
   );
 }

@@ -22,7 +22,7 @@ export type NavRowProps = {
   badge?: BadgeKind;
   expandable?: boolean;
   labelClassName?: string;
-  /** Right-aligned accent inside the row (the gift on Coding Agent). */
+  /** Right-aligned accent inside the row (the gift on Agent). */
   trailing?: ReactNode;
   /** A real destination. Rows without one hold the selection locally until
    * their surface ships, so no row promises a page that would 404. */

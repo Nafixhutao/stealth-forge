@@ -257,7 +257,7 @@ describe("SidebarContent navigation", () => {
     const expected = [
       "Triage",
       "Reviews",
-      "Coding Agent",
+      "Agent",
       "Security",
       "Analytics",
       "Automations",
@@ -288,10 +288,10 @@ describe("SidebarContent navigation", () => {
     );
   });
 
-  it("puts the gift accent on Coding Agent only", () => {
+  it("puts the gift accent on Agent only", () => {
     const { container } = render(<SidebarContent />);
 
-    const coding = screen.getByRole("button", { name: "Coding Agent" });
+    const coding = screen.getByRole("button", { name: "Agent" });
     const gifts = (root: HTMLElement | Element) =>
       [...root.querySelectorAll("svg")].filter((svg) =>
         svg.getAttribute("class")?.includes("FFA057"),
@@ -309,21 +309,21 @@ describe("SidebarContent navigation", () => {
     ).toBeInTheDocument();
   });
 
-  it("opens the Agent surface from the Coding Agent row", () => {
+  it("opens the Agent surface from the Agent row", () => {
     render(<SidebarContent />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Coding Agent" }));
+    fireEvent.click(screen.getByRole("button", { name: "Agent" }));
 
     expect(nav.push).toHaveBeenCalledWith("/agent");
   });
 
-  it("marks Coding Agent as current on the agent route, not Triage", () => {
+  it("marks Agent as current on the agent route, not Triage", () => {
     nav.pathname = "/agent";
 
     render(<SidebarContent />);
 
     expect(
-      screen.getByRole("button", { name: "Coding Agent" }),
+      screen.getByRole("button", { name: "Agent" }),
     ).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("button", { name: "Triage" })).not.toHaveAttribute(
       "aria-current",

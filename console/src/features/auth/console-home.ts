@@ -56,6 +56,10 @@ export function consoleRedirectFor(
 
   const admin = isInstanceAdminRole(session.role);
   const wantsAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
+  // The Agent surface is the one customer surface admins may also use: it is
+  // the account's agent, not a project page.
+  const wantsAgent = pathname === "/agent" || pathname.startsWith("/agent/");
+  if (wantsAgent) return null;
   if (wantsAdmin === admin) return null;
   return admin ? "/admin" : "/user";
 }

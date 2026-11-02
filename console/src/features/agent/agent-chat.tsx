@@ -1,48 +1,142 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
-import { Bot, Loader2 } from "lucide-react";
-import { useAgentCatalog, useAgentRuns, useAgents } from "@/api/queries/agents";
+import { Loader2, Send } from "lucide-react";
+import { useCurrentAccount } from "@/api/queries/account";
+import {
+  useAgentArtifacts,
+  useAgentCatalog,
+  useAgentRuns,
+  useAgents,
+} from "@/api/queries/agents";
 import { useCreateAgentRun } from "@/api/mutations/agents";
-import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
-import { Button } from "@/components/ui/button";
-import { SECONDARY_ACTION } from "@/features/user/action-styles";
+import { AgentArtifactsPanel } from "./agent-artifacts-panel";
+import { AgentBackdrop } from "./agent-backdrop";
 import { AgentComposer } from "./agent-composer";
 import { AgentHeader } from "./agent-header";
+import { AgentLanding } from "./agent-landing";
 import { AgentThread } from "./agent-thread";
 
+/** The one honest sentence under the box for each blocked state. */
+function ComposerNote({
+  hasAgent,
+  canSend,
+  queueOnly,
+}: {
+  hasAgent: boolean;
+  canSend: boolean;
+  queueOnly: boolean;
+}) {
+  if (!hasAgent) {
+    return (
+      <p className="m-0 mt-2 text-[12px] leading-5 text-[var(--projects-muted)]">
+        No agent is configured on this installation yet.
+      </p>
+    );
+  }
+  if (!canSend) {
+    return (
+      <p className="m-0 mt-2 text-[12px] leading-5 text-[var(--projects-muted)]">
+        Only an owner or admin of this agent&apos;s project can send prompts.
+      </p>
+    );
+  }
+  if (queueOnly) {
+    return (
+      <p className="m-0 mt-2 text-[12px] leading-5 text-[var(--projects-muted)]">
+        Prompts are accepted into the durable queue. This installation has no
+        execution worker yet, so replies stay pending.
+      </p>
+    );
+  }
+  return null;
+}
+
 /**
- * The Agent surface: one conversation with one agent, drawn like a chat rather
- * than a dashboard — the agent on top, the thread in the middle, the reply box
- * pinned at the bottom.
+ * The Agent surface: a project-free conversation surface.
  *
- * Runs are queued, not executed inline. When this installation has no
- * execution worker the page says so under the box instead of leaving a prompt
- * that looks answered; the run's own status is the source of that truth.
+ * The page never asks the reader to open a project. It opens on a composer and
+ * a few example prompts, and the moment a run exists it becomes the thread.
+ * Runs are queued, not executed inline; when this installation has no execution
+ * worker the page says so under the box instead of leaving a prompt that looks
+ * answered.
  */
 export function AgentChat() {
   const agents = useAgents();
   const catalog = useAgentCatalog();
+  const account = useCurrentAccount();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // "New chat" shows the composer again even when the selected agent already
+  // has a history. Selecting an agent or sending a run returns to the thread.
+  const [newChat, setNewChat] = useState(false);
+  const [prompt, setPrompt] = useState("");
+  const [panelOpen, setPanelOpen] = useState(false);
 
   const items = useMemo(() => agents.data?.agents ?? [], [agents.data]);
-  const agent =
+  const activeAgent =
     items.find((item) => item.id === selectedId) ?? items[0] ?? null;
 
-  const runs = useAgentRuns(agent?.id);
-  const createRun = useCreateAgentRun(agent?.id);
+  const runs = useAgentRuns(activeAgent?.id);
+  const artifacts = useAgentArtifacts(activeAgent?.id);
+  const artifactItems = artifacts.data?.artifacts ?? [];
+  const createRun = useCreateAgentRun(activeAgent?.id);
   // The run list reports whether this member may enqueue work for the agent's
   // project; the cross-project agent list cannot answer that per agent.
   const canSend = runs.data?.can_manage ?? false;
-
   const queueOnly = catalog.data?.execution.ready === false;
 
-  return (
-    <div className="flex h-[100dvh] min-h-0 flex-col lg:h-full">
-      <AgentHeader agents={items} agent={agent} onSelectAgent={setSelectedId} />
+  const runItems = runs.data?.runs ?? [];
+  const showLanding = newChat || !activeAgent || runItems.length === 0;
 
+  const displayName =
+    account.data?.account.display_name?.trim() ||
+    account.data?.account.email?.split("@")[0] ||
+    "your account";
+
+  const send = async (text: string) => {
+    await createRun.mutateAsync(text);
+    setNewChat(false);
+  };
+
+  const composer = (
+    <AgentComposer
+      agent={activeAgent}
+      canSend={canSend}
+      value={prompt}
+      onValueChange={setPrompt}
+      onSend={send}
+    />
+  );
+
+  const note = (
+    <ComposerNote
+      hasAgent={Boolean(activeAgent)}
+      canSend={canSend}
+      queueOnly={queueOnly}
+    />
+  );
+
+  return (
+    <div className="relative isolate flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#0D0E0E] [--projects-card-bg:#161617] [--projects-control:#1C1C1E] [--projects-border:#232323] [--projects-border-hover:#2E2E2E] [--projects-divider:#232323] [--projects-muted:#8B8B90] lg:h-full lg:rounded-2xl">
+      <AgentBackdrop />
+      <AgentHeader
+        agents={items}
+        agent={activeAgent}
+        onSelectAgent={(agentId) => {
+          setSelectedId(agentId);
+          setNewChat(false);
+        }}
+        onNewChat={() => {
+          setNewChat(true);
+          setPrompt("");
+        }}
+        hasArtifacts={artifactItems.length > 0}
+        onOpenArtifacts={() => setPanelOpen(true)}
+      />
+
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {agents.isPending ? (
         <div className="flex flex-1 items-center justify-center gap-2 text-[13px] text-[var(--projects-muted)]">
           <Loader2
@@ -63,51 +157,49 @@ export function AgentChat() {
             />
           </div>
         </div>
-      ) : items.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center px-4">
-          <EmptyState
-            className="max-w-[420px]"
-            icon={Bot}
-            title="No agent yet"
-            description="An agent belongs to a project: it carries that project's name, role, and skills. Open a project to configure one, then come back here to talk to it."
-            action={
-              <Button asChild variant="outline" className={SECONDARY_ACTION}>
-                <Link href="/user">Go to projects</Link>
-              </Button>
-            }
-          />
-        </div>
+      ) : showLanding ? (
+        <AgentLanding
+          displayName={displayName}
+          composer={composer}
+          note={note}
+          onPickExample={(example) => setPrompt(example)}
+        />
       ) : (
         <>
-          <AgentThread agent={agent} runs={runs.data?.runs ?? []} />
+          <AgentThread agent={activeAgent} runs={runItems} />
 
           <div className="shrink-0 px-3 pb-2 sm:px-6">
             <div className="mx-auto w-full max-w-[1016px]">
-              <AgentComposer
-                agent={agent}
-                canSend={canSend}
-                onSend={async (prompt) => {
-                  await createRun.mutateAsync(prompt);
-                }}
-              />
-              {!canSend ? (
-                <p className="m-0 mt-2 text-[12px] leading-5 text-[var(--projects-muted)]">
-                  Only an owner or admin of this agent&apos;s project can send
-                  prompts.
-                </p>
-              ) : queueOnly ? (
-                <p className="m-0 mt-2 text-[12px] leading-5 text-[var(--projects-muted)]">
-                  Prompts are accepted into the durable queue. This installation
-                  has no execution worker yet, so replies stay pending.
-                </p>
-              ) : null}
+              {composer}
+              {note}
             </div>
           </div>
         </>
       )}
+        </div>
+
+        {artifactItems.length > 0 && activeAgent ? (
+          <aside className="hidden w-[420px] shrink-0 border-l border-[#232323] lg:block">
+            <AgentArtifactsPanel
+              agentId={activeAgent.id}
+              artifacts={artifactItems}
+            />
+          </aside>
+        ) : null}
+      </div>
+
+      {panelOpen && artifactItems.length > 0 && activeAgent ? (
+        <div className="fixed inset-0 z-50 flex flex-col bg-[#0D0E0E] lg:hidden">
+          <AgentArtifactsPanel
+            agentId={activeAgent.id}
+            artifacts={artifactItems}
+            onClose={() => setPanelOpen(false)}
+          />
+        </div>
+      ) : null}
 
       <footer className="flex shrink-0 items-center justify-end gap-1.5 px-4 pb-2 text-[12px] leading-5 text-[var(--projects-muted)]">
-        <Bot size={13} strokeWidth={1.8} aria-hidden="true" />
+        <Send size={13} strokeWidth={1.8} aria-hidden="true" />
         <span>Agent</span>
       </footer>
     </div>

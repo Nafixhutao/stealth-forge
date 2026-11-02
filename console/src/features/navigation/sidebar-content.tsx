@@ -119,7 +119,7 @@ function SearchField({
  *
  * Rows without an `href` hold the selection locally instead of promising a
  * destination; each becomes a link in the commit that ships its surface. The
- * Coding Agent row opens the agent conversation surface, and Organization
+ * Agent row opens the agent conversation surface, and Organization
  * settings opens the organization home.
  */
 const primaryNavItems: NavItem[] = [
@@ -127,7 +127,7 @@ const primaryNavItems: NavItem[] = [
   { icon: NavIcon(GitPullRequestArrow), label: "Reviews" },
   {
     icon: NavIcon(Code),
-    label: "Coding Agent",
+    label: "Agent",
     href: "/agent",
     trailing: (
       <Gift

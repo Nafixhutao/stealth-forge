@@ -8,6 +8,7 @@ import { AgentChat } from "@/features/agent/agent-chat";
 const useAgents = vi.fn();
 const useAgentRuns = vi.fn();
 const useAgentCatalog = vi.fn();
+const useAgentArtifacts = vi.fn();
 const mutateAsync = vi.fn();
 const push = vi.fn();
 
@@ -15,10 +16,24 @@ vi.mock("@/api/queries/agents", () => ({
   useAgents: () => useAgents(),
   useAgentRuns: (id: string | undefined) => useAgentRuns(id),
   useAgentCatalog: () => useAgentCatalog(),
+  useAgentArtifacts: (id: string | undefined) => useAgentArtifacts(id),
 }));
 
 vi.mock("@/api/mutations/agents", () => ({
   useCreateAgentRun: () => ({ mutateAsync, isPending: false }),
+}));
+
+vi.mock("@/api/queries/account", () => ({
+  useCurrentAccount: () => ({
+    data: {
+      account: {
+        id: "acc-1",
+        email: "operator@example.com",
+        display_name: "Operator",
+        instance_role: null,
+      },
+    },
+  }),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -101,16 +116,21 @@ beforeEach(() => {
       },
     }),
   );
+  useAgentArtifacts.mockReturnValue(
+    query({
+      data: { artifacts: [], pagination: { limit: 50, next_cursor: null } },
+    }),
+  );
   mutateAsync.mockResolvedValue({ run: run(), can_manage: true });
 });
 
 describe("AgentChat", () => {
-  it("names the agent in the header and draws its prompt", () => {
+  it("opens on the New chat header and draws the active thread", () => {
     render(<AgentChat />);
 
     expect(
-      screen.getByRole("button", { name: "Switch agent" }),
-    ).toHaveTextContent("Greeting from Acme");
+      screen.getByRole("button", { name: "Agent chat menu" }),
+    ).toHaveTextContent("New chat");
     expect(screen.getByText("hi")).toBeInTheDocument();
   });
 
@@ -144,7 +164,7 @@ describe("AgentChat", () => {
   it("queues the typed prompt and clears the box", async () => {
     render(<AgentChat />);
 
-    const box = screen.getByLabelText(/reply to/i);
+    const box = screen.getByLabelText(/ask agent/i);
     fireEvent.change(box, { target: { value: "ship it" } });
     fireEvent.keyDown(box, { key: "Enter" });
 
@@ -155,7 +175,7 @@ describe("AgentChat", () => {
   it("keeps a newline on Shift+Enter instead of sending", () => {
     render(<AgentChat />);
 
-    const box = screen.getByLabelText(/reply to/i);
+    const box = screen.getByLabelText(/ask agent/i);
     fireEvent.change(box, { target: { value: "two lines" } });
     fireEvent.keyDown(box, { key: "Enter", shiftKey: true });
 
@@ -169,24 +189,27 @@ describe("AgentChat", () => {
 
     render(<AgentChat />);
 
-    expect(screen.getByLabelText(/reply to/i)).toBeDisabled();
+    expect(screen.getByLabelText(/ask agent/i)).toBeDisabled();
     expect(
       screen.getByText(/only an owner or admin of this agent/i),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Send prompt" })).toBeDisabled();
   });
 
-  it("sends the reader to projects when the account has no agent", () => {
+  it("opens on the composer instead of sending the reader to a project", () => {
     useAgents.mockReturnValue(
       query({ data: { agents: [], can_manage: false } }),
     );
 
     render(<AgentChat />);
 
-    expect(screen.getByText("No agent yet")).toBeInTheDocument();
+    expect(screen.getByLabelText(/ask agent/i)).toBeInTheDocument();
+    expect(screen.getByText("Get started")).toBeInTheDocument();
+    expect(screen.getByText("Greeting from Operator")).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Go to projects" }),
-    ).toHaveAttribute("href", "/user");
+      screen.queryByRole("link", { name: "Go to projects" }),
+    ).toBeNull();
+    expect(screen.queryByText("No agent yet")).toBeNull();
   });
 
   it("surfaces a failed read with a retry", () => {
@@ -198,6 +221,38 @@ describe("AgentChat", () => {
 
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Unable to load agents",
+    );
+  });
+
+  it("shows the artifact panel and download links when a run produced files", () => {
+    useAgentArtifacts.mockReturnValue(
+      query({
+        data: {
+          artifacts: [
+            {
+              id: "artifact-1",
+              project_id: "project-1",
+              agent_id: agent.id,
+              run_id: "run-1",
+              kind: "document",
+              title: "letter.pdf",
+              version: 1,
+              mime_type: "application/pdf",
+              size_bytes: 1234,
+              created_at: "2026-11-02T00:00:00Z",
+            },
+          ],
+          pagination: { limit: 50, next_cursor: null },
+        },
+      }),
+    );
+
+    render(<AgentChat />);
+
+    expect(screen.getByText("Artifact")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "PDF" })).toHaveAttribute(
+      "href",
+      expect.stringContaining("/artifacts/artifact-1/download"),
     );
   });
 });

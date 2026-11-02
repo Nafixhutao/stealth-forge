@@ -4,8 +4,8 @@ import { useState } from "react";
 import {
   ArrowUp,
   ChevronDown,
+  Layers,
   Paperclip,
-  Sparkles,
   Wrench,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -28,20 +28,24 @@ const FOCUS =
  * The reply box: the prompt field, the skills this agent can use, and the send
  * control. Enter sends, Shift+Enter starts a new line.
  *
- * Attachments are drawn but disabled on purpose — the API has no upload path
- * for an agent run, and a control that silently drops a file is worse than one
- * that says it cannot take it yet.
+ * The value is controlled by the page so an example card can fill the box
+ * before the reader types. Attachments are drawn but disabled on purpose — the
+ * API has no upload path for an agent run, and a control that silently drops a
+ * file is worse than one that says it cannot take it yet.
  */
 export function AgentComposer({
   agent,
   canSend,
+  value,
+  onValueChange,
   onSend,
 }: {
   agent: Agent | null;
   canSend: boolean;
+  value: string;
+  onValueChange: (value: string) => void;
   onSend: (prompt: string) => Promise<void>;
 }) {
-  const [value, setValue] = useState("");
   const [sending, setSending] = useState(false);
   const prompt = value.trim();
   const ready = Boolean(agent) && canSend && prompt.length > 0 && !sending;
@@ -51,7 +55,7 @@ export function AgentComposer({
     setSending(true);
     try {
       await onSend(prompt);
-      setValue("");
+      onValueChange("");
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Could not queue the prompt",
@@ -64,39 +68,39 @@ export function AgentComposer({
   return (
     <div
       className={cn(
-        "flex min-h-[148px] w-full flex-col rounded-[12px] border border-[var(--projects-border)] bg-[var(--projects-card-bg)] p-3 transition-colors sm:min-h-[166px] sm:p-4",
-        "focus-within:border-[var(--projects-border-hover)]",
+        "flex h-[104px] min-h-[104px] w-full flex-col rounded-[16px] border border-white/[0.07] bg-[linear-gradient(180deg,#17171A_0%,#131316_100%)] p-3 shadow-[0_24px_60px_-28px_rgba(0,0,0,0.9)] transition-all sm:p-4",
+        "focus-within:border-white/[0.14] focus-within:shadow-[0_0_0_1px_rgba(94,106,210,0.28),0_24px_60px_-28px_rgba(0,0,0,0.9)]",
       )}
     >
       <label htmlFor="agent-prompt" className="sr-only">
-        Reply to {agent ? agent.name : "the agent"}
+        Ask Agent
       </label>
       <textarea
         id="agent-prompt"
         value={value}
-        onChange={(event) => setValue(event.target.value)}
+        onChange={(event) => onValueChange(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === "Enter" && !event.shiftKey) {
             event.preventDefault();
             void send();
           }
         }}
-        placeholder="Reply..."
-        rows={3}
+        placeholder="Ask Agent..."
+        rows={2}
         disabled={!agent || !canSend}
-        className="min-h-0 flex-1 resize-none bg-transparent text-[15px] leading-[26px] text-[var(--projects-text)] outline-none placeholder:text-[var(--projects-muted)] disabled:cursor-not-allowed"
+        className="min-h-0 flex-1 resize-none bg-transparent text-[15px] leading-[26px] text-[#EDEDF0] outline-none placeholder:text-[#6B6B72] disabled:cursor-not-allowed"
       />
 
       <div className="mt-2 flex items-center gap-1">
         <DropdownMenu>
           <DropdownMenuTrigger
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[13px] leading-5 text-[var(--projects-muted)] transition-colors hover:bg-[var(--projects-control)] hover:text-[var(--projects-text)]",
+              "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] leading-5 text-[#8B8B90] transition-colors hover:bg-white/[0.05] hover:text-[#D6D6DC]",
               FOCUS,
             )}
             aria-label="Skills"
           >
-            <Sparkles size={14} strokeWidth={1.8} aria-hidden="true" />
+            <Layers size={14} strokeWidth={1.8} aria-hidden="true" />
             Skills
             <ChevronDown size={12} strokeWidth={2} aria-hidden="true" />
           </DropdownMenuTrigger>
@@ -121,7 +125,7 @@ export function AgentComposer({
             disabled
             aria-label="Attach a file"
             title="Attachments are not supported yet"
-            className="inline-flex size-8 items-center justify-center rounded-md text-[var(--projects-muted)] opacity-45"
+            className="inline-flex size-8 items-center justify-center rounded-md text-[#6F6F77] opacity-45"
           >
             <Paperclip size={16} strokeWidth={1.8} aria-hidden="true" />
           </button>
@@ -132,7 +136,10 @@ export function AgentComposer({
             aria-label="Send prompt"
             title="Send prompt"
             className={cn(
-              "inline-flex size-8 items-center justify-center rounded-full bg-[var(--projects-control)] text-[var(--projects-text)] transition-colors hover:bg-[var(--projects-border-hover)] disabled:cursor-not-allowed disabled:opacity-45",
+              "inline-flex size-8 items-center justify-center rounded-full transition-colors",
+              ready
+                ? "cursor-pointer bg-[linear-gradient(180deg,#6B76DD_0%,#5E6AD2_100%)] text-white shadow-[0_6px_18px_rgba(94,106,210,0.45)] hover:brightness-110"
+                : "cursor-not-allowed bg-white/[0.05] text-[#6F6F77] opacity-70",
               FOCUS,
             )}
           >
