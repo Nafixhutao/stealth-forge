@@ -48,6 +48,45 @@ export function formatRelative(value: string | null | undefined) {
   return `${formatDistanceToNowStrict(date, { addSuffix: true })}`;
 }
 
+const conversationDay = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+});
+const conversationTime = new Intl.DateTimeFormat("en-US", {
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+/**
+ * The chat separator's stamp: `Today 18.32` for the current day, otherwise the
+ * calendar day first (`Oct 30 09.05`). The dotted 24-hour time is the
+ * reference's, not a locale default.
+ */
+export function formatConversationStamp(value: string | null | undefined) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) return "";
+
+  const time = conversationTime.format(date).replace(":", ".");
+  const now = new Date();
+  const sameDay =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+  if (sameDay) return `Today ${time}`;
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const wasYesterday =
+    date.getFullYear() === yesterday.getFullYear() &&
+    date.getMonth() === yesterday.getMonth() &&
+    date.getDate() === yesterday.getDate();
+  if (wasYesterday) return `Yesterday ${time}`;
+
+  return `${conversationDay.format(date)} ${time}`;
+}
+
 export function formatBytes(value: number | null | undefined) {
   if (value === null || value === undefined || !Number.isFinite(value))
     return "Not available";
@@ -76,6 +115,17 @@ export function pluralize(
   plural = `${singular}s`,
 ) {
   return `${formatCount(count)} ${count === 1 ? singular : plural}`;
+}
+
+/**
+ * Signup and OAuth both name a personal organization `<person>'s organization`.
+ * The sidebar names the person, so the generated suffix is dropped there; an
+ * organization the owner named themselves comes back untouched.
+ */
+export function organizationDisplayName(name: string | null | undefined) {
+  const trimmed = name?.trim() ?? "";
+  if (!trimmed) return "";
+  return trimmed.replace(/\s*['’]s\s+organization$/i, "").trim();
 }
 
 export function formatDuration(value: number | null | undefined) {

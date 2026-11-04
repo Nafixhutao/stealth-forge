@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -29,6 +30,8 @@ type executionSettings struct {
 	functionsRunnerGoImage        string
 	agentRunnerEnabled            bool
 	agentRunnerExecutionTimeout   time.Duration
+	agentRuntimeBinary            string
+	agentWorkRoot                 string
 }
 
 func loadExecutionSettings() (executionSettings, error) {
@@ -63,6 +66,14 @@ func loadExecutionSettings() (executionSettings, error) {
 	agentRunnerExecutionTimeout, err := time.ParseDuration(value("AGENT_RUNNER_EXECUTION_TIMEOUT", "15m"))
 	if err != nil || agentRunnerExecutionTimeout < time.Minute || agentRunnerExecutionTimeout > 24*time.Hour {
 		return executionSettings{}, fmt.Errorf("AGENT_RUNNER_EXECUTION_TIMEOUT must be between 1m and 24h")
+	}
+	agentRuntimeBinary := strings.TrimSpace(value("AGENT_RUNTIME_BINARY", "/usr/local/bin/stealth-agent"))
+	if len(agentRuntimeBinary) > 512 || strings.ContainsAny(agentRuntimeBinary, "\x00\r\n") {
+		return executionSettings{}, fmt.Errorf("AGENT_RUNTIME_BINARY must be a path without control characters")
+	}
+	agentWorkRoot := strings.TrimSpace(value("AGENT_WORK_ROOT", "/var/lib/stealth/runner-staging"))
+	if len(agentWorkRoot) > 512 || strings.ContainsAny(agentWorkRoot, "\x00\r\n") {
+		return executionSettings{}, fmt.Errorf("AGENT_WORK_ROOT must be a path without control characters")
 	}
 	// A stale-lease requeue must never re-run healthy in-flight work. The shared
 	// lease must outlast the longest allowed run: the build timeout, the maximum
@@ -148,6 +159,8 @@ func loadExecutionSettings() (executionSettings, error) {
 		functionsRunnerGoImage:        runnerImages.golang,
 		agentRunnerEnabled:            agentRunnerEnabled,
 		agentRunnerExecutionTimeout:   agentRunnerExecutionTimeout,
+		agentRuntimeBinary:            agentRuntimeBinary,
+		agentWorkRoot:                 agentWorkRoot,
 	}, nil
 }
 
@@ -168,6 +181,8 @@ func (s executionSettings) apply(c *Config) {
 	c.FunctionsRunnerGoImage = s.functionsRunnerGoImage
 	c.AgentRunnerEnabled = s.agentRunnerEnabled
 	c.AgentRunnerExecutionTimeout = s.agentRunnerExecutionTimeout
+	c.AgentRuntimeBinary = s.agentRuntimeBinary
+	c.AgentWorkRoot = s.agentWorkRoot
 }
 
 func (c *Config) applyExecutionDefaults() {

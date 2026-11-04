@@ -10,4 +10,6 @@ status-site/app.js
 status-site/styles.css
 status-site/favicon.png
 status-site/stealth-mark.png
+tenant-phpmyadmin/config.user.inc.php
+tenant-phpmyadmin/apache-subpath.conf
 compose.setup.yaml

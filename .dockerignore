@@ -18,3 +18,6 @@ console/test-results
 console/.env
 console/.env.*
 !console/.env.example
+
+# Rust build output
+agent-rs/target

@@ -1871,6 +1871,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/agents/{agentID}/artifacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description List the files an agent produced, newest first, across its runs. */
+        get: operations["listAgentArtifacts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/agents/{agentID}/artifacts/{artifactID}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Download a produced document. Pass inline=1 to render it in the browser. */
+        get: operations["downloadAgentArtifact"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/projects/{projectID}/users": {
         parameters: {
             query?: never;
@@ -2784,6 +2818,109 @@ export interface paths {
         patch: operations["updateDatabaseRow"];
         trace?: never;
     };
+    "/v1/projects/{projectID}/managed-databases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Console-only list of the project's hosted MySQL databases. Server API keys cannot read database credentials. */
+        get: operations["listManagedDatabases"];
+        put?: never;
+        /** @description Creates the free-tier MySQL database and user for this project. The free tier allows one database per project. */
+        post: operations["createManagedDatabase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectID}/managed-databases/{databaseID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Drops the MySQL database and user, then removes the metadata. This is irreversible. */
+        delete: operations["deleteManagedDatabase"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectID}/managed-databases/{databaseID}/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Decrypts and returns the MySQL password. Every reveal writes an audit event. */
+        post: operations["revealManagedDatabasePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectID}/managed-databases/{databaseID}/password/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Replaces the MySQL password and returns the new value once. */
+        post: operations["rotateManagedDatabasePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectID}/managed-databases/{databaseID}/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Completed snapshots plus the most recent restore request. */
+        get: operations["listManagedDatabaseBackups"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectID}/managed-databases/{databaseID}/backups/{backupID}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Queues a restore of one backup. The worker executes it within a minute. */
+        post: operations["restoreManagedDatabase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/projects/{projectID}/sites": {
         parameters: {
             query?: never;
@@ -3435,6 +3572,8 @@ export interface components {
             name: string;
             /** @enum {string} */
             status: AdminComponentStatusStatus;
+            /** @description Optional one-line operator summary rendered beside the component name. */
+            summary?: string;
         };
         AdminTelemetryStatus: {
             /** @enum {string} */
@@ -6829,6 +6968,55 @@ export interface components {
             pagination: components["schemas"]["Pagination"];
             can_manage: boolean;
         };
+        ManagedDatabase: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            name: string;
+            /** @enum {string} */
+            status: ManagedDatabaseStatus;
+            /** @description Internal MySQL hostname reachable from the project's worked workloads. */
+            host: string;
+            port: number;
+            database_name: string;
+            username: string;
+            /** @description Public phpMyAdmin URL for this installation. */
+            phpmyadmin_url: string;
+            /**
+             * Format: int64
+             * @description Live data and index bytes in this schema.
+             */
+            size_bytes: number;
+            /** @description Current connections using this schema. */
+            connection_count: number;
+            /** @description Maximum concurrent connections for this database. */
+            connection_limit: number;
+            /**
+             * Format: int64
+             * @description Free-tier fair-use limit.
+             */
+            storage_limit_bytes: number;
+            /** @description True when the free-tier fair-use budget is exceeded and writes are suspended until usage drops. */
+            write_locked: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ManagedDatabasesPage: {
+            databases: components["schemas"]["ManagedDatabase"][];
+            can_manage: boolean;
+        };
+        ManagedDatabaseResponse: {
+            database: components["schemas"]["ManagedDatabase"];
+        };
+        CreateManagedDatabaseRequest: {
+            name: string;
+        };
+        ManagedDatabasePasswordResponse: {
+            password: string;
+        };
         DatabaseTablesPage: {
             tables: components["schemas"]["DatabaseTable"][];
             pagination: components["schemas"]["Pagination"];
@@ -6885,6 +7073,64 @@ export interface components {
             rows: components["schemas"]["DatabaseRow"][];
             deleted_ids: string[];
             count: number;
+        };
+        AgentArtifact: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** Format: uuid */
+            agent_id: string;
+            /** Format: uuid */
+            run_id: string;
+            /** @enum {string} */
+            kind: AgentArtifactKind;
+            title: string;
+            version: number;
+            mime_type: string;
+            /** Format: int64 */
+            size_bytes: number;
+            /** Format: date-time */
+            created_at: string;
+        };
+        AgentArtifactsPage: {
+            artifacts: components["schemas"]["AgentArtifact"][];
+            pagination: components["schemas"]["Pagination"];
+        };
+        ManagedDatabaseBackup: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            database_id: string;
+            /** @description Validated relative path inside the shared backups volume. */
+            backup_path: string;
+            /** Format: int64 */
+            size_bytes: number;
+            /** @enum {string} */
+            source: ManagedDatabaseBackupSource;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ManagedDatabaseRestore: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            database_id: string;
+            backup_path: string;
+            /** @enum {string} */
+            status: ManagedDatabaseRestoreStatus;
+            error?: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ManagedDatabaseBackupsPage: {
+            backups: components["schemas"]["ManagedDatabaseBackup"][];
+            latest_restore?: components["schemas"]["ManagedDatabaseRestore"];
+        };
+        ManagedDatabaseRestoreResponse: {
+            restore: components["schemas"]["ManagedDatabaseRestore"];
         };
         SiteDeploymentFile: {
             /** @description Path relative to the release root using forward slashes. The public preview route accepts it verbatim. */
@@ -11105,6 +11351,64 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    listAgentArtifacts: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path: {
+                agentID: components["parameters"]["AgentID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Agent artifacts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentArtifactsPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    downloadAgentArtifact: {
+        parameters: {
+            query?: {
+                inline?: PathsV1AgentsAgentIDArtifactsArtifactIDDownloadGetParametersQueryInline;
+            };
+            header?: never;
+            path: {
+                agentID: components["parameters"]["AgentID"];
+                artifactID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Artifact bytes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     listProjectUsers: {
         parameters: {
             query?: {
@@ -14059,6 +14363,205 @@ export interface operations {
             503: components["responses"]["ServiceUnavailable"];
         };
     };
+    listManagedDatabases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Managed databases */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagedDatabasesPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    createManagedDatabase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateManagedDatabaseRequest"];
+            };
+        };
+        responses: {
+            /** @description Managed database created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagedDatabaseResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationError"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    deleteManagedDatabase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                databaseID: components["parameters"]["DatabaseID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Managed database deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    revealManagedDatabasePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                databaseID: components["parameters"]["DatabaseID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Database password */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagedDatabasePasswordResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    rotateManagedDatabasePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                databaseID: components["parameters"]["DatabaseID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description New database password */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagedDatabasePasswordResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    listManagedDatabaseBackups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                databaseID: components["parameters"]["DatabaseID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Backups and latest restore */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagedDatabaseBackupsPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    restoreManagedDatabase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                databaseID: components["parameters"]["DatabaseID"];
+                backupID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Restore queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagedDatabaseRestoreResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
     listSites: {
         parameters: {
             query?: {
@@ -15937,6 +16440,9 @@ export enum PathsV1OauthProviderCallbackGetParametersPathProvider {
     github = "github",
     google = "google"
 }
+export enum PathsV1AgentsAgentIDArtifactsArtifactIDDownloadGetParametersQueryInline {
+    Value1 = "1"
+}
 export enum PathsV1ProjectsProjectIDUsageMeteringGetParametersQueryFormat {
     json = "json",
     csv = "csv"
@@ -16850,6 +17356,25 @@ export enum DatabaseRowsTransactionOperationAction {
     create = "create",
     update = "update",
     delete = "delete"
+}
+export enum ManagedDatabaseStatus {
+    provisioning = "provisioning",
+    ready = "ready",
+    failed = "failed"
+}
+export enum AgentArtifactKind {
+    document = "document"
+}
+export enum ManagedDatabaseBackupSource {
+    daily = "daily",
+    manual = "manual",
+    pre_restore = "pre_restore"
+}
+export enum ManagedDatabaseRestoreStatus {
+    queued = "queued",
+    running = "running",
+    succeeded = "succeeded",
+    failed = "failed"
 }
 export enum ComponentsParametersOrderDirection {
     asc = "asc",

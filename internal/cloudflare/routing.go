@@ -32,6 +32,9 @@ type Reconciler struct {
 	interval    time.Duration
 	logger      *slog.Logger
 	httpTimeout time.Duration
+	// ManagedDatabaseHostname is optional. When set, the tunnel routes the
+	// hostname directly to the shared phpMyAdmin container.
+	ManagedDatabaseHostname string
 }
 
 type ReconcileResult struct {
@@ -253,7 +256,12 @@ func (r *Reconciler) Reconcile(ctx context.Context) (result ReconcileResult, err
 	result.Hostname = wildcardHostname
 	result.Zone = workloadZone.Name
 
-	desiredIngress := desiredTunnelIngress(connection.ConsoleHostname, wildcardHostname, connection.ConsoleOriginDesired)
+	desiredIngress := desiredTunnelIngressWithDatabase(
+		connection.ConsoleHostname,
+		wildcardHostname,
+		r.ManagedDatabaseHostname,
+		connection.ConsoleOriginDesired,
+	)
 	currentIngress, err := provider.TunnelConfiguration(providerCtx, connection.AccountID, connection.TunnelID)
 	if err != nil {
 		return result, r.recordFailure(ctx, connection.APIToken, err)
@@ -283,6 +291,30 @@ func (r *Reconciler) Reconcile(ctx context.Context) (result ReconcileResult, err
 		)
 	}
 	result.ConsoleOriginObserved = connection.ConsoleOriginDesired
+
+	if r.ManagedDatabaseHostname != "" {
+		changed, dnsErr := ensureManagedDatabaseDNS(
+			providerCtx,
+			provider,
+			zones,
+			r.ManagedDatabaseHostname,
+			connection.TunnelID+"."+tunnelServiceDomain,
+		)
+		if dnsErr != nil {
+			// The database hostname is optional; keep the Console route
+			// converged and surface the provider problem in the worker log.
+			r.logger.Error(
+				"managed database DNS reconcile failed",
+				"hostname",
+				r.ManagedDatabaseHostname,
+				"error",
+				dnsErr,
+			)
+		} else if changed {
+			result.Changed = true
+			r.logger.Info("managed database DNS reconciled", "hostname", r.ManagedDatabaseHostname)
+		}
+	}
 
 	tlsObservation := edgeTLSObservation{Status: EdgeTLSNotApplicable}
 	var tlsInspectionErr error

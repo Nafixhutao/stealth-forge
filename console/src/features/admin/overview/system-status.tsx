@@ -4,7 +4,11 @@ import Link from "next/link";
 import { TriangleAlert } from "lucide-react";
 import { StatusBadge } from "../components/status-badge";
 
-export type ComponentStatus = { name: string; status: string };
+export type ComponentStatus = {
+  name: string;
+  status: string;
+  summary?: string;
+};
 
 /**
  * Top strip of the overview: overall system status derived from the component

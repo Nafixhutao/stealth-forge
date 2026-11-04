@@ -14,7 +14,10 @@ import {
   type OAuthProvider,
 } from "@/api/mutations";
 import { fetchCurrentAccount } from "@/api/queries/account";
-import { errorMessage } from "@/components/feedback/error-state";
+import {
+  errorMessage,
+  isCredentialRejection,
+} from "@/components/feedback/error-state";
 import { getSafeNextPath } from "@/lib/navigation";
 import { consoleHomeForRole } from "./console-home";
 import { useLastAuthMethod } from "./last-auth-method";
@@ -63,6 +66,12 @@ function writeRememberedEmail(email: string | null) {
     // Ignored: a storage failure must never block sign-in.
   }
 }
+
+/** The providers rendered above the form. Derived from the same list the
+    buttons use, so the hint cannot name a provider that is not on screen. */
+const PROVIDER_HINT = AUTH_PROVIDERS.map((provider) => provider.name).join(
+  " or ",
+);
 
 /**
  * Standalone sign-in screen, ported from the Stealth marketing console design.
@@ -308,6 +317,12 @@ export function LoginView() {
           >
             <CircleAlert size={13} strokeWidth={2} aria-hidden="true" />
             {errorMessage(mutation.error)}
+            {/* Only this screen can point at the provider buttons, and only a
+                rejected password means the account might use one. An account
+                created through a provider has no local password at all. */}
+            {isCredentialRejection(mutation.error)
+              ? ` If this account was created with ${PROVIDER_HINT}, use the matching button above.`
+              : null}
           </p>
         ) : null}
 

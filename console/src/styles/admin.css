@@ -220,8 +220,8 @@ html[data-theme="light"] [data-user] [class~="text-mist"] {
 }
 
 /* The user console's own dark palette, matched to the reference: the page sits
-   on #19191b, cards lift to #1a191e, the controls (search field, view toggle)
-   hold a #1f1e23 surface, and the organization mark and plan badge a lighter
+   on #1A181D, cards lift to #201e26, the controls (search field, view toggle)
+   hold a #24222b surface, and the organization mark and plan badge a lighter
    #2d2c31. Borders and dividers share one quiet #232326 hairline.
    Scoped to the user console's own surface — `data-console` is set by the
    shell only for `/user` — plus its portaled surfaces, so the admin console
@@ -229,44 +229,54 @@ html[data-theme="light"] [data-user] [class~="text-mist"] {
    specificity. */
 [data-user][data-console="user"],
 html [data-user-surface] {
-  --projects-bg: #19191b;
-  --projects-surface: #19191b;
-  --projects-card-bg: #1a191e;
-  --projects-control: #1f1e23;
+  --projects-bg: #1a181d;
+  --projects-surface: #1a181d;
+  --projects-card-bg: #201e26;
+  --projects-control: #24222b;
   --projects-chip: #2d2c31;
   --projects-border: #232326;
   --projects-border-hover: #34333a;
   --projects-divider: #232326;
   --projects-ring: #55555b;
-  font-family:
-    "Inter Variable",
-    "Inter",
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
   --font-sans:
-    "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system,
-    BlinkMacSystemFont, "Segoe UI", sans-serif;
+    "Geist Variable", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  /* The reference UI's base text: 14/20 regular in near-white ink. Elements
+     that declare their own size, weight, or colour override these on purpose;
+     this is what text with no explicit classes inherits. */
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  color: #efedf0;
 }
 
-/* The user console accent: the pink from the reference design.
-   A separate token set rather than a change to `--projects-accent`, because
-   the admin console paints its own surfaces with that green and the two areas
-   ship different product accents on purpose. Declared at the root so portaled
-   dialogs inherit the same value. */
+/* The user console accent. In place of the earlier pink, the primary action
+   is a near-white solid (the premium dark-surface signature: a bright "go"
+   control against the warm near-black shell). The accent token itself is a
+   muted slate reserved for focus rings, links, and selection highlights — it
+   marks state without competing with the off-white primary. Declared at the
+   root so portaled dialogs inherit the same value. */
 :root {
-  --user-accent: #fd366e;
-  --user-accent-strong: #e0245b;
-  --user-accent-hover: #c81e4f;
+  --user-accent: #9b9aa8;
+  --user-accent-strong: #c6c5d2;
+  --user-accent-hover: #7b7a88;
+
+  /* Primary action fills: near-white on the dark shell, near-black on the
+     light shell, so the control stays legible in both themes. */
+  --primary-action-bg: #ececef;
+  --primary-action-text: #131316;
+  --primary-action-hover: #ffffff;
 }
 
 html[data-theme="light"] {
-  --user-accent: #c9184a;
-  --user-accent-strong: #c9184a;
-  --user-accent-hover: #b01543;
+  --user-accent: #5b5a66;
+  --user-accent-strong: #3f3e49;
+  --user-accent-hover: #31303a;
+
+  --primary-action-bg: #1a181d;
+  --primary-action-text: #ffffff;
+  --primary-action-hover: #2a2830;
 }
 
 /* The user console portals a few surfaces — the create-project dialog and the
@@ -312,8 +322,9 @@ html[data-theme="light"]
   background-color: rgb(0 0 0 / 0.05);
 }
 
-/* Inlark's accent is the lavender `acid-lime`; the user console's is pink.
-   These are the three places the portaled surfaces still reach for it. */
+/* Inlark's accent is the lavender `acid-lime`; the user console's is the
+   muted slate accent. These are the places the portaled surfaces still reach
+   for it. */
 [data-user-surface]
   [class~="data-[highlighted]:bg-acid-lime/10"][data-highlighted] {
   background-color: color-mix(in srgb, var(--user-accent) 12%, transparent);
@@ -327,15 +338,52 @@ html[data-theme="light"]
 }
 
 html[data-theme="light"] [data-user] [class~="bg-[#121014]"],
+html[data-theme="light"] [data-user] [class~="bg-[#100F13]"],
 html[data-theme="light"] [data-user] [class~="bg-[#1A181D]"],
 html[data-theme="light"] [data-user] [class~="bg-[#1a181d]"],
 html[data-theme="light"] [data-user] [class~="bg-[#201E22]"],
 html[data-theme="light"] [data-user] [class~="bg-[#232127]"],
+html[data-theme="light"] [data-user] [class~="bg-[#1F1D21]"],
 html[data-theme="light"] [data-user] [class~="bg-[#2b2930]"] {
   background-color: #f7f7f8;
 }
 
+/* The reference's filled search field and the selected row card are solid
+   near-black steps in the dark palette; the light panel needs the equivalent
+   ink steps or the field and the selection vanish. */
+html[data-theme="light"] [data-user] [class~="bg-[#171519]"] {
+  background-color: #eef0ef;
+}
+html[data-theme="light"] [data-user] [class~="bg-[#161418]"] {
+  background-color: rgb(0 0 0 / 0.05);
+}
+html[data-theme="light"] [data-user] [class~="hover:bg-[#1C1A1F]"]:hover {
+  background-color: rgb(0 0 0 / 0.04);
+}
+
+/* The shell root itself paints the canvas with a literal class, and the
+   descendant remaps above only reach its children — so the canvas gets its
+   own, slightly darker light value to keep the floating panel distinct. */
+html[data-theme="light"] [data-user][class~="bg-[#100F13]"] {
+  background-color: #ececef;
+}
+
+/* The reference-style filled search field and the rounded row cards hover on
+   translucent white in the dark palette; on the light palette those need the
+   faint ink equivalents or they vanish against the white panel. */
+html[data-theme="light"] [data-user] [class~="bg-white/[0.04]"] {
+  background-color: #eef0ef;
+}
+html[data-theme="light"] [data-user] [class~="hover:bg-white/[0.04]"]:hover {
+  background-color: rgb(0 0 0 / 0.03);
+}
+html[data-theme="light"] [data-user] [class~="hover:bg-white/[0.05]"]:hover,
+html[data-theme="light"] [data-user] [class~="hover:bg-white/[0.06]"]:hover {
+  background-color: rgb(0 0 0 / 0.04);
+}
+
 html[data-theme="light"] [data-user] [class~="border-[#322F37]"],
+html[data-theme="light"] [data-user] [class~="border-[#26242C]"],
 html[data-theme="light"] [data-user] [class~="border-[#302E34]"],
 html[data-theme="light"] [data-user] [class~="border-[#2d2d35]"],
 html[data-theme="light"] [data-user] [class~="border-[#3a373f]"],
@@ -344,7 +392,9 @@ html[data-theme="light"] [data-user] [class~="border-[#3A373F]"] {
 }
 
 html[data-theme="light"] [data-user] [class~="text-[#edecf1]"],
+html[data-theme="light"] [data-user] [class~="text-[#efedf0]"],
 html[data-theme="light"] [data-user] [class~="text-[#EEEAF0]"],
+html[data-theme="light"] [data-user] [class~="text-[#EEEDF0]"],
 html[data-theme="light"] [data-user] [class~="text-[#C5C1C9]"] {
   color: #1a181d;
 }
@@ -352,9 +402,17 @@ html[data-theme="light"] [data-user] [class~="text-[#C5C1C9]"] {
 html[data-theme="light"] [data-user] [class~="text-[#aaa6ae]"],
 html[data-theme="light"] [data-user] [class~="text-[#AAA6AE]"],
 html[data-theme="light"] [data-user] [class~="text-[#b3b0ba]"],
+html[data-theme="light"] [data-user] [class~="text-[#B5B2B9]"],
 html[data-theme="light"] [data-user] [class~="text-[#737078]"],
+html[data-theme="light"] [data-user] [class~="text-[#7E7A84]"],
 html[data-theme="light"] [data-user] [class~="text-[#8a8791]"] {
   color: #68636d;
+}
+
+/* The gift accent is the one warm colour in the reference nav; it keeps its
+   meaning on the light panel at a darker orange so it stays legible. */
+html[data-theme="light"] [data-user] [class~="text-[#FFA057]"] {
+  color: #b45309;
 }
 
 /* The sidebar's primary labels and the palette use oklch text colors. The

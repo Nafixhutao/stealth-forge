@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -11,9 +12,17 @@ import (
 	"github.com/Nafixhutao/stealth-forge/internal/telemetry"
 )
 
+func pluralSuffix(count int) string {
+	if count == 1 {
+		return ""
+	}
+	return "s"
+}
+
 type adminComponentStatus struct {
-	Name   string `json:"name"`
-	Status string `json:"status"`
+	Name    string `json:"name"`
+	Status  string `json:"status"`
+	Summary string `json:"summary,omitempty"`
 }
 
 type adminTelemetryStatus struct {
@@ -128,6 +137,34 @@ func (s *Server) adminOverview(w http.ResponseWriter, r *http.Request) {
 		coreHealthy = false
 	}
 	components = append(components, adminComponentStatus{Name: "redis", Status: redisStatus})
+
+	// The tenant MySQL cluster is optional and separate from the control-plane
+	// PostgreSQL. It never degrades the core instance status (the platform runs
+	// without it), but its reachability and fair-use state are surfaced here so
+	// the operator sees the hosted-database door at a glance. The component is
+	// listed whenever the feature is enabled, even if the cluster did not come
+	// up, so a misprovisioned cluster is visible rather than silently omitted.
+	if s.config.ManagedDatabasesEnabled {
+		tenantStatus := "unavailable"
+		tenantSummary := ""
+		if s.managedDatabases != nil {
+			summary := s.managedDatabases.AdminSummary(healthContext)
+			if summary.Reachable {
+				tenantStatus = "healthy"
+				tenantSummary = fmt.Sprintf(
+					"%d database%s · %d over quota",
+					summary.DatabaseCount,
+					pluralSuffix(summary.DatabaseCount),
+					summary.WriteLockedCount,
+				)
+			}
+		}
+		components = append(components, adminComponentStatus{
+			Name:    "tenant_mysql",
+			Status:  tenantStatus,
+			Summary: tenantSummary,
+		})
+	}
 
 	telemetryStatus := "unavailable"
 	if telemetryStore, ok := s.telemetry.(telemetry.Pinger); ok {

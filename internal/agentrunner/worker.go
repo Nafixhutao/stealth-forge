@@ -310,6 +310,11 @@ func (w *Worker) RunOnce(ctx context.Context) (processed bool, runErr error) {
 		}
 		return w.finishFailure(ctx, job, executeErr)
 	}
+	if logErr := w.appendLog(ctx, job, "info", "trusted Agent worker finished provider call"); logErr != nil &&
+		!errors.Is(logErr, context.Canceled) {
+		w.observeError("log")
+		w.Logger.Error("append Agent run result log failed", "error", logErr)
+	}
 	finished, err := w.Store.TransitionAgentRun(ctx, projectID, agentID, runID, w.WorkerID, result)
 	if err != nil {
 		w.observeError("transition")
@@ -317,11 +322,6 @@ func (w *Worker) RunOnce(ctx context.Context) (processed bool, runErr error) {
 	}
 	if metrics := w.Metrics; metrics != nil {
 		metrics.AgentJobsCompleted.WithLabelValues(finished.Status).Inc()
-	}
-	if logErr := w.appendLog(ctx, job, "info", "trusted Agent worker persisted run result"); logErr != nil &&
-		!errors.Is(logErr, context.Canceled) {
-		w.observeError("log")
-		w.Logger.Error("append Agent run result log failed", "error", logErr)
 	}
 	return true, nil
 }

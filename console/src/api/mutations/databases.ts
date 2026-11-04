@@ -35,6 +35,79 @@ export function useCreateDatabase(projectId: string | undefined) {
   });
 }
 
+export function useCreateDatabaseTable(
+  projectId: string | undefined,
+  databaseId: string | undefined,
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (
+      body: components["schemas"]["CreateDatabaseTableRequest"],
+    ) =>
+      unwrap(
+        await api.POST(
+          "/v1/projects/{projectID}/databases/{databaseID}/tables",
+          {
+            params: {
+              path: {
+                projectID: projectId as string,
+                databaseID: databaseId as string,
+              },
+            },
+            body,
+          },
+        ),
+      ),
+    onSuccess: async () => {
+      await invalidate(queryClient, [
+        {
+          kind: "database-table",
+          projectId: projectId as string,
+          databaseId: databaseId as string,
+        },
+      ]);
+    },
+  });
+}
+
+export function useCreateDatabaseRow(
+  projectId: string | undefined,
+  databaseId: string | undefined,
+  tableId: string | undefined,
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (
+      body: components["schemas"]["CreateDatabaseRowRequest"],
+    ) =>
+      unwrap(
+        await api.POST(
+          "/v1/projects/{projectID}/databases/{databaseID}/tables/{tableID}/rows",
+          {
+            params: {
+              path: {
+                projectID: projectId as string,
+                databaseID: databaseId as string,
+                tableID: tableId as string,
+              },
+            },
+            body,
+          },
+        ),
+      ),
+    onSuccess: async () => {
+      await invalidate(queryClient, [
+        {
+          kind: "database-table-rows",
+          projectId: projectId as string,
+          databaseId: databaseId as string,
+          tableId: tableId as string,
+        },
+      ]);
+    },
+  });
+}
+
 export function useDeleteDatabase(projectId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({

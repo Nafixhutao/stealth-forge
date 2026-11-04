@@ -34,6 +34,7 @@ import (
 	"github.com/Nafixhutao/stealth-forge/internal/functionstore"
 	"github.com/Nafixhutao/stealth-forge/internal/ingress"
 	"github.com/Nafixhutao/stealth-forge/internal/mailer"
+	"github.com/Nafixhutao/stealth-forge/internal/manageddbmaint"
 	"github.com/Nafixhutao/stealth-forge/internal/messagingrunner"
 	"github.com/Nafixhutao/stealth-forge/internal/monitoring"
 	"github.com/Nafixhutao/stealth-forge/internal/observability"
@@ -161,6 +162,7 @@ func main() {
 		logger.Error("Cloudflare routing reconciler configuration error", "error", err)
 		os.Exit(1)
 	}
+	cloudflareReconciler.ManagedDatabaseHostname = cfg.ManagedDatabaseHostname
 	platformRouteReconciler, err := ingress.New(
 		repo,
 		cfg.TraefikGeneratedDir,
@@ -184,7 +186,7 @@ func main() {
 	if telemetryErr == nil {
 		defer telemetryStore.Close()
 	}
-	var userStorage artifactcleanup.Cleaner
+	var userStorage storage.BlobStore
 	if cfg.StorageDriver == "s3" {
 		userStorage, err = storage.NewS3(storage.S3Options{
 			Endpoint:       cfg.StorageS3Endpoint,
@@ -320,10 +322,25 @@ func main() {
 	appRuntimeWorker.AppSecretsCipher = appSecretsCipher
 	var agentWorker *agentrunner.Worker
 	if cfg.AgentRunnerEnabled {
-		// Provider adapters are deliberately opt-in and process-local. This
-		// release wires the durable lifecycle but does not invent a provider
-		// credential or execute a prompt without a trusted adapter.
-		agentWorker, err = agentrunner.New(repo, cfg.FunctionsWorkerID, agentrunner.NewRegistry(), logger)
+		// Provider adapters are deliberately opt-in and process-local. The
+		// Rust binary is the trusted runtime; the Go worker keeps the queue,
+		// leases, logs, cancellation, and result persistence.
+		registry := agentrunner.NewRegistry()
+		if cfg.AgentRuntimeBinary != "" {
+			if err := registry.Register("rinsdev", &agentrunner.RustAdapter{
+				BinaryPath: cfg.AgentRuntimeBinary,
+				WorkRoot:   cfg.AgentWorkRoot,
+				Artifacts:  agentrunner.NewBlobArtifactStore(userStorage, cfg.StorageMaxFileSize),
+				Logger:     logger,
+			}); err != nil {
+				logger.Error("Agent runtime adapter registration failed", "error", err)
+				os.Exit(1)
+			}
+			logger.Info("Agent runtime adapter registered", "provider", "rinsdev", "binary", cfg.AgentRuntimeBinary)
+		} else {
+			logger.Warn("Agent runner enabled without a runtime binary; queued Agent runs will remain queued")
+		}
+		agentWorker, err = agentrunner.New(repo, cfg.FunctionsWorkerID, registry, logger)
 		if err != nil {
 			logger.Error("Agent worker configuration error", "error", err)
 			os.Exit(1)
@@ -331,7 +348,6 @@ func main() {
 		agentWorker.PollInterval = cfg.FunctionsRunnerPoll
 		agentWorker.LeaseAge = cfg.FunctionsRunnerLeaseAge
 		agentWorker.ExecutionTimeout = cfg.AgentRunnerExecutionTimeout
-		logger.Warn("Agent runner enabled without provider adapters; queued Agent runs will remain queued")
 	}
 	if !cfg.FunctionsRunnerEnabled {
 		logger.Info("functions runner is disabled; independent App build, webhook, and messaging workers remain active")
@@ -375,6 +391,24 @@ func main() {
 			registrations = append(
 				registrations,
 				workersupervisor.Registration{Name: "Agent worker", Runner: agentWorker},
+			)
+		}
+		if cfg.ManagedDatabasesEnabled {
+			managedMaint, maintErr := manageddbmaint.NewWorker(
+				repo,
+				manageddbmaint.MobyDocker{Container: cfg.TenantMySQLContainer},
+				cfg.TenantMySQLContainer,
+				cfg.FunctionsWorkerID,
+				logger,
+			)
+			if maintErr != nil {
+				logger.Error("managed database maintenance configuration error", "error", maintErr)
+				os.Exit(1)
+			}
+			registrations = append(
+				registrations,
+				workersupervisor.Registration{Name: "managed database maintenance", Runner: managedMaint},
+				workersupervisor.Registration{Name: "managed database restores", Runner: workersupervisor.RunnerFunc(managedMaint.RunRestores)},
 			)
 		}
 		if err := workersupervisor.Run(workerContext, registrations...); err != nil {
@@ -465,6 +499,24 @@ func main() {
 		{Name: "worker metrics", Runner: workersupervisor.RunnerFunc(func(ctx context.Context) error {
 			return serveWorkerMetrics(ctx, metricsServer, logger)
 		})},
+	}
+	if cfg.ManagedDatabasesEnabled {
+		managedMaint, maintErr := manageddbmaint.NewWorker(
+			repo,
+			manageddbmaint.MobyDocker{Container: cfg.TenantMySQLContainer},
+			cfg.TenantMySQLContainer,
+			cfg.FunctionsWorkerID,
+			logger,
+		)
+		if maintErr != nil {
+			logger.Error("managed database maintenance configuration error", "error", maintErr)
+			os.Exit(1)
+		}
+		registrations = append(
+			registrations,
+			workersupervisor.Registration{Name: "managed database maintenance", Runner: managedMaint},
+			workersupervisor.Registration{Name: "managed database restores", Runner: workersupervisor.RunnerFunc(managedMaint.RunRestores)},
+		)
 	}
 	if agentWorker != nil {
 		registrations = append(registrations, workersupervisor.Registration{Name: "Agent worker", Runner: agentWorker})

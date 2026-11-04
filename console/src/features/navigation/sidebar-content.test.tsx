@@ -2,29 +2,40 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SidebarContent } from "@/features/navigation/sidebar-content";
 
-// The panel header carries the account identity and the panel's own controls.
-// It used to also carry a plan chip that always read "Pro Plus" and a switcher
-// glyph with nothing behind it; both are asserted absent so fabricated data
-// cannot creep back in. The nav rows are stubbed: this file is about the header.
+// The panel header carries the organization selector, the plan chip, and the
+// panel's own controls; the rows below it are the reference navigation. The
+// account/organization hooks are stubbed — this file is about the panel.
 const useCurrentAccount = vi.fn();
 const useOrganizationPlan = vi.fn();
+const useOrganizations = vi.fn();
 const useCurrentOrganizationId = vi.fn();
 
 vi.mock("@/api/queries/account", () => ({
   useCurrentAccount: () => useCurrentAccount(),
 }));
 
-vi.mock("@/api/queries/organizations", () => ({
-  useOrganizationPlan: (id: string | undefined) => useOrganizationPlan(id),
-}));
+vi.mock("@/api/queries/organizations", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/api/queries/organizations")>();
+  return {
+    ...actual,
+    useOrganizationPlan: (id: string | undefined) => useOrganizationPlan(id),
+    useOrganizations: () => useOrganizations(),
+  };
+});
 
 vi.mock("@/features/navigation/use-current-organization", () => ({
   useCurrentOrganizationId: () => useCurrentOrganizationId(),
 }));
 
+const nav = vi.hoisted(() => ({
+  push: vi.fn(),
+  pathname: "/user",
+}));
+
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/user",
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => nav.pathname,
+  useRouter: () => ({ push: nav.push, replace: vi.fn() }),
 }));
 
 vi.mock("@/features/navigation/profile-menu", () => ({
@@ -44,11 +55,34 @@ vi.mock("@/features/navigation/sidebar-shared", async (importOriginal) => {
   };
 });
 
+const ORGANIZATION_ID = "11111111-1111-1111-1111-111111111111";
+
+function organizations(name = "Nafixhutao") {
+  return {
+    data: {
+      pages: [
+        {
+          organizations: [
+            {
+              id: ORGANIZATION_ID,
+              name,
+              slug: "nafixhutao",
+              created_at: "2026-01-01T00:00:00Z",
+            },
+          ],
+          pagination: { limit: 50, next_cursor: null },
+        },
+      ],
+      pageParams: [undefined],
+    },
+  };
+}
+
 function plan(planKey: string, projects = 1, limit = 10) {
   return {
     data: {
       plan: {
-        organization_id: "11111111-1111-1111-1111-111111111111",
+        organization_id: ORGANIZATION_ID,
         plan_key: planKey,
         status: "active",
         limits: { projects: limit },
@@ -60,36 +94,56 @@ function plan(planKey: string, projects = 1, limit = 10) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  useCurrentOrganizationId.mockReturnValue(
-    "11111111-1111-1111-1111-111111111111",
-  );
+  nav.pathname = "/user";
+  useCurrentOrganizationId.mockReturnValue(ORGANIZATION_ID);
+  useOrganizations.mockReturnValue(organizations());
   useOrganizationPlan.mockReturnValue(plan("free"));
   useCurrentAccount.mockReturnValue({
     data: {
       account: {
         id: "22222222-2222-2222-2222-222222222222",
-        email: "aulia@example.com",
-        display_name: "Aulia Rahma Putri",
+        email: "nafiaku447@gmail.com",
+        display_name: "Nafi",
         avatar_url: "",
-        instance_role: null,
+        instance_role: "instance_admin",
       },
     },
   });
 });
 
 describe("SidebarContent header", () => {
-  it("shows the signed-in account's name", () => {
+  it("names the organization the surface belongs to", () => {
     render(<SidebarContent />);
 
-    expect(screen.getByText("Aulia Rahma Putri")).toBeInTheDocument();
+    expect(screen.getByText("Nafixhutao")).toBeInTheDocument();
+  });
+
+  it("drops the generated '<name>'s organization' suffix", () => {
+    useOrganizations.mockReturnValue(organizations("Aku Nafi's organization"));
+
+    render(<SidebarContent />);
+
+    expect(screen.getByText("Aku Nafi")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Aku Nafi's organization"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("falls back to the account name while organizations are loading", () => {
+    useOrganizations.mockReturnValue({ data: undefined });
+
+    render(<SidebarContent />);
+
+    expect(screen.getByText("Nafi")).toBeInTheDocument();
   });
 
   it("falls back to the email's local part when there is no display name", () => {
+    useOrganizations.mockReturnValue({ data: undefined });
     useCurrentAccount.mockReturnValue({
       data: {
         account: {
           id: "2",
-          email: "aulia@example.com",
+          email: "nafi@example.com",
           display_name: "   ",
           avatar_url: "",
           instance_role: null,
@@ -99,7 +153,7 @@ describe("SidebarContent header", () => {
 
     render(<SidebarContent />);
 
-    expect(screen.getByText("aulia")).toBeInTheDocument();
+    expect(screen.getByText("nafi")).toBeInTheDocument();
   });
 
   it("shows the organization's real plan, not a fixed label", () => {
@@ -116,9 +170,15 @@ describe("SidebarContent header", () => {
   it("reads the plan for the organization the surface belongs to", () => {
     render(<SidebarContent />);
 
-    expect(useOrganizationPlan).toHaveBeenCalledWith(
-      "11111111-1111-1111-1111-111111111111",
-    );
+    expect(useOrganizationPlan).toHaveBeenCalledWith(ORGANIZATION_ID);
+  });
+
+  it("reads the plan of the previewed organization when no scope is set", () => {
+    useCurrentOrganizationId.mockReturnValue(null);
+
+    render(<SidebarContent />);
+
+    expect(useOrganizationPlan).toHaveBeenCalledWith(ORGANIZATION_ID);
   });
 
   it("shows a free organization as Free", () => {
@@ -135,17 +195,23 @@ describe("SidebarContent header", () => {
     render(<SidebarContent />);
 
     // No placeholder that always says the same word: an empty slot is honest.
-    const header = screen.getByText("Aulia Rahma Putri").closest("header");
-    expect(header?.querySelectorAll("[class*='rounded-[5px]']")).toHaveLength(
+    const header = screen.getByText("Nafixhutao").closest("header");
+    expect(header?.querySelectorAll("[class*='rounded-[4px]']")).toHaveLength(
       0,
     );
   });
 
-  it("does not render a switcher glyph with no action behind it", () => {
+  it("opens the organization home from the selector", () => {
+    nav.pathname = "/projects/11111111-1111-1111-1111-111111111111";
+    nav.push.mockClear();
+
     render(<SidebarContent />);
 
-    const header = screen.getByText("Aulia Rahma Putri").closest("header");
-    expect(header?.querySelectorAll("svg")).toHaveLength(0);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Switch organization" }),
+    );
+
+    expect(nav.push).toHaveBeenCalledWith("/user");
   });
 
   it("offers the collapse control on the desktop panel", () => {
@@ -170,45 +236,97 @@ describe("SidebarContent header", () => {
     ).toBeNull();
   });
 
-  it("offers only rows the console can actually open", () => {
-    render(<SidebarContent />);
-
-    // Search opens the command palette and Projects is the project surface.
-    // Everything else that used to be listed had no route behind it, so a click
-    // either did nothing or answered 404.
-    const labels = screen
-      .getAllByRole("button")
-      .map((button) => button.textContent?.trim())
-      .filter(Boolean);
-    expect(labels).toContain("Search");
-    expect(labels).toContain("Projects");
-
-    for (const dead of [
-      "Explore",
-      "Agent",
-      "Analytics",
-      "Slack",
-      "Discord",
-      "Security",
-      "Plan",
-      "Account",
-      "Documentation",
-      "Contact Support",
-      "Review",
-      "View more",
-    ]) {
-      expect(screen.queryByRole("button", { name: dead })).toBeNull();
-    }
-  });
-
   it("gives the name the room the row actually has", () => {
     render(<SidebarContent />);
 
-    // The name is a truncating flex child, not a fixed 220px slot that cut
-    // "Aulia Rahma Putri" short while the row still had empty space.
-    const name = screen.getByText("Aulia Rahma Putri");
+    const name = screen.getByText("Nafixhutao");
     expect(name.className).toContain("truncate");
-    expect(name.className).toContain("flex-1");
-    expect(name).toHaveAttribute("title", "Aulia Rahma Putri");
+    expect(name.className).toContain("shrink");
+    expect(name).toHaveAttribute("title", "Nafixhutao");
+  });
+});
+
+describe("SidebarContent navigation", () => {
+  it("draws the reference rows in order", () => {
+    render(<SidebarContent />);
+
+    const labels = screen
+      .getAllByRole("button")
+      .map((button) => button.textContent?.trim());
+
+    const expected = [
+      "Triage",
+      "Reviews",
+      "Agent",
+      "Security",
+      "Analytics",
+      "Automations",
+      "Slack Bot",
+      "Scopes",
+      "Organization settings",
+    ];
+    for (const label of expected) {
+      expect(labels).toContain(label);
+    }
+    // Order matters: the reference is a fixed list, not an alphabetical menu.
+    const positions = expected.map((label) => labels.indexOf(label));
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+  });
+
+  it("keeps the old Projects row out of the reference navigation", () => {
+    render(<SidebarContent />);
+
+    expect(screen.queryByRole("button", { name: "Projects" })).toBeNull();
+  });
+
+  it("marks Triage as the current row", () => {
+    render(<SidebarContent />);
+
+    expect(screen.getByRole("button", { name: "Triage" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("puts the gift accent on Agent only", () => {
+    const { container } = render(<SidebarContent />);
+
+    const coding = screen.getByRole("button", { name: "Agent" });
+    const gifts = (root: HTMLElement | Element) =>
+      [...root.querySelectorAll("svg")].filter((svg) =>
+        svg.getAttribute("class")?.includes("FFA057"),
+      );
+
+    expect(gifts(coding)).toHaveLength(1);
+    expect(gifts(container)).toHaveLength(1);
+  });
+
+  it("keeps the search shortcut hint", () => {
+    render(<SidebarContent />);
+
+    expect(
+      screen.getByRole("button", { name: /Search\s*Ctrl K/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("opens the Agent surface from the Agent row", () => {
+    render(<SidebarContent />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Agent" }));
+
+    expect(nav.push).toHaveBeenCalledWith("/agent");
+  });
+
+  it("marks Agent as current on the agent route, not Triage", () => {
+    nav.pathname = "/agent";
+
+    render(<SidebarContent />);
+
+    expect(
+      screen.getByRole("button", { name: "Agent" }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "Triage" })).not.toHaveAttribute(
+      "aria-current",
+    );
   });
 });

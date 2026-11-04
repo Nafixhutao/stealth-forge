@@ -37,8 +37,15 @@ export function ServiceHealthTable({
               key={component.name}
               className="flex items-center justify-between gap-3 border-b border-[var(--projects-divider)] px-3 py-2.5 transition-colors last:border-b-0 hover:bg-white/[0.02]"
             >
-              <span className="text-[13px] font-medium leading-5 text-[var(--projects-text)]">
-                {component.name}
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-[13px] font-medium leading-5 text-[var(--projects-text)]">
+                  {component.name}
+                </span>
+                {component.summary ? (
+                  <span className="truncate text-[12px] leading-4 text-[var(--projects-muted)]">
+                    {component.summary}
+                  </span>
+                ) : null}
               </span>
               <ServiceStatusBadge status={normalizeStatus(component.status)} />
             </li>

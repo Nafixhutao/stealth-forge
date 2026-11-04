@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Database, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { ArrowUpRight, Database, Plus, Trash2 } from "lucide-react";
 import type { components } from "@/api/generated/schema";
 import { useDeleteDatabase } from "@/api/mutations/databases";
 import { useProjectDatabases, useProjectUsage } from "@/api/queries/projects";
@@ -11,6 +12,7 @@ import { Mono } from "@/components/panel";
 import { Button } from "@/components/ui/button";
 import { CreateDatabaseDialog } from "@/features/project/create-database-dialog";
 import { DeleteResourceDialog } from "@/features/project/delete-resource-dialog";
+import { projectPath } from "@/features/project/paths";
 import {
   RESOURCE_BOX,
   RESOURCE_CELL,
@@ -49,11 +51,11 @@ export function ProjectDatabases({ projectId }: { projectId: string }) {
   const canManage = databases.data?.pages[0]?.can_manage ?? false;
   const snapshot = usage.data?.usage;
   const description = snapshot
-    ? `${pluralize(snapshot.database_count, "database")} · ${pluralize(
+    ? `${pluralize(snapshot.database_count, "collection")} · ${pluralize(
         snapshot.database_table_count,
         "table",
       )} · ${pluralize(snapshot.database_row_count, "row")}`
-    : "The project's databases and their tables.";
+    : "The project's built-in JSON data collections.";
 
   const createButton = (
     <Button
@@ -69,7 +71,7 @@ export function ProjectDatabases({ projectId }: { projectId: string }) {
   return (
     <div className="flex flex-col gap-4">
       <ResourceSectionHeader
-        title="Databases"
+        title="Data"
         description={description}
         action={canManage && items.length > 0 ? createButton : undefined}
       />
@@ -104,14 +106,12 @@ export function ProjectDatabases({ projectId }: { projectId: string }) {
                 >
                   Database ID
                 </th>
-                {canManage ? (
-                  <th
-                    scope="col"
-                    className={`${RESOURCE_HEAD} w-[44px] px-2 sm:w-[72px] sm:px-5`}
-                  >
-                    <span className="sr-only">Actions</span>
-                  </th>
-                ) : null}
+                <th
+                  scope="col"
+                  className={`${RESOURCE_HEAD} w-[44px] px-2 sm:w-[72px] sm:px-5`}
+                >
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -124,6 +124,7 @@ export function ProjectDatabases({ projectId }: { projectId: string }) {
                     <ResourceIdentity
                       name={database.name}
                       meta={`Created ${formatDate(database.created_at)}`}
+                      href={projectPath(projectId, `databases/${database.id}`)}
                     />
                   </td>
                   <td className={`${RESOURCE_CELL} hidden sm:table-cell`}>
@@ -133,16 +134,33 @@ export function ProjectDatabases({ projectId }: { projectId: string }) {
                       </Mono>
                     </span>
                   </td>
-                  {canManage ? (
-                    <td className={`${RESOURCE_CELL} px-2 text-right sm:px-5`}>
-                      <ResourceRowAction
-                        tone="danger"
-                        icon={Trash2}
-                        label={`Delete database ${database.name}`}
-                        onClick={() => setDeleteTarget(database)}
-                      />
-                    </td>
-                  ) : null}
+                  <td className={`${RESOURCE_CELL} px-2 sm:px-5`}>
+                    <div className="flex items-center justify-end gap-1">
+                      <Link
+                        href={projectPath(
+                          projectId,
+                          `databases/${database.id}`,
+                        )}
+                        aria-label={`Open database ${database.name}`}
+                        title={`Open database ${database.name}`}
+                        className="inline-flex size-9 items-center justify-center rounded-md border border-[var(--projects-border)] text-[var(--projects-text)] transition-colors hover:border-[var(--projects-border-hover)] hover:bg-[var(--projects-control)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--user-accent)]/40"
+                      >
+                        <ArrowUpRight
+                          className="size-3.5 shrink-0"
+                          strokeWidth={2}
+                          aria-hidden="true"
+                        />
+                      </Link>
+                      {canManage ? (
+                        <ResourceRowAction
+                          tone="danger"
+                          icon={Trash2}
+                          label={`Delete database ${database.name}`}
+                          onClick={() => setDeleteTarget(database)}
+                        />
+                      ) : null}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

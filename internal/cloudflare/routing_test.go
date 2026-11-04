@@ -1036,3 +1036,44 @@ func sameOptionalRoutingDomain(left, right *string) bool {
 	}
 	return *left == *right
 }
+
+func TestDesiredTunnelIngressAddsManagedDatabaseHost(t *testing.T) {
+	rules := desiredTunnelIngressWithDatabase(
+		"console.example.test",
+		"*.apps.example.test",
+		"db.example.test",
+		ConsoleOriginProxy,
+	)
+	want := []IngressRule{
+		{Hostname: "console.example.test", Service: "http://proxy:80"},
+		{Hostname: "*.apps.example.test", Service: "http://traefik:8080"},
+		{Hostname: "db.example.test", Service: "http://proxy:80"},
+		{Service: "http_status:404"},
+	}
+	if !sameIngress(rules, want) {
+		t.Fatalf("desiredTunnelIngressWithDatabase() = %#v, want %#v", rules, want)
+	}
+}
+
+func TestEnsureManagedDatabaseDNSCreatesAndKeepsProxiedCNAME(t *testing.T) {
+	client := newRoutingFakeClient()
+	zones := []Zone{{ID: "zone-a", Name: "example.test"}}
+	hostname, target := "db.example.test", "tunnel-a.cfargotunnel.com"
+
+	changed, err := ensureManagedDatabaseDNS(context.Background(), client, zones, hostname, target)
+	if err != nil || !changed || client.createCount != 1 {
+		t.Fatalf("first ensure = changed %v, err %v, creates %d", changed, err, client.createCount)
+	}
+	changed, err = ensureManagedDatabaseDNS(context.Background(), client, zones, hostname, target)
+	if err != nil || changed || client.createCount != 1 {
+		t.Fatalf("second ensure = changed %v, err %v, creates %d", changed, err, client.createCount)
+	}
+
+	client.records["zone-a"]["wildcard-1"] = DNSRecord{
+		ID: "wildcard-1", Type: "CNAME", Name: hostname, Content: target, Proxied: false, TTL: 300,
+	}
+	changed, err = ensureManagedDatabaseDNS(context.Background(), client, zones, hostname, target)
+	if err != nil || !changed || client.updateCount != 1 {
+		t.Fatalf("proxy restore = changed %v, err %v, updates %d", changed, err, client.updateCount)
+	}
+}

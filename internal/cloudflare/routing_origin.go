@@ -227,7 +227,12 @@ func (r *Reconciler) VerifyProvider(ctx context.Context) (origin string, err err
 	if err != nil {
 		return "", err
 	}
-	want := desiredTunnelIngress(connection.ConsoleHostname, wildcardHostname, connection.ConsoleOriginDesired)
+	want := desiredTunnelIngressWithDatabase(
+		connection.ConsoleHostname,
+		wildcardHostname,
+		r.ManagedDatabaseHostname,
+		connection.ConsoleOriginDesired,
+	)
 	if !sameIngress(current, want) {
 		return "", errors.New("Cloudflare Tunnel ingress differs from the durable Console and workload routing contract")
 	}

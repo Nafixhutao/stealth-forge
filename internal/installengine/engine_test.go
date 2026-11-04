@@ -114,12 +114,14 @@ func writeEngineFixture(t *testing.T, setup bool) Layout {
 		filepath.Join(layout.Root, "buildkit", "stealth-buildkit-rootless.apparmor"): testBuildKitAppArmorProfileAsset(),
 		layout.TraefikStatic: testTraefikStaticAsset(),
 		layout.TraefikCore:   strings.ReplaceAll(testTraefikCoreAsset(), "__STEALTH_PUBLIC_HOST__", "127.0.0.1"),
-		filepath.Join(layout.TraefikGenerated, ".gitkeep"):            "# Stealth route reconciler\n",
-		filepath.Join(layout.Root, "status-site", "index.html"):       "<!doctype html>\n<title>Status</title>\n",
-		filepath.Join(layout.Root, "status-site", "app.js"):           "function renderPublished(page) {}\n",
-		filepath.Join(layout.Root, "status-site", "styles.css"):       ".site-header__inner { display: flex; }\n",
-		filepath.Join(layout.Root, "status-site", "favicon.png"):      "\x89PNG\r\n\x1a\n",
-		filepath.Join(layout.Root, "status-site", "stealth-mark.png"): "\x89PNG\r\n\x1a\n",
+		filepath.Join(layout.TraefikGenerated, ".gitkeep"):                     "# Stealth route reconciler\n",
+		filepath.Join(layout.Root, "status-site", "index.html"):                "<!doctype html>\n<title>Status</title>\n",
+		filepath.Join(layout.Root, "status-site", "app.js"):                    "function renderPublished(page) {}\n",
+		filepath.Join(layout.Root, "status-site", "styles.css"):                ".site-header__inner { display: flex; }\n",
+		filepath.Join(layout.Root, "status-site", "favicon.png"):               "\x89PNG\r\n\x1a\n",
+		filepath.Join(layout.Root, "status-site", "stealth-mark.png"):          "\x89PNG\r\n\x1a\n",
+		filepath.Join(layout.Root, "tenant-phpmyadmin", "config.user.inc.php"): "<?php\n$cfg['blowfish_secret'] = 'test';\n",
+		filepath.Join(layout.Root, "tenant-phpmyadmin", "apache-subpath.conf"): "Alias /db /var/www/html\n",
 	} {
 		if err := WriteAtomic(path, []byte(contents), 0o644); err != nil {
 			t.Fatal(err)
@@ -304,6 +306,8 @@ func engineTestAssetContents() map[string]string {
 		"status-site/styles.css":                      ".site-header__inner { display: flex; }\n",
 		"status-site/favicon.png":                     "\x89PNG\r\n\x1a\n",
 		"status-site/stealth-mark.png":                "\x89PNG\r\n\x1a\n",
+		"tenant-phpmyadmin/config.user.inc.php":       "<?php\n$cfg['blowfish_secret'] = 'test';\n",
+		"tenant-phpmyadmin/apache-subpath.conf":       "Alias /db /var/www/html\n",
 	}
 }
 
@@ -903,6 +907,8 @@ func TestPrepareMigratesPrePR83ManagedAssets(t *testing.T) {
 		"status-site/styles.css":                      ".site-header__inner { display: flex; }\n",
 		"status-site/favicon.png":                     "\x89PNG\r\n\x1a\n",
 		"status-site/stealth-mark.png":                "\x89PNG\r\n\x1a\n",
+		"tenant-phpmyadmin/config.user.inc.php":       "<?php\n$cfg['blowfish_secret'] = 'test';\n",
+		"tenant-phpmyadmin/apache-subpath.conf":       "Alias /db /var/www/html\n",
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		name := strings.TrimPrefix(r.URL.Path, "/"+targetVersion+"/")

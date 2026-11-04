@@ -121,10 +121,14 @@ func (p *HTTPProbe) LocalTraefik(ctx context.Context, hostname string) error {
 	if isRedirect(rootStatus) {
 		origin := &url.URL{Scheme: "https", Host: hostname, Path: "/"}
 		redirect, redirectErr := safeConsoleRedirect(origin, origin, locations)
-		if redirectErr != nil || redirect.Path != "/admin" || redirect.RawQuery != "" {
+		// The Console root resolves the session on the server, so an anonymous
+		// probe lands on the sign-in page. Following it must yield a document:
+		// a chain that dead-ends, or one pointing anywhere but sign-in, means
+		// the console or its routing is broken.
+		if redirectErr != nil || redirect.Path != "/login" || redirect.RawQuery != "" {
 			return errors.New("local Traefik Console root returned an unexpected redirect")
 		}
-		rootStatus, _, err = p.localTraefikRequest(ctx, target, hostname, "/admin")
+		rootStatus, _, err = p.localTraefikRequest(ctx, target, hostname, "/login")
 		if err != nil {
 			return err
 		}

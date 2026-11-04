@@ -7,10 +7,11 @@
 @theme {
   /* Stealth's visual language: a quiet operations surface with one action accent. */
   --font-sans:
-    "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system,
-    BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-inter-variable:
-    "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
+    "Geist Variable", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-ui-variable:
+    "Geist Variable", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
   --font-mono:
     "Berkeley Mono", "JetBrains Mono", "IBM Plex Mono", ui-monospace,
     SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -43,7 +44,7 @@
   --color-coral-red: #ea9198;
   --color-signal-teal: #6fc0cc;
   --color-iris-violet: #a69aef;
-  --color-lavender: #d491ac;
+  --color-lavender: #9b9aa8;
 
   /* Control boundaries must stay legible against the dark surfaces (WCAG 1.4.11,
      3:1). graphite is a decorative border tone and is too dark for a control edge.
@@ -115,8 +116,8 @@
   --color-orange-200: #a5d8e0;
   --color-orange-300: #6fc0cc;
   --color-orange-400: #6fc0cc;
-  --color-pink-200: #eccdd8;
-  --color-pink-300: #d491ac;
+  --color-pink-200: #d6d5dd;
+  --color-pink-300: #9b9aa8;
 
   --text-caption: 13px;
   --text-body-sm: 15px;
@@ -319,11 +320,7 @@ body {
   width: 100%;
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-inter-variable);
-  font-feature-settings:
-    "cv01" 1,
-    "ss03" 1,
-    "zero" 1;
+  font-family: var(--font-ui-variable);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;

@@ -40,7 +40,8 @@ const FOCUS =
 /** Section tabs, in product order. `segment` is empty for the Overview. */
 const SECTIONS = [
   { label: "Overview", segment: "" },
-  { label: "Databases", segment: "databases" },
+  { label: "Data", segment: "databases" },
+  { label: "Databases", segment: "mysql" },
   { label: "Storage", segment: "storage" },
   { label: "Functions", segment: "functions" },
   { label: "Sites", segment: "sites" },

@@ -116,6 +116,10 @@ export const queryKeys = {
     siteId: string,
     deploymentId: string,
   ) => ["site-deployment", projectId, siteId, deploymentId, "files"] as const,
+  managedDatabases: (projectId: string) =>
+    ["managed-databases", projectId] as const,
+  managedDatabaseBackups: (projectId: string, databaseId: string) =>
+    ["managed-database-backups", projectId, databaseId] as const,
   databases: (projectId: string) => ["databases", projectId] as const,
   database: (projectId: string, databaseId: string) =>
     ["database", projectId, databaseId] as const,
@@ -170,11 +174,16 @@ export const queryKeys = {
   webhookDeliveries: (projectId: string, webhookId: string) =>
     ["webhook-deliveries", projectId, webhookId] as const,
   agents: (projectId: string) => ["agents", projectId] as const,
+  /** Every agent the account can see, across projects. Also the prefix that
+   * invalidates each project-scoped agent list at once. */
+  allAgents: ["agents"] as const,
   agent: (agentId: string) => ["agent", agentId] as const,
   agentCatalog: ["agent-catalog"] as const,
   agentRuns: (agentId: string) => ["agent-runs", agentId] as const,
   agentRun: (agentId: string, runId: string) =>
     ["agent-run", agentId, runId] as const,
+  agentArtifacts: (agentId: string | undefined) =>
+    ["agent-artifacts", agentId] as const,
   messagingProviders: (projectId: string) =>
     ["messaging-providers", projectId] as const,
   messagingTopics: (projectId: string) =>

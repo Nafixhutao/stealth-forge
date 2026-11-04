@@ -142,3 +142,39 @@ func (c Config) ValidateAppSecrets() error {
 	}
 	return nil
 }
+
+// ValidateManagedDatabases keeps a half-configured hosted MySQL deployment from
+// starting with routes that could never provision a database.
+func (c Config) ValidateManagedDatabases() error {
+	if !c.ManagedDatabasesEnabled {
+		if c.ManagedDatabaseHostname != "" {
+			return fmt.Errorf("MANAGED_DATABASE_HOSTNAME requires MANAGED_DATABASES_ENABLED")
+		}
+		return nil
+	}
+	if strings.TrimSpace(c.TenantMySQLAdminDSN) == "" {
+		return fmt.Errorf("TENANT_MYSQL_ADMIN_DSN is required when managed databases are enabled")
+	}
+	if len(c.ManagedDatabaseSecretKey) != 32 {
+		return fmt.Errorf("MANAGED_DATABASE_SECRET_KEY must be configured as base64-encoded 32 bytes")
+	}
+	if strings.TrimSpace(c.TenantMySQLHost) == "" || c.TenantMySQLPort < 1 || c.TenantMySQLPort > 65535 {
+		return fmt.Errorf("TENANT_MYSQL_HOST and TENANT_MYSQL_PORT must be configured")
+	}
+	if c.ManagedDatabaseHostname != "" && !validManagedDatabaseHostname(c.ManagedDatabaseHostname) {
+		return fmt.Errorf("MANAGED_DATABASE_HOSTNAME must be a lowercase hostname without a scheme or path")
+	}
+	return nil
+}
+
+func validManagedDatabaseHostname(value string) bool {
+	if len(value) < 4 || len(value) > 253 || strings.ContainsAny(value, "/:@ \t\r\n") {
+		return false
+	}
+	for _, label := range strings.Split(value, ".") {
+		if label == "" || len(label) > 63 || strings.HasPrefix(label, "-") || strings.HasSuffix(label, "-") {
+			return false
+		}
+	}
+	return true
+}
