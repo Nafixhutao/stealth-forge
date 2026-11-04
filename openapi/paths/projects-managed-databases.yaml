@@ -66,3 +66,35 @@ paths:
         '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
         '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
         '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/managed-databases/{databaseID}/backups:
+    get:
+      operationId: listManagedDatabaseBackups
+      description: Completed snapshots plus the most recent restore request.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }]
+      responses:
+        '200': { description: Backups and latest restore, content: { application/json: { schema: { $ref: '../components/projects-managed-databases.yaml#/components/schemas/ManagedDatabaseBackupsPage' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/managed-databases/{databaseID}/backups/{backupID}/restore:
+    post:
+      operationId: restoreManagedDatabase
+      description: Queues a restore of one backup. The worker executes it within a minute.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { $ref: '../components/common.yaml#/components/parameters/ProjectID' }
+        - { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }
+        - name: backupID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '202': { description: Restore queued, content: { application/json: { schema: { $ref: '../components/projects-managed-databases.yaml#/components/schemas/ManagedDatabaseRestoreResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }

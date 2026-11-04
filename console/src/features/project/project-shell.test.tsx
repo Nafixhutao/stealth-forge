@@ -178,7 +178,7 @@ describe("ProjectShell", () => {
     pathname = `/projects/${PROJECT_ID}/databases/db-1`;
     renderShell();
 
-    expect(screen.getByRole("link", { name: "Databases" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Data" })).toHaveAttribute(
       "aria-current",
       "page",
     );

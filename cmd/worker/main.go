@@ -34,6 +34,7 @@ import (
 	"github.com/Nafixhutao/stealth-forge/internal/functionstore"
 	"github.com/Nafixhutao/stealth-forge/internal/ingress"
 	"github.com/Nafixhutao/stealth-forge/internal/mailer"
+	"github.com/Nafixhutao/stealth-forge/internal/manageddbmaint"
 	"github.com/Nafixhutao/stealth-forge/internal/messagingrunner"
 	"github.com/Nafixhutao/stealth-forge/internal/monitoring"
 	"github.com/Nafixhutao/stealth-forge/internal/observability"
@@ -392,6 +393,24 @@ func main() {
 				workersupervisor.Registration{Name: "Agent worker", Runner: agentWorker},
 			)
 		}
+		if cfg.ManagedDatabasesEnabled {
+			managedMaint, maintErr := manageddbmaint.NewWorker(
+				repo,
+				manageddbmaint.MobyDocker{Container: cfg.TenantMySQLContainer},
+				cfg.TenantMySQLContainer,
+				cfg.FunctionsWorkerID,
+				logger,
+			)
+			if maintErr != nil {
+				logger.Error("managed database maintenance configuration error", "error", maintErr)
+				os.Exit(1)
+			}
+			registrations = append(
+				registrations,
+				workersupervisor.Registration{Name: "managed database maintenance", Runner: managedMaint},
+				workersupervisor.Registration{Name: "managed database restores", Runner: workersupervisor.RunnerFunc(managedMaint.RunRestores)},
+			)
+		}
 		if err := workersupervisor.Run(workerContext, registrations...); err != nil {
 			logger.Error("worker stopped with error", "error", err)
 			os.Exit(1)
@@ -480,6 +499,24 @@ func main() {
 		{Name: "worker metrics", Runner: workersupervisor.RunnerFunc(func(ctx context.Context) error {
 			return serveWorkerMetrics(ctx, metricsServer, logger)
 		})},
+	}
+	if cfg.ManagedDatabasesEnabled {
+		managedMaint, maintErr := manageddbmaint.NewWorker(
+			repo,
+			manageddbmaint.MobyDocker{Container: cfg.TenantMySQLContainer},
+			cfg.TenantMySQLContainer,
+			cfg.FunctionsWorkerID,
+			logger,
+		)
+		if maintErr != nil {
+			logger.Error("managed database maintenance configuration error", "error", maintErr)
+			os.Exit(1)
+		}
+		registrations = append(
+			registrations,
+			workersupervisor.Registration{Name: "managed database maintenance", Runner: managedMaint},
+			workersupervisor.Registration{Name: "managed database restores", Runner: workersupervisor.RunnerFunc(managedMaint.RunRestores)},
+		)
 	}
 	if agentWorker != nil {
 		registrations = append(registrations, workersupervisor.Registration{Name: "Agent worker", Runner: agentWorker})

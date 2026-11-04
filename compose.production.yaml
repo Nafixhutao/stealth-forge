@@ -92,8 +92,6 @@ x-backend-environment: &backend-environment
   AGENT_WORK_ROOT: "${AGENT_WORK_ROOT:-/var/lib/stealth/runner-staging}"
   AGENT_SANDBOX_VOLUME: "${AGENT_SANDBOX_VOLUME:-stealth_function_runner_staging}"
   AGENT_SANDBOX_VOLUME_WORKDIR: "${AGENT_SANDBOX_VOLUME_WORKDIR:-/workspace}"
-  AGENT_RUNNER_ENABLED: "${AGENT_RUNNER_ENABLED:-false}"
-  AGENT_RUNNER_EXECUTION_TIMEOUT: "${AGENT_RUNNER_EXECUTION_TIMEOUT:-15m}"
   SITES_MAX_ARTIFACT_SIZE: "${SITES_MAX_ARTIFACT_SIZE:-50MiB}"
   SITES_DEFAULT_QUOTA_BYTES: "${SITES_DEFAULT_QUOTA_BYTES:-1GiB}"
   SITES_MAX_EXPANDED_BYTES: "${SITES_MAX_EXPANDED_BYTES:-256MiB}"
@@ -396,6 +394,14 @@ services:
     environment:
       <<: *backend-environment
       CLOUDFLARE_IMPORT_FILE: /var/lib/stealth/cloudflare-import/cloudflare-import.enc
+      # The maintenance worker needs the managed-database flag and tenant
+      # container name to run backups, quota checks, and restores through the
+      # Docker socket. It never loads the admin DSN; these are supplied so the
+      # shared config loader accepts the enabled feature.
+      MANAGED_DATABASES_ENABLED: "${MANAGED_DATABASES_ENABLED:-false}"
+      TENANT_MYSQL_ADMIN_DSN: "${TENANT_MYSQL_ADMIN_DSN:-}"
+      MANAGED_DATABASE_SECRET_KEY: "${MANAGED_DATABASE_SECRET_KEY:-}"
+      TENANT_MYSQL_CONTAINER: "${TENANT_MYSQL_CONTAINER:-stealth-tenant-mysql-1}"
       APPS_BUILDKIT_CA_CERT: "${APPS_BUILDKIT_CA_CERT:-/run/secrets/stealth-buildkit/ca.pem}"
       APPS_BUILDKIT_CLIENT_CERT: "${APPS_BUILDKIT_CLIENT_CERT:-/run/secrets/stealth-buildkit/client-cert.pem}"
       APPS_BUILDKIT_CLIENT_KEY: "${APPS_BUILDKIT_CLIENT_KEY:-/run/secrets/stealth-buildkit/client-key.pem}"
@@ -594,6 +600,9 @@ services:
       - "--mysqlx=0"
     volumes:
       - tenant_mysql_data:/var/lib/mysql
+      # Daily mysqldump snapshots. The maintenance worker dumps into this
+      # volume so restores and retension stay inside one machine boundary.
+      - tenant_mysql_backups:/backups
     labels:
       stealth.managed: "true"
       stealth.resource_type: "tenant_mysql"
@@ -669,6 +678,8 @@ volumes:
     name: "${COMPOSE_PROJECT_NAME:-stealth}_cloudflare_setup_state_input"
   tenant_mysql_data:
     name: "${TENANT_MYSQL_VOLUME_NAME:-stealth_tenant_mysql_data}"
+  tenant_mysql_backups:
+    name: "${TENANT_MYSQL_BACKUPS_VOLUME_NAME:-stealth_tenant_mysql_backups}"
 networks:
   stealth:
     name: "${STEALTH_NETWORK_NAME:-stealth_network}"

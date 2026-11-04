@@ -344,6 +344,10 @@ paths:
     $ref: './paths/projects-managed-databases.yaml#/paths/~1v1~1projects~1{projectID}~1managed-databases~1{databaseID}~1password'
   /v1/projects/{projectID}/managed-databases/{databaseID}/password/rotate:
     $ref: './paths/projects-managed-databases.yaml#/paths/~1v1~1projects~1{projectID}~1managed-databases~1{databaseID}~1password~1rotate'
+  /v1/projects/{projectID}/managed-databases/{databaseID}/backups:
+    $ref: './paths/projects-managed-databases.yaml#/paths/~1v1~1projects~1{projectID}~1managed-databases~1{databaseID}~1backups'
+  /v1/projects/{projectID}/managed-databases/{databaseID}/backups/{backupID}/restore:
+    $ref: './paths/projects-managed-databases.yaml#/paths/~1v1~1projects~1{projectID}~1managed-databases~1{databaseID}~1backups~1{backupID}~1restore'
   /v1/projects/{projectID}/sites:
     $ref: './paths/projects-core.yaml#/paths/~1v1~1projects~1{projectID}~1sites'
   /v1/projects/{projectID}/apps:

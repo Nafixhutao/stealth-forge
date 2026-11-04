@@ -10,7 +10,7 @@ import (
 )
 
 const managedDatabaseProjection = `
-  id,project_id,name,database_name,username,password_ciphertext,status,connection_limit,created_at,updated_at
+  id,project_id,name,database_name,username,password_ciphertext,status,connection_limit,write_locked,created_at,updated_at
 `
 
 // ManagedDatabaseRecord is the private persistence shape. PasswordCiphertext
@@ -24,6 +24,7 @@ type ManagedDatabaseRecord struct {
 	PasswordCiphertext []byte
 	Status             string
 	ConnectionLimit    int
+	WriteLocked        bool
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
 }
@@ -39,6 +40,7 @@ func scanManagedDatabase(row pgx.Row) (ManagedDatabaseRecord, error) {
 		&item.PasswordCiphertext,
 		&item.Status,
 		&item.ConnectionLimit,
+		&item.WriteLocked,
 		&item.CreatedAt,
 		&item.UpdatedAt,
 	)
@@ -94,6 +96,32 @@ func (r *Repository) ListManagedDatabases(
 	return items, rows.Err()
 }
 
+// ListAllReadyManagedDatabases returns every ready database across projects.
+// It backs the maintenance worker's usage sweep; the Console never calls it.
+func (r *Repository) ListAllReadyManagedDatabases(
+	ctx context.Context,
+) ([]ManagedDatabaseRecord, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT `+managedDatabaseProjection+`
+		FROM managed_databases
+		WHERE status='ready'
+		ORDER BY created_at ASC, id ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]ManagedDatabaseRecord, 0, 8)
+	for rows.Next() {
+		item, scanErr := scanManagedDatabase(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
 func (r *Repository) ManagedDatabaseByID(
 	ctx context.Context,
 	projectID,
@@ -129,6 +157,27 @@ func (r *Repository) UpdateManagedDatabaseStatus(
 		return ManagedDatabaseRecord{}, ErrNotFound
 	}
 	return item, err
+}
+
+// SetManagedDatabaseWriteLock flips the fair-use write lock. The worker calls
+// it after measuring usage; the API only reads the flag.
+func (r *Repository) SetManagedDatabaseWriteLock(
+	ctx context.Context,
+	databaseID uuid.UUID,
+	writeLocked bool,
+) error {
+	tag, err := r.pool.Exec(ctx, `
+		UPDATE managed_databases
+		SET write_locked=$2, updated_at=now()
+		WHERE id=$1
+	`, databaseID, writeLocked)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (r *Repository) UpdateManagedDatabasePassword(

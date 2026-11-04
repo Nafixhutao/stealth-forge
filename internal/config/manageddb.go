@@ -17,6 +17,7 @@ type managedDatabaseSettings struct {
 	port          int
 	phpMyAdminURL string
 	hostname      string
+	container     string
 }
 
 func loadManagedDatabaseSettings() (managedDatabaseSettings, error) {
@@ -27,6 +28,7 @@ func loadManagedDatabaseSettings() (managedDatabaseSettings, error) {
 		host:          strings.TrimSpace(value("TENANT_MYSQL_HOST", "tenant-mysql")),
 		phpMyAdminURL: strings.TrimSpace(value("TENANT_PHPMYADMIN_URL", "/db/")),
 		hostname:      strings.ToLower(strings.TrimSpace(value("MANAGED_DATABASE_HOSTNAME", ""))),
+		container:     strings.TrimSpace(value("TENANT_MYSQL_CONTAINER", "stealth-tenant-mysql-1")),
 	}
 	port, err := strconv.Atoi(strings.TrimSpace(value("TENANT_MYSQL_PORT", "3306")))
 	if err != nil || port < 1 || port > 65535 {
@@ -64,4 +66,5 @@ func (s managedDatabaseSettings) apply(c *Config) {
 	c.TenantMySQLPort = s.port
 	c.TenantPHPMyAdminURL = s.phpMyAdminURL
 	c.ManagedDatabaseHostname = s.hostname
+	c.TenantMySQLContainer = s.container
 }

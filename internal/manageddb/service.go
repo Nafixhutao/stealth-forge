@@ -22,10 +22,11 @@ import (
 )
 
 const (
-	FreeConnectionLimit = 10
-	defaultHost         = "tenant-mysql"
-	defaultPort         = 3306
-	defaultPHPMyAdmin   = "/db/"
+	FreeConnectionLimit   = 10
+	FreeStorageLimitBytes = 256 << 20
+	defaultHost           = "tenant-mysql"
+	defaultPort           = 3306
+	defaultPHPMyAdmin     = "/db/"
 )
 
 var (
@@ -140,7 +141,7 @@ func (s *Service) List(
 	}
 	items := make([]domain.ManagedDatabase, 0, len(records))
 	for _, record := range records {
-		items = append(items, s.view(record))
+		items = append(items, s.enrich(ctx, s.view(record)))
 	}
 	return items, nil
 }
@@ -197,7 +198,7 @@ func (s *Service) Create(
 		"database_name": record.DatabaseName,
 		"username":      record.Username,
 	})
-	return s.view(ready), nil
+	return s.enrich(ctx, s.view(ready)), nil
 }
 
 func (s *Service) Delete(
@@ -342,18 +343,177 @@ func (s *Service) audit(
 
 func (s *Service) view(record repository.ManagedDatabaseRecord) domain.ManagedDatabase {
 	return domain.ManagedDatabase{
-		ID:            record.ID.String(),
-		ProjectID:     record.ProjectID.String(),
-		Name:          record.Name,
-		Status:        record.Status,
-		Host:          s.host,
-		Port:          s.port,
-		DatabaseName:  record.DatabaseName,
-		Username:      record.Username,
-		PHPMyAdminURL: s.phpURL,
-		CreatedAt:     record.CreatedAt,
-		UpdatedAt:     record.UpdatedAt,
+		ID:                record.ID.String(),
+		ProjectID:         record.ProjectID.String(),
+		Name:              record.Name,
+		Status:            record.Status,
+		Host:              s.host,
+		Port:              s.port,
+		DatabaseName:      record.DatabaseName,
+		Username:          record.Username,
+		PHPMyAdminURL:     s.phpURL,
+		ConnectionLimit:   record.ConnectionLimit,
+		StorageLimitBytes: FreeStorageLimitBytes,
+		WriteLocked:       record.WriteLocked,
+		CreatedAt:         record.CreatedAt,
+		UpdatedAt:         record.UpdatedAt,
 	}
+}
+
+// enrich adds live MySQL usage. A usage query failure must not hide the
+// database itself, so the metadata remains visible with zeroed counters.
+func (s *Service) enrich(ctx context.Context, item domain.ManagedDatabase) domain.ManagedDatabase {
+	sizeBytes, connections, err := s.usage(ctx, item.DatabaseName)
+	if err != nil {
+		s.logger.Error("managed database usage query failed", "database", item.DatabaseName, "error", err)
+		return item
+	}
+	item.SizeBytes = sizeBytes
+	item.ConnectionCount = connections
+	return item
+}
+
+func (s *Service) usage(ctx context.Context, databaseName string) (int64, int, error) {
+	var sizeBytes int64
+	var connections int
+	err := s.admin.QueryRowContext(ctx, `
+		SELECT
+		  COALESCE((SELECT SUM(data_length + index_length) FROM information_schema.tables WHERE table_schema = ?), 0),
+		  (SELECT COUNT(*) FROM information_schema.processlist WHERE db = ?)
+	`, databaseName, databaseName).Scan(&sizeBytes, &connections)
+	if err != nil {
+		return 0, 0, err
+	}
+	return sizeBytes, connections, nil
+}
+
+// AdminSummary is the tenant-cluster view the admin Overview renders. It is
+// counts only — no credentials and no per-database values — so it stays fast
+// enough for the overview's short health budget.
+type AdminSummary struct {
+	Reachable        bool
+	DatabaseCount    int
+	WriteLockedCount int
+}
+
+// AdminSummary reports cluster reachability plus the ready database count and
+// how many of them are write-locked. A metadata read failure never hides that
+// the cluster itself is reachable.
+func (s *Service) AdminSummary(ctx context.Context) AdminSummary {
+	summary := AdminSummary{}
+	pingContext, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	if err := s.admin.PingContext(pingContext); err != nil {
+		return summary
+	}
+	summary.Reachable = true
+	records, err := s.repo.ListAllReadyManagedDatabases(ctx)
+	if err != nil {
+		s.logger.Error("managed database admin summary failed", "error", err)
+		return summary
+	}
+	summary.DatabaseCount = len(records)
+	for _, record := range records {
+		if record.WriteLocked {
+			summary.WriteLockedCount++
+		}
+	}
+	return summary
+}
+
+// ListBackups returns the completed snapshots for one database plus its most
+// recent restore request, so the Console can render both the history and the
+// progress of any in-flight restore.
+func (s *Service) ListBackups(
+	ctx context.Context,
+	projectID,
+	databaseID uuid.UUID,
+) ([]domain.ManagedDatabaseBackup, domain.ManagedDatabaseRestore, bool, error) {
+	records, err := s.repo.ListManagedDatabaseBackups(ctx, projectID, databaseID, 30)
+	if err != nil {
+		return nil, domain.ManagedDatabaseRestore{}, false, err
+	}
+	items := make([]domain.ManagedDatabaseBackup, 0, len(records))
+	for _, record := range records {
+		items = append(items, domain.ManagedDatabaseBackup{
+			ID:         record.ID.String(),
+			DatabaseID: record.DatabaseID.String(),
+			BackupPath: record.BackupPath,
+			SizeBytes:  record.SizeBytes,
+			Source:     record.Source,
+			CreatedAt:  record.CreatedAt,
+		})
+	}
+	restore, hasRestore := domain.ManagedDatabaseRestore{}, false
+	latest, err := s.repo.LatestManagedDatabaseRestore(ctx, projectID, databaseID)
+	if err == nil {
+		hasRestore = true
+		restore = domain.ManagedDatabaseRestore{
+			ID:         latest.ID.String(),
+			DatabaseID: latest.DatabaseID.String(),
+			BackupPath: latest.BackupPath,
+			Status:     latest.Status,
+			Error:      latest.Error,
+			CreatedAt:  latest.CreatedAt,
+			UpdatedAt:  latest.UpdatedAt,
+		}
+	} else if !errors.Is(err, repository.ErrNotFound) {
+		return nil, domain.ManagedDatabaseRestore{}, false, err
+	}
+	return items, restore, hasRestore, nil
+}
+
+// RequestRestore queues a restore of one backup. The worker claims it within
+// a minute; until then its status stays "queued".
+func (s *Service) RequestRestore(
+	ctx context.Context,
+	projectID,
+	actorAccountID,
+	databaseID,
+	backupID uuid.UUID,
+) (domain.ManagedDatabaseRestore, error) {
+	// Verify the backup belongs to this database before queuing, so a project
+	// cannot restore another project's snapshot.
+	backups, err := s.repo.ListManagedDatabaseBackups(ctx, projectID, databaseID, 100)
+	if err != nil {
+		return domain.ManagedDatabaseRestore{}, err
+	}
+	var chosen *repository.ManagedDatabaseBackupRecord
+	for i := range backups {
+		if backups[i].ID == backupID {
+			chosen = &backups[i]
+			break
+		}
+	}
+	if chosen == nil {
+		return domain.ManagedDatabaseRestore{}, repository.ErrNotFound
+	}
+	restoreID, err := uuid.NewV7()
+	if err != nil {
+		return domain.ManagedDatabaseRestore{}, err
+	}
+	created, err := s.repo.CreateManagedDatabaseRestore(ctx, repository.ManagedDatabaseRestoreRecord{
+		ID:          restoreID,
+		DatabaseID:  databaseID,
+		ProjectID:   projectID,
+		BackupPath:  chosen.BackupPath,
+		RequestedBy: actorAccountID,
+	})
+	if err != nil {
+		return domain.ManagedDatabaseRestore{}, err
+	}
+	s.audit(ctx, projectID, actorAccountID, databaseID, "managed_database.restore.request", map[string]any{
+		"backup_path": chosen.BackupPath,
+		"restore_id":  restoreID.String(),
+	})
+	return domain.ManagedDatabaseRestore{
+		ID:         created.ID.String(),
+		DatabaseID: created.DatabaseID.String(),
+		BackupPath: created.BackupPath,
+		Status:     created.Status,
+		CreatedAt:  created.CreatedAt,
+		UpdatedAt:  created.UpdatedAt,
+	}, nil
 }
 
 func randomPassword() (string, error) {

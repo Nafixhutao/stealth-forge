@@ -118,6 +118,8 @@ export const queryKeys = {
   ) => ["site-deployment", projectId, siteId, deploymentId, "files"] as const,
   managedDatabases: (projectId: string) =>
     ["managed-databases", projectId] as const,
+  managedDatabaseBackups: (projectId: string, databaseId: string) =>
+    ["managed-database-backups", projectId, databaseId] as const,
   databases: (projectId: string) => ["databases", projectId] as const,
   database: (projectId: string, databaseId: string) =>
     ["database", projectId, databaseId] as const,

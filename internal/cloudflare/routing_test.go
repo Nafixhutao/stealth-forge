@@ -1047,7 +1047,7 @@ func TestDesiredTunnelIngressAddsManagedDatabaseHost(t *testing.T) {
 	want := []IngressRule{
 		{Hostname: "console.example.test", Service: "http://proxy:80"},
 		{Hostname: "*.apps.example.test", Service: "http://traefik:8080"},
-		{Hostname: "db.example.test", Service: "http://tenant-phpmyadmin:80"},
+		{Hostname: "db.example.test", Service: "http://proxy:80"},
 		{Service: "http_status:404"},
 	}
 	if !sameIngress(rules, want) {

@@ -20,6 +20,10 @@ func (s *Server) registerManagedDatabaseRoutes(r chi.Router) {
 		Post("/projects/{projectID}/managed-databases/{databaseID}/password", s.revealManagedDatabasePassword)
 	r.With(s.requireProjectManagement).
 		Post("/projects/{projectID}/managed-databases/{databaseID}/password/rotate", s.rotateManagedDatabasePassword)
+	r.With(s.requireProjectManagement).
+		Get("/projects/{projectID}/managed-databases/{databaseID}/backups", s.listManagedDatabaseBackups)
+	r.With(s.requireProjectManagement).
+		Post("/projects/{projectID}/managed-databases/{databaseID}/backups/{backupID}/restore", s.restoreManagedDatabase)
 }
 
 // managedDatabaseActor keeps the hosted-database surface Console-only. A
@@ -135,6 +139,48 @@ func (s *Server) rotateManagedDatabasePassword(w http.ResponseWriter, r *http.Re
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"password": password})
+}
+
+func (s *Server) listManagedDatabaseBackups(w http.ResponseWriter, r *http.Request) {
+	projectID, _, ok := s.managedDatabaseActor(w, r)
+	if !ok {
+		return
+	}
+	databaseID, ok := pathUUID(w, r, "databaseID")
+	if !ok {
+		return
+	}
+	backups, restore, hasRestore, err := s.managedDatabases.ListBackups(r.Context(), projectID, databaseID)
+	if err != nil {
+		s.managedDatabaseError(w, err)
+		return
+	}
+	response := map[string]any{"backups": backups}
+	if hasRestore {
+		response["latest_restore"] = restore
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func (s *Server) restoreManagedDatabase(w http.ResponseWriter, r *http.Request) {
+	projectID, actorID, ok := s.managedDatabaseActor(w, r)
+	if !ok {
+		return
+	}
+	databaseID, ok := pathUUID(w, r, "databaseID")
+	if !ok {
+		return
+	}
+	backupID, ok := pathUUID(w, r, "backupID")
+	if !ok {
+		return
+	}
+	restore, err := s.managedDatabases.RequestRestore(r.Context(), projectID, actorID, databaseID, backupID)
+	if err != nil {
+		s.managedDatabaseError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]any{"restore": restore})
 }
 
 func (s *Server) managedDatabaseError(w http.ResponseWriter, err error) {

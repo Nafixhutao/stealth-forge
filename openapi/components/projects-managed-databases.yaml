@@ -3,7 +3,7 @@ components:
     ManagedDatabase:
       type: object
       additionalProperties: false
-      required: [id, project_id, name, status, host, port, database_name, username, phpmyadmin_url, created_at, updated_at]
+      required: [id, project_id, name, status, host, port, database_name, username, phpmyadmin_url, size_bytes, connection_count, connection_limit, storage_limit_bytes, write_locked, created_at, updated_at]
       properties:
         id: { type: string, format: uuid }
         project_id: { type: string, format: uuid }
@@ -13,7 +13,12 @@ components:
         port: { type: integer }
         database_name: { type: string }
         username: { type: string }
-        phpmyadmin_url: { type: string, description: Console-relative URL for the shared phpMyAdmin login. }
+        phpmyadmin_url: { type: string, description: Public phpMyAdmin URL for this installation. }
+        size_bytes: { type: integer, format: int64, description: Live data and index bytes in this schema. }
+        connection_count: { type: integer, description: Current connections using this schema. }
+        connection_limit: { type: integer, description: Maximum concurrent connections for this database. }
+        storage_limit_bytes: { type: integer, format: int64, description: Free-tier fair-use limit. }
+        write_locked: { type: boolean, description: True when the free-tier fair-use budget is exceeded and writes are suspended until usage drops. }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
     ManagedDatabasesPage:
@@ -43,3 +48,42 @@ components:
       required: [password]
       properties:
         password: { type: string }
+    ManagedDatabaseBackup:
+      type: object
+      additionalProperties: false
+      required: [id, database_id, backup_path, size_bytes, source, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        database_id: { type: string, format: uuid }
+        backup_path: { type: string, description: Validated relative path inside the shared backups volume. }
+        size_bytes: { type: integer, format: int64 }
+        source: { type: string, enum: [daily, manual, pre_restore] }
+        created_at: { type: string, format: date-time }
+    ManagedDatabaseRestore:
+      type: object
+      additionalProperties: false
+      required: [id, database_id, backup_path, status, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        database_id: { type: string, format: uuid }
+        backup_path: { type: string }
+        status: { type: string, enum: [queued, running, succeeded, failed] }
+        error: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ManagedDatabaseBackupsPage:
+      type: object
+      additionalProperties: false
+      required: [backups]
+      properties:
+        backups:
+          type: array
+          items: { $ref: './projects-managed-databases.yaml#/components/schemas/ManagedDatabaseBackup' }
+        latest_restore:
+          $ref: './projects-managed-databases.yaml#/components/schemas/ManagedDatabaseRestore'
+    ManagedDatabaseRestoreResponse:
+      type: object
+      additionalProperties: false
+      required: [restore]
+      properties:
+        restore: { $ref: './projects-managed-databases.yaml#/components/schemas/ManagedDatabaseRestore' }

@@ -44,7 +44,7 @@
   --color-coral-red: #ea9198;
   --color-signal-teal: #6fc0cc;
   --color-iris-violet: #a69aef;
-  --color-lavender: #d491ac;
+  --color-lavender: #9b9aa8;
 
   /* Control boundaries must stay legible against the dark surfaces (WCAG 1.4.11,
      3:1). graphite is a decorative border tone and is too dark for a control edge.
@@ -116,8 +116,8 @@
   --color-orange-200: #a5d8e0;
   --color-orange-300: #6fc0cc;
   --color-orange-400: #6fc0cc;
-  --color-pink-200: #eccdd8;
-  --color-pink-300: #d491ac;
+  --color-pink-200: #d6d5dd;
+  --color-pink-300: #9b9aa8;
 
   --text-caption: 13px;
   --text-body-sm: 15px;

@@ -30,8 +30,9 @@ func desiredTunnelIngress(consoleHostname, wildcardHostname string, consoleOrigi
 }
 
 // desiredTunnelIngressWithDatabase adds the optional hosted-database hostname.
-// phpMyAdmin is served directly by the tunnel so it does not depend on the
-// Console's nginx path and can live on its own origin.
+// phpMyAdmin is routed through the Console's nginx (proxy:80) so the public
+// door inherits the nginx rate limits; a dedicated server block there proxies
+// to the tenant cluster at the hostname's root.
 func desiredTunnelIngressWithDatabase(consoleHostname, wildcardHostname, databaseHostname string, consoleOrigins ...string) []IngressRule {
 	consoleOrigin := ConsoleOriginProxy
 	if len(consoleOrigins) > 0 && consoleOriginService(consoleOrigins[0]) != "" {
@@ -42,9 +43,24 @@ func desiredTunnelIngressWithDatabase(consoleHostname, wildcardHostname, databas
 		result = append(result, IngressRule{Hostname: wildcardHostname, Service: "http://traefik:8080"})
 	}
 	if databaseHostname != "" {
-		result = append(result, IngressRule{Hostname: databaseHostname, Service: "http://tenant-phpmyadmin:80"})
+		result = append(result, IngressRule{Hostname: databaseHostname, Service: "http://proxy:80"})
 	}
 	return append(result, IngressRule{Service: "http_status:404"})
+}
+
+// ingressPath extracts an optional tunnel path rule so sameIngress can detect
+// drift: the database hostname must be served at its own root, not behind a
+// leftover /db/ prefix from a previous release.
+func ingressPath(rule IngressRule) string {
+	raw, ok := rule.Extra["path"]
+	if !ok {
+		return ""
+	}
+	var path string
+	if json.Unmarshal(raw, &path) != nil {
+		return ""
+	}
+	return path
 }
 
 func consoleIngressRule(hostname, origin string) IngressRule {
@@ -211,7 +227,8 @@ func sameIngress(left, right []IngressRule) bool {
 	}
 	for i := range left {
 		if domainname.Canonical(left[i].Hostname) != domainname.Canonical(right[i].Hostname) ||
-			left[i].Service != right[i].Service {
+			left[i].Service != right[i].Service ||
+			ingressPath(left[i]) != ingressPath(right[i]) {
 			return false
 		}
 	}

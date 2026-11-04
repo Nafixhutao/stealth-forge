@@ -7176,6 +7176,64 @@ paths:
           $ref: '#/components/responses/InternalError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /v1/projects/{projectID}/managed-databases/{databaseID}/backups:
+    get:
+      operationId: listManagedDatabaseBackups
+      description: Completed snapshots plus the most recent restore request.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectID'
+        - $ref: '#/components/parameters/DatabaseID'
+      responses:
+        '200':
+          description: Backups and latest restore
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagedDatabaseBackupsPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/projects/{projectID}/managed-databases/{databaseID}/backups/{backupID}/restore:
+    post:
+      operationId: restoreManagedDatabase
+      description: Queues a restore of one backup. The worker executes it within a minute.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectID'
+        - $ref: '#/components/parameters/DatabaseID'
+        - name: backupID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '202':
+          description: Restore queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagedDatabaseRestoreResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /v1/projects/{projectID}/sites:
     get:
       operationId: listSites
@@ -9471,6 +9529,9 @@ components:
             - healthy
             - unavailable
             - unknown
+        summary:
+          type: string
+          description: Optional one-line operator summary rendered beside the component name.
     AdminTelemetryStatus:
       type: object
       additionalProperties: false
@@ -18811,6 +18872,11 @@ components:
         - database_name
         - username
         - phpmyadmin_url
+        - size_bytes
+        - connection_count
+        - connection_limit
+        - storage_limit_bytes
+        - write_locked
         - created_at
         - updated_at
       properties:
@@ -18839,7 +18905,24 @@ components:
           type: string
         phpmyadmin_url:
           type: string
-          description: Console-relative URL for the shared phpMyAdmin login.
+          description: Public phpMyAdmin URL for this installation.
+        size_bytes:
+          type: integer
+          format: int64
+          description: Live data and index bytes in this schema.
+        connection_count:
+          type: integer
+          description: Current connections using this schema.
+        connection_limit:
+          type: integer
+          description: Maximum concurrent connections for this database.
+        storage_limit_bytes:
+          type: integer
+          format: int64
+          description: Free-tier fair-use limit.
+        write_locked:
+          type: boolean
+          description: True when the free-tier fair-use budget is exceeded and writes are suspended until usage drops.
         created_at:
           type: string
           format: date-time
@@ -19136,6 +19219,92 @@ components:
             $ref: '#/components/schemas/AgentArtifact'
         pagination:
           $ref: '#/components/schemas/Pagination'
+    ManagedDatabaseBackup:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - database_id
+        - backup_path
+        - size_bytes
+        - source
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        database_id:
+          type: string
+          format: uuid
+        backup_path:
+          type: string
+          description: Validated relative path inside the shared backups volume.
+        size_bytes:
+          type: integer
+          format: int64
+        source:
+          type: string
+          enum:
+            - daily
+            - manual
+            - pre_restore
+        created_at:
+          type: string
+          format: date-time
+    ManagedDatabaseRestore:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - database_id
+        - backup_path
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        database_id:
+          type: string
+          format: uuid
+        backup_path:
+          type: string
+        status:
+          type: string
+          enum:
+            - queued
+            - running
+            - succeeded
+            - failed
+        error:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ManagedDatabaseBackupsPage:
+      type: object
+      additionalProperties: false
+      required:
+        - backups
+      properties:
+        backups:
+          type: array
+          items:
+            $ref: '#/components/schemas/ManagedDatabaseBackup'
+        latest_restore:
+          $ref: '#/components/schemas/ManagedDatabaseRestore'
+    ManagedDatabaseRestoreResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - restore
+      properties:
+        restore:
+          $ref: '#/components/schemas/ManagedDatabaseRestore'
     SiteDeploymentFile:
       type: object
       additionalProperties: false

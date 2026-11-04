@@ -15,6 +15,9 @@ export function useManagedDatabases(projectId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.managedDatabases(projectId ?? ""),
     enabled: Boolean(projectId),
+    // Usage is read from MySQL on each request; a minute keeps the free-tier
+    // cards current without turning the Console into a polling dashboard.
+    refetchInterval: 60_000,
     queryFn: cancellableQuery((signal) =>
       api.GET("/v1/projects/{projectID}/managed-databases", {
         params: { path: { projectID: projectId as string } },

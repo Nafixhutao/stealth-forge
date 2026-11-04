@@ -51,11 +51,11 @@ export function ProjectDatabases({ projectId }: { projectId: string }) {
   const canManage = databases.data?.pages[0]?.can_manage ?? false;
   const snapshot = usage.data?.usage;
   const description = snapshot
-    ? `${pluralize(snapshot.database_count, "database")} · ${pluralize(
+    ? `${pluralize(snapshot.database_count, "collection")} · ${pluralize(
         snapshot.database_table_count,
         "table",
       )} · ${pluralize(snapshot.database_row_count, "row")}`
-    : "The project's databases and their tables.";
+    : "The project's built-in JSON data collections.";
 
   const createButton = (
     <Button
@@ -71,7 +71,7 @@ export function ProjectDatabases({ projectId }: { projectId: string }) {
   return (
     <div className="flex flex-col gap-4">
       <ResourceSectionHeader
-        title="Databases"
+        title="Data"
         description={description}
         action={canManage && items.length > 0 ? createButton : undefined}
       />

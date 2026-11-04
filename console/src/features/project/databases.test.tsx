@@ -122,9 +122,9 @@ describe("ProjectDatabases", () => {
   it("reports the project's databases, tables, and rows from the snapshot", () => {
     renderDatabases();
 
-    expect(screen.getByText("Databases")).toBeInTheDocument();
+    expect(screen.getByText("Data")).toBeInTheDocument();
     expect(
-      screen.getByText("2 databases · 14 tables · 4,820 rows"),
+      screen.getByText("2 collections · 14 tables · 4,820 rows"),
     ).toBeInTheDocument();
   });
 
@@ -134,7 +134,7 @@ describe("ProjectDatabases", () => {
     renderDatabases();
 
     expect(
-      screen.getByText("The project's databases and their tables."),
+      screen.getByText("The project's built-in JSON data collections."),
     ).toBeInTheDocument();
   });
 

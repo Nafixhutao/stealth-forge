@@ -2887,6 +2887,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/projects/{projectID}/managed-databases/{databaseID}/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Completed snapshots plus the most recent restore request. */
+        get: operations["listManagedDatabaseBackups"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectID}/managed-databases/{databaseID}/backups/{backupID}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Queues a restore of one backup. The worker executes it within a minute. */
+        post: operations["restoreManagedDatabase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/projects/{projectID}/sites": {
         parameters: {
             query?: never;
@@ -3538,6 +3572,8 @@ export interface components {
             name: string;
             /** @enum {string} */
             status: AdminComponentStatusStatus;
+            /** @description Optional one-line operator summary rendered beside the component name. */
+            summary?: string;
         };
         AdminTelemetryStatus: {
             /** @enum {string} */
@@ -6945,8 +6981,24 @@ export interface components {
             port: number;
             database_name: string;
             username: string;
-            /** @description Console-relative URL for the shared phpMyAdmin login. */
+            /** @description Public phpMyAdmin URL for this installation. */
             phpmyadmin_url: string;
+            /**
+             * Format: int64
+             * @description Live data and index bytes in this schema.
+             */
+            size_bytes: number;
+            /** @description Current connections using this schema. */
+            connection_count: number;
+            /** @description Maximum concurrent connections for this database. */
+            connection_limit: number;
+            /**
+             * Format: int64
+             * @description Free-tier fair-use limit.
+             */
+            storage_limit_bytes: number;
+            /** @description True when the free-tier fair-use budget is exceeded and writes are suspended until usage drops. */
+            write_locked: boolean;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -7044,6 +7096,41 @@ export interface components {
         AgentArtifactsPage: {
             artifacts: components["schemas"]["AgentArtifact"][];
             pagination: components["schemas"]["Pagination"];
+        };
+        ManagedDatabaseBackup: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            database_id: string;
+            /** @description Validated relative path inside the shared backups volume. */
+            backup_path: string;
+            /** Format: int64 */
+            size_bytes: number;
+            /** @enum {string} */
+            source: ManagedDatabaseBackupSource;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ManagedDatabaseRestore: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            database_id: string;
+            backup_path: string;
+            /** @enum {string} */
+            status: ManagedDatabaseRestoreStatus;
+            error?: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ManagedDatabaseBackupsPage: {
+            backups: components["schemas"]["ManagedDatabaseBackup"][];
+            latest_restore?: components["schemas"]["ManagedDatabaseRestore"];
+        };
+        ManagedDatabaseRestoreResponse: {
+            restore: components["schemas"]["ManagedDatabaseRestore"];
         };
         SiteDeploymentFile: {
             /** @description Path relative to the release root using forward slashes. The public preview route accepts it verbatim. */
@@ -14418,6 +14505,63 @@ export interface operations {
             503: components["responses"]["ServiceUnavailable"];
         };
     };
+    listManagedDatabaseBackups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                databaseID: components["parameters"]["DatabaseID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Backups and latest restore */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagedDatabaseBackupsPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    restoreManagedDatabase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectID: components["parameters"]["ProjectID"];
+                databaseID: components["parameters"]["DatabaseID"];
+                backupID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Restore queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagedDatabaseRestoreResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
     listSites: {
         parameters: {
             query?: {
@@ -17220,6 +17364,17 @@ export enum ManagedDatabaseStatus {
 }
 export enum AgentArtifactKind {
     document = "document"
+}
+export enum ManagedDatabaseBackupSource {
+    daily = "daily",
+    manual = "manual",
+    pre_restore = "pre_restore"
+}
+export enum ManagedDatabaseRestoreStatus {
+    queued = "queued",
+    running = "running",
+    succeeded = "succeeded",
+    failed = "failed"
 }
 export enum ComponentsParametersOrderDirection {
     asc = "asc",

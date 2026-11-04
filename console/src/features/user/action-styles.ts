@@ -4,7 +4,7 @@
  * The shared `Button` is the Inlark, dark-only control: its default variant
  * paints the lavender `acid-lime`, and its secondary variant the graphite and
  * obsidian surfaces. Both read as a different product on this surface, which
- * ships the pink accent and a light theme. These class strings re-skin the
+ * ships a near-white primary and a light theme. These class strings re-skin the
  * same component instead of forking it, so focus, press, and disabled
  * behavior stay in one place. Landing after the variant classes lets twMerge
  * drop the conflicting utilities.
@@ -15,7 +15,7 @@
  * its own.
  */
 export const PRIMARY_ACTION =
-  "!h-9 !min-h-0 shrink-0 !px-[15px] gap-2 !text-[12px] font-semibold bg-[#FD366E] hover:bg-[#FF4D80] rounded-lg text-white focus-visible:ring-[#FD366E]/50 focus-visible:ring-offset-[var(--projects-bg)] sm:!w-auto sm:!px-4 sm:!text-[15px]";
+  "!h-9 !min-h-0 shrink-0 !px-[15px] gap-2 !text-[12px] font-semibold bg-[var(--primary-action-bg)] hover:bg-[var(--primary-action-hover)] rounded-lg text-[var(--primary-action-text)] focus-visible:ring-[var(--user-accent)]/60 focus-visible:ring-offset-[var(--projects-bg)] sm:!w-auto sm:!px-4 sm:!text-[15px]";
 
 export const SECONDARY_ACTION =
   "h-11 min-h-11 rounded-xl border border-[var(--projects-border)] bg-[var(--projects-card-bg)] text-[15px] text-[var(--projects-text)] hover:border-[var(--projects-border-hover)] hover:bg-[var(--projects-control)] focus-visible:ring-[var(--user-accent)]/50 focus-visible:ring-offset-[var(--projects-bg)] sm:h-9 sm:min-h-9";

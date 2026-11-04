@@ -97,6 +97,7 @@ type Config struct {
 	TenantMySQLPort          int
 	TenantPHPMyAdminURL      string
 	ManagedDatabaseHostname  string
+	TenantMySQLContainer     string
 	// BootstrapCLIKey authenticates the local CLI when it asks the API to mint
 	// a first-run setup session and encrypts short-lived GitHub authorization state.
 	// It is a separate security domain from FunctionsSecretKey.

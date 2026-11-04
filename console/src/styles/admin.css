@@ -251,21 +251,32 @@ html [data-user-surface] {
   color: #efedf0;
 }
 
-/* The user console accent: the pink from the reference design.
-   A separate token set rather than a change to `--projects-accent`, because
-   the admin console paints its own surfaces with that green and the two areas
-   ship different product accents on purpose. Declared at the root so portaled
-   dialogs inherit the same value. */
+/* The user console accent. In place of the earlier pink, the primary action
+   is a near-white solid (the premium dark-surface signature: a bright "go"
+   control against the warm near-black shell). The accent token itself is a
+   muted slate reserved for focus rings, links, and selection highlights — it
+   marks state without competing with the off-white primary. Declared at the
+   root so portaled dialogs inherit the same value. */
 :root {
-  --user-accent: #fd366e;
-  --user-accent-strong: #e0245b;
-  --user-accent-hover: #c81e4f;
+  --user-accent: #9b9aa8;
+  --user-accent-strong: #c6c5d2;
+  --user-accent-hover: #7b7a88;
+
+  /* Primary action fills: near-white on the dark shell, near-black on the
+     light shell, so the control stays legible in both themes. */
+  --primary-action-bg: #ececef;
+  --primary-action-text: #131316;
+  --primary-action-hover: #ffffff;
 }
 
 html[data-theme="light"] {
-  --user-accent: #c9184a;
-  --user-accent-strong: #c9184a;
-  --user-accent-hover: #b01543;
+  --user-accent: #5b5a66;
+  --user-accent-strong: #3f3e49;
+  --user-accent-hover: #31303a;
+
+  --primary-action-bg: #1a181d;
+  --primary-action-text: #ffffff;
+  --primary-action-hover: #2a2830;
 }
 
 /* The user console portals a few surfaces — the create-project dialog and the
@@ -311,8 +322,9 @@ html[data-theme="light"]
   background-color: rgb(0 0 0 / 0.05);
 }
 
-/* Inlark's accent is the lavender `acid-lime`; the user console's is pink.
-   These are the three places the portaled surfaces still reach for it. */
+/* Inlark's accent is the lavender `acid-lime`; the user console's is the
+   muted slate accent. These are the places the portaled surfaces still reach
+   for it. */
 [data-user-surface]
   [class~="data-[highlighted]:bg-acid-lime/10"][data-highlighted] {
   background-color: color-mix(in srgb, var(--user-accent) 12%, transparent);
