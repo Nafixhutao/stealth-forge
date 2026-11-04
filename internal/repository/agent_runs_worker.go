@@ -146,6 +146,9 @@ func (r *Repository) TransitionAgentRun(
 	if err != nil {
 		return domain.AgentRun{}, err
 	}
+	if err := insertAgentArtifactsTx(ctx, tx, projectID, agentID, runID, result.Artifacts); err != nil {
+		return domain.AgentRun{}, err
+	}
 	if err := r.refreshAgentStatusTx(ctx, tx, agentID, projectID); err != nil {
 		return domain.AgentRun{}, err
 	}

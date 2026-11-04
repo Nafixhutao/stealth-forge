@@ -9,6 +9,66 @@ import (
 	"github.com/Nafixhutao/stealth-forge/internal/domainname"
 )
 
+// ensureManagedDatabaseDNS gives the hosted phpMyAdmin hostname its own proxied
+// CNAME. The wildcard record for the workload domain may point at a different
+// tunnel, and Cloudflare returns 530 when a hostname resolves but has no
+// matching tunnel ingress.
+func ensureManagedDatabaseDNS(
+	ctx context.Context,
+	client Client,
+	zones []Zone,
+	hostname,
+	target string,
+) (bool, error) {
+	hostname = domainname.Canonical(hostname)
+	if hostname == "" {
+		return false, errors.New("managed database hostname is empty")
+	}
+	zone, err := longestContainingZone(zones, hostname)
+	if err != nil {
+		return false, err
+	}
+	records, err := client.ListDNSRecords(ctx, zone.ID, hostname)
+	if err != nil {
+		return false, fmt.Errorf("list managed database DNS: %w", err)
+	}
+	for _, record := range records {
+		if !strings.EqualFold(domainname.Canonical(record.Name), hostname) {
+			continue
+		}
+		if record.Type != "CNAME" || !strings.EqualFold(record.Content, target) {
+			return false, fmt.Errorf(
+				"%w: DNS record %s does not point at the Stealth tunnel",
+				ErrRoutingConflict,
+				hostname,
+			)
+		}
+		if record.Proxied && record.TTL == 1 {
+			return false, nil
+		}
+		updated, updateErr := client.UpdateDNSRecord(ctx, zone.ID, record.ID, DNSRecord{
+			Type: "CNAME", Name: hostname, Content: target, Proxied: true, TTL: 1,
+		})
+		if updateErr != nil {
+			return false, fmt.Errorf("restore managed database DNS proxy and TTL: %w", updateErr)
+		}
+		if updated.ID == "" {
+			return false, errors.New("Cloudflare returned an invalid managed database DNS record")
+		}
+		return true, nil
+	}
+	created, createErr := client.CreateDNSRecord(ctx, zone.ID, DNSRecord{
+		Type: "CNAME", Name: hostname, Content: target, Proxied: true, TTL: 1,
+	})
+	if createErr != nil {
+		return false, fmt.Errorf("create managed database DNS: %w", createErr)
+	}
+	if created.ID == "" {
+		return false, errors.New("Cloudflare returned an invalid managed database DNS record")
+	}
+	return true, nil
+}
+
 func ensureWildcardDNS(
 	ctx context.Context,
 	client Client,

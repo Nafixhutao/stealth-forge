@@ -120,14 +120,14 @@ func newLocalTraefikProbe(
 }
 
 func TestLocalTraefikAcceptsOnlySafeConsoleRootRedirect(t *testing.T) {
-	for _, location := range []string{"/admin", "https://cloud.example.com/admin"} {
+	for _, location := range []string{"/login", "https://cloud.example.com/login"} {
 		t.Run(location, func(t *testing.T) {
 			probe, paths := newLocalTraefikProbe(t, func(w http.ResponseWriter, r *http.Request) {
 				switch r.URL.Path {
 				case "/":
 					w.Header().Set("Location", location)
 					w.WriteHeader(http.StatusTemporaryRedirect)
-				case "/admin":
+				case "/login":
 					w.WriteHeader(http.StatusOK)
 				case "/v1/account":
 					w.WriteHeader(http.StatusUnauthorized)
@@ -139,7 +139,7 @@ func TestLocalTraefikAcceptsOnlySafeConsoleRootRedirect(t *testing.T) {
 				t.Fatalf("safe local Console redirect failed: %v", err)
 			}
 			got := paths.snapshot()
-			if strings.Join(got, ",") != "/,/admin,/v1/account" {
+			if strings.Join(got, ",") != "/,/login,/v1/account" {
 				t.Fatalf("local preflight paths = %#v", got)
 			}
 		})

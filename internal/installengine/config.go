@@ -105,6 +105,18 @@ func GenerateConfig(options ConfigOptions) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	tenantMySQLRootPassword, err := randomHex(24)
+	if err != nil {
+		return "", err
+	}
+	managedDatabaseKey, err := randomBase64(32)
+	if err != nil {
+		return "", err
+	}
+	phpMyAdminSecret, err := randomBase64(32)
+	if err != nil {
+		return "", err
+	}
 	metricsToken, err := randomHex(32)
 	if err != nil {
 		return "", err
@@ -147,6 +159,15 @@ func GenerateConfig(options ConfigOptions) (string, error) {
 		"FUNCTIONS_SECRET_KEY":              functionsKey,
 		"APPS_SECRET_KEY":                   appsKey,
 		"BOOTSTRAP_CLI_KEY":                 bootstrapKey,
+		"COMPOSE_PROFILES":                  "managed-databases",
+		"MANAGED_DATABASES_ENABLED":         "true",
+		"TENANT_MYSQL_ROOT_PASSWORD":        tenantMySQLRootPassword,
+		"TENANT_MYSQL_ADMIN_DSN":            "root:" + tenantMySQLRootPassword + "@tcp(tenant-mysql:3306)/",
+		"MANAGED_DATABASE_SECRET_KEY":       managedDatabaseKey,
+		"TENANT_MYSQL_HOST":                 "tenant-mysql",
+		"TENANT_MYSQL_PORT":                 "3306",
+		"TENANT_PHPMYADMIN_BLOWFISH_SECRET": phpMyAdminSecret,
+		"TENANT_PHPMYADMIN_URL":             "/db/",
 		"GITHUB_APP_CLIENT_ID":              strings.TrimSpace(options.GitHubAppClientID),
 		"PUBLIC_APP_URL":                    publicURL,
 		"COOKIE_SECURE":                     cookieSecure,

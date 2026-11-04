@@ -135,6 +135,8 @@ func hostManagedAssetContents() map[string]string {
 		"status-site/styles.css":                      ".site-header__inner { display: flex; }\n",
 		"status-site/favicon.png":                     "\x89PNG\r\n\x1a\n",
 		"status-site/stealth-mark.png":                "\x89PNG\r\n\x1a\n",
+		"tenant-phpmyadmin/config.user.inc.php":       "<?php\n$cfg['blowfish_secret'] = 'test';\n",
+		"tenant-phpmyadmin/apache-subpath.conf":       "Alias /db /var/www/html\n",
 	}
 }
 

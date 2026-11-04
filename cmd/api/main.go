@@ -19,6 +19,7 @@ import (
 	"github.com/Nafixhutao/stealth-forge/internal/functionsecret"
 	"github.com/Nafixhutao/stealth-forge/internal/hostmetrics"
 	"github.com/Nafixhutao/stealth-forge/internal/httpapi"
+	"github.com/Nafixhutao/stealth-forge/internal/manageddb"
 	"github.com/Nafixhutao/stealth-forge/internal/observability"
 	"github.com/Nafixhutao/stealth-forge/internal/ratelimit"
 	"github.com/Nafixhutao/stealth-forge/internal/realtime"
@@ -62,6 +63,10 @@ func main() {
 	}
 	if err := cfg.ValidateAppSecrets(); err != nil {
 		logger.Error("App environment encryption configuration error", "error", err)
+		os.Exit(1)
+	}
+	if err := cfg.ValidateManagedDatabases(); err != nil {
+		logger.Error("managed database configuration error", "error", err)
 		os.Exit(1)
 	}
 	if err := cfg.ValidateProductionSecrets(); err != nil {
@@ -123,6 +128,25 @@ func main() {
 			OAuthCipher:      webhookCipher,
 		},
 	)
+	var managedDatabases *manageddb.Service
+	if cfg.ManagedDatabasesEnabled {
+		managedDatabases, err = manageddb.New(repo, manageddb.Options{
+			AdminDSN:      cfg.TenantMySQLAdminDSN,
+			Host:          cfg.TenantMySQLHost,
+			Port:          cfg.TenantMySQLPort,
+			PHPMyAdminURL: cfg.TenantPHPMyAdminURL,
+			SecretKey:     cfg.ManagedDatabaseSecretKey,
+			Logger:        logger,
+		})
+		if err != nil {
+			// A tenant-cluster outage must not take the control plane down.
+			// The managed-database routes answer 503 until the next restart.
+			logger.Error("managed database service unavailable", "error", err)
+			managedDatabases = nil
+		} else {
+			defer managedDatabases.Close()
+		}
+	}
 	telemetryStore, telemetryErr := telemetry.Open(pool, telemetry.Config{
 		MaxQueryDuration: cfg.TelemetryMaxQueryDuration,
 		MaxQueryRange:    cfg.TelemetryMaxQueryRange,
@@ -150,13 +174,14 @@ func main() {
 		repo,
 		logger,
 		httpapi.Dependencies{
-			AuthLimiter:    ratelimit.NewRedisLimiter(redisClient),
-			RealtimeBroker: realtime.NewBroker(redisClient),
-			TelemetryStore: telemetryStore,
-			HostMetrics:    hostMetrics,
-			DBMetrics:      dbMetrics,
-			RedisMetrics:   redisMetrics,
-			Redis:          redisClient,
+			AuthLimiter:      ratelimit.NewRedisLimiter(redisClient),
+			RealtimeBroker:   realtime.NewBroker(redisClient),
+			TelemetryStore:   telemetryStore,
+			HostMetrics:      hostMetrics,
+			DBMetrics:        dbMetrics,
+			RedisMetrics:     redisMetrics,
+			Redis:            redisClient,
+			ManagedDatabases: managedDatabases,
 		},
 	)
 	// signalContext is canceled on SIGINT/SIGTERM and backs each server's

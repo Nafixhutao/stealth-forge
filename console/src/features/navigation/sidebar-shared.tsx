@@ -11,8 +11,8 @@ import type { BadgeKind } from "./types";
 
 export const tap = (reduce: boolean) => (reduce ? undefined : { scale: 0.98 });
 
-/** 16×16 panel glyph from the sidebar header toggle, shared with the mobile
- * nav openers so every entry point carries the same mark. */
+/** Panel glyph from the sidebar header toggle, shared with the mobile nav
+ * openers so every entry point carries the same mark. */
 export function PanelToggleIcon({
   className = "size-4",
 }: {
@@ -34,24 +34,41 @@ export function PanelToggleIcon({
         height="10"
         rx="2"
         stroke="currentColor"
-        strokeWidth="2"
+        strokeWidth="1.8"
       />
-      <rect x="4" y="5" width="2" height="6" rx="1" fill="currentColor" />
+      <rect
+        x="4.2"
+        y="5.2"
+        width="3.2"
+        height="5.6"
+        rx="0.9"
+        fill="currentColor"
+      />
     </svg>
   );
 }
 
+/** The sidebar's navigation glyphs: 16px boxes, light 1.7 stroke, and the
+ * same ink as the row label. A 6px gap keeps the label on the reference's
+ * 40px inset. */
 export const NavIcon = (Icon: LucideIcon) => (
-  <Icon size={15} strokeWidth={1.8} className="shrink-0 text-[#AAA6AE]" />
+  <Icon size={16} strokeWidth={1.7} className="shrink-0 text-[#B5B2B9]" />
 );
 
 // `relative isolate` turns the row into its own stacking context so the
 // active pill (-z-10) paints above the row background but below the content.
 export const rowClass =
-  // 34px is the reference's desktop row; below `lg` the row grows to the 44px
-  // minimum touch target, because the same list is the mobile sheet and a
-  // 34px row is a miss waiting to happen under a thumb.
-  "relative isolate flex h-11 w-full items-center gap-[10px] px-4 text-left text-[13px] font-normal text-[#C5C1C9] transition-colors hover:bg-white/[0.035] lg:h-[38px] lg:text-[14px]";
+  // Reference rows: 32px tall cards inset 12px from the panel edge, 4px radius,
+  // a 16px glyph and a 6px gap to the label. Under `lg` the row keeps a 40px
+  // minimum touch target, because the same list is the mobile sheet.
+  "relative isolate flex h-10 items-center rounded-[4px] px-1 text-left text-[14px] font-normal leading-5 text-[#B5B2B9] transition-colors hover:bg-white/[0.05] lg:h-8";
+
+/** Row geometry differs by state: the expanded panel insets the card from the
+ * panel edge (12px), while the 52px rail only has room for a centered square. */
+export const rowWidthClass = {
+  expanded: "mx-3 w-[calc(100%-1.5rem)]",
+  collapsed: "mx-auto size-10 justify-center px-0",
+} as const;
 
 /** Rail-only separator between nav groups: folds away while the panel is
  * expanded (reference rail shows the two dividers at 8px/12px gutters). */
@@ -72,8 +89,8 @@ export function RailDivider({ collapsed }: { collapsed: boolean }) {
   );
 }
 
-/** The active-row pill from the beui animated-sidebar: one motion.span per
- * sidebar sharing a layoutId, so switching rows morphs the box across. */
+/** The active-row card: one motion.span per sidebar sharing a layoutId, so
+ * switching rows morphs the box across. */
 export function ActiveRowPill({
   layoutId,
   reduce,
@@ -87,7 +104,7 @@ export function ActiveRowPill({
       aria-hidden="true"
       layoutId={layoutId}
       transition={reduce ? { duration: 0 } : SPRING_LAYOUT}
-      className="absolute inset-0 -z-10 bg-white/[0.06]"
+      className="absolute inset-0 -z-10 rounded-[4px] bg-[#161418]"
     />
   );
 }
@@ -168,29 +185,34 @@ export function ChevronToggle({
   );
 }
 
+/** The Slack mark is a brand glyph rather than a stroke icon, so it fills the
+ * same 16px slot as the lucide glyphs. */
 export function BrandIcon({ brand }: { brand: "slack" | "discord" }) {
   if (brand === "slack") {
     return (
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 24 24"
-        className="h-[14px] w-[14px] shrink-0 fill-current text-[#AAA6AE] lg:h-[15px] lg:w-[15px]"
-      >
-        <path d="M6.2 14.5a2.2 2.2 0 1 1-2.2-2.2h2.2v2.2ZM7.3 14.5a2.2 2.2 0 1 1 4.4 0V20a2.2 2.2 0 1 1-4.4 0v-5.5Z" />
-        <path d="M9.5 6.2a2.2 2.2 0 1 1 2.2-2.2v2.2H9.5ZM9.5 7.3a2.2 2.2 0 1 1 0 4.4H4a2.2 2.2 0 1 1 0-4.4h5.5Z" />
-        <path d="M17.8 9.5A2.2 2.2 0 1 1 20 11.7h-2.2V9.5ZM16.7 9.5a2.2 2.2 0 1 1-4.4 0V4a2.2 2.2 0 1 1 4.4 0v5.5Z" />
-        <path d="M14.5 17.8a2.2 2.2 0 1 1-2.2 2.2v-2.2h2.2ZM14.5 16.7a2.2 2.2 0 1 1 0-4.4H20a2.2 2.2 0 1 1 0 4.4h-5.5Z" />
-      </svg>
+      <span className="flex size-4 shrink-0 items-center justify-center text-[#B5B2B9]">
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className="size-4 shrink-0 fill-current"
+        >
+          <path d="M6.2 14.5a2.2 2.2 0 1 1-2.2-2.2h2.2v2.2ZM7.3 14.5a2.2 2.2 0 1 1 4.4 0V20a2.2 2.2 0 1 1-4.4 0v-5.5Z" />
+          <path d="M9.5 6.2a2.2 2.2 0 1 1 2.2-2.2v2.2H9.5ZM9.5 7.3a2.2 2.2 0 1 1 0 4.4H4a2.2 2.2 0 1 1 0-4.4h5.5Z" />
+          <path d="M17.8 9.5A2.2 2.2 0 1 1 20 11.7h-2.2V9.5ZM16.7 9.5a2.2 2.2 0 1 1-4.4 0V4a2.2 2.2 0 1 1 4.4 0v5.5Z" />
+          <path d="M14.5 17.8a2.2 2.2 0 1 1-2.2 2.2v-2.2h2.2ZM14.5 16.7a2.2 2.2 0 1 1 0-4.4H20a2.2 2.2 0 1 1 0 4.4h-5.5Z" />
+        </svg>
+      </span>
     );
   }
 
   return (
-    <span className="flex size-4 shrink-0 items-center justify-center text-[#AAA6AE] [&>svg]:size-4">
+    <span className="flex size-4 shrink-0 items-center justify-start text-[#B5B2B9]">
       <svg
         viewBox="-32 -60.5 320 320"
         fill="currentColor"
         aria-hidden="true"
         preserveAspectRatio="xMidYMid"
+        className="size-4 shrink-0"
       >
         <path
           fillRule="nonzero"

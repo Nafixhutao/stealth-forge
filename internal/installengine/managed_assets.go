@@ -44,6 +44,8 @@ func DefaultManagedAssets() []ManagedAsset {
 		{Path: "status-site/styles.css", RemotePath: "status-site/styles.css", Marker: ".site-header__inner", productionOnly: true},
 		{Path: "status-site/favicon.png", RemotePath: "status-site/favicon.png", Marker: "\x89PNG\r\n\x1a\n", productionOnly: true},
 		{Path: "status-site/stealth-mark.png", RemotePath: "status-site/stealth-mark.png", Marker: "\x89PNG\r\n\x1a\n", productionOnly: true},
+		{Path: "tenant-phpmyadmin/config.user.inc.php", RemotePath: "tenant-phpmyadmin/config.user.inc.php", Marker: "$cfg['blowfish_secret']", productionOnly: true},
+		{Path: "tenant-phpmyadmin/apache-subpath.conf", RemotePath: "tenant-phpmyadmin/apache-subpath.conf", Marker: "Alias /db", productionOnly: true},
 		{Path: "compose.setup.yaml", RemotePath: "compose.setup.yaml", Marker: "services:", setupOnly: true},
 	}
 }

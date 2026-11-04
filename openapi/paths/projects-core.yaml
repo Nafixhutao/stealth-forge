@@ -123,6 +123,20 @@ paths:
       security: [{ sessionCookie: [] }]
       parameters: [{ $ref: '../components/common.yaml#/components/parameters/AgentID' }, { $ref: '../components/common.yaml#/components/parameters/RunID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { name: after, in: query, schema: { type: integer, format: int64, minimum: 0, default: 0 } }]
       responses: { '200': { description: Agent run logs, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/AgentRunLogsPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/agents/{agentID}/artifacts:
+    get:
+      operationId: listAgentArtifacts
+      description: List the files an agent produced, newest first, across its runs.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/AgentID' }, { $ref: '../components/common.yaml#/components/parameters/Limit' }, { $ref: '../components/common.yaml#/components/parameters/Cursor' }]
+      responses: { '200': { description: Agent artifacts, content: { application/json: { schema: { $ref: '../components/projects-core.yaml#/components/schemas/AgentArtifactsPage' } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
+  /v1/agents/{agentID}/artifacts/{artifactID}/download:
+    get:
+      operationId: downloadAgentArtifact
+      description: Download a produced document. Pass inline=1 to render it in the browser.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/AgentID' }, { name: artifactID, in: path, required: true, schema: { type: string, format: uuid } }, { name: inline, in: query, required: false, schema: { type: string, enum: ['1'] } }]
+      responses: { '200': { description: Artifact bytes, content: { application/octet-stream: { schema: { type: string, format: binary } } } }, '400': { $ref: '../components/common.yaml#/components/responses/BadRequest' }, '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }, '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }, '500': { $ref: '../components/common.yaml#/components/responses/InternalError' } }
   /v1/projects/{projectID}/users:
     get:
       operationId: listProjectUsers

@@ -54,6 +54,7 @@ func (s *Server) routes() http.Handler {
 		s.registerAgentRoutes(r)
 		s.registerMessagingRoutes(r)
 		s.registerDatabaseRoutes(r)
+		s.registerManagedDatabaseRoutes(r)
 		s.registerStorageRoutes(r)
 		s.registerFunctionRoutes(r)
 		s.registerSiteRoutes(r)

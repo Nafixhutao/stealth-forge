@@ -1,0 +1,68 @@
+paths:
+  /v1/projects/{projectID}/managed-databases:
+    get:
+      operationId: listManagedDatabases
+      description: Console-only list of the project's hosted MySQL databases. Server API keys cannot read database credentials.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      responses:
+        '200': { description: Managed databases, content: { application/json: { schema: { $ref: '../components/projects-managed-databases.yaml#/components/schemas/ManagedDatabasesPage' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+    post:
+      operationId: createManagedDatabase
+      description: Creates the free-tier MySQL database and user for this project. The free tier allows one database per project.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '../components/projects-managed-databases.yaml#/components/schemas/CreateManagedDatabaseRequest' } } } }
+      responses:
+        '201': { description: Managed database created, content: { application/json: { schema: { $ref: '../components/projects-managed-databases.yaml#/components/schemas/ManagedDatabaseResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '../components/common.yaml#/components/responses/Conflict' }
+        '422': { $ref: '../components/common.yaml#/components/responses/ValidationError' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/managed-databases/{databaseID}:
+    delete:
+      operationId: deleteManagedDatabase
+      description: Drops the MySQL database and user, then removes the metadata. This is irreversible.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }]
+      responses:
+        '204': { description: Managed database deleted }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/managed-databases/{databaseID}/password:
+    post:
+      operationId: revealManagedDatabasePassword
+      description: Decrypts and returns the MySQL password. Every reveal writes an audit event.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }]
+      responses:
+        '200': { description: Database password, content: { application/json: { schema: { $ref: '../components/projects-managed-databases.yaml#/components/schemas/ManagedDatabasePasswordResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }
+  /v1/projects/{projectID}/managed-databases/{databaseID}/password/rotate:
+    post:
+      operationId: rotateManagedDatabasePassword
+      description: Replaces the MySQL password and returns the new value once.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '../components/common.yaml#/components/parameters/ProjectID' }, { $ref: '../components/common.yaml#/components/parameters/DatabaseID' }]
+      responses:
+        '200': { description: New database password, content: { application/json: { schema: { $ref: '../components/projects-managed-databases.yaml#/components/schemas/ManagedDatabasePasswordResponse' } } } }
+        '401': { $ref: '../components/common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: '../components/common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: '../components/common.yaml#/components/responses/NotFound' }
+        '503': { $ref: '../components/common.yaml#/components/responses/ServiceUnavailable' }
+        '500': { $ref: '../components/common.yaml#/components/responses/InternalError' }

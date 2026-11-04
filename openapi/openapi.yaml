@@ -226,6 +226,10 @@ paths:
     $ref: './paths/projects-core.yaml#/paths/~1v1~1agents~1{agentID}~1runs~1{runID}~1cancel'
   /v1/agents/{agentID}/runs/{runID}/logs:
     $ref: './paths/projects-core.yaml#/paths/~1v1~1agents~1{agentID}~1runs~1{runID}~1logs'
+  /v1/agents/{agentID}/artifacts:
+    $ref: './paths/projects-core.yaml#/paths/~1v1~1agents~1{agentID}~1artifacts'
+  /v1/agents/{agentID}/artifacts/{artifactID}/download:
+    $ref: './paths/projects-core.yaml#/paths/~1v1~1agents~1{agentID}~1artifacts~1{artifactID}~1download'
   /v1/projects/{projectID}/users:
     $ref: './paths/projects-core.yaml#/paths/~1v1~1projects~1{projectID}~1users'
   /v1/projects/{projectID}/users/{userID}:
@@ -332,6 +336,14 @@ paths:
     $ref: './paths/projects-databases.yaml#/paths/~1v1~1projects~1{projectID}~1databases~1{databaseID}~1tables~1{tableID}~1rows~1transaction'
   /v1/projects/{projectID}/databases/{databaseID}/tables/{tableID}/rows/{rowID}:
     $ref: './paths/projects-databases.yaml#/paths/~1v1~1projects~1{projectID}~1databases~1{databaseID}~1tables~1{tableID}~1rows~1{rowID}'
+  /v1/projects/{projectID}/managed-databases:
+    $ref: './paths/projects-managed-databases.yaml#/paths/~1v1~1projects~1{projectID}~1managed-databases'
+  /v1/projects/{projectID}/managed-databases/{databaseID}:
+    $ref: './paths/projects-managed-databases.yaml#/paths/~1v1~1projects~1{projectID}~1managed-databases~1{databaseID}'
+  /v1/projects/{projectID}/managed-databases/{databaseID}/password:
+    $ref: './paths/projects-managed-databases.yaml#/paths/~1v1~1projects~1{projectID}~1managed-databases~1{databaseID}~1password'
+  /v1/projects/{projectID}/managed-databases/{databaseID}/password/rotate:
+    $ref: './paths/projects-managed-databases.yaml#/paths/~1v1~1projects~1{projectID}~1managed-databases~1{databaseID}~1password~1rotate'
   /v1/projects/{projectID}/sites:
     $ref: './paths/projects-core.yaml#/paths/~1v1~1projects~1{projectID}~1sites'
   /v1/projects/{projectID}/apps:
@@ -1244,6 +1256,16 @@ components:
       $ref: './components/projects-databases.yaml#/components/schemas/DatabaseRowResponse'
     ProjectDatabasesPage:
       $ref: './components/projects-core.yaml#/components/schemas/ProjectDatabasesPage'
+    ManagedDatabase:
+      $ref: './components/projects-managed-databases.yaml#/components/schemas/ManagedDatabase'
+    ManagedDatabasesPage:
+      $ref: './components/projects-managed-databases.yaml#/components/schemas/ManagedDatabasesPage'
+    ManagedDatabaseResponse:
+      $ref: './components/projects-managed-databases.yaml#/components/schemas/ManagedDatabaseResponse'
+    CreateManagedDatabaseRequest:
+      $ref: './components/projects-managed-databases.yaml#/components/schemas/CreateManagedDatabaseRequest'
+    ManagedDatabasePasswordResponse:
+      $ref: './components/projects-managed-databases.yaml#/components/schemas/ManagedDatabasePasswordResponse'
     DatabaseTablesPage:
       $ref: './components/projects-databases.yaml#/components/schemas/DatabaseTablesPage'
     DatabaseColumnsPage:

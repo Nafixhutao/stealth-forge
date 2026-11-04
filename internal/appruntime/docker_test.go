@@ -272,6 +272,22 @@ func TestRuntimeNetworkAcceptsOnlyExpectedTrustedPeers(t *testing.T) {
 	if !managedRuntimeNetworkPeer(traefik) {
 		t.Fatal("current hardened Traefik peer was rejected")
 	}
+	tenantMySQL := Container{
+		Config: containerConfig{Labels: map[string]string{
+			"stealth.managed": "true", "stealth.resource_type": "tenant_mysql", "stealth.runtime_schema": runtimeSchema,
+			"com.docker.compose.service": "tenant-mysql",
+		}},
+		HostConfig: hostConfig{SecurityOpt: []string{"no-new-privileges:true"}},
+	}
+	if !managedRuntimeNetworkPeer(tenantMySQL) {
+		t.Fatal("hardened tenant MySQL peer was rejected")
+	}
+	tenantMySQL.Config.Labels = maps.Clone(tenantMySQL.Config.Labels)
+	tenantMySQL.Config.Labels["com.docker.compose.service"] = "postgres"
+	if managedRuntimeNetworkPeer(tenantMySQL) {
+		t.Fatal("a different Compose service passed as the tenant MySQL peer")
+	}
+
 	mutations := []struct {
 		name   string
 		change func(*Container)

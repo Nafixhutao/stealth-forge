@@ -41,6 +41,10 @@ vi.mock("@/api/mutations/projects", () => ({
   useCreateProject: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
+vi.mock("@/api/mutations/organizations", () => ({
+  useCreateOrganization: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+
 vi.mock("@/api/mutations/auth", () => ({
   useLogout: () => ({ mutate: vi.fn(), isPending: false }),
 }));
@@ -446,18 +450,43 @@ describe("UserHome", () => {
     expect(useOrganizationProjects).toHaveBeenLastCalledWith(beta.id);
   });
 
-  it("explains an account with no organizations", () => {
+  it("offers organization creation to an account with no organizations", () => {
     useOrganizations.mockReturnValue(query({ data: organizationsPage([]) }));
 
     renderHome();
 
     expect(
-      screen.getByText("You are not in an organization yet"),
+      screen.getByText("Create your first organization"),
     ).toBeInTheDocument();
-    // Nothing to create a project in, so the quick action is disabled.
+    // Nothing to create a project in, so the quick action stays disabled.
     expect(
       screen.getByRole("button", { name: "Create project" }),
     ).toBeDisabled();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create organization" }),
+    );
+    expect(
+      screen.getByRole("heading", { name: "Create organization" }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers a new organization from the switcher", () => {
+    useOrganizations.mockReturnValue(
+      query({ data: organizationsPage([acme, beta]) }),
+    );
+
+    renderHome();
+    const trigger = screen.getByRole("button", {
+      name: "Switch organization",
+    });
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: "Enter" });
+    fireEvent.click(screen.getByText("New organization"));
+
+    expect(
+      screen.getByRole("heading", { name: "Create organization" }),
+    ).toBeInTheDocument();
   });
 
   it("hides every create control from a member who may not create", () => {

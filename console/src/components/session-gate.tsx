@@ -30,8 +30,9 @@ export function useSessionGuard() {
 }
 
 /**
- * Requires an authenticated Console session. The customer console needs no
- * role rule beyond this: any signed-in account may use it.
+ * Requires an authenticated Console session. The customer console is for
+ * signed-in non-admin accounts: the proxy routes instance owners and admins to
+ * /admin before any of this renders, and no route under /user is for them.
  */
 export function SessionGate({ children }: { children: React.ReactNode }) {
   const { account, checking } = useSessionGuard();

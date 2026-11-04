@@ -41,6 +41,7 @@ const FOCUS =
 const SECTIONS = [
   { label: "Overview", segment: "" },
   { label: "Databases", segment: "databases" },
+  { label: "MySQL", segment: "mysql" },
   { label: "Storage", segment: "storage" },
   { label: "Functions", segment: "functions" },
   { label: "Sites", segment: "sites" },

@@ -114,17 +114,20 @@ func (m *Moby) validateNetwork(ctx context.Context, network NetworkInspect) erro
 	return nil
 }
 
-// ensureRuntimeNetworkPeers joins only the current trusted worker and
-// Traefik containers to the separately owned App bridge. Apps remain isolated
-// from all backend networks and no host ports are published.
+// ensureRuntimeNetworkPeers joins only the current trusted worker, Traefik,
+// and the tenant MySQL service to the separately owned App bridge. Apps remain
+// isolated from backend networks and no host ports are published; the tenant
+// database is the one intentional cross-network peer.
 func (m *Moby) ensureRuntimeNetworkPeers(ctx context.Context) error {
 	for _, peer := range []struct {
 		resourceType string
 		service      string
+		alias        string
 		optional     bool
 	}{
 		{resourceType: "app_runtime_worker", service: "worker"},
 		{resourceType: "app_runtime_ingress", service: "traefik", optional: true},
+		{resourceType: "tenant_mysql", service: "tenant-mysql", alias: "tenant-mysql", optional: true},
 	} {
 		result, err := m.runAction(ctx, []string{
 			"container", "ls", "--quiet", "--no-trunc",
@@ -153,7 +156,12 @@ func (m *Moby) ensureRuntimeNetworkPeers(ctx context.Context) error {
 		if _, connected := network.Containers[container.ID]; connected {
 			continue
 		}
-		_, connectErr := m.runAction(ctx, []string{"network", "connect", m.NetworkName, container.ID}, nil)
+		connectArgs := []string{"network", "connect"}
+		if peer.alias != "" {
+			connectArgs = append(connectArgs, "--alias", peer.alias)
+		}
+		connectArgs = append(connectArgs, m.NetworkName, container.ID)
+		_, connectErr := m.runAction(ctx, connectArgs, nil)
 		// A lost response or another worker may have completed the connection.
 		network, found, err = m.inspectNetwork(ctx)
 		if err != nil || !found || m.validateNetwork(ctx, network) != nil {
@@ -187,6 +195,10 @@ func runtimeNetworkPeerMatches(container Container, resourceType, service string
 		return service == "worker" && hasDockerSocketMount(container.Mounts)
 	case "app_runtime_ingress":
 		return service == "traefik" && container.HostConfig.ReadonlyRootfs && slices.Contains(container.HostConfig.CapDrop, "ALL") &&
+			slices.Contains(container.HostConfig.SecurityOpt, "no-new-privileges:true") &&
+			!hasMountDestination(container.Mounts, "/var/run/docker.sock")
+	case "tenant_mysql":
+		return service == "tenant-mysql" &&
 			slices.Contains(container.HostConfig.SecurityOpt, "no-new-privileges:true") &&
 			!hasMountDestination(container.Mounts, "/var/run/docker.sock")
 	default:

@@ -22,6 +22,11 @@ export type NavRowProps = {
   badge?: BadgeKind;
   expandable?: boolean;
   labelClassName?: string;
+  /** Right-aligned accent inside the row (the gift on Agent). */
+  trailing?: ReactNode;
+  /** A real destination. Rows without one hold the selection locally until
+   * their surface ships, so no row promises a page that would 404. */
+  href?: string;
   /** Renders the shared layoutId pill behind the row when selected. */
   isActive?: boolean;
   /** Shared layoutId — every row in a sidebar passes the same one so the
@@ -37,5 +42,11 @@ export type NavRowProps = {
 
 export type NavItem = Pick<
   NavRowProps,
-  "icon" | "label" | "badge" | "expandable" | "labelClassName"
+  | "icon"
+  | "label"
+  | "badge"
+  | "expandable"
+  | "labelClassName"
+  | "trailing"
+  | "href"
 >;

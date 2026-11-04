@@ -26,9 +26,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { CreateOrganizationDialog } from "@/features/user/create-organization-dialog";
 import { CreateProjectDialog } from "@/features/user/create-project-dialog";
 import {
   PRIMARY_ACTION,
@@ -111,6 +113,9 @@ export function UserHome() {
   const [view, setView] = useState<"grid" | "list">("grid");
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  // Organization creation is offered both from the empty state and from the
+  // switcher, so one dialog owns the flow for either entry point.
+  const [orgCreateOpen, setOrgCreateOpen] = useState(false);
 
   const items = organizationItems(organizations.data);
   // An explicit choice wins; otherwise the first organization is the default so
@@ -159,6 +164,14 @@ export function UserHome() {
   return (
     <div className="flex min-h-dvh w-full max-w-full flex-col overflow-x-hidden">
       <UserTopBar canOpenAdmin={canOpenAdmin} />
+
+      {/* One dialog for both entry points; it portals, so its position in the
+          tree does not constrain the trigger. */}
+      <CreateOrganizationDialog
+        open={orgCreateOpen}
+        onOpenChange={setOrgCreateOpen}
+        onCreated={(organization) => setSelectedId(organization.id)}
+      />
 
       <div className="flex-1 w-full max-w-full overflow-x-hidden">
         <PageBody>
@@ -222,6 +235,16 @@ export function UserHome() {
                         ) : null}
                       </DropdownMenuItem>
                     ))}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={() => setOrgCreateOpen(true)}>
+                      <Plus
+                        size={14}
+                        strokeWidth={2}
+                        aria-hidden="true"
+                        className="shrink-0"
+                      />
+                      <span>New organization</span>
+                    </DropdownMenuItem>
                     {organizations.hasNextPage ? (
                       <DropdownMenuItem
                         onSelect={(event) => {
@@ -295,8 +318,22 @@ export function UserHome() {
             <EmptyState
               className="py-10 sm:py-14"
               icon={Building2}
-              title="You are not in an organization yet"
-              description="An organization groups projects, members, and billing. Accept an invitation from an existing organization, or ask the instance owner to add you to one."
+              title="Create your first organization"
+              description="Organizations hold your projects, members, and billing. Create one to start shipping, or accept an invitation from an existing organization."
+              action={
+                <Button
+                  type="button"
+                  onClick={() => setOrgCreateOpen(true)}
+                  className={PRIMARY_ACTION}
+                >
+                  <Plus
+                    className="size-4 shrink-0"
+                    strokeWidth={2.2}
+                    aria-hidden="true"
+                  />
+                  Create organization
+                </Button>
+              }
             />
           ) : (
             <>

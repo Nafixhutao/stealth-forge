@@ -1,0 +1,45 @@
+components:
+  schemas:
+    ManagedDatabase:
+      type: object
+      additionalProperties: false
+      required: [id, project_id, name, status, host, port, database_name, username, phpmyadmin_url, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        name: { type: string }
+        status: { type: string, enum: [provisioning, ready, failed] }
+        host: { type: string, description: Internal MySQL hostname reachable from the project's worked workloads. }
+        port: { type: integer }
+        database_name: { type: string }
+        username: { type: string }
+        phpmyadmin_url: { type: string, description: Console-relative URL for the shared phpMyAdmin login. }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ManagedDatabasesPage:
+      type: object
+      additionalProperties: false
+      required: [databases, can_manage]
+      properties:
+        databases:
+          type: array
+          items: { $ref: './projects-managed-databases.yaml#/components/schemas/ManagedDatabase' }
+        can_manage: { type: boolean }
+    ManagedDatabaseResponse:
+      type: object
+      additionalProperties: false
+      required: [database]
+      properties:
+        database: { $ref: './projects-managed-databases.yaml#/components/schemas/ManagedDatabase' }
+    CreateManagedDatabaseRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 120 }
+    ManagedDatabasePasswordResponse:
+      type: object
+      additionalProperties: false
+      required: [password]
+      properties:
+        password: { type: string }
